@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "export PATH=\"$HOME/.fnm:$PATH\" && eval \"$(fnm env)\" && npm run dev"],
+      "port": 3000
+    }
+  ]
+}
