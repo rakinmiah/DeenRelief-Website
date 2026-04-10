@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* ============================================
+   DEEN RELIEF DESIGN TOKENS
+   ============================================ */
+
+@theme inline {
+  /* --- Brand Colours --- */
+  --color-green: #2D6A2E;
+  --color-green-dark: #1B4D1C;
+  --color-green-light: #E8F5E9;
+
+  /* --- Accent (CTA / Action) --- */
+  --color-amber: #D4A843;
+  --color-amber-dark: #B8912E;
+  --color-amber-light: #FDF3DC;
+
+  /* --- Neutrals --- */
+  --color-charcoal: #1A1A2E;
+  --color-grey: #6B7280;
+  --color-grey-light: #F3F4F6;
+  --color-cream: #FDF8F0;
+  --color-white: #FFFFFF;
+
+  /* --- Fonts --- */
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+
+  /* --- Spacing Scale (extending defaults) --- */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+  --spacing-30: 7.5rem;
+  --spacing-34: 8.5rem;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+body {
+  background: var(--color-white);
+  color: var(--color-charcoal);
+  font-family: var(--font-body), system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), Georgia, serif;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--color-charcoal);
+}
+
+/* ============================================
+   SMOOTH SCROLL & ACCESSIBILITY
+   ============================================ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Skip to content link */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-green);
+  color: white;
+  z-index: 100;
+  font-weight: 600;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Focus ring for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--color-green);
+  outline-offset: 2px;
+}
