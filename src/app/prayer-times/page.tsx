@@ -293,6 +293,17 @@ export default function PrayerTimesPage() {
               </div>
             )}
 
+            {/* Location Indicator — outside max-w-sm for full-width centring */}
+            {usingLocation && locationName && (
+              <div className="flex items-center justify-center gap-2 mb-6 text-sm text-green font-medium">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+                Showing times for {locationName}
+              </div>
+            )}
+
             {/* Location Controls */}
             <div className="max-w-sm mx-auto">
               {geoAttempted && !usingLocation && (
@@ -308,16 +319,6 @@ export default function PrayerTimesPage() {
                 </button>
               )}
 
-              {usingLocation && locationName && (
-                <div className="flex items-center justify-center gap-2 mb-4 text-sm text-green font-medium">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                  </svg>
-                  Showing times for {locationName}
-                </div>
-              )}
-
               <label
                 htmlFor="city-select"
                 className="block text-sm font-semibold text-charcoal mb-2 text-center"
@@ -328,7 +329,7 @@ export default function PrayerTimesPage() {
                 id="city-select"
                 value={usingLocation ? "" : selectedCity}
                 onChange={(e) => handleCityChange(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal font-medium focus:outline-none focus:border-green/40 transition-colors duration-200"
+                className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal font-medium text-center focus:outline-none focus:border-green/40 transition-colors duration-200"
               >
                 {usingLocation && (
                   <option value="" disabled>
