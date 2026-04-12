@@ -3,7 +3,7 @@ import Link from "next/link";
 const quickLinks = [
   { label: "Our Work", href: "/#campaigns" },
   { label: "Pay Zakat", href: "/zakat" },
-  { label: "Give Sadaqah", href: "/#sadaqah" },
+  { label: "Give Sadaqah", href: "/sadaqah" },
   { label: "Sponsor an Orphan", href: "/#orphan-sponsorship" },
   { label: "Emergency Appeals", href: "/#emergency" },
   { label: "Volunteer", href: "/volunteer" },
