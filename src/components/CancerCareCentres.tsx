@@ -131,7 +131,7 @@ export default function CancerCareCentres() {
 
             {/* CTA */}
             <div className="pt-4 border-t border-charcoal/5">
-              <Button variant="secondary" href="#cancer-care" className="w-full justify-center">
+              <Button variant="secondary" href="/cancer-care#donate-form" className="w-full justify-center">
                 Support Our Cancer Care Centres
               </Button>
             </div>
