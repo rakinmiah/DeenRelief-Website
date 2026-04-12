@@ -57,7 +57,7 @@ export default function ContactPage() {
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
-            <div className="max-w-[22rem] sm:max-w-[26rem]">
+            <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
                 Get In Touch
               </h1>
@@ -224,7 +224,7 @@ export default function ContactPage() {
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="Your full name"
-                          className="w-full px-4 py-3 rounded-xl border-2 border-charcoal/10 bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200"
                         />
                       </div>
 
@@ -242,7 +242,7 @@ export default function ContactPage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="your@email.com"
-                          className="w-full px-4 py-3 rounded-xl border-2 border-charcoal/10 bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200"
                         />
                       </div>
 
@@ -259,7 +259,7 @@ export default function ContactPage() {
                           value={subject}
                           onChange={(e) => setSubject(e.target.value)}
                           placeholder="What is this regarding?"
-                          className="w-full px-4 py-3 rounded-xl border-2 border-charcoal/10 bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200"
                         />
                       </div>
 
@@ -277,7 +277,7 @@ export default function ContactPage() {
                           value={message}
                           onChange={(e) => setMessage(e.target.value)}
                           placeholder="How can we help?"
-                          className="w-full px-4 py-3 rounded-xl border-2 border-charcoal/10 bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200 resize-none"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal placeholder:text-grey/35 focus:outline-none focus:border-green/40 transition-colors duration-200 resize-none"
                         />
                       </div>
 

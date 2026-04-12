@@ -1,20 +1,20 @@
 import Link from "next/link";
 
 const quickLinks = [
-  { label: "Our Work", href: "#campaigns" },
-  { label: "Pay Zakat", href: "#zakat" },
-  { label: "Give Sadaqah", href: "#sadaqah" },
-  { label: "Sponsor an Orphan", href: "#orphan-sponsorship" },
-  { label: "Emergency Appeals", href: "#emergency" },
+  { label: "Our Work", href: "/#campaigns" },
+  { label: "Pay Zakat", href: "/zakat" },
+  { label: "Give Sadaqah", href: "/#sadaqah" },
+  { label: "Sponsor an Orphan", href: "/#orphan-sponsorship" },
+  { label: "Emergency Appeals", href: "/#emergency" },
   { label: "Volunteer", href: "/volunteer" },
 ];
 
 const aboutLinks = [
   { label: "About Us", href: "/about" },
-  { label: "Our Story", href: "#about" },
-  { label: "Cancer Care Centres", href: "#cancer-care" },
+  { label: "Our Story", href: "/about" },
+  { label: "Cancer Care Centres", href: "/#cancer-care" },
   { label: "Prayer Times", href: "/prayer-times" },
-  { label: "Contact", href: "#contact" },
+  { label: "Contact", href: "/contact" },
 ];
 
 const legalLinks = [

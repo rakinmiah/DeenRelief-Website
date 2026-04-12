@@ -328,12 +328,12 @@ export default function AboutPage() {
               ].map((value) => (
                 <div
                   key={value.title}
-                  className="bg-white border border-charcoal/5 rounded-2xl p-7 text-center"
+                  className="bg-white border border-charcoal/5 rounded-2xl p-6 text-center"
                 >
                   <div className="w-12 h-12 rounded-xl bg-green/10 text-green flex items-center justify-center mx-auto mb-4">
                     {value.icon}
                   </div>
-                  <h3 className="font-heading font-bold text-lg text-charcoal mb-2">
+                  <h3 className="font-heading font-bold text-[1.0625rem] text-charcoal mb-2">
                     {value.title}
                   </h3>
                   <p className="text-grey/80 text-[0.8125rem] leading-[1.6]">
