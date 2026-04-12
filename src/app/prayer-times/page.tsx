@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import Footer from "@/components/Footer";
@@ -12,11 +13,39 @@ const cities = [
   "Birmingham",
   "Manchester",
   "Leeds",
+  "Liverpool",
+  "Sheffield",
+  "Bradford",
+  "Nottingham",
+  "Leicester",
+  "Coventry",
+  "Luton",
+  "Bolton",
+  "Blackburn",
+  "Oldham",
+  "Rochdale",
+  "Slough",
+  "Reading",
+  "Oxford",
+  "Cambridge",
+  "Milton Keynes",
+  "Northampton",
+  "Derby",
+  "Stoke-on-Trent",
+  "Wolverhampton",
+  "Southampton",
+  "Portsmouth",
+  "Plymouth",
+  "Bristol",
+  "Cardiff",
+  "Swansea",
+  "Newport",
   "Glasgow",
   "Edinburgh",
-  "Cardiff",
-  "Bristol",
-  "Leicester",
+  "Aberdeen",
+  "Dundee",
+  "Belfast",
+  "Derry",
 ];
 
 /* ── Prayer names to display ── */
@@ -98,7 +127,6 @@ export default function PrayerTimesPage() {
       if (data.code === 200) {
         setTimings(data.data.timings);
         setDateInfo(data.data.date);
-        // Try to get a readable location name via reverse geocoding
         try {
           const geoRes = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
@@ -127,7 +155,6 @@ export default function PrayerTimesPage() {
       setGeoAttempted(true);
       return;
     }
-
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -135,7 +162,6 @@ export default function PrayerTimesPage() {
         fetchByCoords(position.coords.latitude, position.coords.longitude);
       },
       () => {
-        // Permission denied or error — fall back to city
         setGeoAttempted(true);
         fetchByCity(selectedCity);
       },
@@ -143,13 +169,11 @@ export default function PrayerTimesPage() {
     );
   }, [fetchByCity, fetchByCoords, selectedCity]);
 
-  /* ── On mount: try geolocation first ── */
   useEffect(() => {
     requestLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── When city changes (manual selection) ── */
   const handleCityChange = (city: string) => {
     setSelectedCity(city);
     fetchByCity(city);
@@ -158,30 +182,21 @@ export default function PrayerTimesPage() {
   /* ── Compute current/next prayer ── */
   useEffect(() => {
     if (!timings) return;
-
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
     let current = "";
     let next = "";
-
     for (let i = 0; i < prayerKeys.length; i++) {
       const timeStr = timings[prayerKeys[i].key];
       if (!timeStr) continue;
       const [h, m] = timeStr.split(":").map(Number);
       const prayerMinutes = h * 60 + m;
-
       if (currentMinutes >= prayerMinutes) {
         current = prayerKeys[i].key;
         next = i + 1 < prayerKeys.length ? prayerKeys[i + 1].key : prayerKeys[0].key;
       }
     }
-
-    if (!current) {
-      current = "";
-      next = "Fajr";
-    }
-
+    if (!current) { current = ""; next = "Fajr"; }
     setCurrentPrayer(current);
     setNextPrayer(next);
   }, [timings]);
@@ -198,91 +213,146 @@ export default function PrayerTimesPage() {
     ? locationName || "Your Location"
     : selectedCity;
 
+  const nextPrayerTime = timings && nextPrayer ? timings[nextPrayer] : null;
+  const nextPrayerLabel = prayerKeys.find((p) => p.key === nextPrayer)?.label;
+
   return (
     <>
       <Header />
 
       <main id="main-content" className="flex-1">
-        {/* ─── Page Header ─── */}
-        <section className="pt-32 md:pt-36 pb-8 bg-white">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
+        {/* ─── Hero ─── */}
+        <section className="relative min-h-[35vh] md:min-h-[40vh] flex items-center mt-[60px] md:mt-[64px]">
+          <div className="absolute inset-0 z-0">
+            <Image
+              src="/images/hero-gulucuk-evi.webp"
+              alt="Deen Relief community"
+              fill
+              className="object-cover object-[center_45%]"
+              priority
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(to right, rgba(26,26,46,0.93) 0%, rgba(26,26,46,0.88) 35%, rgba(26,26,46,0.62) 52%, rgba(26,26,46,0.20) 75%, rgba(26,26,46,0.06) 100%)",
+              }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(to top, rgba(26,26,46,0.45) 0%, transparent 45%)",
+              }}
+            />
+          </div>
+
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10 md:py-14">
+            <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-white/50 mb-3">
                 Prayer Times
               </span>
-              <h1 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
+              <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-3 tracking-[-0.02em]">
                 Muslim Prayer Times
               </h1>
-              <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-8">
+              <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/60 leading-[1.7] max-w-[24rem]">
                 Accurate prayer times based on your location. Updated daily.
               </p>
-
-              {/* Location Controls */}
-              <div className="max-w-sm mx-auto">
-                {/* Use My Location button */}
-                {geoAttempted && !usingLocation && (
-                  <button
-                    onClick={requestLocation}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-4 rounded-xl border-2 border-green/20 text-green text-sm font-medium hover:bg-green-light/30 transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    Use my location
-                  </button>
-                )}
-
-                {/* Location indicator when using geolocation */}
-                {usingLocation && locationName && (
-                  <div className="flex items-center justify-center gap-2 mb-4 text-sm text-green font-medium">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                    </svg>
-                    Showing times for {locationName}
-                  </div>
-                )}
-
-                {/* City Selector */}
-                <label
-                  htmlFor="city-select"
-                  className="block text-sm font-semibold text-charcoal mb-2"
-                >
-                  {usingLocation ? "Or select a city" : "Select your city"}
-                </label>
-                <select
-                  id="city-select"
-                  value={usingLocation ? "" : selectedCity}
-                  onChange={(e) => handleCityChange(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal font-medium focus:outline-none focus:border-green/40 transition-colors duration-200"
-                >
-                  {usingLocation && (
-                    <option value="" disabled>
-                      — Using your location —
-                    </option>
-                  )}
-                  {cities.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </div>
         </section>
 
-        {/* ─── Prayer Times Display ─── */}
+        {/* ─── Next Prayer Summary + Location ─── */}
+        <section className="py-10 md:py-12 bg-white">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Next Prayer Card */}
+            {timings && !loading && !error && nextPrayerTime && (
+              <div className="bg-green-dark rounded-2xl p-6 sm:p-8 text-center mb-8">
+                <p className="text-white/50 text-xs font-bold uppercase tracking-wider mb-2">
+                  Next Prayer
+                </p>
+                <p className="text-white font-heading font-bold text-4xl sm:text-5xl mb-1">
+                  {formatTime(nextPrayerTime)}
+                </p>
+                <p className="text-white/70 font-heading font-semibold text-lg">
+                  {nextPrayerLabel}
+                </p>
+                {dateInfo && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <p className="text-white/50 text-sm">
+                      {dateInfo.hijri.day} {dateInfo.hijri.month.en}{" "}
+                      {dateInfo.hijri.year} AH
+                    </p>
+                    <p className="text-white/35 text-xs">
+                      {dateInfo.gregorian.weekday.en},{" "}
+                      {dateInfo.gregorian.day} {dateInfo.gregorian.month.en}{" "}
+                      {dateInfo.gregorian.year}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Location Controls */}
+            <div className="max-w-sm mx-auto">
+              {geoAttempted && !usingLocation && (
+                <button
+                  onClick={requestLocation}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-4 rounded-xl border-2 border-green/20 text-green text-sm font-medium hover:bg-green-light/30 transition-colors duration-200"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                  </svg>
+                  Use my location
+                </button>
+              )}
+
+              {usingLocation && locationName && (
+                <div className="flex items-center justify-center gap-2 mb-4 text-sm text-green font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                  </svg>
+                  Showing times for {locationName}
+                </div>
+              )}
+
+              <label
+                htmlFor="city-select"
+                className="block text-sm font-semibold text-charcoal mb-2 text-center"
+              >
+                {usingLocation ? "Or select a city" : "Select your city"}
+              </label>
+              <select
+                id="city-select"
+                value={usingLocation ? "" : selectedCity}
+                onChange={(e) => handleCityChange(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal font-medium focus:outline-none focus:border-green/40 transition-colors duration-200"
+              >
+                {usingLocation && (
+                  <option value="" disabled>
+                    — Using your location —
+                  </option>
+                )}
+                {cities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Prayer Times Table ─── */}
         <section className="pb-16 md:pb-24 bg-white">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Loading State */}
             {loading && (
               <div className="text-center py-16">
                 <div className="w-8 h-8 border-2 border-green/20 border-t-green rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-grey text-sm">
-                  Loading prayer times...
-                </p>
+                <p className="text-grey text-sm">Loading prayer times...</p>
               </div>
             )}
 
@@ -294,9 +364,7 @@ export default function PrayerTimesPage() {
                 </p>
                 <button
                   onClick={() =>
-                    usingLocation
-                      ? requestLocation()
-                      : fetchByCity(selectedCity)
+                    usingLocation ? requestLocation() : fetchByCity(selectedCity)
                   }
                   className="px-6 py-2.5 rounded-full bg-green text-white text-sm font-semibold hover:bg-green-dark transition-colors duration-200"
                 >
@@ -308,22 +376,6 @@ export default function PrayerTimesPage() {
             {/* Prayer Times */}
             {timings && !loading && !error && (
               <>
-                {/* Date Display */}
-                {dateInfo && (
-                  <div className="text-center mb-8">
-                    <p className="font-heading font-semibold text-lg text-charcoal">
-                      {dateInfo.hijri.day} {dateInfo.hijri.month.en}{" "}
-                      {dateInfo.hijri.year} AH
-                    </p>
-                    <p className="text-grey text-sm">
-                      {dateInfo.gregorian.weekday.en},{" "}
-                      {dateInfo.gregorian.day} {dateInfo.gregorian.month.en}{" "}
-                      {dateInfo.gregorian.year}
-                    </p>
-                  </div>
-                )}
-
-                {/* Prayer Table */}
                 <div className="border border-charcoal/8 rounded-2xl overflow-hidden">
                   {prayerKeys.map((prayer, i) => {
                     const time = timings[prayer.key];
@@ -386,7 +438,6 @@ export default function PrayerTimesPage() {
                   })}
                 </div>
 
-                {/* Method note */}
                 <p className="text-center text-charcoal/30 text-xs mt-4">
                   Times calculated using ISNA method for {displayLocation}
                 </p>
@@ -396,17 +447,27 @@ export default function PrayerTimesPage() {
         </section>
 
         {/* ─── Donate CTA ─── */}
-        <section className="py-12 md:py-14 bg-cream">
+        <section className="py-14 md:py-16 bg-cream">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-xl sm:text-2xl font-heading font-bold text-charcoal mb-2">
+            <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
               While You&apos;re Here
+            </span>
+            <h2 className="text-xl sm:text-2xl font-heading font-bold text-charcoal mb-3">
+              Your Sadaqah Can Change a Life Today
             </h2>
-            <p className="text-grey text-sm mb-6">
-              Your Sadaqah can change a life today.
+            <p className="text-grey text-sm leading-relaxed mb-6 max-w-md mx-auto">
+              3,200+ families supported since 2013. From emergency relief in
+              Gaza to orphan care in Bangladesh — every donation reaches
+              those who need it most.
             </p>
-            <Button variant="secondary" href="/sadaqah">
-              Give Sadaqah
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button variant="primary" href="/sadaqah">
+                Give Sadaqah
+              </Button>
+              <Button variant="secondary" href="/zakat">
+                Pay Zakat
+              </Button>
+            </div>
           </div>
         </section>
       </main>
