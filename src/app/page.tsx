@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Header from "@/components/Header";
+
+export const metadata: Metadata = {
+  title: "Deen Relief | Helping Poor, Vulnerable and Disabled Children Globally",
+  description:
+    "UK-registered Islamic charity (No. 1158608) providing cancer care for refugee children, emergency relief in Gaza, orphan sponsorship in Bangladesh, and community support. Donate Zakat, Sadaqah, and more.",
+};
 import Hero from "@/components/Hero";
 import TrustBar from "@/components/TrustBar";
 import FeaturedCampaign from "@/components/FeaturedCampaign";
