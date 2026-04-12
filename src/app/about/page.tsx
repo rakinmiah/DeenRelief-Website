@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: "About Us | Deen Relief",
   description:
     "Founded in 2013 by Shabek Ali in Brighton, Deen Relief has grown from local homeless outreach to delivering cancer care, emergency relief, and education across five countries.",
+  openGraph: {
+    title: "About Us | Deen Relief",
+    description: "Founded in 2013 in Brighton. From local homeless outreach to cancer care, emergency relief, and education across five countries.",
+    images: [{ url: "/images/gulucuk-team.webp", alt: "Deen Relief team at Gulucuk Evi" }],
+  },
 };
 
 export default function AboutPage() {
