@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 const quickLinks = [
@@ -7,22 +6,22 @@ const quickLinks = [
   { label: "Give Sadaqah", href: "#sadaqah" },
   { label: "Sponsor an Orphan", href: "#orphan-sponsorship" },
   { label: "Emergency Appeals", href: "#emergency" },
-  { label: "Volunteer", href: "#volunteer" },
+  { label: "Volunteer", href: "/volunteer" },
 ];
 
 const aboutLinks = [
-  { label: "About Us", href: "#about" },
+  { label: "About Us", href: "/about" },
   { label: "Our Story", href: "#about" },
   { label: "Cancer Care Centres", href: "#cancer-care" },
-  { label: "Blog", href: "#blog" },
+  { label: "Prayer Times", href: "/prayer-times" },
   { label: "Contact", href: "#contact" },
 ];
 
 const legalLinks = [
-  { label: "Privacy Policy", href: "#privacy" },
-  { label: "Terms & Conditions", href: "#terms" },
-  { label: "Accessibility", href: "#accessibility" },
-  { label: "Safeguarding Policy", href: "#safeguarding" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms & Conditions", href: "/terms" },
+  { label: "Accessibility", href: "/accessibility" },
+  { label: "Safeguarding Policy", href: "/safeguarding" },
 ];
 
 export default function Footer() {
@@ -33,15 +32,10 @@ export default function Footer() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
           {/* Column 1: Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Image
-              src="/images/logo.webp"
-              alt="Deen Relief"
-              width={160}
-              height={28}
-              className="h-7 w-auto mb-4"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-            <p className="text-white/60 text-sm leading-relaxed mb-6">
+            <p className="text-white font-heading font-bold text-[19px] tracking-tight mb-3">
+              Deen Relief
+            </p>
+            <p className="text-white/55 text-sm leading-relaxed mb-5">
               Helping poor, vulnerable and disabled children globally. A
               UK-registered charity delivering real impact since 2013.
             </p>
@@ -68,7 +62,7 @@ export default function Footer() {
 
           {/* Column 2: Quick Links */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white/40 mb-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-4">
               Give
             </h3>
             <ul className="space-y-2.5">
@@ -87,7 +81,7 @@ export default function Footer() {
 
           {/* Column 3: About */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white/40 mb-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-4">
               About
             </h3>
             <ul className="space-y-2.5">
@@ -106,7 +100,7 @@ export default function Footer() {
 
           {/* Column 4: Addresses */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white/40 mb-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50 mb-4">
               Find Us
             </h3>
             <div className="space-y-4 text-sm text-white/60">

@@ -11,25 +11,27 @@ const partners = [
 
 export default function Partners() {
   return (
-    <section className="py-12 md:py-16 bg-white border-t border-grey-light/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <p className="text-center text-grey text-sm font-medium mb-8">
-          Proud to work alongside leading humanitarian organisations
+    <section className="py-10 md:py-12 bg-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Label */}
+        <p className="text-center text-green text-sm font-bold tracking-[0.1em] uppercase mb-10">
+          Our Partners
         </p>
 
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-6 items-center">
+        {/* Logos */}
+        <div className="flex items-center justify-between gap-10 sm:gap-12 md:gap-16">
           {partners.map((partner) => (
             <div
               key={partner.name}
-              className="flex items-center justify-center h-16 rounded-xl px-4 group transition-all duration-200 hover:opacity-100 opacity-70 hover:scale-105"
+              className="flex items-center justify-center flex-1 min-w-0"
               title={partner.name}
             >
               <Image
                 src={partner.logo}
                 alt={partner.name}
-                width={120}
-                height={48}
-                className="h-10 w-auto object-contain"
+                width={145}
+                height={75}
+                className="max-h-[60px] sm:max-h-[75px] w-auto object-contain opacity-75"
               />
             </div>
           ))}

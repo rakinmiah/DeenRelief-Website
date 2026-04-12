@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Button from "./Button";
+import ProofTag from "./ProofTag";
 
 export default function OurStory() {
   return (
@@ -12,35 +13,28 @@ export default function OurStory() {
               src="/images/hero-bangladesh-community.webp"
               alt="Deen Relief team members with a large group of smiling children in Bangladesh"
               fill
-              className="object-cover"
+              className="object-cover object-[center_40%]"
               sizes="(max-width: 1024px) 100vw, 50vw"
             />
+            <ProofTag location="Bangladesh" position="bottom-right" />
           </div>
 
           {/* Content */}
           <div>
-            <span className="inline-block text-xs font-semibold tracking-widest uppercase text-green mb-3">
+            <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
               Our Story
             </span>
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal mb-6 leading-tight">
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
               From Brighton&apos;s Streets to a Global Mission
             </h2>
-            <div className="space-y-4 text-grey text-lg leading-relaxed mb-8">
-              <p>
-                In 2013, Shabek Ali began distributing food to homeless
-                individuals on the streets of Brighton. What started as one
-                person&apos;s compassion grew into Deen Relief — a registered
-                charity now operating across five countries.
-              </p>
-              <p>
-                Today we run cancer care centres in Turkey, deliver emergency
-                aid in Palestine, sponsor orphans in Bangladesh, build homes
-                and schools, and continue to support our local community in
-                Brighton. The mission has grown, but the principle remains the
-                same: show up where people need you most.
-              </p>
-            </div>
-            <Button variant="secondary" href="#about-full">
+            <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
+              In 2013, Shabek Ali began distributing food to Brighton&apos;s
+              homeless community. What started as one person&apos;s compassion
+              grew into Deen Relief — a registered charity now running cancer
+              care centres in Turkey, delivering emergency aid in Palestine,
+              and sponsoring orphans in Bangladesh.
+            </p>
+            <Button variant="secondary" href="/about">
               Read Our Full Story
             </Button>
           </div>

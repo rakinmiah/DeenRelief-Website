@@ -20,7 +20,6 @@
   --color-grey: #6B7280;
   --color-grey-light: #F3F4F6;
   --color-cream: #FDF8F0;
-  --color-white: #FFFFFF;
 
   /* --- Fonts --- */
   --font-heading: var(--font-heading);
@@ -48,7 +47,6 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), Georgia, serif;
   line-height: 1.2;
   font-weight: 600;
-  color: var(--color-charcoal);
 }
 
 /* ============================================
@@ -74,17 +72,22 @@ html {
 /* Skip to content link */
 .skip-to-content {
   position: absolute;
-  top: -100%;
-  left: 0;
+  top: -9999px;
+  left: -9999px;
   padding: 0.75rem 1.5rem;
   background: var(--color-green);
   color: white;
   z-index: 100;
   font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.skip-to-content:focus {
+.skip-to-content:focus-visible {
   top: 0;
+  left: 0;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Focus ring for keyboard navigation */

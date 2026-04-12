@@ -51,17 +51,14 @@ function AnimatedNumber({
       ([entry]) => {
         if (entry.isIntersecting && !hasAnimated) {
           setHasAnimated(true);
-          let start = 0;
           const duration = 1500;
           const startTime = performance.now();
 
           const animate = (currentTime: number) => {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            // Ease-out cubic
             const eased = 1 - Math.pow(1 - progress, 3);
-            start = Math.round(eased * target);
-            setCount(start);
+            setCount(Math.round(eased * target));
             if (progress < 1) {
               requestAnimationFrame(animate);
             }
@@ -87,27 +84,49 @@ function AnimatedNumber({
 
 export default function TrustBar() {
   return (
-    <section className="bg-green-dark text-white py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          {stats.map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-xl sm:text-2xl font-heading font-bold mb-1">
-                {stat.numericValue !== undefined ? (
-                  <AnimatedNumber
-                    target={stat.numericValue}
-                    suffix={stat.suffix}
-                    prefix={stat.prefix}
-                  />
-                ) : (
-                  stat.value
-                )}
+    <section className="bg-green-dark py-7 md:py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-4 gap-x-6 lg:gap-0 items-center">
+          {stats.map((stat, index) => {
+            const isVerified = index === stats.length - 1;
+            return (
+              <div
+                key={stat.label}
+                className={`text-center ${
+                  index < stats.length - 1
+                    ? "lg:border-r lg:border-white/15"
+                    : ""
+                } ${isVerified ? "lg:pl-6" : "lg:px-2"}`}
+              >
+                <div
+                  className={`font-heading font-bold text-white leading-tight ${
+                    isVerified
+                      ? "text-[15px] sm:text-base mb-0.5"
+                      : "text-2xl sm:text-[26px] mb-0.5 tracking-tight"
+                  }`}
+                >
+                  {stat.numericValue !== undefined ? (
+                    <AnimatedNumber
+                      target={stat.numericValue}
+                      suffix={stat.suffix}
+                      prefix={stat.prefix}
+                    />
+                  ) : (
+                    stat.value
+                  )}
+                </div>
+                <div
+                  className={`font-medium ${
+                    isVerified
+                      ? "text-white/50 text-[11px]"
+                      : "text-white/50 text-[11.5px]"
+                  }`}
+                >
+                  {stat.label}
+                </div>
               </div>
-              <div className="text-white/70 text-xs sm:text-sm">
-                {stat.label}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

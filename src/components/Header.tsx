@@ -3,18 +3,27 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Button from "./Button";
 
 const navLinks = [
+  { label: "Home", href: "/" },
   { label: "Our Work", href: "#campaigns" },
-  { label: "Give", href: "#give" },
-  { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Pay Zakat", href: "/zakat" },
+  { label: "Prayer Times", href: "/prayer-times" },
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export default function Header() {
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href.replace("#", "/"));
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,10 +35,8 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white/95 backdrop-blur-md shadow-sm py-3"
-          : "bg-transparent py-5"
+      className={`fixed top-0 left-0 right-0 z-50 bg-white transition-all duration-300 ${
+        scrolled ? "shadow-[0_1px_3px_rgba(0,0,0,0.06)] py-3" : "py-4"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -55,19 +62,22 @@ export default function Header() {
             className="hidden md:flex items-center gap-8"
             aria-label="Main navigation"
           >
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className={`font-medium text-sm tracking-wide transition-colors duration-200 ${
-                  scrolled
-                    ? "text-charcoal/80 hover:text-green"
-                    : "text-white/90 hover:text-white"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className={`font-medium tracking-wide transition-colors duration-200 ${
+                    active
+                      ? "text-green text-[15px] font-bold border-b-2 border-green pb-0.5"
+                      : "text-charcoal/70 hover:text-green text-sm"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Desktop Donate Button */}
@@ -84,9 +94,7 @@ export default function Header() {
             </Button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`p-2 transition-colors duration-200 ${
-                scrolled ? "text-charcoal" : "text-white"
-              }`}
+              className="p-2 text-charcoal/70 transition-colors duration-200"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
             >
@@ -119,28 +127,27 @@ export default function Header() {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <nav
-            className={`md:hidden mt-4 pb-4 pt-4 border-t ${
-              scrolled
-                ? "border-grey-light"
-                : "border-white/20"
-            }`}
+            className="md:hidden mt-4 pb-4 pt-4 border-t border-charcoal/5"
             aria-label="Mobile navigation"
           >
             <div className="flex flex-col gap-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`font-medium text-base py-1 ${
-                    scrolled
-                      ? "text-charcoal/80 hover:text-green"
-                      : "text-white/90 hover:text-white"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const active = isActive(link.href);
+                return (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`font-medium py-1 ${
+                      active
+                        ? "text-green text-[17px] font-bold"
+                        : "text-charcoal/70 hover:text-green text-base"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
             </div>
           </nav>
         )}

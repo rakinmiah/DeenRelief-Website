@@ -19,7 +19,7 @@ const variantStyles: Record<ButtonVariant, string> = {
   secondary:
     "bg-green text-white hover:bg-green-dark font-semibold shadow-sm",
   outline:
-    "border-2 border-white text-white hover:bg-white/10 font-semibold",
+    "border border-white/60 text-white hover:border-white hover:bg-white/5 font-medium",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

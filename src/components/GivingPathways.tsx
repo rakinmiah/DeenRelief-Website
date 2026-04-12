@@ -43,7 +43,7 @@ const pathways = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
       </svg>
     ),
-    accent: "bg-amber/15 text-amber-dark",
+    accent: "bg-green/10 text-green",
   },
   {
     title: "Give Monthly",
@@ -74,47 +74,48 @@ export default function GivingPathways() {
     <section id="give" className="py-16 md:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal mb-4">
+        <div className="text-center max-w-2xl mx-auto mb-8">
+          <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
             Ways to Give
           </h2>
-          <p className="text-grey text-lg leading-relaxed">
+          <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
             Whether you&apos;re fulfilling your Zakat, giving Sadaqah, or
             responding to an emergency — every gift makes a difference.
           </p>
         </div>
 
         {/* Pathway Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {pathways.map((pathway) => (
             <Link
               key={pathway.title}
+              id={pathway.href.replace("#", "")}
               href={pathway.href}
-              className="group block bg-grey-light rounded-2xl p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+              className="group block bg-white border border-charcoal/5 rounded-2xl p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-1"
             >
               {/* Icon */}
               <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${pathway.accent}`}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${pathway.accent}`}
               >
                 {pathway.icon}
               </div>
 
               {/* Content */}
-              <h3 className="font-heading font-semibold text-lg text-charcoal mb-2 group-hover:text-green transition-colors duration-200">
+              <h3 className="font-heading font-bold text-[1.0625rem] text-charcoal mb-1.5 group-hover:text-green transition-colors duration-200">
                 {pathway.title}
               </h3>
-              <p className="text-grey text-sm leading-relaxed mb-4">
+              <p className="text-grey/80 text-[0.8125rem] leading-[1.6] mb-4">
                 {pathway.description}
               </p>
 
               {/* Arrow */}
-              <span className="inline-flex items-center text-green text-sm font-medium group-hover:translate-x-1 transition-transform duration-200">
+              <span className="inline-flex items-center text-green text-[0.8125rem] font-semibold group-hover:translate-x-1 transition-transform duration-200">
                 Give now
                 <svg
-                  className="w-4 h-4 ml-1"
+                  className="w-3.5 h-3.5 ml-1"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   viewBox="0 0 24 24"
                 >
                   <path

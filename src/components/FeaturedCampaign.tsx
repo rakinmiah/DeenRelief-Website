@@ -3,42 +3,61 @@
 import { useState } from "react";
 import Image from "next/image";
 import Button from "./Button";
+import ProofTag from "./ProofTag";
 
-const donationAmounts = [
-  { value: 25, label: "£25", outcome: "Provides emergency food for a family" },
-  { value: 50, label: "£50", outcome: "Feeds a family for one week", default: true },
-  { value: 100, label: "£100", outcome: "Supplies clean water for a community" },
-  { value: 250, label: "£250", outcome: "Provides shelter materials for a displaced family" },
-];
+const donationAmounts = {
+  "one-time": [
+    { value: 25, label: "£25", outcome: "Provides emergency food for a family in Gaza" },
+    { value: 50, label: "£50", outcome: "Feeds a displaced family in Gaza for one week", default: true },
+    { value: 100, label: "£100", outcome: "Supplies clean water for a community in Gaza" },
+    { value: 250, label: "£250", outcome: "Provides shelter materials for a displaced family in Gaza" },
+  ],
+  monthly: [
+    { value: 10, label: "£10", outcome: "Provides ongoing food support for a child in Gaza" },
+    { value: 25, label: "£25", outcome: "Feeds a displaced family in Gaza every month" },
+    { value: 50, label: "£50", outcome: "Sustains clean water access for a community in Gaza", default: true },
+    { value: 100, label: "£100", outcome: "Covers monthly medical supplies for a family in Gaza" },
+  ],
+};
+
+type Frequency = "one-time" | "monthly";
 
 export default function FeaturedCampaign() {
+  const [frequency, setFrequency] = useState<Frequency>("one-time");
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState("");
-  const isCustom = !donationAmounts.some((a) => a.value === selectedAmount);
+
+  const amounts = donationAmounts[frequency];
+  const isCustom = !amounts.some((a) => a.value === selectedAmount);
 
   const currentOutcome =
-    donationAmounts.find((a) => a.value === selectedAmount)?.outcome ?? "";
+    amounts.find((a) => a.value === selectedAmount)?.outcome ?? "";
+
+  const handleFrequencyChange = (f: Frequency) => {
+    setFrequency(f);
+    setCustomAmount("");
+    const defaultAmount = donationAmounts[f].find((a) => a.default);
+    setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][1].value);
+  };
 
   return (
-    <section className="py-16 md:py-24 bg-white">
+    <section id="donate" className="py-16 md:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section label */}
-        <div className="mb-3">
-          <span className="inline-block text-xs font-semibold tracking-widest uppercase text-amber-dark bg-amber-light px-3 py-1 rounded-full">
-            Urgent Appeal
-          </span>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
           {/* Image */}
-          <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
-            <Image
-              src="/images/palestine-relief.jpg"
-              alt="Deen Relief worker distributing aid to a woman in a Palestine displacement camp"
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
+          <div className="relative rounded-2xl overflow-hidden aspect-[5/4]">
+              <Image
+                src="/images/palestine-relief.jpg"
+                alt="Deen Relief worker distributing aid to a woman in a Palestine displacement camp"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+              {/* Urgent Appeal badge */}
+              <span className="absolute top-3 left-3 z-10 inline-block text-[10px] font-bold tracking-[0.08em] uppercase text-amber-dark bg-amber-light px-3 py-1 rounded-md">
+                Urgent Appeal
+              </span>
+              <ProofTag location="Gaza" date="2026" />
           </div>
 
           {/* Content */}
@@ -46,19 +65,43 @@ export default function FeaturedCampaign() {
             <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal mb-4 leading-tight">
               Palestine Emergency Relief
             </h2>
-            <p className="text-grey text-lg mb-8 leading-relaxed">
-              Families in Gaza are facing unimaginable hardship. Your donation
-              delivers emergency food, clean water, shelter, and medical aid
-              directly to displaced families through our on-the-ground teams.
+            <p className="text-grey text-base sm:text-[1.0625rem] mb-8 leading-[1.7]">
+              Displaced families in Gaza urgently need food, clean water,
+              shelter, and medical supplies. Your donation is delivered
+              directly through our on-the-ground teams.
             </p>
 
             {/* Donation Amount Selector */}
             <div className="mb-6">
+              {/* Frequency Toggle */}
+              <div className="flex items-center gap-1 mb-4 bg-grey-light rounded-full p-1 w-fit">
+                <button
+                  onClick={() => handleFrequencyChange("one-time")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                    frequency === "one-time"
+                      ? "bg-white text-charcoal shadow-sm"
+                      : "text-charcoal/50 hover:text-charcoal/70"
+                  }`}
+                >
+                  One-time
+                </button>
+                <button
+                  onClick={() => handleFrequencyChange("monthly")}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                    frequency === "monthly"
+                      ? "bg-white text-charcoal shadow-sm"
+                      : "text-charcoal/50 hover:text-charcoal/70"
+                  }`}
+                >
+                  Monthly
+                </button>
+              </div>
+
               <p className="text-sm font-medium text-charcoal mb-3">
                 Choose an amount
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                {donationAmounts.map((amount) => (
+                {amounts.map((amount) => (
                   <button
                     key={amount.value}
                     onClick={() => {
@@ -73,7 +116,7 @@ export default function FeaturedCampaign() {
                   >
                     {amount.label}
                     {amount.default && selectedAmount !== amount.value && (
-                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] bg-green text-white px-2 py-0.5 rounded-full">
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-green text-white px-1.5 py-px rounded-full">
                         Popular
                       </span>
                     )}
@@ -126,13 +169,22 @@ export default function FeaturedCampaign() {
 
             {/* CTA */}
             <Button variant="primary" size="lg" href="#donate" className="w-full sm:w-auto">
-              Donate £{selectedAmount || customAmount || "0"} Now
+              Donate £{selectedAmount || customAmount || "0"}
+              {frequency === "monthly" ? "/month" : ""} Now
             </Button>
 
-            <p className="text-xs text-grey mt-4">
-              100% of your donation goes to emergency relief. UK taxpayers can
-              add 25% at no cost via Gift Aid.
-            </p>
+            {/* Trust microcopy */}
+            <div className="flex flex-wrap items-center gap-2.5 mt-5 text-[11px] text-grey/60 font-medium">
+              <span>100% to emergency relief</span>
+              <span className="text-grey/25">·</span>
+              <span>Gift Aid adds 25% at no cost</span>
+              <span className="text-grey/25">·</span>
+              <span>
+                {frequency === "monthly"
+                  ? "Cancel anytime"
+                  : "Reg. charity 1158608"}
+              </span>
+            </div>
           </div>
         </div>
       </div>

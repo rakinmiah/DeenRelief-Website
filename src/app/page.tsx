@@ -14,23 +14,18 @@ import Footer from "@/components/Footer";
 export default function Home() {
   return (
     <>
-      {/* Skip to content link for accessibility */}
-      <a href="#main-content" className="skip-to-content">
-        Skip to content
-      </a>
-
       <Header />
 
       <main id="main-content" className="flex-1">
         <Hero />
-        <TrustBar />
+        <Partners />
         <FeaturedCampaign />
         <CancerCareCentres />
         <GivingPathways />
+        <TrustBar />
         <CampaignsGrid />
         <Impact />
         <OurStory />
-        <Partners />
         <Newsletter />
       </main>
 
