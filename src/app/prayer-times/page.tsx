@@ -57,11 +57,16 @@ export default function PrayerTimesPage() {
   const [error, setError] = useState(false);
   const [currentPrayer, setCurrentPrayer] = useState("");
   const [nextPrayer, setNextPrayer] = useState("");
+  const [usingLocation, setUsingLocation] = useState(false);
+  const [locationName, setLocationName] = useState("");
+  const [geoAttempted, setGeoAttempted] = useState(false);
 
-  /* ── Fetch prayer times ── */
-  const fetchPrayerTimes = useCallback(async (city: string) => {
+  /* ── Fetch by city ── */
+  const fetchByCity = useCallback(async (city: string) => {
     setLoading(true);
     setError(false);
+    setUsingLocation(false);
+    setLocationName("");
     try {
       const res = await fetch(
         `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=UK&method=2`
@@ -80,9 +85,75 @@ export default function PrayerTimesPage() {
     }
   }, []);
 
+  /* ── Fetch by coordinates ── */
+  const fetchByCoords = useCallback(async (lat: number, lng: number) => {
+    setLoading(true);
+    setError(false);
+    setUsingLocation(true);
+    try {
+      const res = await fetch(
+        `https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=2`
+      );
+      const data = await res.json();
+      if (data.code === 200) {
+        setTimings(data.data.timings);
+        setDateInfo(data.data.date);
+        // Try to get a readable location name via reverse geocoding
+        try {
+          const geoRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+          );
+          const geoData = await geoRes.json();
+          setLocationName(
+            geoData.city || geoData.locality || geoData.principalSubdivision || "Your Location"
+          );
+        } catch {
+          setLocationName("Your Location");
+        }
+      } else {
+        setError(true);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /* ── Request geolocation ── */
+  const requestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      fetchByCity(selectedCity);
+      setGeoAttempted(true);
+      return;
+    }
+
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGeoAttempted(true);
+        fetchByCoords(position.coords.latitude, position.coords.longitude);
+      },
+      () => {
+        // Permission denied or error — fall back to city
+        setGeoAttempted(true);
+        fetchByCity(selectedCity);
+      },
+      { timeout: 8000 }
+    );
+  }, [fetchByCity, fetchByCoords, selectedCity]);
+
+  /* ── On mount: try geolocation first ── */
   useEffect(() => {
-    fetchPrayerTimes(selectedCity);
-  }, [selectedCity, fetchPrayerTimes]);
+    requestLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ── When city changes (manual selection) ── */
+  const handleCityChange = (city: string) => {
+    setSelectedCity(city);
+    fetchByCity(city);
+  };
 
   /* ── Compute current/next prayer ── */
   useEffect(() => {
@@ -106,7 +177,6 @@ export default function PrayerTimesPage() {
       }
     }
 
-    // If before Fajr, next prayer is Fajr
     if (!current) {
       current = "";
       next = "Fajr";
@@ -124,6 +194,10 @@ export default function PrayerTimesPage() {
     return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
   };
 
+  const displayLocation = usingLocation
+    ? locationName || "Your Location"
+    : selectedCity;
+
   return (
     <>
       <Header />
@@ -140,24 +214,54 @@ export default function PrayerTimesPage() {
                 Muslim Prayer Times
               </h1>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-8">
-                Accurate prayer times for cities across the UK. Updated
-                daily.
+                Accurate prayer times based on your location. Updated daily.
               </p>
 
-              {/* City Selector */}
-              <div className="max-w-xs mx-auto">
+              {/* Location Controls */}
+              <div className="max-w-sm mx-auto">
+                {/* Use My Location button */}
+                {geoAttempted && !usingLocation && (
+                  <button
+                    onClick={requestLocation}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 mb-4 rounded-xl border-2 border-green/20 text-green text-sm font-medium hover:bg-green-light/30 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                    Use my location
+                  </button>
+                )}
+
+                {/* Location indicator when using geolocation */}
+                {usingLocation && locationName && (
+                  <div className="flex items-center justify-center gap-2 mb-4 text-sm text-green font-medium">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                    </svg>
+                    Showing times for {locationName}
+                  </div>
+                )}
+
+                {/* City Selector */}
                 <label
                   htmlFor="city-select"
                   className="block text-sm font-semibold text-charcoal mb-2"
                 >
-                  Select your city
+                  {usingLocation ? "Or select a city" : "Select your city"}
                 </label>
                 <select
                   id="city-select"
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
+                  value={usingLocation ? "" : selectedCity}
+                  onChange={(e) => handleCityChange(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal font-medium focus:outline-none focus:border-green/40 transition-colors duration-200"
                 >
+                  {usingLocation && (
+                    <option value="" disabled>
+                      — Using your location —
+                    </option>
+                  )}
                   {cities.map((city) => (
                     <option key={city} value={city}>
                       {city}
@@ -177,7 +281,7 @@ export default function PrayerTimesPage() {
               <div className="text-center py-16">
                 <div className="w-8 h-8 border-2 border-green/20 border-t-green rounded-full animate-spin mx-auto mb-4" />
                 <p className="text-grey text-sm">
-                  Loading prayer times for {selectedCity}...
+                  Loading prayer times...
                 </p>
               </div>
             )}
@@ -189,7 +293,11 @@ export default function PrayerTimesPage() {
                   Unable to load prayer times.
                 </p>
                 <button
-                  onClick={() => fetchPrayerTimes(selectedCity)}
+                  onClick={() =>
+                    usingLocation
+                      ? requestLocation()
+                      : fetchByCity(selectedCity)
+                  }
                   className="px-6 py-2.5 rounded-full bg-green text-white text-sm font-semibold hover:bg-green-dark transition-colors duration-200"
                 >
                   Try Again
@@ -280,7 +388,7 @@ export default function PrayerTimesPage() {
 
                 {/* Method note */}
                 <p className="text-center text-charcoal/30 text-xs mt-4">
-                  Times calculated using ISNA method for {selectedCity}, UK
+                  Times calculated using ISNA method for {displayLocation}
                 </p>
               </>
             )}
