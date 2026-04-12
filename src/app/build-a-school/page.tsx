@@ -102,7 +102,7 @@ export default function BuildASchoolPage() {
         </section>
 
         {/* ─── 2. Donation Panel (centred, bordered) ─── */}
-        <section id="donate-form" className="py-16 md:py-24 bg-white">
+        <section id="donate-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Hadith */}
             <blockquote className="text-center mb-8 max-w-lg mx-auto">

@@ -102,7 +102,7 @@ export default function UKHomelessPage() {
         </section>
 
         {/* ─── 2. Donation Panel (centred, bordered) ─── */}
-        <section id="donate-form" className="py-16 md:py-24 bg-white">
+        <section id="donate-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8">
               <div className="text-center mb-8">
