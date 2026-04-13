@@ -6,7 +6,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy | Deen Relief",
   description:
-    "How Deen Relief collects, uses, and protects your personal information.",
+    "How Deen Relief collects, uses, and protects your personal information. Our commitment to data privacy and GDPR compliance. Charity No. 1158608.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

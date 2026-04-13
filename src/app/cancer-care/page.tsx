@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -55,6 +56,19 @@ const faqs = [
   },
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function CancerCarePage() {
   /* ── Donation panel state ── */
   const [frequency, setFrequency] = useState<Frequency>("one-time");
@@ -78,6 +92,7 @@ export default function CancerCarePage() {
 
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -110,13 +125,13 @@ export default function CancerCarePage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                A Home for Children{"\n"}Fighting Cancer
+                A Home for Children Fighting Cancer
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                In Adana, Turkey, we operate Gulucuk Evi — the House of
-                Smiles — providing housing, medical support, and care for
-                Syrian and Gazan refugee children undergoing cancer
-                treatment.
+                In Adana, Turkey, we operate Gulucuk Evi — a dedicated
+                care centre providing housing, medical support, and
+                rehabilitation for Syrian and Gazan refugee children
+                undergoing cancer treatment.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -153,7 +168,7 @@ export default function CancerCarePage() {
               {/* Donation Form */}
               <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Support Our Centres
+                  Support Gulucuk Evi
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                   Help a Child Through Treatment
@@ -367,7 +382,7 @@ export default function CancerCarePage() {
                 Our Medical Partners
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                World-Class Treatment in Adana
+                World-Class Treatment Partners in Adana
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 We work in direct partnership with two leading hospitals in
@@ -418,7 +433,7 @@ export default function CancerCarePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                On the Ground
+                We Are Present
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                 We Are in the Room
@@ -443,7 +458,7 @@ export default function CancerCarePage() {
               </div>
               <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/cancer-care-family.png"
+                  src="/images/cancer-care-family.webp"
                   alt="Deen Relief worker with a child and his mother at the care centre in Adana"
                   fill
                   className="object-cover object-[60%_30%]"

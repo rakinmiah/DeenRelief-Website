@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -26,6 +27,48 @@ const donationAmounts = {
 
 type Frequency = "one-time" | "monthly";
 
+/* ── FAQ data ── */
+const faqs = [
+  {
+    question: "What does my donation fund?",
+    answer:
+      "Your donation funds classroom construction, teacher recruitment and salaries, learning materials (books, stationery, and supplies), and the creation of safe, clean learning environments for children in rural Bangladesh.",
+  },
+  {
+    question: "Is this Sadaqah Jariyah?",
+    answer:
+      "Yes. Building a school is one of the most powerful forms of Sadaqah Jariyah (ongoing charity) in Islam. The Prophet (peace be upon him) taught that beneficial knowledge is one of three things that continue to benefit a person after they pass. A school built today educates children for generations.",
+  },
+  {
+    question: "Where are the schools built?",
+    answer:
+      "Our schools are built in underserved rural communities in Bangladesh where children have little or no access to primary education. Each location is assessed by our local partners to ensure the greatest need and impact.",
+  },
+  {
+    question: "Is my donation eligible for Gift Aid?",
+    answer:
+      "Yes. If you are a UK taxpayer, we can claim an extra 25% on your donation at no additional cost to you. Your £250 becomes £312.50 — enough to provide learning materials for an entire classroom.",
+  },
+  {
+    question: "How is Deen Relief regulated?",
+    answer:
+      "Deen Relief is registered with the Charity Commission (No. 1158608) and Companies House (No. 08593822). Our accounts are publicly audited and filed annually.",
+  },
+];
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function BuildASchoolPage() {
   /* ── Donation panel state ── */
   const [frequency, setFrequency] = useState<Frequency>("one-time");
@@ -44,8 +87,12 @@ export default function BuildASchoolPage() {
     setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][1].value);
   };
 
+  /* ── FAQ accordion state ── */
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -78,12 +125,12 @@ export default function BuildASchoolPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Build a School,{"\n"}Change Generations
+                Build a School, Change Generations
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                Fund classroom construction and teacher salaries to give
-                children in rural Bangladesh access to primary education — a
-                lasting Sadaqah Jariyah.
+                Fund classroom construction and teacher salaries in rural
+                Bangladesh — a lasting Sadaqah Jariyah that educates
+                children for generations.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -119,7 +166,7 @@ export default function BuildASchoolPage() {
             <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8">
               <div className="text-center mb-8">
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Build a School
+                  Sadaqah Jariyah
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                   Invest in a Child&apos;s Education
@@ -319,7 +366,7 @@ export default function BuildASchoolPage() {
               </h2>
             </div>
 
-            <div className="space-y-5 max-w-xl mx-auto mb-8">
+            <div className="space-y-5 max-w-xl mx-auto mb-8 flex flex-col items-center">
               {[
                 "Classroom construction in underserved rural areas",
                 "Teacher recruitment and salary funding",
@@ -344,7 +391,60 @@ export default function BuildASchoolPage() {
           </div>
         </section>
 
-        {/* ─── 6. Final CTA ─── */}
+        {/* ─── 6. FAQ ─── */}
+        <section className="py-16 md:py-24 bg-cream">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
+                Common Questions
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight">
+                Education Programme FAQs
+              </h2>
+            </div>
+
+            <div className="divide-y divide-charcoal/5">
+              {faqs.map((faq, index) => (
+                <div key={index}>
+                  <button
+                    onClick={() =>
+                      setOpenFaq(openFaq === index ? null : index)
+                    }
+                    className="w-full flex items-center justify-between py-5 text-left group"
+                  >
+                    <span className="font-heading font-semibold text-[1.0625rem] text-charcoal pr-4 group-hover:text-green transition-colors duration-200">
+                      {faq.question}
+                    </span>
+                    <svg
+                      className={`w-5 h-5 flex-shrink-0 text-charcoal/30 transition-transform duration-200 ${
+                        openFaq === index ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m19.5 8.25-7.5 7.5-7.5-7.5"
+                      />
+                    </svg>
+                  </button>
+                  {openFaq === index && (
+                    <div className="pb-5">
+                      <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+                        {faq.answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 7. Final CTA ─── */}
         <section className="py-10 md:py-12 bg-green-dark">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-xl sm:text-2xl font-heading font-bold text-white mb-2">

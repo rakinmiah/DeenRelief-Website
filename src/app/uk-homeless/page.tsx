@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -26,6 +27,48 @@ const donationAmounts = {
 
 type Frequency = "one-time" | "monthly";
 
+/* ── FAQ data ── */
+const faqs = [
+  {
+    question: "What does my donation fund?",
+    answer:
+      "Your donation funds our weekly street outreach in Brighton — hot meals, warm clothing, blankets, hygiene packs, sleeping bags, and essential supplies distributed directly to people experiencing homelessness.",
+  },
+  {
+    question: "How often does the outreach happen?",
+    answer:
+      "Every week, rain or shine, since 2013. Our volunteer teams go out onto Brighton's streets with meals and essentials. The outreach has never stopped — not even once — in over twelve years.",
+  },
+  {
+    question: "Can I volunteer instead of donating?",
+    answer:
+      "Absolutely. We welcome volunteers for our Brighton homeless outreach and other programmes. No experience is needed — just a willingness to help. Visit our volunteer page or email info@deenrelief.org to get started.",
+  },
+  {
+    question: "Is my donation eligible for Gift Aid?",
+    answer:
+      "Yes. If you are a UK taxpayer, we can claim an extra 25% on your donation at no additional cost to you. Your £25 becomes £31.25 — enough to feed five people on our weekly outreach.",
+  },
+  {
+    question: "How is Deen Relief regulated?",
+    answer:
+      "Deen Relief is registered with the Charity Commission (No. 1158608) and Companies House (No. 08593822). Our accounts are publicly audited and filed annually.",
+  },
+];
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function UKHomelessPage() {
   /* ── Donation panel state ── */
   const [frequency, setFrequency] = useState<Frequency>("one-time");
@@ -44,8 +87,12 @@ export default function UKHomelessPage() {
     setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][0].value);
   };
 
+  /* ── FAQ accordion state ── */
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -53,7 +100,7 @@ export default function UKHomelessPage() {
         <section className="relative min-h-[45vh] md:min-h-[50vh] flex items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/brighton-team.png"
+              src="/images/brighton-team.webp"
               alt="Deen Relief volunteers gathered at Brighton seafront for a community outreach event"
               fill
               className="object-cover object-[center_75%]"
@@ -78,12 +125,12 @@ export default function UKHomelessPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Supporting Our{"\n"}Community, Every Week
+                Supporting Our Community, Every Week
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
                 Hot meals, clothing, and essentials distributed on
-                Brighton&apos;s streets every week by our local volunteer
-                teams — since 2013.
+                Brighton&apos;s streets every week by our volunteer teams
+                since 2013.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -107,7 +154,7 @@ export default function UKHomelessPage() {
             <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8">
               <div className="text-center mb-8">
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Support Our Outreach
+                  Our Community
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                   Help Us Feed Our Community
@@ -252,7 +299,7 @@ export default function UKHomelessPage() {
               {/* Text */}
               <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Our Roots
+                  Where It All Started
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
                   Where It All Started
@@ -281,7 +328,7 @@ export default function UKHomelessPage() {
               {/* Image */}
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/brighton-team.png"
+                  src="/images/brighton-team.webp"
                   alt="Deen Relief volunteers gathered at Brighton seafront for a community outreach event"
                   fill
                   className="object-cover object-[center_65%]"
@@ -305,7 +352,7 @@ export default function UKHomelessPage() {
               </h2>
             </div>
 
-            <div className="space-y-5 max-w-xl mx-auto mb-8">
+            <div className="space-y-5 max-w-xl mx-auto mb-8 flex flex-col items-center">
               {[
                 "Hot meals prepared and served on the streets",
                 "Warm clothing and blankets during winter months",
@@ -330,7 +377,60 @@ export default function UKHomelessPage() {
           </div>
         </section>
 
-        {/* ─── 6. Final CTA ─── */}
+        {/* ─── 6. FAQ ─── */}
+        <section className="py-16 md:py-24 bg-cream">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
+                Common Questions
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight">
+                Homeless Outreach FAQs
+              </h2>
+            </div>
+
+            <div className="divide-y divide-charcoal/5">
+              {faqs.map((faq, index) => (
+                <div key={index}>
+                  <button
+                    onClick={() =>
+                      setOpenFaq(openFaq === index ? null : index)
+                    }
+                    className="w-full flex items-center justify-between py-5 text-left group"
+                  >
+                    <span className="font-heading font-semibold text-[1.0625rem] text-charcoal pr-4 group-hover:text-green transition-colors duration-200">
+                      {faq.question}
+                    </span>
+                    <svg
+                      className={`w-5 h-5 flex-shrink-0 text-charcoal/30 transition-transform duration-200 ${
+                        openFaq === index ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m19.5 8.25-7.5 7.5-7.5-7.5"
+                      />
+                    </svg>
+                  </button>
+                  {openFaq === index && (
+                    <div className="pb-5">
+                      <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+                        {faq.answer}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 7. Final CTA ─── */}
         <section className="py-10 md:py-12 bg-green-dark">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-xl sm:text-2xl font-heading font-bold text-white mb-2">

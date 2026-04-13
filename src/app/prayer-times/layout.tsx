@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Muslim Prayer Times UK | Deen Relief",
+  title: "Prayer Times UK Today — Salah Times | Deen Relief",
   description:
-    "Accurate Muslim prayer times for 38 UK cities including London, Birmingham, Manchester, Brighton, and more. Fajr, Dhuhr, Asr, Maghrib, Isha times updated daily.",
+    "Accurate prayer times for 38 UK cities including London, Birmingham, Manchester, and Brighton. Fajr, Dhuhr, Asr, Maghrib, Isha updated daily.",
+  alternates: { canonical: "/prayer-times" },
   openGraph: {
-    title: "Muslim Prayer Times UK | Deen Relief",
-    description: "Accurate prayer times for 38 UK cities. Fajr, Dhuhr, Asr, Maghrib, Isha — updated daily.",
+    title: "Prayer Times UK Today — Salah Times | Deen Relief",
+    description: "Accurate prayer times for 38 UK cities including London, Birmingham, Manchester, and Brighton. Fajr, Dhuhr, Asr, Maghrib, Isha updated daily.",
     images: [{ url: "/images/hero-gulucuk-evi.webp", alt: "Deen Relief" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@deenrelief",
+    title: "Prayer Times UK Today — Salah Times | Deen Relief",
+    description: "Accurate prayer times for 38 UK cities including London, Birmingham, Manchester, and Brighton. Fajr, Dhuhr, Asr, Maghrib, Isha updated daily.",
+    images: ["/images/hero-gulucuk-evi.webp"],
   },
 };
 

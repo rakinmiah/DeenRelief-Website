@@ -5,12 +5,28 @@ import { useState } from "react";
 export default function Newsletter() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
+    if (!email) return;
+    setIsSubmitting(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error();
       setSubmitted(true);
       setEmail("");
+    } catch {
+      setError(true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -25,6 +41,12 @@ export default function Newsletter() {
             Campaign updates, impact stories, and ways to give.
             No spam — just meaningful updates.
           </p>
+
+          {error && (
+            <p className="text-amber-light text-xs mb-3">
+              Something went wrong. Please try again.
+            </p>
+          )}
 
           {submitted ? (
             <div className="bg-white/10 rounded-lg p-5">
@@ -51,9 +73,20 @@ export default function Newsletter() {
               />
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-full bg-amber text-charcoal text-sm font-semibold hover:bg-amber-dark transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                disabled={isSubmitting}
+                className={`px-6 py-2.5 rounded-full bg-amber text-charcoal text-sm font-semibold hover:bg-amber-dark transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${isSubmitting ? "opacity-75 pointer-events-none" : ""}`}
               >
-                Subscribe
+                {isSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Subscribing…
+                  </span>
+                ) : (
+                  "Subscribe"
+                )}
               </button>
             </form>
           )}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Button from "./Button";
 import ProofTag from "./ProofTag";
+import Skeleton from "./Skeleton";
 
 const donationAmounts = {
   "one-time": [
@@ -22,10 +23,37 @@ const donationAmounts = {
 
 type Frequency = "one-time" | "monthly";
 
+/** Skeleton shown while the donation panel is loading (e.g. waiting for Stripe). */
+export function DonationPanelSkeleton() {
+  return (
+    <section className="py-16 md:py-24 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
+          <Skeleton className="rounded-2xl aspect-[5/4]" />
+          <div>
+            <Skeleton className="h-9 w-3/4 mb-4" />
+            <Skeleton className="h-4 w-full mb-2" />
+            <Skeleton className="h-4 w-5/6 mb-8" />
+            <Skeleton className="h-10 w-48 rounded-full mb-4" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-12 rounded-xl" />
+              ))}
+            </div>
+            <Skeleton className="h-12 w-full rounded-xl mb-6" />
+            <Skeleton className="h-12 w-48 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function FeaturedCampaign() {
   const [frequency, setFrequency] = useState<Frequency>("one-time");
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const amounts = donationAmounts[frequency];
   const isCustom = !amounts.some((a) => a.value === selectedAmount);
@@ -47,7 +75,7 @@ export default function FeaturedCampaign() {
           {/* Image */}
           <div className="relative rounded-2xl overflow-hidden aspect-[5/4]">
               <Image
-                src="/images/palestine-relief.jpg"
+                src="/images/palestine-relief.webp"
                 alt="Deen Relief worker distributing aid to a woman in a Palestine displacement camp"
                 fill
                 className="object-cover"
@@ -66,9 +94,10 @@ export default function FeaturedCampaign() {
               Palestine Emergency Relief
             </h2>
             <p className="text-grey text-base sm:text-[1.0625rem] mb-8 leading-[1.7]">
-              Displaced families in Gaza urgently need food, clean water,
-              shelter, and medical supplies. Your donation is delivered
-              directly through our on-the-ground teams.
+              Donate to Palestine and help displaced families in Gaza
+              who urgently need food, clean water, shelter, and medical
+              supplies. Every donation is delivered directly through our
+              on-the-ground teams.
             </p>
 
             {/* Donation Amount Selector */}
@@ -168,9 +197,26 @@ export default function FeaturedCampaign() {
             )}
 
             {/* CTA */}
-            <Button variant="primary" size="lg" href="#donate" className="w-full sm:w-auto">
-              Donate £{selectedAmount || customAmount || "0"}
-              {frequency === "monthly" ? "/month" : ""} Now
+            <Button
+              variant="primary"
+              size="lg"
+              href="#donate"
+              className={`w-full sm:w-auto ${isSubmitting ? "opacity-75 pointer-events-none" : ""}`}
+            >
+              {isSubmitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Processing…
+                </span>
+              ) : (
+                <>
+                  Donate £{selectedAmount || customAmount || "0"}
+                  {frequency === "monthly" ? "/month" : ""} Now
+                </>
+              )}
             </Button>
 
             {/* Trust microcopy */}

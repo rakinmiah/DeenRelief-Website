@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -55,6 +56,19 @@ const faqs = [
   },
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function OrphanSponsorshipPage() {
   /* ── Donation panel state ── */
   const [frequency, setFrequency] = useState<Frequency>("monthly");
@@ -78,6 +92,7 @@ export default function OrphanSponsorshipPage() {
 
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -85,7 +100,7 @@ export default function OrphanSponsorshipPage() {
         <section className="relative min-h-[45vh] md:min-h-[50vh] flex items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/orphan-sponsorship.jpg"
+              src="/images/orphan-sponsorship.webp"
               alt="Deen Relief worker with a sponsored child and food supplies in Bangladesh"
               fill
               className="object-cover object-[center_25%]"
@@ -110,11 +125,12 @@ export default function OrphanSponsorshipPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Give a Child a Future{"\n"}for £30 a Month
+                Give a Child a Future for £30 a Month
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                Your monthly sponsorship provides education, nutrition, safe
-                shelter, and healthcare for an orphaned child in Bangladesh.
+                Your monthly sponsorship provides education, nutrition,
+                safe shelter, and healthcare for an orphaned child in
+                Bangladesh.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -151,7 +167,7 @@ export default function OrphanSponsorshipPage() {
               {/* Breakdown */}
               <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  What Your Sponsorship Provides
+                  Orphan Sponsorship
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
                   Everything a Child Needs to Thrive
@@ -384,7 +400,7 @@ export default function OrphanSponsorshipPage() {
               {/* Image */}
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/zakat-family-support.jpg"
+                  src="/images/zakat-family-support.webp"
                   alt="Deen Relief worker with a child and food supplies in Bangladesh"
                   fill
                   className="object-cover object-[center_25%]"
@@ -518,7 +534,7 @@ export default function OrphanSponsorshipPage() {
         <section className="py-10 md:py-12 bg-green-dark">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-xl sm:text-2xl font-heading font-bold text-white mb-2">
-              A Child in Bangladesh Is Waiting
+              A Child Is Waiting for You
             </h2>
             <p className="text-white/55 text-sm mb-6">
               £30 a month. That&apos;s all it takes to change a life.

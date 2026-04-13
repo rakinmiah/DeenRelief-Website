@@ -60,11 +60,12 @@ export default function Impact() {
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-10">
           <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-            Our Impact in Numbers
+            Transparent Islamic Charity — Our Impact
           </h2>
           <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-            Every pound you give is accounted for. We are committed to
-            transparency and to maximising the impact of your donations.
+            Every pound you give is accounted for. As a UK-registered
+            charity, we are committed to transparency and maximising
+            the impact of your Zakat and Sadaqah donations.
           </p>
         </div>
 

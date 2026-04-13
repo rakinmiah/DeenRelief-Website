@@ -6,7 +6,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Safeguarding Policy | Deen Relief",
   description:
-    "Deen Relief's commitment to safeguarding children and vulnerable adults in all our programmes.",
+    "How Deen Relief safeguards children and vulnerable adults across all our programmes. Our policies, procedures, and reporting process.",
+  alternates: { canonical: "/safeguarding" },
 };
 
 export default function SafeguardingPage() {

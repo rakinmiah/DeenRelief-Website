@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import Button from "./Button";
 import ProofTag from "./ProofTag";
 
 interface Campaign {
@@ -19,7 +18,7 @@ const campaigns: Campaign[] = [
     title: "Palestine Emergency Relief",
     description:
       "Our teams distribute food parcels, clean water, and medical supplies directly to displaced families across Gaza.",
-    image: "/images/palestine-relief.jpg",
+    image: "/images/palestine-relief.webp",
     imageAlt: "Deen Relief worker distributing aid in Palestine",
     href: "/palestine",
     location: "Gaza",
@@ -30,7 +29,7 @@ const campaigns: Campaign[] = [
     title: "Bangladesh Orphan Sponsorship",
     description:
       "£30/month covers education, daily meals, and safe shelter for one child through our partner centres in Bangladesh.",
-    image: "/images/orphan-sponsorship.jpg",
+    image: "/images/orphan-sponsorship.webp",
     imageAlt: "Deen Relief team member with a sponsored child and food supplies in Bangladesh",
     href: "/orphan-sponsorship",
     location: "Bangladesh",
@@ -60,7 +59,7 @@ const campaigns: Campaign[] = [
     title: "UK Homeless Community Aid",
     description:
       "Hot meals, clothing, and support packs distributed on Brighton's streets every week by our local volunteer teams.",
-    image: "/images/brighton-team.png",
+    image: "/images/brighton-team.webp",
     imageAlt: "Deen Relief volunteers gathered at Brighton seafront for a community outreach event",
     href: "/uk-homeless",
     location: "Brighton, UK",
@@ -82,19 +81,14 @@ export default function CampaignsGrid() {
     <section id="campaigns" className="py-16 md:py-24 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-3 mb-9">
-          <div>
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-              Our Active Campaigns
-            </h2>
-            <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-              From emergency relief to long-term development — see where your
-              donation can make an impact.
-            </p>
-          </div>
-          <Button variant="secondary" size="sm" href="#campaigns" className="flex-shrink-0">
-            View All
-          </Button>
+        <div className="mb-9">
+          <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
+            Donate to Charity — Active Campaigns
+          </h2>
+          <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+            From Palestine emergency relief to orphan sponsorship in
+            Bangladesh — see where your donation makes an impact.
+          </p>
         </div>
 
         {/* Campaign Cards */}

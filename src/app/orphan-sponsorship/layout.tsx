@@ -3,11 +3,19 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Sponsor an Orphan | Deen Relief",
   description:
-    "Sponsor an orphaned child in Bangladesh for £30/month. Providing education, nutrition, safe shelter, and healthcare. Gift Aid eligible. Cancel anytime. Charity No. 1158608.",
+    "Sponsor an orphan in Bangladesh for £30/month. Education, nutrition, safe shelter, and healthcare. Gift Aid eligible. Charity No. 1158608.",
+  alternates: { canonical: "/orphan-sponsorship" },
   openGraph: {
     title: "Sponsor an Orphan — £30/month | Deen Relief",
-    description: "Give a child a future for £30 a month. Education, nutrition, safe shelter, and healthcare.",
+    description: "Sponsor an orphan in Bangladesh for £30/month. Education, nutrition, safe shelter, and healthcare. Gift Aid eligible. Charity No. 1158608.",
     images: [{ url: "/images/children-smiling-deenrelief.webp", alt: "Children supported by Deen Relief" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@deenrelief",
+    title: "Sponsor an Orphan — £30/month | Deen Relief",
+    description: "Sponsor an orphan in Bangladesh for £30/month. Education, nutrition, safe shelter, and healthcare. Gift Aid eligible. Charity No. 1158608.",
+    images: ["/images/children-smiling-deenrelief.webp"],
   },
 };
 

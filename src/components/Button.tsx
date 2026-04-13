@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 type ButtonVariant = "primary" | "secondary" | "outline";
@@ -41,6 +43,24 @@ export default function Button({
     "inline-flex items-center justify-center transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green";
 
   const combinedStyles = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+
+  // Hash links use programmatic scroll so they work even when the
+  // hash is already in the URL (e.g. clicking the final CTA after
+  // the hero CTA already set #donate-form in the address bar).
+  if (href?.startsWith("#")) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          const el = document.querySelector(href);
+          if (el) el.scrollIntoView({ behavior: "smooth" });
+        }}
+        className={combinedStyles}
+      >
+        {children}
+      </button>
+    );
+  }
 
   if (href) {
     return (

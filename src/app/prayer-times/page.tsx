@@ -250,13 +250,13 @@ export default function PrayerTimesPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10 md:py-14">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-white/50 mb-3">
-                Prayer Times
+                Islamic Prayer Times UK
               </span>
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-3 tracking-[-0.02em]">
-                Muslim Prayer Times
+                Prayer Times UK — Accurate Salah Times Today
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/60 leading-[1.7] max-w-[24rem]">
-                Accurate prayer times based on your location. Updated daily.
+                Accurate Muslim prayer times for UK cities including London, Birmingham, Manchester, and Brighton. Fajr, Dhuhr, Asr, Maghrib, and Isha times updated daily.
               </p>
             </div>
           </div>
@@ -442,6 +442,16 @@ export default function PrayerTimesPage() {
                 <p className="text-center text-charcoal/30 text-xs mt-4">
                   Times calculated using ISNA method for {displayLocation}
                 </p>
+
+                <p className="text-center text-grey/50 text-xs mt-6">
+                  While you&apos;re here —{" "}
+                  <a
+                    href="/palestine"
+                    className="text-green/60 hover:text-green transition-colors duration-200"
+                  >
+                    a family in Gaza needs your help
+                  </a>
+                </p>
               </>
             )}
           </div>
@@ -451,10 +461,10 @@ export default function PrayerTimesPage() {
         <section className="py-14 md:py-16 bg-cream">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-              While You&apos;re Here
+              Support Our Islamic Charity
             </span>
             <h2 className="text-xl sm:text-2xl font-heading font-bold text-charcoal mb-3">
-              Your Sadaqah Can Change a Life Today
+              Give Sadaqah While You&apos;re Here
             </h2>
             <p className="text-grey text-sm leading-relaxed mb-6 max-w-md mx-auto">
               3,200+ families supported since 2013. From emergency relief in

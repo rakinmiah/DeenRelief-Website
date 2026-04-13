@@ -7,20 +7,21 @@ import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
   "one-time": [
-    { value: 25, label: "£25", outcome: "Provides a family food parcel for one week" },
-    { value: 50, label: "£50", outcome: "Feeds a displaced family in Gaza for one month", default: true },
-    { value: 100, label: "£100", outcome: "Supplies clean water and medical essentials for a family" },
-    { value: 250, label: "£250", outcome: "Provides shelter materials and household basics for a displaced family" },
+    { value: 25, label: "£25", outcome: "Provides a food parcel for a family of five for one week" },
+    { value: 50, label: "£50", outcome: "Feeds a displaced family of five in Gaza for one month", default: true },
+    { value: 100, label: "£100", outcome: "Supplies clean water and medical essentials for a family of five" },
+    { value: 250, label: "£250", outcome: "Provides shelter, blankets, and household basics for a displaced family" },
   ],
   monthly: [
-    { value: 10, label: "£10", outcome: "Provides ongoing clean water access for a family" },
-    { value: 25, label: "£25", outcome: "Feeds a displaced family every month", default: true },
-    { value: 50, label: "£50", outcome: "Covers monthly medical supplies and food for a family" },
-    { value: 100, label: "£100", outcome: "Sustains comprehensive monthly support for a displaced family" },
+    { value: 10, label: "£10", outcome: "Provides ongoing clean water access for a family of five" },
+    { value: 25, label: "£25", outcome: "Feeds a displaced family of five every month", default: true },
+    { value: 50, label: "£50", outcome: "Covers monthly medical supplies and food for a family of five" },
+    { value: 100, label: "£100", outcome: "Sustains comprehensive monthly support for a family of five" },
   ],
 };
 
@@ -55,6 +56,19 @@ const faqs = [
   },
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function PalestinePage() {
   /* ── Donation panel state ── */
   const [frequency, setFrequency] = useState<Frequency>("one-time");
@@ -78,6 +92,7 @@ export default function PalestinePage() {
 
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -85,7 +100,7 @@ export default function PalestinePage() {
         <section className="relative min-h-[45vh] md:min-h-[50vh] flex items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/palestine-relief.jpg"
+              src="/images/palestine-relief.webp"
               alt="Deen Relief worker distributing aid to a family in a Gaza displacement camp"
               fill
               className="object-cover object-[center_37%]"
@@ -110,12 +125,12 @@ export default function PalestinePage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Emergency Aid for{"\n"}Families in Gaza
+                A Family in Gaza Needs You Right Now
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                Displaced families urgently need food, clean water, medical
-                supplies, and shelter. Your donation is delivered directly
-                through our on-the-ground teams.
+                Displaced families in Gaza urgently need food, clean water,
+                medical supplies, and shelter. Your donation is delivered
+                directly by our teams on the ground.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -140,7 +155,7 @@ export default function PalestinePage() {
               {/* Image */}
               <div className="relative rounded-2xl overflow-hidden aspect-[5/4]">
                 <Image
-                  src="/images/gaza-aid-distribution-2.jpg"
+                  src="/images/gaza-aid-distribution-2.webp"
                   alt="Deen Relief worker delivering aid to a child in a Gaza displacement camp"
                   fill
                   className="object-cover object-[center_45%]"
@@ -152,7 +167,7 @@ export default function PalestinePage() {
               {/* Donation Form */}
               <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Donate Now
+                  Urgent Appeal
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                   Help a Family Survive Today
@@ -306,7 +321,7 @@ export default function PalestinePage() {
                   Where Your Donation Goes
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
-                  Direct Relief for Families in Crisis
+                  Direct Relief for Families in Gaza
                 </h2>
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
                   When families are displaced by conflict, they lose
@@ -345,7 +360,7 @@ export default function PalestinePage() {
               {/* Image */}
               <div className="relative rounded-2xl overflow-hidden min-h-[300px]">
                 <Image
-                  src="/images/gaza-aid-distribution-3.jpg"
+                  src="/images/gaza-aid-distribution-3.webp"
                   alt="Deen Relief worker with Palestine Relief Campaign branding distributing aid to a woman"
                   fill
                   className="object-cover object-[center_30%]"
@@ -377,7 +392,7 @@ export default function PalestinePage() {
             <div className="grid sm:grid-cols-3 gap-3">
               <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/gaza-aid-distribution-1.jpg"
+                  src="/images/gaza-aid-distribution-1.webp"
                   alt="Deen Relief worker handing aid supplies to a family in Gaza"
                   fill
                   className="object-cover object-[center_25%]"
@@ -387,7 +402,7 @@ export default function PalestinePage() {
               </div>
               <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/gaza-aid-distribution-3.jpg"
+                  src="/images/gaza-aid-distribution-3.webp"
                   alt="Deen Relief Palestine Relief Campaign worker distributing aid to a woman"
                   fill
                   className="object-cover object-[center_30%]"
@@ -397,7 +412,7 @@ export default function PalestinePage() {
               </div>
               <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/gaza-aid-packing.jpg"
+                  src="/images/gaza-aid-packing.webp"
                   alt="Deen Relief worker packing aid supplies in front of Deen Relief Palestine Relief Campaign banner"
                   fill
                   className="object-cover object-[center_30%]"
@@ -482,7 +497,7 @@ export default function PalestinePage() {
                 Common Questions
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight">
-                Palestine Relief FAQs
+                Common Questions About Palestine Relief
               </h2>
             </div>
 

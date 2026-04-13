@@ -41,11 +41,11 @@ export default function Hero() {
             <br className="hidden sm:block" /> a chance to heal
           </h1>
           <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-8 leading-[1.7] max-w-[22rem]">
-            We run care centres for refugee children with cancer, deliver
-            emergency aid in Gaza, and support vulnerable communities from
-            Bangladesh to Brighton.
+            A UK Islamic charity running cancer care centres for refugee
+            children in Turkey, delivering emergency relief in Gaza, and
+            supporting vulnerable communities from Bangladesh to Brighton.
           </p>
-          <div className="flex flex-row items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <Button variant="primary" href="#donate">
               Donate Now
             </Button>

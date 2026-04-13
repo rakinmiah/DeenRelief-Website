@@ -6,7 +6,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Accessibility | Deen Relief",
   description:
-    "Our commitment to making the Deen Relief website accessible to all users.",
+    "Our commitment to making the Deen Relief website accessible to everyone. Accessibility standards, features, and how to contact us for support.",
+  alternates: { canonical: "/accessibility" },
 };
 
 export default function AccessibilityPage() {

@@ -48,15 +48,16 @@ export default function CancerCareCentres() {
         {/* Header — full width */}
         <div className="max-w-3xl mb-8 md:mb-10">
           <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-            What Makes Us Different
+            Children&apos;s Cancer Care Charity
           </span>
           <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal mb-4 leading-tight">
-            A Home of Hope for Children Fighting Cancer
+            Cancer Care Centres for Refugee Children
           </h2>
           <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] max-w-2xl">
-            In Adana, Turkey, we operate the Gulucuk Evi — the House of
-            Smiles — providing housing, medical support, and care for Syrian
-            and Gazan refugee children undergoing cancer treatment.
+            In Adana, Turkey, we operate Gulucuk Evi — a dedicated care
+            centre providing housing, medical support, and rehabilitation
+            for Syrian and Gazan refugee children undergoing cancer
+            treatment. Your donation funds their care directly.
           </p>
         </div>
 

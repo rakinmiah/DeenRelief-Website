@@ -3,7 +3,7 @@ import Link from "next/link";
 const pathways = [
   {
     title: "Pay Zakat",
-    description: "Fulfil your obligation with confidence. Verified Zakat distribution.",
+    description: "Pay Zakat online with confidence. 100% Zakat policy, trustee-verified.",
     href: "/zakat",
     icon: (
       <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -14,7 +14,7 @@ const pathways = [
   },
   {
     title: "Give Sadaqah",
-    description: "Voluntary charity that transforms lives and earns continuous reward.",
+    description: "Give Sadaqah Jariyah — voluntary Islamic charity that earns continuous reward.",
     href: "/sadaqah",
     icon: (
       <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -36,7 +36,7 @@ const pathways = [
   },
   {
     title: "Emergency Appeals",
-    description: "Urgent relief for those in crisis right now. Every moment counts.",
+    description: "Donate to Gaza and other emergency appeals. Urgent humanitarian relief.",
     href: "/palestine",
     icon: (
       <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -76,11 +76,12 @@ export default function GivingPathways() {
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-8">
           <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-            Ways to Give
+            Donate Zakat, Sadaqah &amp; More
           </h2>
           <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-            Whether you&apos;re fulfilling your Zakat, giving Sadaqah, or
-            responding to an emergency — every gift makes a difference.
+            Pay your Zakat online, give Sadaqah Jariyah, sponsor an
+            orphan, or respond to an emergency appeal — every gift
+            makes a difference.
           </p>
         </div>
 

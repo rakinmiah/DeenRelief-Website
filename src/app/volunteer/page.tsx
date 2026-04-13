@@ -8,22 +8,32 @@ import ProofTag from "@/components/ProofTag";
 import Footer from "@/components/Footer";
 
 export default function VolunteerPage() {
-  const [formState, setFormState] = useState<"idle" | "submitted">("idle");
+  const [formState, setFormState] = useState<"idle" | "submitting" | "submitted" | "error">("idle");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [project, setProject] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name && email) {
+    if (!name || !email) return;
+    setFormState("submitting");
+    try {
+      const res = await fetch("/api/volunteer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, phone, project, message }),
+      });
+      if (!res.ok) throw new Error();
       setFormState("submitted");
       setName("");
       setEmail("");
       setPhone("");
       setProject("");
       setMessage("");
+    } catch {
+      setFormState("error");
     }
   };
 
@@ -36,7 +46,7 @@ export default function VolunteerPage() {
         <section className="relative min-h-[40vh] md:min-h-[45vh] flex items-center mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/brighton-team.png"
+              src="/images/brighton-team.webp"
               alt="Deen Relief volunteers gathered at Brighton seafront for a community outreach event"
               fill
               className="object-cover object-[center_75%]"
@@ -61,12 +71,13 @@ export default function VolunteerPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Take Action,{"\n"}Get Involved
+                Take Action, Get Involved
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 leading-[1.7] max-w-[24rem]">
                 Join our team of dedicated volunteers across the UK and
-                abroad. Contribute as much or as little as you wish — all
-                we ask is enthusiasm.
+                abroad. From Brighton outreach to Bangladesh housing
+                projects — no experience needed, just a willingness to
+                help.
               </p>
             </div>
           </div>
@@ -81,10 +92,10 @@ export default function VolunteerPage() {
               {/* Left: Info */}
               <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Volunteer With Us
+                  Charity Volunteer Opportunities
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
-                  Make a Difference, Your Way
+                  Volunteer Opportunities — UK and Abroad
                 </h2>
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-8">
                   Volunteering with Deen Relief is a rewarding experience —
@@ -249,11 +260,26 @@ export default function VolunteerPage() {
                         />
                       </div>
 
+                      {formState === "error" && (
+                        <p className="text-sm text-red-600 text-center">
+                          Something went wrong. Please try again or email us directly.
+                        </p>
+                      )}
+
                       <button
                         type="submit"
-                        className="w-full py-3 mt-1 rounded-full bg-green text-white font-semibold text-sm hover:bg-green-dark transition-colors duration-200 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green"
+                        disabled={formState === "submitting"}
+                        className={`w-full py-3 mt-1 rounded-full bg-green text-white font-semibold text-sm hover:bg-green-dark transition-colors duration-200 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green ${formState === "submitting" ? "opacity-75 pointer-events-none" : ""}`}
                       >
-                        Apply to Volunteer
+                        {formState === "submitting" ? (
+                          <span className="inline-flex items-center gap-2">
+                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            Submitting…
+                          </span>
+                        ) : "Apply to Volunteer"}
                       </button>
                     </form>
                   )}
@@ -271,7 +297,7 @@ export default function VolunteerPage() {
                 Our Projects
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Where You Can Help
+                Charity Volunteer Projects
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 Choose a project that matches your skills and interests.
@@ -340,7 +366,7 @@ export default function VolunteerPage() {
         <section className="py-10 md:py-12 bg-green-dark">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-xl sm:text-2xl font-heading font-bold text-white mb-2">
-              Ready to Make a Difference?
+              Volunteer With Us Today
             </h2>
             <p className="text-white/55 text-sm mb-6">
               No experience needed. Just a willingness to help.

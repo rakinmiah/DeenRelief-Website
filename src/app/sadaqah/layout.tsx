@@ -3,11 +3,19 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Give Sadaqah | Deen Relief",
   description:
-    "Give voluntary charity (Sadaqah) to transform lives. No minimum, no calculation — just generosity. 100% to those in need. Gift Aid eligible. Charity No. 1158608.",
+    "Give Sadaqah and Sadaqah Jariyah through a trusted UK Islamic charity. No minimum, any amount. 100% to those in need. Gift Aid eligible.",
+  alternates: { canonical: "/sadaqah" },
   openGraph: {
     title: "Give Sadaqah | Deen Relief",
-    description: "Voluntary charity given freely, at any time, in any amount. Every act of generosity is rewarded.",
-    images: [{ url: "/images/orphan-sponsorship.jpg", alt: "Deen Relief worker with a child in Bangladesh" }],
+    description: "Give Sadaqah and Sadaqah Jariyah through a trusted UK Islamic charity. No minimum, any amount. 100% to those in need. Gift Aid eligible.",
+    images: [{ url: "/images/orphan-sponsorship.webp", alt: "Deen Relief worker with a child in Bangladesh" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@deenrelief",
+    title: "Give Sadaqah | Deen Relief",
+    description: "Give Sadaqah and Sadaqah Jariyah through a trusted UK Islamic charity. No minimum, any amount. 100% to those in need. Gift Aid eligible.",
+    images: ["/images/orphan-sponsorship.webp"],
   },
 };
 

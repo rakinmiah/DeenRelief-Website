@@ -53,7 +53,7 @@ export default function SadaqahPage() {
         <section className="relative min-h-[45vh] md:min-h-[50vh] flex items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/orphan-sponsorship.jpg"
+              src="/images/orphan-sponsorship.webp"
               alt="Deen Relief worker with a child and food supplies in Bangladesh"
               fill
               className="object-cover object-[center_25%]"
@@ -78,11 +78,10 @@ export default function SadaqahPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Give Sadaqah,{"\n"}Earn Reward
+                Every Act of Generosity Is Rewarded
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                Voluntary charity given freely, at any time, in any amount.
-                Every act of generosity is rewarded.
+                Give Sadaqah freely, at any time, in any amount. Your voluntary charity through a trusted UK Islamic charity reaches those who need it most.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -129,7 +128,7 @@ export default function SadaqahPage() {
                 </blockquote>
 
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Give Sadaqah
+                  Give Freely
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                   Every Penny Counts
@@ -277,7 +276,7 @@ export default function SadaqahPage() {
                   More Than Money
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
-                  Many Ways to Give Sadaqah
+                  Sadaqah Is More Than Money
                 </h2>
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                   The Prophet (peace be upon him) taught that Sadaqah is not
@@ -322,7 +321,7 @@ export default function SadaqahPage() {
                 Your Impact
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Where Your Sadaqah Is Needed Most
+                Where Your Generosity Goes
               </h2>
             </div>
 

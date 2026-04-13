@@ -12,13 +12,30 @@ const navLinks = [
   { label: "Pay Zakat", href: "/zakat" },
   { label: "Prayer Times", href: "/prayer-times" },
   { label: "About", href: "/about" },
+  { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
 ];
+
+// Maps pages with their own donation panels to their anchor IDs
+const donateAnchors: Record<string, string> = {
+  "/": "#donate",
+  "/zakat": "#zakat-form",
+  "/palestine": "#donate-form",
+  "/cancer-care": "#donate-form",
+  "/orphan-sponsorship": "#sponsor-form",
+  "/build-a-school": "#donate-form",
+  "/clean-water": "#donate-form",
+  "/uk-homeless": "#donate-form",
+  "/sadaqah": "#donate-form",
+};
 
 export default function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // On pages with a donation panel, scroll to it; otherwise go to homepage panel
+  const donateHref = donateAnchors[pathname] ?? "/#donate";
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -59,7 +76,7 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav
-            className="hidden md:flex items-center gap-8"
+            className="hidden lg:flex items-center gap-8"
             aria-label="Main navigation"
           >
             {navLinks.map((link) => {
@@ -81,15 +98,15 @@ export default function Header() {
           </nav>
 
           {/* Desktop Donate Button */}
-          <div className="hidden md:block">
-            <Button variant="primary" size="sm" href="#donate">
+          <div className="hidden lg:block">
+            <Button variant="primary" size="sm" href={donateHref}>
               Donate
             </Button>
           </div>
 
           {/* Mobile: Donate Button + Hamburger */}
-          <div className="flex md:hidden items-center gap-3">
-            <Button variant="primary" size="sm" href="#donate">
+          <div className="flex lg:hidden items-center gap-3">
+            <Button variant="primary" size="sm" href={donateHref}>
               Donate
             </Button>
             <button
@@ -125,32 +142,49 @@ export default function Header() {
         </div>
 
         {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <nav
-            className="md:hidden mt-4 pb-4 pt-4 border-t border-charcoal/5"
-            aria-label="Mobile navigation"
-          >
-            <div className="flex flex-col gap-4">
-              {navLinks.map((link) => {
-                const active = isActive(link.href);
-                return (
-                  <Link
-                    key={link.label}
-                    href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium py-1 ${
-                      active
-                        ? "text-green text-[17px] font-bold"
-                        : "text-charcoal/70 hover:text-green text-base"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-        )}
+        <div
+          className={`lg:hidden grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+            mobileMenuOpen
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <nav
+              className="mt-4 pb-4 pt-4 border-t border-charcoal/5"
+              aria-label="Mobile navigation"
+            >
+              <div className="flex flex-col gap-4">
+                {navLinks.map((link, i) => {
+                  const active = isActive(link.href);
+                  return (
+                    <Link
+                      key={link.label}
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`font-medium py-1 transition-all duration-300 ${
+                        mobileMenuOpen
+                          ? "translate-y-0 opacity-100"
+                          : "-translate-y-2 opacity-0"
+                      } ${
+                        active
+                          ? "text-green text-[17px] font-bold"
+                          : "text-charcoal/70 hover:text-green text-base"
+                      }`}
+                      style={{
+                        transitionDelay: mobileMenuOpen
+                          ? `${75 + i * 40}ms`
+                          : "0ms",
+                      }}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
+          </div>
+        </div>
       </div>
     </header>
   );

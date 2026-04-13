@@ -11,7 +11,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "About Us | Deen Relief",
   description:
-    "Founded in 2013 by Shabek Ali in Brighton, Deen Relief has grown from local homeless outreach to delivering cancer care, emergency relief, and education across five countries.",
+    "UK-registered Islamic charity (No. 1158608) delivering cancer care, emergency relief, and community development across five countries since 2013.",
+  alternates: { canonical: "/about" },
   openGraph: {
     title: "About Us | Deen Relief",
     description: "Founded in 2013 in Brighton. From local homeless outreach to cancer care, emergency relief, and education across five countries.",
@@ -56,12 +57,13 @@ export default function AboutPage() {
               <h1
                 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]"
               >
-                Guided by Faith,{"\n"}Driven by Action
+                Guided by Faith, Driven by Action
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-7 leading-[1.7] max-w-[24rem]">
-                A UK-registered charity delivering cancer care, emergency
-                relief, and long-term development across five countries —
-                with no more than 10% spent on administration.
+                A UK-registered Islamic charity (No. 1158608) delivering
+                children&apos;s cancer care, emergency relief, and community
+                development across five countries — with no more than 10%
+                spent on administration.
               </p>
               <Button variant="primary" href="/#donate">
                 Donate Now
@@ -79,7 +81,7 @@ export default function AboutPage() {
               {/* Image */}
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/brighton-team.png"
+                  src="/images/brighton-team.webp"
                   alt="Deen Relief volunteers gathered at Brighton seafront for a community outreach event"
                   fill
                   className="object-cover"
@@ -91,10 +93,10 @@ export default function AboutPage() {
               {/* Content */}
               <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                  Our Story
+                  About Our Islamic Charity
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
-                  From Brighton&apos;s Streets to a Global Mission
+                  UK Muslim Charity — From Brighton to the World
                 </h2>
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-4">
                   Deen Relief was established by founding trustee Shabek Ali
@@ -131,10 +133,10 @@ export default function AboutPage() {
             {/* Header */}
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                What We Do
+                Our Charitable Work
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Delivering Real Change Where It&apos;s Needed
+                Islamic Charity Programmes Across Five Countries
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 From cancer care centres in Turkey to classroom construction
@@ -260,7 +262,7 @@ export default function AboutPage() {
                 </div>
                 <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                   <Image
-                    src="/images/cancer-care-family.png"
+                    src="/images/cancer-care-family.webp"
                     alt="Deen Relief worker with a child at the care centre in Adana"
                     fill
                     className="object-cover object-[60%_30%]"
@@ -355,10 +357,10 @@ export default function AboutPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                Governance
+                Charity Governance
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Transparent by Design
+                Registered UK Charity — Transparent by Design
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 Deen Relief operates as a registered charitable trust and
@@ -440,8 +442,8 @@ export default function AboutPage() {
 
             <div className="grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
               {[
-                { name: "Shabek Ali", role: "Founder & Trustee", image: "/images/team/shabek-ali.jpg" },
-                { name: "Uthman Jeewa", role: "Trustee", image: "/images/team/uthman-jeewa.jpg" },
+                { name: "Shabek Ali", role: "Founder & Trustee", image: "/images/team/shabek-ali.webp" },
+                { name: "Uthman Jeewa", role: "Trustee", image: "/images/team/uthman-jeewa.webp" },
                 { name: "Halim Rashid", role: "Trustee", image: "/images/team/halim-rashid.webp" },
               ].map((member) => (
                 <div

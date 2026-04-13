@@ -6,7 +6,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Terms & Conditions | Deen Relief",
   description:
-    "Terms and conditions governing the use of the Deen Relief website and donation services.",
+    "Terms and conditions for using the Deen Relief website. Information about donations, Gift Aid, and your rights as a donor. Charity No. 1158608.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

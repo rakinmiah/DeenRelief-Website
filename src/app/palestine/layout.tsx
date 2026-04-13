@@ -3,11 +3,19 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Palestine Emergency Relief | Deen Relief",
   description:
-    "Emergency aid for displaced families in Gaza. Food, clean water, medical supplies, and shelter delivered directly by our on-the-ground teams. 100% to relief. Charity No. 1158608.",
+    "Emergency relief for displaced families in Gaza. Food, water, medical supplies, and shelter delivered by our teams on the ground. Charity No. 1158608.",
+  alternates: { canonical: "/palestine" },
   openGraph: {
     title: "Palestine Emergency Relief | Deen Relief",
-    description: "Emergency aid for displaced families in Gaza. 100% of donations go directly to relief.",
-    images: [{ url: "/images/palestine-relief.jpg", alt: "Deen Relief worker distributing aid in Gaza" }],
+    description: "Emergency relief for displaced families in Gaza. Food, water, medical supplies, and shelter delivered by our teams on the ground. Charity No. 1158608.",
+    images: [{ url: "/images/palestine-relief.webp", alt: "Deen Relief worker distributing aid in Gaza" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@deenrelief",
+    title: "Palestine Emergency Relief | Deen Relief",
+    description: "Emergency relief for displaced families in Gaza. Food, water, medical supplies, and shelter delivered by our teams on the ground. Charity No. 1158608.",
+    images: ["/images/palestine-relief.webp"],
   },
 };
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/JsonLd";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -55,6 +56,19 @@ const faqs = [
   },
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function ZakatPage() {
   /* ── Donation panel state ── */
   const [frequency, setFrequency] = useState<Frequency>("one-time");
@@ -76,13 +90,40 @@ export default function ZakatPage() {
   /* ── Zakat calculator state ── */
   const [assets, setAssets] = useState("");
   const [liabilities, setLiabilities] = useState("");
-  const [nisab, setNisab] = useState("");
   const [zakatResult, setZakatResult] = useState<number | null>(null);
+  const [nisabStandard, setNisabStandard] = useState<"silver" | "gold">("silver");
+  const [nisabData, setNisabData] = useState<{
+    gold: { pricePerGram: number; nisab: number };
+    silver: { pricePerGram: number; nisab: number };
+    updatedAt: string | null;
+    fallback?: boolean;
+  } | null>(null);
+  const [nisabLoading, setNisabLoading] = useState(true);
+  const [nisabError, setNisabError] = useState(false);
+  const [manualNisab, setManualNisab] = useState("");
+
+  // Fetch live nisab on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/nisab");
+        const data = await res.json();
+        setNisabData(data);
+      } catch {
+        setNisabError(true);
+      } finally {
+        setNisabLoading(false);
+      }
+    })();
+  }, []);
+
+  const currentNisab = nisabError
+    ? parseFloat(manualNisab) || 0
+    : nisabData?.[nisabStandard]?.nisab ?? 0;
 
   const calculateZakat = () => {
     const netWealth = (parseFloat(assets) || 0) - (parseFloat(liabilities) || 0);
-    const nisabValue = parseFloat(nisab) || 0;
-    if (netWealth > nisabValue && nisabValue > 0) {
+    if (netWealth > currentNisab && currentNisab > 0) {
       setZakatResult(Math.round(netWealth * 0.025 * 100) / 100);
     } else {
       setZakatResult(0);
@@ -92,7 +133,7 @@ export default function ZakatPage() {
   const resetCalculator = () => {
     setAssets("");
     setLiabilities("");
-    setNisab("");
+    setManualNisab("");
     setZakatResult(null);
   };
 
@@ -101,6 +142,7 @@ export default function ZakatPage() {
 
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -108,7 +150,7 @@ export default function ZakatPage() {
         <section className="relative min-h-[45vh] md:min-h-[50vh] flex items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/palestine-relief.jpg"
+              src="/images/palestine-relief.webp"
               alt="Deen Relief worker distributing aid to a family in Gaza"
               fill
               className="object-cover object-[center_37%]"
@@ -133,11 +175,10 @@ export default function ZakatPage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
-                Fulfil Your Zakat{"\n"}With Confidence
+                Fulfill Your Zakat With Confidence
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                100% Zakat policy. Every penny reaches eligible recipients.
-                Trustee-verified before funds are released.
+                100% Zakat policy. Every penny reaches eligible recipients. Trustee-verified before funds are released.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -176,7 +217,7 @@ export default function ZakatPage() {
                   Pay Your Zakat
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                  Your Zakat, Delivered With Trust
+                  Pay Your Zakat With Confidence
                 </h2>
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-2">
                   Takes under 2 minutes. Your £100 becomes £125 with Gift Aid.
@@ -322,10 +363,10 @@ export default function ZakatPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                Where Your Zakat Goes
+                Zakat Distribution
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Four Pathways of Impact
+                Four Pathways Your Zakat Can Take
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 Choose a specific pathway or let us direct your Zakat where
@@ -400,10 +441,10 @@ export default function ZakatPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                Your Zakat Is An Amanah
+                Trusted Zakat Charity
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                How We Handle Your Zakat
+                How We Distribute Your Zakat
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 Your donation is a sacred trust. Here is exactly how we
@@ -489,7 +530,7 @@ export default function ZakatPage() {
               </div>
               <div className="relative rounded-2xl overflow-hidden aspect-[5/6]">
                 <Image
-                  src="/images/zakat-family-support.jpg"
+                  src="/images/zakat-family-support.webp"
                   alt="Deen Relief worker with a child and food supplies in Bangladesh"
                   fill
                   className="object-cover object-[center_30%]"
@@ -519,15 +560,88 @@ export default function ZakatPage() {
                 Zakat Calculator
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Estimate Your Zakat
+                How Much Zakat Do I Owe?
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-                Planning tool only. Final Zakat may vary by scholarly
-                opinion.
+                Use our free zakat calculator to estimate how much zakat you owe. Based on live gold and silver nisab prices. Planning tool only — consult a scholar for specific rulings.
               </p>
             </div>
 
             <div className="bg-white rounded-2xl p-6 sm:p-8">
+              {/* Nisab display */}
+              <div className="mb-6 p-4 rounded-xl bg-green-light/40 border border-green/8">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold text-charcoal/60 uppercase tracking-wide">
+                    Nisab Threshold
+                  </span>
+                  {/* Gold / Silver toggle */}
+                  <div className="flex items-center gap-1 bg-white rounded-full p-0.5 border border-charcoal/8">
+                    <button
+                      onClick={() => setNisabStandard("silver")}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 ${
+                        nisabStandard === "silver"
+                          ? "bg-green text-white"
+                          : "text-charcoal/50 hover:text-charcoal/70"
+                      }`}
+                    >
+                      Silver
+                    </button>
+                    <button
+                      onClick={() => setNisabStandard("gold")}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all duration-200 ${
+                        nisabStandard === "gold"
+                          ? "bg-green text-white"
+                          : "text-charcoal/50 hover:text-charcoal/70"
+                      }`}
+                    >
+                      Gold
+                    </button>
+                  </div>
+                </div>
+
+                {nisabLoading ? (
+                  <div className="animate-pulse flex items-baseline gap-2">
+                    <div className="h-7 w-24 bg-green/10 rounded" />
+                    <div className="h-3 w-32 bg-green/10 rounded" />
+                  </div>
+                ) : nisabError ? (
+                  <div>
+                    <p className="text-xs text-charcoal/50 mb-2">
+                      Unable to fetch live prices. Enter nisab manually:
+                    </p>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-grey font-medium text-sm">
+                        £
+                      </span>
+                      <input
+                        type="number"
+                        value={manualNisab}
+                        onChange={(e) => setManualNisab(e.target.value)}
+                        placeholder="Enter current nisab in GBP"
+                        className="w-full pl-7 pr-4 py-2 rounded-lg border border-charcoal/10 text-charcoal text-sm placeholder:text-grey/40 focus:outline-none focus:border-green/40"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-2xl font-heading font-bold text-green-dark">
+                      £{currentNisab.toLocaleString("en-GB", { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-charcoal/40 mt-1">
+                      Based on {nisabStandard === "silver" ? "612.36g of silver" : "87.48g of gold"} at
+                      {" £"}
+                      {nisabData?.[nisabStandard]?.pricePerGram.toFixed(2)}/g
+                      {nisabData?.updatedAt && (
+                        <> · Updated {nisabData.updatedAt}</>
+                      )}
+                      {nisabData?.fallback && (
+                        <> · Approximate values</>
+                      )}
+                    </p>
+                  </>
+                )}
+              </div>
+
               <div className="space-y-4 mb-6">
                 {/* Assets */}
                 <div>
@@ -576,32 +690,6 @@ export default function ZakatPage() {
                       type="number"
                       value={liabilities}
                       onChange={(e) => setLiabilities(e.target.value)}
-                      placeholder="0"
-                      className="w-full pl-8 pr-4 py-3 rounded-xl border-2 border-grey-light text-charcoal placeholder:text-grey/40 focus:outline-none focus:border-green/40 transition-colors duration-200"
-                    />
-                  </div>
-                </div>
-
-                {/* Nisab */}
-                <div>
-                  <label
-                    htmlFor="zakat-nisab"
-                    className="block text-sm font-medium text-charcoal mb-1.5"
-                  >
-                    Nisab threshold
-                  </label>
-                  <p className="text-[0.75rem] text-grey/60 mb-2">
-                    Current nisab value in GBP (changes with market prices)
-                  </p>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-grey font-medium">
-                      £
-                    </span>
-                    <input
-                      id="zakat-nisab"
-                      type="number"
-                      value={nisab}
-                      onChange={(e) => setNisab(e.target.value)}
                       placeholder="0"
                       className="w-full pl-8 pr-4 py-3 rounded-xl border-2 border-grey-light text-charcoal placeholder:text-grey/40 focus:outline-none focus:border-green/40 transition-colors duration-200"
                     />
