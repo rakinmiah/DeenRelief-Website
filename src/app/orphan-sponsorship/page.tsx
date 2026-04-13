@@ -217,7 +217,7 @@ export default function OrphanSponsorshipPage() {
         <Partners />
 
         {/* ─── 4. Donation Panel ─── */}
-        <section id="sponsor-form" className="py-16 md:py-24 bg-cream">
+        <section id="sponsor-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-cream">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8 bg-white">
               <div className="text-center mb-8">
