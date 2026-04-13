@@ -383,12 +383,12 @@ export default function PrayerTimesUI({
       </section>
 
       {/* ─── Popular Cities ─── */}
-      <section className="py-10 md:py-12 bg-cream">
+      <section className="py-6 md:py-8 bg-cream">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-4">
+          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
             Prayer Times by City
           </p>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-8">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-3">
             {priorityCities.map((city) =>
               city.slug === currentCitySlug ? (
                 <span
