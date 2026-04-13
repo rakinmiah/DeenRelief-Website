@@ -98,7 +98,7 @@ export default function CampaignsGrid() {
               key={campaign.title}
               id={campaign.href.replace("#", "")}
               href={campaign.href}
-              className="group block bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+              className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
             >
               {/* Image */}
               <div className="relative aspect-[16/10] overflow-hidden">
@@ -119,11 +119,11 @@ export default function CampaignsGrid() {
               </div>
 
               {/* Content */}
-              <div className="p-5">
+              <div className="p-5 flex flex-col flex-1">
                 <h3 className="font-heading font-semibold text-lg text-charcoal mb-2 group-hover:text-green transition-colors duration-200">
                   {campaign.title}
                 </h3>
-                <p className="text-grey/80 text-sm leading-relaxed mb-4">
+                <p className="text-grey/80 text-sm leading-relaxed mb-4 flex-1">
                   {campaign.description}
                 </p>
                 <span className="inline-flex items-center text-green text-sm font-medium">

@@ -87,7 +87,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
       <main id="main-content" className="flex-1">
         {/* Article Header */}
-        <section className="bg-cream pt-28 md:pt-32 pb-12 md:pb-16">
+        <section className="bg-cream pt-24 md:pt-32 pb-10 md:pb-14">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <Link
               href="/blog"

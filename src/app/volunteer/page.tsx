@@ -73,12 +73,15 @@ export default function VolunteerPage() {
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">
                 Take Action, Get Involved
               </h1>
-              <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 leading-[1.7] max-w-[24rem]">
+              <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-7 leading-[1.7] max-w-[24rem]">
                 Join our team of dedicated volunteers across the UK and
                 abroad. From Brighton outreach to Bangladesh housing
                 projects — no experience needed, just a willingness to
                 help.
               </p>
+              <Button variant="primary" href="#volunteer-form">
+                Apply Now
+              </Button>
             </div>
           </div>
 

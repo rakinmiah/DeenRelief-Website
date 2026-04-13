@@ -12,7 +12,7 @@ export default function BlogPage() {
 
       <main id="main-content" className="flex-1">
         {/* Hero */}
-        <section className="bg-cream pt-28 md:pt-32 pb-16 md:pb-20">
+        <section className="bg-cream pt-24 md:pt-32 pb-14 md:pb-18">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
