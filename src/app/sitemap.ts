@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/blog";
+import { priorityCities } from "@/lib/cities";
 
 const BASE_URL = "https://deenrelief.org";
 
@@ -28,6 +29,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: now,
     changeFrequency: "weekly" as const,
     priority: 0.9,
+  }));
+
+  // City prayer times
+  const prayerCities: MetadataRoute.Sitemap = priorityCities.map((city) => ({
+    url: `${BASE_URL}/prayer-times/${city.slug}`,
+    lastModified: now,
+    changeFrequency: "daily" as const,
+    priority: 0.7,
   }));
 
   // Blog
@@ -61,5 +70,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.3,
   }));
 
-  return [...core, ...campaigns, ...blogListing, ...blogPosts, ...utility, ...legal];
+  return [...core, ...campaigns, ...prayerCities, ...blogListing, ...blogPosts, ...utility, ...legal];
 }
