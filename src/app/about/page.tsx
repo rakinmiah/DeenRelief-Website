@@ -5,6 +5,7 @@ import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 import type { Metadata } from "next";
 
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "About", href: "/about" }]} />
       <Header />
 
       <main id="main-content" className="flex-1">

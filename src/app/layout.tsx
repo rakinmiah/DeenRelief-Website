@@ -54,6 +54,18 @@ const organizationSchema = {
   },
 };
 
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Deen Relief",
+  url: "https://deenrelief.org",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: "https://deenrelief.org/blog?q={search_term_string}",
+    "query-input": "required name=search_term_string",
+  },
+};
+
 const sourceSerif = Source_Serif_4({
   variable: "--font-heading",
   subsets: ["latin"],
@@ -116,6 +128,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-body text-charcoal bg-white">
         <JsonLd data={organizationSchema} />
+        <JsonLd data={websiteSchema} />
         {children}
       </body>
     </html>

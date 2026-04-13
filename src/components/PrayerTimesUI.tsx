@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Button from "./Button";
-import { cityNames } from "@/lib/cities";
-import { priorityCities } from "@/lib/cities";
+import { cityNames, cities, priorityCities } from "@/lib/cities";
 
 /* ── Prayer names to display ── */
 const prayerKeys = [
@@ -384,11 +383,11 @@ export default function PrayerTimesUI({
 
       {/* ─── Popular Cities ─── */}
       <section className="py-6 md:py-8 bg-cream">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-            Prayer Times by City
+            Popular Cities
           </p>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-3">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-4">
             {priorityCities.map((city) =>
               city.slug === currentCitySlug ? (
                 <span
@@ -408,10 +407,36 @@ export default function PrayerTimesUI({
               )
             )}
           </div>
+          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/30 mb-3">
+            All UK Cities
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5">
+            {cities
+              .filter((c) => !priorityCities.includes(c))
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((city) =>
+                city.slug === currentCitySlug ? (
+                  <span
+                    key={city.slug}
+                    className="text-xs text-charcoal font-semibold"
+                  >
+                    {city.name}
+                  </span>
+                ) : (
+                  <Link
+                    key={city.slug}
+                    href={`/prayer-times/${city.slug}`}
+                    className="text-xs text-grey/60 hover:text-green transition-colors duration-200"
+                  >
+                    {city.name}
+                  </Link>
+                )
+              )}
+          </div>
           {currentCitySlug && (
             <Link
               href="/prayer-times"
-              className="text-sm text-green font-medium hover:text-green-dark transition-colors duration-200"
+              className="inline-block mt-4 text-sm text-green font-medium hover:text-green-dark transition-colors duration-200"
             >
               View all UK cities &rarr;
             </Link>

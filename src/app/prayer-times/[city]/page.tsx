@@ -4,14 +4,14 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PrayerTimesUI from "@/components/PrayerTimesUI";
-import { getCityBySlug, priorityCities } from "@/lib/cities";
+import { getCityBySlug, cities } from "@/lib/cities";
 
 interface PageProps {
   params: Promise<{ city: string }>;
 }
 
 export async function generateStaticParams() {
-  return priorityCities.map((city) => ({ city: city.slug }));
+  return cities.map((city) => ({ city: city.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

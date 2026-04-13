@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -46,6 +47,7 @@ export default function SadaqahPage() {
 
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Give Sadaqah", href: "/sadaqah" }]} />
       <Header />
 
       <main id="main-content" className="flex-1">

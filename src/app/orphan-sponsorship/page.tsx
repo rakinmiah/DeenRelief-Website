@@ -8,6 +8,7 @@ import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -92,6 +93,7 @@ export default function OrphanSponsorshipPage() {
 
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Orphan Sponsorship", href: "/orphan-sponsorship" }]} />
       <JsonLd data={faqSchema} />
       <Header />
 

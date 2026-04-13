@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Footer from "@/components/Footer";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 export default function VolunteerPage() {
   const [formState, setFormState] = useState<"idle" | "submitting" | "submitted" | "error">("idle");
@@ -39,6 +40,7 @@ export default function VolunteerPage() {
 
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Volunteer", href: "/volunteer" }]} />
       <Header />
 
       <main id="main-content" className="flex-1">

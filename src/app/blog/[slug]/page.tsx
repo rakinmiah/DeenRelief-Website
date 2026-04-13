@@ -8,6 +8,7 @@ import { getPostBySlug, getAllSlugs } from "@/lib/blog";
 import { compileMDX } from "next-mdx-remote/rsc";
 import { useMDXComponents } from "@/components/mdx-components";
 import JsonLd from "@/components/JsonLd";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -83,6 +84,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   return (
     <>
       <JsonLd data={articleSchema} />
+      <BreadcrumbSchema items={[{ name: "Blog", href: "/blog" }, { name: post.title, href: `/blog/${slug}` }]} />
       <Header />
 
       <main id="main-content" className="flex-1">

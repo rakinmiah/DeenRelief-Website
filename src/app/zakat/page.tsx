@@ -8,6 +8,7 @@ import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 /* ── Donation amount data ── */
 const donationAmounts = {
@@ -142,6 +143,7 @@ export default function ZakatPage() {
 
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Pay Zakat", href: "/zakat" }]} />
       <JsonLd data={faqSchema} />
       <Header />
 

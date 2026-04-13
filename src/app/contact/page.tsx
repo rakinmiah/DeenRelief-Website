@@ -6,6 +6,54 @@ import Header from "@/components/Header";
 import ProofTag from "@/components/ProofTag";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+import JsonLd from "@/components/JsonLd";
+
+const localBusinessSchema = [
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": "https://deenrelief.org/#brighton-office",
+    name: "Deen Relief — Operations Office",
+    description: "UK Islamic charity operations office in Brighton.",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "7 Maldon Road",
+      addressLocality: "Brighton",
+      postalCode: "BN1 5BD",
+      addressCountry: "GB",
+    },
+    telephone: "+443003658899",
+    email: "info@deenrelief.org",
+    url: "https://deenrelief.org",
+    openingHours: "Mo-Su 09:00-17:00",
+    parentOrganization: {
+      "@type": "NonprofitOrganization",
+      name: "Deen Relief",
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": "https://deenrelief.org/#london-office",
+    name: "Deen Relief — Registered Office",
+    description: "UK Islamic charity registered office in London.",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "71-75 Shelton Street",
+      addressLocality: "London",
+      postalCode: "WC2H 9JQ",
+      addressCountry: "GB",
+    },
+    telephone: "+443003658899",
+    email: "info@deenrelief.org",
+    url: "https://deenrelief.org",
+    parentOrganization: {
+      "@type": "NonprofitOrganization",
+      name: "Deen Relief",
+    },
+  },
+];
 
 export default function ContactPage() {
   const [formState, setFormState] = useState<"idle" | "submitting" | "submitted" | "error">("idle");
@@ -37,6 +85,10 @@ export default function ContactPage() {
 
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Contact", href: "/contact" }]} />
+      {localBusinessSchema.map((schema, i) => (
+        <JsonLd key={i} data={schema} />
+      ))}
       <Header />
 
       <main id="main-content" className="flex-1">

@@ -2,12 +2,36 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getAllPosts } from "@/lib/blog";
+import JsonLd from "@/components/JsonLd";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
 export default function BlogPage() {
   const posts = getAllPosts();
 
+  const blogListSchema = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "Deen Relief Blog",
+    url: "https://deenrelief.org/blog",
+    description: "Islamic knowledge guides on Zakat, Sadaqah, and charitable giving.",
+    publisher: {
+      "@type": "Organization",
+      name: "Deen Relief",
+      url: "https://deenrelief.org",
+    },
+    blogPost: posts.map((post) => ({
+      "@type": "BlogPosting",
+      headline: post.title,
+      description: post.description,
+      url: `https://deenrelief.org/blog/${post.slug}`,
+      datePublished: post.date,
+    })),
+  };
+
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Blog", href: "/blog" }]} />
+      <JsonLd data={blogListSchema} />
       <Header />
 
       <main id="main-content" className="flex-1">
