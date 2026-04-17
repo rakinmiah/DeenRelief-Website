@@ -41,17 +41,23 @@ interface PrayerTimesUIProps {
   useGeolocation?: boolean;
   /** Current city slug for linking (hides link to self in popular cities) */
   currentCitySlug?: string;
+  /** Server-rendered prayer times — if provided, renders immediately without a loading spinner. */
+  initialTimings?: PrayerTimings | null;
+  /** Server-rendered date info — paired with initialTimings. */
+  initialDateInfo?: DateInfo | null;
 }
 
 export default function PrayerTimesUI({
   defaultCity,
   useGeolocation = true,
   currentCitySlug,
+  initialTimings = null,
+  initialDateInfo = null,
 }: PrayerTimesUIProps) {
   const [selectedCity, setSelectedCity] = useState(defaultCity);
-  const [timings, setTimings] = useState<PrayerTimings | null>(null);
-  const [dateInfo, setDateInfo] = useState<DateInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [timings, setTimings] = useState<PrayerTimings | null>(initialTimings);
+  const [dateInfo, setDateInfo] = useState<DateInfo | null>(initialDateInfo);
+  const [loading, setLoading] = useState(!initialTimings);
   const [error, setError] = useState(false);
   const [currentPrayer, setCurrentPrayer] = useState("");
   const [nextPrayer, setNextPrayer] = useState("");
@@ -140,9 +146,14 @@ export default function PrayerTimesUI({
 
   useEffect(() => {
     if (useGeolocation) {
+      // Hub page: attempt geolocation (overrides server-rendered Brighton data)
       requestLocation();
-    } else {
+    } else if (!initialTimings) {
+      // City page without server data (API was down at build time): fetch client-side
       fetchByCity(defaultCity);
+      setGeoAttempted(true);
+    } else {
+      // City page with server data: no fetch needed, times already rendered
       setGeoAttempted(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -367,32 +378,49 @@ export default function PrayerTimesUI({
                 Times calculated using ISNA method for {displayLocation}
               </p>
 
-              <p className="text-center text-grey/50 text-xs mt-6">
-                While you&apos;re here —{" "}
-                <a
-                  href="/palestine"
-                  className="text-green/60 hover:text-green transition-colors duration-200"
-                >
-                  a family in Gaza needs your help
-                </a>
-              </p>
+              {/* Contextual donation prompt — visible but non-intrusive */}
+              <div className="mt-8 p-5 rounded-2xl bg-green-light/60 border border-green/10 text-center">
+                <p className="text-charcoal font-heading font-semibold text-[0.9375rem] mb-1">
+                  While you&apos;re here — a family in Gaza needs your help
+                </p>
+                <p className="text-grey text-[0.8125rem] leading-[1.6] mb-3">
+                  100% of your donation reaches those in need. Gift Aid
+                  eligible. Charity No. 1158608.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                  <a
+                    href="/palestine"
+                    className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-green text-white hover:bg-green-dark font-semibold text-sm shadow-sm transition-colors duration-200"
+                  >
+                    Donate Now
+                  </a>
+                  <a
+                    href="/sadaqah"
+                    className="inline-flex items-center justify-center px-5 py-2.5 rounded-full border border-charcoal/15 text-charcoal hover:bg-charcoal/5 font-semibold text-sm transition-colors duration-200"
+                  >
+                    Give Sadaqah
+                  </a>
+                </div>
+              </div>
             </>
           )}
         </div>
       </section>
 
-      {/* ─── Popular Cities ─── */}
-      <section className="py-6 md:py-8 bg-cream">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-            Popular Cities
-          </p>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-4">
+      {/* ─── Prayer Times by City ─── */}
+      <section className="py-12 md:py-16 bg-cream">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-heading font-bold text-charcoal text-center leading-tight mb-8">
+            Prayer Times by City
+          </h2>
+
+          {/* Priority cities — larger tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
             {priorityCities.map((city) =>
               city.slug === currentCitySlug ? (
                 <span
                   key={city.slug}
-                  className="text-sm text-charcoal font-semibold"
+                  className="flex items-center justify-center py-3 px-4 rounded-xl border-2 border-green bg-green-light text-green font-heading font-semibold text-sm"
                 >
                   {city.name}
                 </span>
@@ -400,25 +428,27 @@ export default function PrayerTimesUI({
                 <Link
                   key={city.slug}
                   href={`/prayer-times/${city.slug}`}
-                  className="text-sm text-grey hover:text-green transition-colors duration-200"
+                  className="flex items-center justify-center py-3 px-4 rounded-xl border border-charcoal/8 bg-white text-charcoal font-heading font-semibold text-sm hover:border-green hover:text-green hover:bg-green-light/30 transition-all duration-200"
                 >
                   {city.name}
                 </Link>
               )
             )}
           </div>
-          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/30 mb-3">
+
+          {/* All other cities — smaller text links */}
+          <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/40 text-center mb-4">
             All UK Cities
-          </p>
-          <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5">
+          </h3>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
             {cities
-              .filter((c) => !priorityCities.includes(c))
+              .filter((c) => !c.priority)
               .sort((a, b) => a.name.localeCompare(b.name))
               .map((city) =>
                 city.slug === currentCitySlug ? (
                   <span
                     key={city.slug}
-                    className="text-xs text-charcoal font-semibold"
+                    className="text-sm text-charcoal font-semibold"
                   >
                     {city.name}
                   </span>
@@ -426,20 +456,23 @@ export default function PrayerTimesUI({
                   <Link
                     key={city.slug}
                     href={`/prayer-times/${city.slug}`}
-                    className="text-xs text-grey/60 hover:text-green transition-colors duration-200"
+                    className="text-sm text-grey/70 hover:text-green transition-colors duration-200"
                   >
                     {city.name}
                   </Link>
                 )
               )}
           </div>
+
           {currentCitySlug && (
-            <Link
-              href="/prayer-times"
-              className="inline-block mt-4 text-sm text-green font-medium hover:text-green-dark transition-colors duration-200"
-            >
-              View all UK cities &rarr;
-            </Link>
+            <div className="text-center mt-6">
+              <Link
+                href="/prayer-times"
+                className="text-sm text-green font-medium hover:text-green-dark transition-colors duration-200"
+              >
+                View all UK prayer times &rarr;
+              </Link>
+            </div>
           )}
         </div>
       </section>

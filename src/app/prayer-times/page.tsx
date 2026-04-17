@@ -1,11 +1,17 @@
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 import PrayerTimesUI from "@/components/PrayerTimesUI";
+import { fetchPrayerTimes } from "@/lib/prayer-times";
 
-export default function PrayerTimesPage() {
+export default async function PrayerTimesPage() {
+  // Server-render Brighton's times as default (client overrides with geolocation)
+  const prayerData = await fetchPrayerTimes("Brighton");
+
   return (
     <>
+      <BreadcrumbSchema items={[{ name: "Prayer Times", href: "/prayer-times" }]} />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -44,15 +50,22 @@ export default function PrayerTimesPage() {
                 Prayer Times UK — Accurate Salah Times Today
               </h1>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/60 leading-[1.7] max-w-[24rem]">
-                Accurate Muslim prayer times for UK cities including London,
-                Birmingham, Manchester, and Brighton. Fajr, Dhuhr, Asr,
-                Maghrib, and Isha times updated daily.
+                Accurate Muslim prayer times for 96+ UK cities including
+                London, Birmingham, Manchester, and Brighton. Fajr, Dhuhr,
+                Asr, Maghrib, and Isha times updated daily.
               </p>
             </div>
           </div>
         </section>
 
-        <PrayerTimesUI defaultCity="Brighton" useGeolocation={true} />
+        {/* ─── Prayer Times UI (client — geolocation enabled on hub) ─── */}
+        <PrayerTimesUI
+          defaultCity="Brighton"
+          useGeolocation={true}
+          initialTimings={prayerData?.timings ?? null}
+          initialDateInfo={prayerData?.dateInfo ?? null}
+        />
+
       </main>
 
       <Footer />
