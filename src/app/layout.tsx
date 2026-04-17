@@ -3,16 +3,31 @@ import { Source_Serif_4, DM_Sans } from "next/font/google";
 import "./globals.css";
 import JsonLd from "@/components/JsonLd";
 
+const SITE_URL = "https://deenrelief.org";
+const ORG_ID = `${SITE_URL}/#organization`;
+const WEBSITE_ID = `${SITE_URL}/#website`;
+
 const organizationSchema = {
   "@context": "https://schema.org",
-  "@type": "NonprofitOrganization",
+  "@type": "NGO",
+  "@id": ORG_ID,
   name: "Deen Relief",
   alternateName: "Deen Relief UK",
-  url: "https://deenrelief.org",
-  logo: "https://deenrelief.org/images/logo.webp",
+  legalName: "Deen Relief",
+  url: SITE_URL,
+  logo: `${SITE_URL}/images/logo.webp`,
+  image: `${SITE_URL}/images/logo.webp`,
+  slogan: "Helping poor, vulnerable and disabled children globally",
   description:
-    "UK-registered Islamic charity providing cancer care for refugee children, emergency relief, orphan sponsorship, and community support worldwide.",
+    "UK-registered Islamic charity providing cancer care for refugee children, emergency relief in Gaza, orphan sponsorship, Zakat and Sadaqah distribution, clean water projects, and community support worldwide.",
   foundingDate: "2013",
+  foundingLocation: {
+    "@type": "Place",
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "GB",
+    },
+  },
   founder: {
     "@type": "Person",
     name: "Shabek Ali",
@@ -33,7 +48,24 @@ const organizationSchema = {
       addressCountry: "GB",
     },
   ],
-  telephone: "+443003658899",
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      contactType: "customer service",
+      telephone: "+44-300-365-8899",
+      email: "info@deenrelief.org",
+      areaServed: "GB",
+      availableLanguage: ["English"],
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "donations",
+      email: "donate@deenrelief.org",
+      areaServed: "GB",
+      availableLanguage: ["English"],
+    },
+  ],
+  telephone: "+44-300-365-8899",
   email: "info@deenrelief.org",
   sameAs: [
     "https://www.facebook.com/DeenRelief/",
@@ -41,27 +73,70 @@ const organizationSchema = {
     "https://twitter.com/deenrelief/",
     "https://www.youtube.com/@deenrelief9734",
   ],
-  nonprofitStatus: "https://schema.org/CharitableIncorporatedOrganization",
-  identifier: {
-    "@type": "PropertyValue",
-    name: "Charity Commission Registration",
-    value: "1158608",
-  },
+  // LimitedByGuaranteeCharity is the correct type for UK charities that also have a
+  // Companies House number — CIOs don't register with Companies House. Deen Relief's
+  // Companies House registration (08593822) confirms this structure.
+  nonprofitStatus: "https://schema.org/LimitedByGuaranteeCharity",
+  identifier: [
+    {
+      "@type": "PropertyValue",
+      name: "Charity Commission for England and Wales",
+      propertyID: "charity-number",
+      value: "1158608",
+    },
+    {
+      "@type": "PropertyValue",
+      name: "Companies House",
+      propertyID: "company-number",
+      value: "08593822",
+    },
+  ],
+  areaServed: [
+    { "@type": "Country", name: "Palestine" },
+    { "@type": "Country", name: "Bangladesh" },
+    { "@type": "Country", name: "Turkey" },
+    { "@type": "Country", name: "United Kingdom" },
+  ],
+  knowsAbout: [
+    "Emergency humanitarian aid",
+    "Childhood cancer care",
+    "Orphan sponsorship",
+    "Zakat distribution",
+    "Sadaqah and Sadaqah Jariyah",
+    "Clean water projects",
+    "Education funding",
+    "Homelessness outreach",
+    "Refugee support",
+  ],
   potentialAction: {
     "@type": "DonateAction",
-    target: "https://deenrelief.org/#donate",
     name: "Donate to Deen Relief",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE_URL}/donate`,
+      actionPlatform: [
+        "http://schema.org/DesktopWebPlatform",
+        "http://schema.org/MobileWebPlatform",
+      ],
+    },
+    recipient: { "@id": ORG_ID },
   },
 };
 
 const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": WEBSITE_ID,
   name: "Deen Relief",
-  url: "https://deenrelief.org",
+  url: SITE_URL,
+  inLanguage: "en-GB",
+  publisher: { "@id": ORG_ID },
   potentialAction: {
     "@type": "SearchAction",
-    target: "https://deenrelief.org/blog?q={search_term_string}",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE_URL}/blog?q={search_term_string}`,
+    },
     "query-input": "required name=search_term_string",
   },
 };
@@ -85,33 +160,33 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Deen Relief | Islamic Charity Helping Children Globally",
+  title: "Deen Relief | UK Islamic Charity — Cancer Care, Gaza Relief, Zakat & Sadaqah",
   description:
-    "UK Islamic charity (No. 1158608) providing cancer care, emergency relief in Gaza, orphan sponsorship, and community support. Donate Zakat and Sadaqah.",
+    "UK Islamic charity trusted by 3,200+ donors since 2013. Cancer care for refugee children, emergency Gaza relief, orphan sponsorship. Donate Zakat & Sadaqah. Charity No. 1158608.",
   metadataBase: new URL("https://deenrelief.org"),
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "en_GB",
     siteName: "Deen Relief",
-    title: "Deen Relief | Islamic Charity Helping Children Globally",
+    title: "Deen Relief | UK Islamic Charity — Cancer Care, Gaza Relief, Zakat & Sadaqah",
     description:
-      "UK Islamic charity (No. 1158608) providing cancer care, emergency relief in Gaza, orphan sponsorship, and community support. Donate Zakat and Sadaqah.",
+      "UK Islamic charity trusted by 3,200+ donors since 2013. Cancer care for refugee children, emergency Gaza relief, orphan sponsorship. Donate Zakat & Sadaqah. Charity No. 1158608.",
     images: [
       {
         url: "/images/hero-gulucuk-evi.webp",
         width: 966,
         height: 722,
-        alt: "Deen Relief — Helping Children Globally",
+        alt: "Deen Relief — UK Islamic Charity Helping Children Globally",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     site: "@deenrelief",
-    title: "Deen Relief | Islamic Charity Helping Children Globally",
+    title: "Deen Relief | UK Islamic Charity — Cancer Care, Gaza Relief, Zakat & Sadaqah",
     description:
-      "UK Islamic charity (No. 1158608) providing cancer care, emergency relief in Gaza, orphan sponsorship, and community support. Donate Zakat and Sadaqah.",
+      "UK Islamic charity trusted by 3,200+ donors since 2013. Cancer care for refugee children, emergency Gaza relief, orphan sponsorship. Donate Zakat & Sadaqah. Charity No. 1158608.",
     images: ["/images/hero-gulucuk-evi.webp"],
   },
 };

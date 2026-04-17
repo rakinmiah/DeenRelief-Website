@@ -18,12 +18,12 @@ export default function Partners() {
           Our Partners
         </p>
 
-        {/* Logos */}
-        <div className="flex items-center justify-between gap-10 sm:gap-12 md:gap-16">
+        {/* Logos — 3×2 grid on mobile, single row on sm+ */}
+        <div className="grid grid-cols-3 gap-y-8 gap-x-6 sm:flex sm:items-center sm:justify-between sm:gap-12 md:gap-16">
           {partners.map((partner) => (
             <div
               key={partner.name}
-              className="flex items-center justify-center flex-1 min-w-0"
+              className="flex items-center justify-center sm:flex-1 min-w-0"
               title={partner.name}
             >
               <Image
@@ -31,7 +31,7 @@ export default function Partners() {
                 alt={partner.name}
                 width={145}
                 height={75}
-                className="max-h-[60px] sm:max-h-[75px] w-auto object-contain opacity-75"
+                className="max-h-[72px] sm:max-h-[75px] w-auto object-contain opacity-75"
               />
             </div>
           ))}
