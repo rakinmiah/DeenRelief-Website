@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local media working folder — source assets for imports, not served by Next.
+# Files are copied into /public/ when needed and committed there instead.
+/DeenReliefMedia/
