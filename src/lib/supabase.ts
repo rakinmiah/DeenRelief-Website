@@ -4,47 +4,55 @@
  * - `supabase` (anon): safe for browser. Respects Row-Level Security.
  *    Use for any client-side reads.
  *
- * - `supabaseAdmin` (service_role): SERVER ONLY. Bypasses RLS. Use for
+ * - `getSupabaseAdmin()` (service_role): SERVER ONLY. Bypasses RLS. Use for
  *    inserting donations, gift aid declarations, and webhook events.
  *    Never import this from a client component or expose the service_role
  *    key in any way.
+ *
+ * Both clients are lazy so `next build` can collect page data without env
+ * vars present. Throws only happen at actual call time.
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let _anon: SupabaseClient | null = null;
+let _admin: SupabaseClient | null = null;
 
-if (!supabaseUrl) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set.");
+function buildAnon(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set.");
+  if (!key) throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set.");
+  return createClient(url, key);
 }
-if (!supabaseAnonKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set.");
-}
 
-/** Browser-safe client. Respects Row-Level Security. */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/** Browser-safe client. Respects Row-Level Security. Lazy — constructed on first use. */
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_t, prop, recv) {
+    if (!_anon) _anon = buildAnon();
+    const value = Reflect.get(_anon, prop, recv);
+    return typeof value === "function" ? value.bind(_anon) : value;
+  },
+});
 
 /**
  * Server-only admin client. Bypasses Row-Level Security — only use in:
  *   - API routes (src/app/api/**)
  *   - Server components that need to write donation data
  *   - Never in "use client" components or Edge middleware
- *
- * Returns null if the service key is missing (e.g. during preview builds
- * before env vars are set). Callers should handle the null case gracefully.
  */
-export function getSupabaseAdmin() {
-  if (!supabaseServiceKey) {
+export function getSupabaseAdmin(): SupabaseClient {
+  if (_admin) return _admin;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set.");
+  if (!key) {
     throw new Error(
       "SUPABASE_SERVICE_ROLE_KEY is not set. This is a server-only variable."
     );
   }
-  if (!supabaseUrl) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set.");
-  }
-  return createClient(supabaseUrl, supabaseServiceKey, {
+  _admin = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  return _admin;
 }
