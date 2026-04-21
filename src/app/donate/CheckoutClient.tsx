@@ -57,6 +57,9 @@ export default function CheckoutClient({
   const [amountGbp, setAmountGbp] = useState<number>(initialAmountGbp);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [setupIntentId, setSetupIntentId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [mode, setMode] = useState<"payment" | "setup">("payment");
   const [intentError, setIntentError] = useState<string | null>(null);
   const [intentLoading, setIntentLoading] = useState<boolean>(true);
 
@@ -76,7 +79,16 @@ export default function CheckoutClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start payment.");
       setClientSecret(data.clientSecret);
-      setPaymentIntentId(data.paymentIntentId);
+      setMode(data.mode);
+      if (data.mode === "payment") {
+        setPaymentIntentId(data.paymentIntentId);
+        setSetupIntentId(null);
+        setCustomerId(null);
+      } else {
+        setSetupIntentId(data.setupIntentId);
+        setCustomerId(data.customerId);
+        setPaymentIntentId(null);
+      }
     } catch (err) {
       setIntentError(err instanceof Error ? err.message : "Unknown error.");
     } finally {
@@ -161,7 +173,10 @@ export default function CheckoutClient({
             amountGbp={amountGbp}
             campaign={initialCampaign}
             frequency={initialFrequency}
+            mode={mode}
             paymentIntentId={paymentIntentId}
+            setupIntentId={setupIntentId}
+            customerId={customerId}
           />
         </Elements>
       )}
@@ -250,12 +265,18 @@ function CheckoutForm({
   amountGbp,
   campaign,
   frequency,
+  mode,
   paymentIntentId,
+  setupIntentId,
+  customerId,
 }: {
   amountGbp: number;
   campaign: string;
   frequency: "one-time" | "monthly";
+  mode: "payment" | "setup";
   paymentIntentId: string | null;
+  setupIntentId: string | null;
+  customerId: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -287,7 +308,15 @@ function CheckoutForm({
     e.preventDefault();
     setError(null);
 
-    if (!stripe || !elements || !paymentIntentId) {
+    if (!stripe || !elements) {
+      setError("Payment form not ready. Please refresh and try again.");
+      return;
+    }
+    if (mode === "payment" && !paymentIntentId) {
+      setError("Payment form not ready. Please refresh and try again.");
+      return;
+    }
+    if (mode === "setup" && (!setupIntentId || !customerId)) {
       setError("Payment form not ready. Please refresh and try again.");
       return;
     }
@@ -316,58 +345,72 @@ function CheckoutForm({
       // Store donor + pending donation BEFORE confirming payment. If confirm
       // succeeds but the row insert fails, we'd have an orphan charge with
       // no donor record — worse than the reverse.
+      const confirmBody: Record<string, unknown> = {
+        campaign,
+        frequency,
+        donor: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          addressLine1: addressLine1.trim(),
+          addressLine2: addressLine2.trim() || undefined,
+          city: city.trim() || undefined,
+          postcode: postcode.trim().toUpperCase(),
+        },
+        giftAid: giftAidEnabled
+          ? { enabled: true, scope: GIFT_AID_SCOPE, declarationText }
+          : { enabled: false },
+        marketingConsent: false,
+      };
+      if (mode === "payment") {
+        confirmBody.paymentIntentId = paymentIntentId;
+      } else {
+        confirmBody.setupIntentId = setupIntentId;
+        confirmBody.customerId = customerId;
+      }
+
       const confirmRes = await fetch("/api/donations/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentIntentId,
-          campaign,
-          frequency,
-          donor: {
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.trim(),
-            addressLine1: addressLine1.trim(),
-            addressLine2: addressLine2.trim() || undefined,
-            city: city.trim() || undefined,
-            postcode: postcode.trim().toUpperCase(),
-          },
-          giftAid: giftAidEnabled
-            ? {
-                enabled: true,
-                scope: GIFT_AID_SCOPE,
-                declarationText,
-              }
-            : { enabled: false },
-          marketingConsent: false,
-        }),
+        body: JSON.stringify(confirmBody),
       });
       const confirmData = await confirmRes.json();
       if (!confirmRes.ok) throw new Error(confirmData.error ?? "Could not save donation.");
 
-      // Now confirm payment with Stripe. On success, Stripe redirects to
-      // return_url. On failure, the promise resolves with { error } and we
-      // show it inline — no redirect.
-      const { error: stripeError } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/donate/thank-you`,
-          receipt_email: email.trim(),
-          payment_method_data: {
-            billing_details: {
-              name: `${firstName.trim()} ${lastName.trim()}`,
-              email: email.trim(),
-              address: {
-                line1: addressLine1.trim(),
-                line2: addressLine2.trim() || undefined,
-                city: city.trim() || undefined,
-                postal_code: postcode.trim().toUpperCase(),
-                country: "GB",
-              },
-            },
-          },
+      // Now confirm with Stripe — different method per mode. Both redirect
+      // to /donate/thank-you on success; on failure the promise resolves
+      // with { error } and we show it inline.
+      const billingDetails = {
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        email: email.trim(),
+        address: {
+          line1: addressLine1.trim(),
+          line2: addressLine2.trim() || undefined,
+          city: city.trim() || undefined,
+          postal_code: postcode.trim().toUpperCase(),
+          country: "GB",
         },
-      });
+      };
+
+      const returnUrl = `${window.location.origin}/donate/thank-you`;
+
+      const { error: stripeError } =
+        mode === "payment"
+          ? await stripe.confirmPayment({
+              elements,
+              confirmParams: {
+                return_url: returnUrl,
+                receipt_email: email.trim(),
+                payment_method_data: { billing_details: billingDetails },
+              },
+            })
+          : await stripe.confirmSetup({
+              elements,
+              confirmParams: {
+                return_url: returnUrl,
+                payment_method_data: { billing_details: billingDetails },
+              },
+            });
 
       if (stripeError) {
         setError(stripeError.message ?? "Payment failed. Please try again.");

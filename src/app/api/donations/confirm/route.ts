@@ -1,22 +1,20 @@
 /**
  * POST /api/donations/confirm
  *
- * Called by the /donate client after stripe.confirmPayment() is about to run
- * (or immediately after, depending on the client flow). Stores the donor's
- * details and creates a pending donation row keyed by Stripe PaymentIntent ID.
+ * Stores donor + pending donation before the client calls stripe.confirmPayment
+ * (one-time) or stripe.confirmSetup (monthly). NEVER marks status=succeeded —
+ * that's the webhook's job, keyed on signed Stripe events.
  *
- * IMPORTANT: This route does NOT mark the donation as succeeded. That state
- * transition only happens in /api/stripe/webhook when Stripe sends us the
- * verified payment_intent.succeeded event. This prevents a malicious client
- * from faking success.
+ * One-time: keyed by paymentIntentId. Webhook payment_intent.succeeded flips
+ * the row to succeeded and sends the receipt.
  *
- * Idempotency: if called twice with the same paymentIntentId, the second
- * call is a no-op (UNIQUE constraint on donations.stripe_payment_intent_id).
+ * Monthly: keyed by setupIntentId. Webhook setup_intent.succeeded creates
+ * the recurring Subscription. Subsequent invoice.paid events create new
+ * donation rows per renewal, reusing the donor + gift aid declaration.
  *
  * Gift Aid: if the donor ticks the box, we insert a gift_aid_declarations
- * row (with IP + user agent as audit trail for HMRC) and link it to the
- * donation. The declaration_text field stores the verbatim wording the
- * donor saw — HMRC may request this if a claim is audited.
+ * row (with IP + user agent audit trail) and link it to the donation.
+ * For monthly donors the same declaration covers all future renewals.
  */
 
 import { NextResponse } from "next/server";
@@ -26,7 +24,11 @@ import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
 import { type GiftAidScope } from "@/lib/gift-aid";
 
 interface ConfirmBody {
+  // Exactly one of these is set, depending on frequency.
   paymentIntentId?: string;
+  setupIntentId?: string;
+  customerId?: string;       // required when setupIntentId is set
+
   campaign?: string;
   frequency?: "one-time" | "monthly";
   donor?: {
@@ -47,14 +49,12 @@ interface ConfirmBody {
   marketingConsent?: boolean;
 }
 
-// UK postcode — lenient, accepts missing space and any case.
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
 
 function isEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
-/** Extract client IP from request headers. Vercel + Next.js convention. */
 function getClientIp(request: Request): string | null {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
@@ -69,24 +69,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { paymentIntentId, campaign, frequency, donor, giftAid, marketingConsent } = body;
+  const {
+    paymentIntentId,
+    setupIntentId,
+    customerId,
+    campaign,
+    frequency,
+    donor,
+    giftAid,
+    marketingConsent,
+  } = body;
 
-  // Validate shape
-  if (!paymentIntentId || typeof paymentIntentId !== "string") {
-    return NextResponse.json(
-      { error: "paymentIntentId is required." },
-      { status: 400 }
-    );
-  }
   if (!campaign || !isValidCampaign(campaign)) {
     return NextResponse.json({ error: "Invalid campaign." }, { status: 400 });
   }
-  if (frequency !== "one-time") {
-    return NextResponse.json(
-      { error: "Only one-time donations are supported in this phase." },
-      { status: 400 }
-    );
+  if (frequency !== "one-time" && frequency !== "monthly") {
+    return NextResponse.json({ error: "Invalid frequency." }, { status: 400 });
   }
+
+  // One-time requires paymentIntentId; monthly requires setupIntentId + customerId.
+  if (frequency === "one-time") {
+    if (!paymentIntentId || typeof paymentIntentId !== "string") {
+      return NextResponse.json(
+        { error: "paymentIntentId is required for one-time donations." },
+        { status: 400 }
+      );
+    }
+  } else {
+    if (!setupIntentId || typeof setupIntentId !== "string") {
+      return NextResponse.json(
+        { error: "setupIntentId is required for monthly donations." },
+        { status: 400 }
+      );
+    }
+    if (!customerId || typeof customerId !== "string") {
+      return NextResponse.json(
+        { error: "customerId is required for monthly donations." },
+        { status: 400 }
+      );
+    }
+  }
+
   if (!donor) {
     return NextResponse.json({ error: "Donor details missing." }, { status: 400 });
   }
@@ -108,8 +131,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valid UK postcode required." }, { status: 400 });
   }
 
-  // Gift Aid validation — if claimed, declaration text is required so we can
-  // prove to HMRC what the donor agreed to.
   const giftAidEnabled = giftAid?.enabled === true;
   if (giftAidEnabled) {
     if (!giftAid?.declarationText || typeof giftAid.declarationText !== "string") {
@@ -126,44 +147,65 @@ export async function POST(request: Request) {
     }
   }
 
-  // Verify the PaymentIntent exists and matches the campaign we're writing.
-  // This prevents a user from POSTing a donation row against a PI they didn't create.
-  let paymentIntent;
+  // Cross-check against Stripe — the PI or SI must exist and match campaign
+  let amountPence: number;
   try {
-    paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (frequency === "one-time") {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId!);
+      if (pi.metadata.campaign !== campaign) {
+        return NextResponse.json({ error: "Campaign mismatch." }, { status: 400 });
+      }
+      amountPence = pi.amount;
+    } else {
+      const si = await stripe.setupIntents.retrieve(setupIntentId!);
+      if (si.metadata?.campaign !== campaign) {
+        return NextResponse.json({ error: "Campaign mismatch." }, { status: 400 });
+      }
+      const siCustomer = typeof si.customer === "string" ? si.customer : si.customer?.id;
+      if (siCustomer !== customerId) {
+        return NextResponse.json({ error: "Customer mismatch." }, { status: 400 });
+      }
+      // SetupIntents have no amount — pull it from the metadata we set at
+      // create-intent time.
+      const meta = si.metadata?.amount_pence;
+      const parsed = meta ? Number(meta) : NaN;
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        return NextResponse.json(
+          { error: "Could not determine amount for monthly donation." },
+          { status: 400 }
+        );
+      }
+      amountPence = parsed;
+    }
   } catch (err) {
-    console.error("[confirm] PI retrieve failed:", err);
-    return NextResponse.json({ error: "PaymentIntent not found." }, { status: 404 });
+    console.error("[confirm] Intent retrieve failed:", err);
+    return NextResponse.json({ error: "Intent not found." }, { status: 404 });
   }
-
-  if (paymentIntent.metadata.campaign !== campaign) {
-    return NextResponse.json({ error: "Campaign mismatch." }, { status: 400 });
-  }
-
-  const amountPence = paymentIntent.amount;
 
   const supabase = getSupabaseAdmin();
 
-  // 1. Upsert donor by email. Update address fields so the newest donation
-  //    always wins (donors move house, fix typos, etc.).
+  // 1. Upsert donor. For monthly donors we also attach the Stripe Customer
+  //    ID so future subscription events can find them by customer.
+  const donorUpsert: Record<string, unknown> = {
+    email,
+    full_name: `${firstName} ${lastName}`,
+    first_name: firstName,
+    last_name: lastName,
+    address_line1: addressLine1,
+    address_line2: addressLine2,
+    city,
+    postcode,
+    country: "GB",
+    phone,
+    marketing_consent: marketingConsent === true,
+  };
+  if (frequency === "monthly" && customerId) {
+    donorUpsert.stripe_customer_id = customerId;
+  }
+
   const { data: donorRow, error: donorErr } = await supabase
     .from("donors")
-    .upsert(
-      {
-        email,
-        full_name: `${firstName} ${lastName}`,
-        first_name: firstName,
-        last_name: lastName,
-        address_line1: addressLine1,
-        address_line2: addressLine2,
-        city,
-        postcode,
-        country: "GB",
-        phone,
-        marketing_consent: marketingConsent === true,
-      },
-      { onConflict: "email" }
-    )
+    .upsert(donorUpsert, { onConflict: "email" })
     .select("id")
     .single();
 
@@ -172,11 +214,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not save donor." }, { status: 500 });
   }
 
-  // 2. Insert the Gift Aid declaration if claimed. One declaration per
-  //    donation; the "past 4 years and future" scope covers subsequent
-  //    donations automatically (we could look up the latest active
-  //    declaration on future donations, but for now each donation gets
-  //    a fresh record — simpler + better audit trail).
+  // 2. Also update the Stripe Customer with the donor's email + name so the
+  //    Stripe Dashboard shows a human identity, not a random customer ID.
+  if (frequency === "monthly" && customerId) {
+    try {
+      await stripe.customers.update(customerId, {
+        email,
+        name: `${firstName} ${lastName}`,
+        address: {
+          line1: addressLine1,
+          line2: addressLine2 ?? undefined,
+          city: city ?? undefined,
+          postal_code: postcode,
+          country: "GB",
+        },
+      });
+    } catch (err) {
+      // Non-fatal — the subscription still works, just has less info.
+      console.warn("[confirm] Stripe customer update failed:", err);
+    }
+  }
+
+  // 3. Insert Gift Aid declaration if claimed.
   let giftAidDeclarationId: string | null = null;
   if (giftAidEnabled) {
     const ipAddress = getClientIp(request);
@@ -204,25 +263,31 @@ export async function POST(request: Request) {
     giftAidDeclarationId = declRow.id;
   }
 
-  // 3. Insert donation as pending. Webhook flips status to succeeded.
-  //    Upsert on PI ID makes this idempotent under duplicate submits.
+  // 4. Insert pending donation. Keyed differently based on frequency.
+  const donationRow: Record<string, unknown> = {
+    donor_id: donorRow.id,
+    gift_aid_declaration_id: giftAidDeclarationId,
+    campaign,
+    campaign_label: getCampaignLabel(campaign),
+    amount_pence: amountPence,
+    currency: "GBP",
+    frequency,
+    gift_aid_claimed: giftAidEnabled,
+    status: "pending",
+  };
+  if (frequency === "one-time") {
+    donationRow.stripe_payment_intent_id = paymentIntentId;
+  } else {
+    donationRow.stripe_setup_intent_id = setupIntentId;
+    donationRow.stripe_customer_id = customerId;
+  }
+
+  const conflictCol =
+    frequency === "one-time" ? "stripe_payment_intent_id" : "stripe_setup_intent_id";
+
   const { error: donationErr } = await supabase
     .from("donations")
-    .upsert(
-      {
-        donor_id: donorRow.id,
-        gift_aid_declaration_id: giftAidDeclarationId,
-        campaign,
-        campaign_label: getCampaignLabel(campaign),
-        amount_pence: amountPence,
-        currency: "GBP",
-        frequency: "one-time",
-        gift_aid_claimed: giftAidEnabled,
-        stripe_payment_intent_id: paymentIntentId,
-        status: "pending",
-      },
-      { onConflict: "stripe_payment_intent_id" }
-    );
+    .upsert(donationRow, { onConflict: conflictCol });
 
   if (donationErr) {
     console.error("[confirm] Donation insert failed:", donationErr);

@@ -1,17 +1,20 @@
 /**
- * /donate/thank-you?payment_intent=pi_xxx&payment_intent_client_secret=xxx&redirect_status=succeeded
+ * /donate/thank-you?payment_intent=... (one-time)
+ * /donate/thank-you?setup_intent=...   (monthly)
  *
- * Stripe redirects here after stripe.confirmPayment() resolves. We:
- *   1. Read payment_intent from the URL
- *   2. Retrieve the PaymentIntent server-side (source of truth, can't spoof)
+ * Stripe redirects here after stripe.confirmPayment() / stripe.confirmSetup()
+ * resolves. We:
+ *   1. Read payment_intent or setup_intent from the URL
+ *   2. Retrieve the intent server-side (source of truth, can't spoof)
  *   3. Show a summary based on its status
  *
- * The donation row status is flipped to 'succeeded' asynchronously by the
- * webhook handler — it may not yet be 'succeeded' in our DB when this page
- * renders (typical delay: 1–3s). That's fine; we trust Stripe's PI status
- * here, and the DB catches up for reporting / Gift Aid / receipts.
+ * For monthly flows the actual charge happens asynchronously — the webhook
+ * creates the Subscription on setup_intent.succeeded and the first charge
+ * fires invoice.paid shortly after. This page shows "processing" for the
+ * first few seconds until the DB row catches up, then the success state
+ * once the donation is marked succeeded.
  *
- * noindex: we don't want these URLs (with PI IDs) in search results.
+ * noindex: we don't want these URLs (with intent IDs) in search results.
  */
 
 import type { Metadata } from "next";
@@ -31,6 +34,7 @@ export const metadata: Metadata = {
 interface ThankYouPageProps {
   searchParams: Promise<{
     payment_intent?: string;
+    setup_intent?: string;
     redirect_status?: string;
   }>;
 }
@@ -38,14 +42,17 @@ interface ThankYouPageProps {
 export default async function ThankYouPage({ searchParams }: ThankYouPageProps) {
   const params = await searchParams;
   const piId = params.payment_intent;
+  const siId = params.setup_intent;
 
   let status: string | null = null;
   let amountGbp: number | null = null;
   let campaignLabel: string | null = null;
   let email: string | null = null;
   let giftAidClaimed = false;
+  let isMonthly = false;
 
   if (piId) {
+    // ── One-time path ──
     try {
       const pi = await stripe.paymentIntents.retrieve(piId);
       status = pi.status;
@@ -56,9 +63,6 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       console.error("[thank-you] PI retrieve failed:", err);
     }
 
-    // Look up the donation row to discover Gift Aid status. This is a best-
-    // effort lookup — if the row hasn't been written yet (webhook race) we
-    // just don't show the Gift Aid line.
     try {
       const supabase = getSupabaseAdmin();
       const { data } = await supabase
@@ -70,10 +74,38 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
     } catch (err) {
       console.error("[thank-you] donation lookup failed:", err);
     }
+  } else if (siId) {
+    // ── Monthly path ──
+    isMonthly = true;
+    try {
+      const si = await stripe.setupIntents.retrieve(siId);
+      // SetupIntent.status succeeded means payment method attached; the
+      // actual first charge (via Subscription) is async via webhook. We
+      // still treat this as a donor success from the user's perspective.
+      status = si.status;
+      campaignLabel = (si.metadata?.campaign_label as string) ?? null;
+      const amountPence = si.metadata?.amount_pence ? Number(si.metadata.amount_pence) : null;
+      amountGbp = amountPence ? fromPence(amountPence) : null;
+
+      // Pull email + gift aid flag from the donation row we wrote in /confirm.
+      const supabase = getSupabaseAdmin();
+      const { data } = await supabase
+        .from("donations")
+        .select("gift_aid_claimed, donors(email)")
+        .eq("stripe_setup_intent_id", siId)
+        .maybeSingle();
+      giftAidClaimed = data?.gift_aid_claimed === true;
+      const donors = data?.donors as { email?: string } | { email?: string }[] | undefined;
+      const donorRow = Array.isArray(donors) ? donors[0] : donors;
+      email = donorRow?.email ?? null;
+    } catch (err) {
+      console.error("[thank-you] SI retrieve failed:", err);
+    }
   }
 
   const succeeded = status === "succeeded";
-  const processing = status === "processing" || status === "requires_capture";
+  const processing =
+    status === "processing" || status === "requires_capture";
 
   return (
     <>
@@ -88,6 +120,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
                   campaignLabel={campaignLabel}
                   email={email}
                   giftAidClaimed={giftAidClaimed}
+                  isMonthly={isMonthly}
                 />
               ) : processing ? (
                 <ProcessingState amountGbp={amountGbp} email={email} />
@@ -108,11 +141,13 @@ function SuccessState({
   campaignLabel,
   email,
   giftAidClaimed,
+  isMonthly,
 }: {
   amountGbp: number | null;
   campaignLabel: string | null;
   email: string | null;
   giftAidClaimed: boolean;
+  isMonthly: boolean;
 }) {
   return (
     <>
@@ -122,7 +157,7 @@ function SuccessState({
         </svg>
       </div>
       <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-        Donation Received
+        {isMonthly ? "Monthly Donation Set Up" : "Donation Received"}
       </span>
       <h1 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
         Thank you for your generosity
@@ -137,18 +172,23 @@ function SuccessState({
           )}
           <p className="text-3xl font-heading font-bold text-charcoal">
             £{amountGbp.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {isMonthly && (
+              <span className="text-base font-medium text-grey"> / month</span>
+            )}
           </p>
           {giftAidClaimed && (
             <p className="text-[13px] text-green-dark font-medium mt-1">
               + £{(totalWithGiftAidGbp(amountGbp) - amountGbp).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gift Aid reclaimed = £{totalWithGiftAidGbp(amountGbp).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total
+              {isMonthly ? " / month" : ""}
             </p>
           )}
         </div>
       )}
 
       <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-2 max-w-md mx-auto">
-        Your donation has been received and will go directly to the people who
-        need it most.
+        {isMonthly
+          ? "Your monthly donation is set up. Your first charge is processing now — a receipt will arrive shortly, and each following month."
+          : "Your donation has been received and will go directly to the people who need it most."}
       </p>
       {email && (
         <p className="text-grey/70 text-sm mb-8">

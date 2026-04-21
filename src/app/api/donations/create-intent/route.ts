@@ -1,23 +1,26 @@
 /**
  * POST /api/donations/create-intent
  *
- * Creates a Stripe PaymentIntent for a one-time donation and returns the
- * client_secret. The Payment Element on /donate uses this secret to mount
- * itself and confirm the payment directly with Stripe.
+ * One-time:
+ *   Creates a PaymentIntent, returns { clientSecret, paymentIntentId, mode: 'payment' }.
+ *
+ * Monthly:
+ *   Creates (or reuses) a Stripe Customer and a SetupIntent attached to
+ *   that customer, returns { clientSecret, setupIntentId, customerId,
+ *   mode: 'setup' }. The actual recurring Subscription is created by the
+ *   webhook handler on setup_intent.succeeded, once the payment method
+ *   is confirmed attached.
  *
  * Security:
- *   - Amount is validated server-side against MIN/MAX bounds. Never trust
- *     the client to calculate this — a user could edit the URL or JS to
- *     pass £0.01 or £10m.
- *   - Campaign slug is validated against an allow-list.
- *   - No donor PII is collected here — that happens in /confirm after
- *     the donor has entered their details.
- *
- * Monthly subscriptions (SetupIntent + Subscription) will be added in a
- * future phase — for now this route rejects frequency !== "one-time".
+ *   - Amount validated server-side against MIN/MAX bounds (clients can't
+ *     fabricate a £0.01 or £10m donation).
+ *   - Campaign slug validated against allow-list.
+ *   - No donor PII collected here — that's /confirm's job, after Payment
+ *     Element is populated.
  */
 
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import {
   MAX_AMOUNT_PENCE,
@@ -42,15 +45,9 @@ export async function POST(request: Request) {
 
   const { campaign, amount, frequency } = body;
 
-  // Campaign validation
   if (!campaign || typeof campaign !== "string" || !isValidCampaign(campaign)) {
-    return NextResponse.json(
-      { error: "Invalid campaign." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid campaign." }, { status: 400 });
   }
-
-  // Amount validation
   if (typeof amount !== "number" || !Number.isInteger(amount)) {
     return NextResponse.json(
       { error: "Amount must be an integer number of pence." },
@@ -73,32 +70,56 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-
-  // Frequency — one-time only in this phase
-  if (frequency !== "one-time") {
-    return NextResponse.json(
-      { error: "Monthly donations are coming soon." },
-      { status: 400 }
-    );
+  if (frequency !== "one-time" && frequency !== "monthly") {
+    return NextResponse.json({ error: "Invalid frequency." }, { status: 400 });
   }
 
+  const commonMetadata: Stripe.MetadataParam = {
+    campaign,
+    campaign_label: getCampaignLabel(campaign),
+    amount_pence: String(amount),
+    frequency,
+  };
+
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: "gbp",
+    if (frequency === "one-time") {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency: "gbp",
+        automatic_payment_methods: { enabled: true },
+        description: `Donation — ${getCampaignLabel(campaign)}`,
+        metadata: commonMetadata,
+      });
+
+      return NextResponse.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        mode: "payment" as const,
+      });
+    }
+
+    // ── Monthly: SetupIntent + Customer ──
+    // A fresh Customer per checkout; the Subscription is created later by
+    // the setup_intent.succeeded webhook. We don't yet know the donor's
+    // email, so we can't upsert a named Customer — that's fine, Stripe
+    // allows us to update it post-creation when /confirm arrives.
+    const customer = await stripe.customers.create({
+      metadata: commonMetadata,
+    });
+
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customer.id,
       automatic_payment_methods: { enabled: true },
-      description: `Donation — ${getCampaignLabel(campaign)}`,
-      metadata: {
-        campaign,
-        campaign_label: getCampaignLabel(campaign),
-        frequency: "one-time",
-      },
+      usage: "off_session",
+      description: `Monthly donation setup — ${getCampaignLabel(campaign)}`,
+      metadata: commonMetadata,
     });
 
     return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-      mode: "payment" as const,
+      clientSecret: setupIntent.client_secret,
+      setupIntentId: setupIntent.id,
+      customerId: customer.id,
+      mode: "setup" as const,
     });
   } catch (err) {
     console.error("[create-intent] Stripe error:", err);
