@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders = [
   // Prevent clickjacking — only allow framing from same origin
@@ -33,4 +34,17 @@ const nextConfig: NextConfig = {
 
 const withMDX = createMDX({});
 
-export default withMDX(nextConfig);
+/**
+ * Sentry wrapper — only augments the build when SENTRY_AUTH_TOKEN is set
+ * (which enables source map uploading). Without it, runtime error capture
+ * still works via the sentry.*.config.ts files; you just get minified
+ * stack traces in Sentry until you add the token.
+ */
+const sentryOptions = {
+  silent: true,
+  disableLogger: true,
+  // Auto-detects SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN from env.
+  // Leave unset locally to skip source map upload.
+};
+
+export default withSentryConfig(withMDX(nextConfig), sentryOptions);

@@ -96,6 +96,9 @@ export async function POST(request: Request) {
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
         break;
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        break;
       default:
         console.log(`[webhook] Unhandled event type: ${event.type}`);
     }
@@ -438,6 +441,88 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     stripe_invoice_id: invoice.id,
     status: "failed",
   });
+}
+
+/**
+ * customer.subscription.deleted — fires when a monthly donor's subscription
+ * is cancelled (by trustee in Dashboard, or programmatically, or when
+ * Stripe gives up after a failed-charge retry cycle).
+ *
+ * We don't track subscription status as a standalone column — Stripe is the
+ * source of truth. What we do:
+ *   1. Log the cancellation to console + event audit (already happens).
+ *   2. Email the charity's contact email so a human can update any external
+ *      records (newsletter lists, CRM, etc.) and optionally thank/follow up
+ *      with the donor.
+ *   3. Future: if we ever add an /admin donations view, this handler can
+ *      flip a "cancelled" flag on the latest donation row for that
+ *      subscription so trustees see it at a glance.
+ */
+async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
+  const supabase = getSupabaseAdmin();
+
+  // Look up the donor via the subscription's customer ID (most recent
+  // donation row is a good anchor).
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+  const { data: donation } = await supabase
+    .from("donations")
+    .select(
+      `campaign_label, amount_pence,
+       donors(first_name, last_name, email)`
+    )
+    .eq("stripe_subscription_id", sub.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const donor = (Array.isArray(donation?.donors) ? donation?.donors[0] : donation?.donors) as
+    | { first_name?: string; last_name?: string; email?: string }
+    | undefined;
+
+  // Fire-and-forget notification to the charity. Failures are logged but
+  // don't throw — the webhook must still ack.
+  try {
+    const toEmail = process.env.CONTACT_EMAIL ?? "info@deenrelief.org";
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) {
+      console.warn("[webhook] subscription.deleted: RESEND_API_KEY not set, staff not notified.");
+    } else {
+      const { Resend } = await import("resend");
+      const resend = new Resend(resendKey);
+      const donorName = donor
+        ? `${donor.first_name ?? ""} ${donor.last_name ?? ""}`.trim() || "Unknown donor"
+        : "Unknown donor";
+      const donorEmail = donor?.email ?? "(not found in DB)";
+      const amountGbp = donation?.amount_pence
+        ? (donation.amount_pence / 100).toFixed(2)
+        : "?";
+      const campaign = donation?.campaign_label ?? "?";
+      const reason = sub.cancellation_details?.reason ?? "not specified";
+
+      await resend.emails.send({
+        from: "Deen Relief Website <noreply@deenrelief.org>",
+        to: toEmail,
+        subject: `Monthly donation cancelled — ${donorName}`,
+        text: [
+          `A monthly donation subscription has been cancelled.`,
+          ``,
+          `Donor:       ${donorName}`,
+          `Email:       ${donorEmail}`,
+          `Campaign:    ${campaign}`,
+          `Amount:      £${amountGbp} / month`,
+          `Stripe sub:  ${sub.id}`,
+          `Customer:    ${customerId}`,
+          `Reason:      ${reason}`,
+          ``,
+          `No further charges will be made. Consider reaching out to thank ${donor?.first_name ?? "the donor"} for their past support.`,
+        ].join("\n"),
+      });
+    }
+  } catch (err) {
+    console.error("[webhook] subscription.deleted notification failed:", err);
+  }
+
+  console.log(`[webhook] Subscription ${sub.id} cancelled. Customer ${customerId}.`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
