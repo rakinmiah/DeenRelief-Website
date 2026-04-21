@@ -40,7 +40,8 @@ export async function sendDonationReceipt(
     const resend = new Resend(key);
     const { subject, html, text } = buildReceiptEmail(input);
 
-    await resend.emails.send({
+    console.log("[donation-receipt] Sending to", input.toEmail);
+    const result = await resend.emails.send({
       from: `${CHARITY_NAME} <noreply@deenrelief.org>`,
       to: input.toEmail,
       subject,
@@ -48,9 +49,15 @@ export async function sendDonationReceipt(
       text,
     });
 
+    if (result.error) {
+      console.error("[donation-receipt] Resend returned error:", result.error);
+      return false;
+    }
+
+    console.log("[donation-receipt] Sent OK, id:", result.data?.id);
     return true;
   } catch (err) {
-    console.error("[donation-receipt] Send failed:", err);
+    console.error("[donation-receipt] Send threw:", err);
     return false;
   }
 }
@@ -118,9 +125,14 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
 
           <!-- Header -->
           <tr>
-            <td style="padding:32px 40px 24px;background-color:#1F6B3A;color:#ffffff;text-align:center;">
-              <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;letter-spacing:-0.01em;">${CHARITY_NAME}</div>
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;opacity:0.75;margin-top:4px;">Donation Receipt</div>
+            <td style="padding:32px 40px 20px;background-color:#ffffff;text-align:center;border-bottom:1px solid #E5E7EB;">
+              <img
+                src="https://deenrelief.org/images/logo.png"
+                alt="${CHARITY_NAME}"
+                width="180"
+                style="display:block;margin:0 auto;width:180px;max-width:60%;height:auto;border:0;outline:none;text-decoration:none;"
+              />
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#1F6B3A;margin-top:16px;">Donation Receipt</div>
             </td>
           </tr>
 

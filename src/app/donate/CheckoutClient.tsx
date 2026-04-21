@@ -22,7 +22,7 @@
  * Monthly subscriptions land in a later phase.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadStripe, type Stripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import {
   Elements,
@@ -84,9 +84,16 @@ export default function CheckoutClient({
     }
   }, [initialCampaign, initialFrequency]);
 
+  // React StrictMode double-invokes effects in dev. Without this ref guard,
+  // we'd create two PaymentIntents on mount — the second (B) overwrites state
+  // but Elements stays locked onto the first (A)'s clientSecret (immutable
+  // after mount). The donor ends up paying A while /confirm writes a row
+  // for B, which breaks the webhook receipt lookup.
+  const initialIntentCreated = useRef(false);
   useEffect(() => {
+    if (initialIntentCreated.current) return;
+    initialIntentCreated.current = true;
     createIntent(amountGbp);
-    // Intentionally run once on mount. Amount changes re-create via "Update amount" button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -149,7 +156,7 @@ export default function CheckoutClient({
       )}
 
       {clientSecret && elementsOptions && (
-        <Elements stripe={stripePromise} options={elementsOptions}>
+        <Elements key={clientSecret} stripe={stripePromise} options={elementsOptions}>
           <CheckoutForm
             amountGbp={amountGbp}
             campaign={initialCampaign}
