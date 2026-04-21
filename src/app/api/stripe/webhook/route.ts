@@ -20,6 +20,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { sendDonationReceipt } from "@/lib/donation-receipt";
 
 // Route segment config — force dynamic rendering (webhooks are never static)
 export const dynamic = "force-dynamic";
@@ -110,11 +111,13 @@ export async function POST(request: Request) {
 
 async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   const supabase = getSupabaseAdmin();
+  const completedAt = new Date();
+
   const { error } = await supabase
     .from("donations")
     .update({
       status: "succeeded",
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt.toISOString(),
     })
     .eq("stripe_payment_intent_id", pi.id);
 
@@ -122,7 +125,42 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
     throw new Error(`Donation update failed: ${error.message}`);
   }
 
-  // TODO (Phase 4): enqueue Resend receipt email
+  // Send receipt email. Do this AFTER the status update so that a receipt
+  // failure doesn't block the donation from being marked succeeded. Email
+  // send errors are logged and swallowed — never retried by Stripe.
+  try {
+    const { data: donation } = await supabase
+      .from("donations")
+      .select(
+        "amount_pence, campaign_label, frequency, gift_aid_claimed, donors(first_name, last_name, email)"
+      )
+      .eq("stripe_payment_intent_id", pi.id)
+      .maybeSingle();
+
+    if (donation && donation.donors) {
+      // Supabase returns the joined row as either an object or array
+      // depending on the relationship — handle both shapes.
+      const donor = Array.isArray(donation.donors)
+        ? donation.donors[0]
+        : donation.donors;
+      if (donor?.email) {
+        await sendDonationReceipt({
+          toEmail: donor.email,
+          firstName: donor.first_name,
+          lastName: donor.last_name,
+          amountPence: donation.amount_pence,
+          campaignLabel: donation.campaign_label,
+          frequency: donation.frequency,
+          giftAidClaimed: donation.gift_aid_claimed,
+          paymentIntentId: pi.id,
+          completedAt,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[webhook] Receipt email dispatch failed:", err);
+  }
+
   // TODO (future): submit Gift Aid claim to Swiftaid if gift_aid_claimed
 }
 
