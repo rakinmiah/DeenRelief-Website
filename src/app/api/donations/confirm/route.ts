@@ -12,12 +12,18 @@
  *
  * Idempotency: if called twice with the same paymentIntentId, the second
  * call is a no-op (UNIQUE constraint on donations.stripe_payment_intent_id).
+ *
+ * Gift Aid: if the donor ticks the box, we insert a gift_aid_declarations
+ * row (with IP + user agent as audit trail for HMRC) and link it to the
+ * donation. The declaration_text field stores the verbatim wording the
+ * donor saw — HMRC may request this if a claim is audited.
  */
 
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
+import { type GiftAidScope } from "@/lib/gift-aid";
 
 interface ConfirmBody {
   paymentIntentId?: string;
@@ -33,6 +39,11 @@ interface ConfirmBody {
     postcode?: string;
     phone?: string;
   };
+  giftAid?: {
+    enabled?: boolean;
+    scope?: GiftAidScope;
+    declarationText?: string;
+  };
   marketingConsent?: boolean;
 }
 
@@ -43,6 +54,13 @@ function isEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
+/** Extract client IP from request headers. Vercel + Next.js convention. */
+function getClientIp(request: Request): string | null {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return request.headers.get("x-real-ip") ?? null;
+}
+
 export async function POST(request: Request) {
   let body: ConfirmBody;
   try {
@@ -51,7 +69,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { paymentIntentId, campaign, frequency, donor, marketingConsent } = body;
+  const { paymentIntentId, campaign, frequency, donor, giftAid, marketingConsent } = body;
 
   // Validate shape
   if (!paymentIntentId || typeof paymentIntentId !== "string") {
@@ -88,6 +106,24 @@ export async function POST(request: Request) {
   if (!addressLine1) return NextResponse.json({ error: "Address required." }, { status: 400 });
   if (!postcode || !UK_POSTCODE.test(postcode)) {
     return NextResponse.json({ error: "Valid UK postcode required." }, { status: 400 });
+  }
+
+  // Gift Aid validation — if claimed, declaration text is required so we can
+  // prove to HMRC what the donor agreed to.
+  const giftAidEnabled = giftAid?.enabled === true;
+  if (giftAidEnabled) {
+    if (!giftAid?.declarationText || typeof giftAid.declarationText !== "string") {
+      return NextResponse.json(
+        { error: "Gift Aid declaration text is required when Gift Aid is enabled." },
+        { status: 400 }
+      );
+    }
+    if (
+      giftAid.scope !== "this-donation-only" &&
+      giftAid.scope !== "this-and-past-4-years-and-future"
+    ) {
+      return NextResponse.json({ error: "Invalid Gift Aid scope." }, { status: 400 });
+    }
   }
 
   // Verify the PaymentIntent exists and matches the campaign we're writing.
@@ -136,19 +172,52 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not save donor." }, { status: 500 });
   }
 
-  // 2. Insert donation as pending. Webhook flips status to succeeded.
-  //    If the row already exists (duplicate submit), upsert on the PI ID.
+  // 2. Insert the Gift Aid declaration if claimed. One declaration per
+  //    donation; the "past 4 years and future" scope covers subsequent
+  //    donations automatically (we could look up the latest active
+  //    declaration on future donations, but for now each donation gets
+  //    a fresh record — simpler + better audit trail).
+  let giftAidDeclarationId: string | null = null;
+  if (giftAidEnabled) {
+    const ipAddress = getClientIp(request);
+    const userAgent = request.headers.get("user-agent");
+
+    const { data: declRow, error: declErr } = await supabase
+      .from("gift_aid_declarations")
+      .insert({
+        donor_id: donorRow.id,
+        scope: giftAid!.scope,
+        declaration_text: giftAid!.declarationText,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      })
+      .select("id")
+      .single();
+
+    if (declErr || !declRow) {
+      console.error("[confirm] Gift Aid declaration insert failed:", declErr);
+      return NextResponse.json(
+        { error: "Could not save Gift Aid declaration." },
+        { status: 500 }
+      );
+    }
+    giftAidDeclarationId = declRow.id;
+  }
+
+  // 3. Insert donation as pending. Webhook flips status to succeeded.
+  //    Upsert on PI ID makes this idempotent under duplicate submits.
   const { error: donationErr } = await supabase
     .from("donations")
     .upsert(
       {
         donor_id: donorRow.id,
+        gift_aid_declaration_id: giftAidDeclarationId,
         campaign,
         campaign_label: getCampaignLabel(campaign),
         amount_pence: amountPence,
         currency: "GBP",
         frequency: "one-time",
-        gift_aid_claimed: false,
+        gift_aid_claimed: giftAidEnabled,
         stripe_payment_intent_id: paymentIntentId,
         status: "pending",
       },

@@ -15,7 +15,11 @@
  *      c. The webhook asynchronously flips status to succeeded.
  *   5. If the user changes the amount mid-flow, we create a new PaymentIntent.
  *
- * Gift Aid UI + monthly subscriptions land in later phases.
+ * Gift Aid: an optional checkbox collects an HMRC declaration. The verbatim
+ * declaration text (built from src/lib/gift-aid.ts) is sent alongside the
+ * donor details and stored as an audit record for HMRC.
+ *
+ * Monthly subscriptions land in a later phase.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,6 +31,11 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { CampaignSlug } from "@/lib/campaigns";
+import {
+  GIFT_AID_SCOPE,
+  buildDeclarationText,
+  totalWithGiftAidGbp,
+} from "@/lib/gift-aid";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -255,6 +264,18 @@ function CheckoutForm({
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
 
+  // Gift Aid
+  const [giftAidEnabled, setGiftAidEnabled] = useState(false);
+  const [showDeclaration, setShowDeclaration] = useState(false);
+  const declarationText = useMemo(
+    () => buildDeclarationText(amountGbp),
+    [amountGbp]
+  );
+  const totalWithGiftAid = useMemo(
+    () => totalWithGiftAidGbp(amountGbp),
+    [amountGbp]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -304,6 +325,13 @@ function CheckoutForm({
             city: city.trim() || undefined,
             postcode: postcode.trim().toUpperCase(),
           },
+          giftAid: giftAidEnabled
+            ? {
+                enabled: true,
+                scope: GIFT_AID_SCOPE,
+                declarationText,
+              }
+            : { enabled: false },
           marketingConsent: false,
         }),
       });
@@ -406,6 +434,66 @@ function CheckoutForm({
         </div>
       </fieldset>
 
+      {/* Gift Aid */}
+      <fieldset>
+        <legend className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/60 mb-3">
+          Gift Aid
+        </legend>
+        <div
+          className={`rounded-xl border transition-colors duration-200 ${
+            giftAidEnabled
+              ? "border-green/40 bg-green-light/40"
+              : "border-charcoal/10 bg-white"
+          }`}
+        >
+          <label className="flex items-start gap-3 p-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={giftAidEnabled}
+              onChange={(e) => setGiftAidEnabled(e.target.checked)}
+              className="mt-0.5 w-5 h-5 accent-green flex-shrink-0 cursor-pointer"
+            />
+            <span className="flex-1">
+              <span className="block font-semibold text-charcoal text-[15px] leading-snug">
+                Boost my donation by 25% at no extra cost
+              </span>
+              <span className="block text-sm text-grey mt-1 leading-relaxed">
+                {giftAidEnabled ? (
+                  <>
+                    Your donation becomes{" "}
+                    <strong className="text-green-dark">
+                      £{totalWithGiftAid.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </strong>{" "}
+                    with Gift Aid, funded by HMRC — not you.
+                  </>
+                ) : (
+                  <>
+                    Tick to add £{(amountGbp * 0.25).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to your gift. UK taxpayers only.
+                  </>
+                )}
+              </span>
+            </span>
+          </label>
+
+          {giftAidEnabled && (
+            <div className="px-4 pb-4">
+              <button
+                type="button"
+                onClick={() => setShowDeclaration((s) => !s)}
+                className="text-xs font-semibold text-green hover:text-green-dark underline"
+              >
+                {showDeclaration ? "Hide" : "Read"} the full declaration
+              </button>
+              {showDeclaration && (
+                <div className="mt-3 p-4 bg-white border border-charcoal/10 rounded-lg text-[13px] text-charcoal/80 leading-relaxed whitespace-pre-line">
+                  {declarationText}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </fieldset>
+
       {/* Payment */}
       <fieldset>
         <legend className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/60 mb-3">
@@ -431,6 +519,13 @@ function CheckoutForm({
           <>
             <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
             Processing…
+          </>
+        ) : giftAidEnabled ? (
+          <>
+            Donate £{amountGbp.toLocaleString()}
+            <span className="ml-2 text-white/75 text-sm font-medium">
+              (£{totalWithGiftAid.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} with Gift Aid)
+            </span>
           </>
         ) : (
           `Donate £${amountGbp.toLocaleString()}`

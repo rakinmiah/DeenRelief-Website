@@ -20,6 +20,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { stripe } from "@/lib/stripe";
 import { fromPence } from "@/lib/stripe";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import { totalWithGiftAidGbp } from "@/lib/gift-aid";
 
 export const metadata: Metadata = {
   title: "Thank You | Deen Relief",
@@ -41,6 +43,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
   let amountGbp: number | null = null;
   let campaignLabel: string | null = null;
   let email: string | null = null;
+  let giftAidClaimed = false;
 
   if (piId) {
     try {
@@ -51,6 +54,21 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       email = pi.receipt_email ?? null;
     } catch (err) {
       console.error("[thank-you] PI retrieve failed:", err);
+    }
+
+    // Look up the donation row to discover Gift Aid status. This is a best-
+    // effort lookup — if the row hasn't been written yet (webhook race) we
+    // just don't show the Gift Aid line.
+    try {
+      const supabase = getSupabaseAdmin();
+      const { data } = await supabase
+        .from("donations")
+        .select("gift_aid_claimed")
+        .eq("stripe_payment_intent_id", piId)
+        .maybeSingle();
+      giftAidClaimed = data?.gift_aid_claimed === true;
+    } catch (err) {
+      console.error("[thank-you] donation lookup failed:", err);
     }
   }
 
@@ -69,6 +87,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
                   amountGbp={amountGbp}
                   campaignLabel={campaignLabel}
                   email={email}
+                  giftAidClaimed={giftAidClaimed}
                 />
               ) : processing ? (
                 <ProcessingState amountGbp={amountGbp} email={email} />
@@ -88,10 +107,12 @@ function SuccessState({
   amountGbp,
   campaignLabel,
   email,
+  giftAidClaimed,
 }: {
   amountGbp: number | null;
   campaignLabel: string | null;
   email: string | null;
+  giftAidClaimed: boolean;
 }) {
   return (
     <>
@@ -117,6 +138,11 @@ function SuccessState({
           <p className="text-3xl font-heading font-bold text-charcoal">
             £{amountGbp.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
+          {giftAidClaimed && (
+            <p className="text-[13px] text-green-dark font-medium mt-1">
+              + £{(totalWithGiftAidGbp(amountGbp) - amountGbp).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gift Aid reclaimed = £{totalWithGiftAidGbp(amountGbp).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total
+            </p>
+          )}
         </div>
       )}
 
