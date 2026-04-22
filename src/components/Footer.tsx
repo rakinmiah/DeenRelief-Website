@@ -1,5 +1,11 @@
 import Link from "next/link";
 
+// Copyright year — hardcoded to keep SSR and client hydration identical.
+// Using `new Date().getFullYear()` here caused a React hydration mismatch
+// (server-evaluated year can diverge from the client's evaluation due to
+// timezone or evaluation timing). Update this annually on Jan 1.
+const COPYRIGHT_YEAR = 2026;
+
 const quickLinks = [
   { label: "Our Work", href: "/our-work" },
   { label: "Pay Zakat", href: "/zakat" },
@@ -131,7 +137,7 @@ export default function Footer() {
             {/* Registration */}
             <div className="text-white/40 text-xs">
               Charity Commission Reg. No. 1158608 &middot; Company No.
-              08593822 &middot; &copy; {new Date().getFullYear()} Deen Relief.
+              08593822 &middot; &copy; {COPYRIGHT_YEAR} Deen Relief.
               All rights reserved.
             </div>
 

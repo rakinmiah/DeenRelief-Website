@@ -28,6 +28,7 @@ import {
   getCampaignLabel,
   isValidCampaign,
 } from "@/lib/campaigns";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 interface CreateIntentBody {
   campaign?: string;
@@ -36,6 +37,10 @@ interface CreateIntentBody {
 }
 
 export async function POST(request: Request) {
+  // Rate limit first — cheap check, no Stripe API call needed to 429.
+  const rl = await checkRateLimit(request, "create-intent");
+  if (!rl.success) return rateLimitResponse(rl);
+
   let body: CreateIntentBody;
   try {
     body = await request.json();
