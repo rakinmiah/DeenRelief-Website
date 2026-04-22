@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# local-only backups of large assets (e.g. pre-compression video originals)
+*.original.*
+
 # production
 /build
 
