@@ -25,6 +25,7 @@ import { stripe } from "@/lib/stripe";
 import { fromPence } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { totalWithGiftAidGbp } from "@/lib/gift-aid";
+import TrackConversion from "./TrackConversion";
 
 export const metadata: Metadata = {
   title: "Thank You | Deen Relief",
@@ -46,6 +47,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
 
   let status: string | null = null;
   let amountGbp: number | null = null;
+  let campaignSlug: string | null = null;
   let campaignLabel: string | null = null;
   let email: string | null = null;
   let giftAidClaimed = false;
@@ -57,6 +59,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       const pi = await stripe.paymentIntents.retrieve(piId);
       status = pi.status;
       amountGbp = fromPence(pi.amount);
+      campaignSlug = (pi.metadata?.campaign as string) ?? null;
       campaignLabel = (pi.metadata?.campaign_label as string) ?? null;
       email = pi.receipt_email ?? null;
     } catch (err) {
@@ -83,6 +86,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       // actual first charge (via Subscription) is async via webhook. We
       // still treat this as a donor success from the user's perspective.
       status = si.status;
+      campaignSlug = (si.metadata?.campaign as string) ?? null;
       campaignLabel = (si.metadata?.campaign_label as string) ?? null;
       const amountPence = si.metadata?.amount_pence ? Number(si.metadata.amount_pence) : null;
       amountGbp = amountPence ? fromPence(amountPence) : null;
@@ -106,6 +110,28 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
   const succeeded = status === "succeeded";
   const processing =
     status === "processing" || status === "requires_capture";
+
+  // Transaction id for the purchase event: PI id for one-time, SI id for
+  // monthly. Only fire the conversion event on success — processing and
+  // failed states aren't purchases. Build the props object here so
+  // TypeScript can narrow all nullable fields in one place.
+  const transactionId = piId ?? siId;
+  const conversionProps =
+    succeeded &&
+    transactionId &&
+    amountGbp !== null &&
+    campaignSlug !== null &&
+    campaignLabel !== null
+      ? {
+          transactionId,
+          value: amountGbp,
+          currency: "GBP" as const,
+          campaignSlug,
+          campaignLabel,
+          frequency: (isMonthly ? "monthly" : "one-time") as "one-time" | "monthly",
+          giftAidClaimed,
+        }
+      : null;
 
   return (
     <>
@@ -131,6 +157,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
           </div>
         </section>
       </main>
+      {conversionProps && <TrackConversion {...conversionProps} />}
       <Footer />
     </>
   );

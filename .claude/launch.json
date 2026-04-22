@@ -5,7 +5,8 @@
       "name": "dev",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "export PATH=\"$HOME/.fnm:$PATH\" && eval \"$(fnm env)\" && npm run dev"],
-      "port": 3000
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }

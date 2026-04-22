@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ManageCookiesLink from "./ManageCookiesLink";
 
 // Copyright year — hardcoded to keep SSR and client hydration identical.
 // Using `new Date().getFullYear()` here caused a React hydration mismatch
@@ -152,6 +153,7 @@ export default function Footer() {
                   {link.label}
                 </Link>
               ))}
+              <ManageCookiesLink />
             </div>
           </div>
         </div>
