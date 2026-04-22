@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/swiftaid-submit",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/google-ads-oci",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

@@ -22,6 +22,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
+import { CONSENT_COOKIE, parseConsentCookieValue } from "@/lib/consent";
 import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
 import { type GiftAidScope } from "@/lib/gift-aid";
 
@@ -274,6 +275,14 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const attribution = parseAttribution(cookieStore.get(ATTRIBUTION_COOKIE)?.value);
 
+  // Consent snapshot captured at conversion time. The OCI cron filters on
+  // ad_storage_consent=true before uploading to Google Ads (policy +
+  // PECR). ad_user_data_consent gates Enhanced Conversions user data in
+  // both the client purchase event and the server OCI payload.
+  // Stored as booleans rather than re-reading the cookie later — cookies
+  // decay; the donation row is permanent audit.
+  const consent = parseConsentCookieValue(cookieStore.get(CONSENT_COOKIE)?.value);
+
   // 4. Insert pending donation. Keyed differently based on frequency.
   const donationRow: Record<string, unknown> = {
     donor_id: donorRow.id,
@@ -297,6 +306,8 @@ export async function POST(request: Request) {
     landing_page: attribution?.landing_page ?? null,
     landing_referrer: attribution?.landing_referrer ?? null,
     landing_at: attribution?.landing_at ?? null,
+    ad_storage_consent: consent?.ad_storage ?? null,
+    ad_user_data_consent: consent?.ad_user_data ?? null,
   };
   if (frequency === "one-time") {
     donationRow.stripe_payment_intent_id = paymentIntentId;

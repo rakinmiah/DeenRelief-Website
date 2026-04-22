@@ -95,20 +95,31 @@ export function toGtagSignals(state: ConsentState): ConsentSignals {
   };
 }
 
-// ─── Cookie read/write (client only) ───
+// ─── Cookie read/write ───
 
-export function readConsentCookie(): ConsentState | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${CONSENT_COOKIE}=([^;]*)`));
-  if (!match) return null;
+/**
+ * Parse a raw cookie value (URL-encoded JSON). Returns null for missing,
+ * malformed, or version-mismatched cookies. Safe to call on client or
+ * server — the server calls it with the value from `cookies()` / request
+ * headers; the client calls it from readConsentCookie() below.
+ */
+export function parseConsentCookieValue(raw: string | undefined | null): ConsentState | null {
+  if (!raw) return null;
   try {
-    const decoded = JSON.parse(decodeURIComponent(match[1])) as ConsentState;
+    const decoded = JSON.parse(decodeURIComponent(raw)) as ConsentState;
     // Ignore cookies from a previous version — treat as "not yet decided".
     if (decoded?.version !== CONSENT_VERSION) return null;
     return decoded;
   } catch {
     return null;
   }
+}
+
+/** Client-only: read + parse the cookie from document.cookie. */
+export function readConsentCookie(): ConsentState | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CONSENT_COOKIE}=([^;]*)`));
+  return parseConsentCookieValue(match?.[1]);
 }
 
 export function writeConsentCookie(state: Omit<ConsentState, "timestamp">) {

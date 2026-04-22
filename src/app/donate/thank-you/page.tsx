@@ -130,6 +130,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
           campaignLabel,
           frequency: (isMonthly ? "monthly" : "one-time") as "one-time" | "monthly",
           giftAidClaimed,
+          email,
         }
       : null;
 

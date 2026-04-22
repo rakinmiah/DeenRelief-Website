@@ -50,6 +50,12 @@ export interface DonationPurchaseParams {
   campaign_label: string;
   frequency: "one-time" | "monthly";
   gift_aid_claimed: boolean;
+  /**
+   * Hashed donor email (SHA-256 hex of lowercased/trimmed email) for
+   * Enhanced Conversions. Only include when the donor has granted
+   * ad_user_data consent. Undefined when absent or consent missing.
+   */
+  hashed_email?: string;
 }
 
 /**
@@ -75,5 +81,11 @@ export function trackDonationPurchase(p: DonationPurchaseParams): void {
     frequency: p.frequency,
     campaign_slug: p.campaign_slug,
     items: [item],
+    // Enhanced Conversions: Google Ads picks this up automatically from the
+    // purchase event's user_data block and uses it to match the conversion
+    // back to the click even when cookies are unavailable.
+    ...(p.hashed_email
+      ? { user_data: { sha256_email_address: p.hashed_email } }
+      : {}),
   });
 }
