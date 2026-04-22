@@ -43,3 +43,8 @@ next-env.d.ts
 # Local media working folder — source assets for imports, not served by Next.
 # Files are copied into /public/ when needed and committed there instead.
 /DeenReliefMedia/
+
+# Shop initiative — post-launch Shopify Headless work. Untracked until we're
+# ready to integrate. To commit later: remove these lines, then `git add`.
+/shop-draft/
+/SHOP-PLAN.md
