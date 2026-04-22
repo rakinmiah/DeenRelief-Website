@@ -17,9 +17,11 @@
  * For monthly donors the same declaration covers all future renewals.
  */
 
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
 import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
 import { type GiftAidScope } from "@/lib/gift-aid";
 
@@ -263,6 +265,15 @@ export async function POST(request: Request) {
     giftAidDeclarationId = declRow.id;
   }
 
+  // Ad-attribution from the first-party cookie set by <AttributionCapture>.
+  // Attached to the donations row so we can:
+  //   - Report ROAS per campaign / keyword
+  //   - Upload Google Ads Offline Conversions (needs gclid + donation time)
+  //   - Separate paid vs organic revenue in dashboards
+  // All nullable — most rows will have none or some of these.
+  const cookieStore = await cookies();
+  const attribution = parseAttribution(cookieStore.get(ATTRIBUTION_COOKIE)?.value);
+
   // 4. Insert pending donation. Keyed differently based on frequency.
   const donationRow: Record<string, unknown> = {
     donor_id: donorRow.id,
@@ -274,6 +285,18 @@ export async function POST(request: Request) {
     frequency,
     gift_aid_claimed: giftAidEnabled,
     status: "pending",
+    gclid: attribution?.gclid ?? null,
+    gbraid: attribution?.gbraid ?? null,
+    wbraid: attribution?.wbraid ?? null,
+    fbclid: attribution?.fbclid ?? null,
+    utm_source: attribution?.utm_source ?? null,
+    utm_medium: attribution?.utm_medium ?? null,
+    utm_campaign: attribution?.utm_campaign ?? null,
+    utm_term: attribution?.utm_term ?? null,
+    utm_content: attribution?.utm_content ?? null,
+    landing_page: attribution?.landing_page ?? null,
+    landing_referrer: attribution?.landing_referrer ?? null,
+    landing_at: attribution?.landing_at ?? null,
   };
   if (frequency === "one-time") {
     donationRow.stripe_payment_intent_id = paymentIntentId;

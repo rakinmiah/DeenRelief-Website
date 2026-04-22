@@ -19,9 +19,15 @@
  *     Element is populated.
  */
 
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
+import {
+  ATTRIBUTION_COOKIE,
+  attributionToStripeMetadata,
+  parseAttribution,
+} from "@/lib/attribution";
 import {
   MAX_AMOUNT_PENCE,
   MIN_AMOUNT_PENCE,
@@ -79,11 +85,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid frequency." }, { status: 400 });
   }
 
+  // Pull ad-attribution from the first-party cookie set by <AttributionCapture>.
+  // Flattened as `attr_*` keys so they're namespaced from donation metadata.
+  // Useful for Stripe-Dashboard-side debugging; the donations row is still
+  // the source of truth for ROAS reporting (written by /confirm).
+  const cookieStore = await cookies();
+  const attribution = parseAttribution(cookieStore.get(ATTRIBUTION_COOKIE)?.value);
+
   const commonMetadata: Stripe.MetadataParam = {
     campaign,
     campaign_label: getCampaignLabel(campaign),
     amount_pence: String(amount),
     frequency,
+    ...attributionToStripeMetadata(attribution),
   };
 
   try {

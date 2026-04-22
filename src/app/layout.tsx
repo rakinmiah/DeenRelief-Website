@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Source_Serif_4, DM_Sans } from "next/font/google";
 import "./globals.css";
+import AttributionCapture from "@/components/AttributionCapture";
 import JsonLd from "@/components/JsonLd";
 
 const SITE_URL = "https://deenrelief.org";
@@ -204,6 +205,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-body text-charcoal bg-white">
         <JsonLd data={organizationSchema} />
         <JsonLd data={websiteSchema} />
+        <AttributionCapture />
         {children}
       </body>
     </html>
