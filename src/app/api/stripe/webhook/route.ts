@@ -241,6 +241,8 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
  * succeeded.
  */
 async function handleSetupIntentSucceeded(si: Stripe.SetupIntent) {
+  console.log(`[webhook] setup_intent.succeeded received for ${si.id}, campaign=${si.metadata?.campaign}, freq=${si.metadata?.frequency}`);
+
   // Only act on setup intents we created (must have our campaign metadata).
   if (!si.metadata?.campaign || si.metadata?.frequency !== "monthly") {
     console.log(`[webhook] setup_intent ${si.id} not ours — skipping.`);
@@ -255,9 +257,11 @@ async function handleSetupIntentSucceeded(si: Stripe.SetupIntent) {
       : si.payment_method?.id;
 
   if (!customerId || !paymentMethodId) {
+    const reason = `missing ${!customerId ? "customer" : "payment_method"}`;
     console.error(
-      `[webhook] setup_intent ${si.id} missing customer or payment_method — cannot create subscription.`
+      `[webhook] setup_intent ${si.id}: ${reason} — cannot create subscription.`
     );
+    await notifySubscriptionFailure(si.id, reason, null);
     return;
   }
 
@@ -271,59 +275,128 @@ async function handleSetupIntentSucceeded(si: Stripe.SetupIntent) {
   }
   if (!donation) {
     console.error(
-      `[webhook] donation row for setup_intent ${si.id} never appeared — cannot create subscription.`
+      `[webhook] donation row for setup_intent ${si.id} never appeared after 4 retries — cannot create subscription.`
+    );
+    await notifySubscriptionFailure(
+      si.id,
+      "donation row not found after 4 retries",
+      null
     );
     return;
   }
 
+  console.log(`[webhook] setup_intent ${si.id}: matched donation ${donation.id}, amount=${donation.amount_pence}, campaign=${donation.campaign}`);
+
   const amountPence = donation.amount_pence;
   const campaignLabel = donation.campaign_label;
+  const supabase = getSupabaseAdmin();
 
   // Create the Subscription. dahlia API requires a pre-existing Product ID
   // for inline price_data on subscription items — we create one Product per
   // donation so the Stripe Dashboard shows the campaign name + amount in
   // each subscription's line item.
-  const product = await stripe.products.create({
-    name: `Monthly donation — ${campaignLabel}`,
-    metadata: {
-      campaign: donation.campaign,
-      donation_id: donation.id,
-    },
-  });
-
-  const subscription = await stripe.subscriptions.create({
-    customer: customerId,
-    default_payment_method: paymentMethodId,
-    items: [
-      {
-        price_data: {
-          currency: "gbp",
-          product: product.id,
-          unit_amount: amountPence,
-          recurring: { interval: "month" },
-        },
+  try {
+    const product = await stripe.products.create({
+      name: `Monthly donation — ${campaignLabel}`,
+      metadata: {
+        campaign: donation.campaign,
+        donation_id: donation.id,
       },
-    ],
-    metadata: {
-      campaign: donation.campaign,
-      campaign_label: campaignLabel,
-      frequency: "monthly",
-      donation_id: donation.id,
-    },
-    // Charge immediately. If the first charge fails, we'll get
-    // invoice.payment_failed and can surface it.
-    payment_behavior: "error_if_incomplete",
-  });
+    });
 
-  // Record the subscription ID on the donation so invoice.paid for month 1
-  // can find + update this exact row (rather than creating a duplicate).
-  const supabase = getSupabaseAdmin();
-  await supabase
-    .from("donations")
-    .update({
-      stripe_subscription_id: subscription.id,
-    })
-    .eq("id", donation.id);
+    console.log(`[webhook] setup_intent ${si.id}: created product ${product.id}, creating subscription...`);
+
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      default_payment_method: paymentMethodId,
+      items: [
+        {
+          price_data: {
+            currency: "gbp",
+            product: product.id,
+            unit_amount: amountPence,
+            recurring: { interval: "month" },
+          },
+        },
+      ],
+      metadata: {
+        campaign: donation.campaign,
+        campaign_label: campaignLabel,
+        frequency: "monthly",
+        donation_id: donation.id,
+      },
+      // Charge immediately. If the first charge fails, we'll get
+      // invoice.payment_failed and can surface it.
+      payment_behavior: "error_if_incomplete",
+    });
+
+    console.log(`[webhook] setup_intent ${si.id}: created subscription ${subscription.id} (status=${subscription.status})`);
+
+    // Record the subscription ID on the donation so invoice.paid for month 1
+    // can find + update this exact row (rather than creating a duplicate).
+    const { error: updErr } = await supabase
+      .from("donations")
+      .update({
+        stripe_subscription_id: subscription.id,
+      })
+      .eq("id", donation.id);
+
+    if (updErr) {
+      console.error(`[webhook] donation update with subscription ID failed:`, updErr);
+      throw new Error(`DB update failed after subscription creation: ${updErr.message}`);
+    }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error(`[webhook] Subscription creation failed for setup_intent ${si.id}:`, err);
+
+    // Mark the donation as failed and notify the charity so a human can
+    // follow up with the donor (Stripe won't retry error_if_incomplete).
+    await supabase
+      .from("donations")
+      .update({ status: "failed" })
+      .eq("id", donation.id);
+
+    await notifySubscriptionFailure(si.id, reason, donation.id);
+
+    // Rethrow so the webhook returns 500 and Stripe retries the event.
+    throw err;
+  }
+}
+
+/**
+ * Fire a notification email to the charity's contact address when a monthly
+ * subscription creation fails. Swallow send errors — we still want the
+ * donation.status update and the thrown error to propagate.
+ */
+async function notifySubscriptionFailure(
+  setupIntentId: string,
+  reason: string,
+  donationId: string | null
+) {
+  try {
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) return;
+    const to = process.env.CONTACT_EMAIL ?? "info@deenrelief.org";
+    const { Resend } = await import("resend");
+    const resend = new Resend(resendKey);
+    await resend.emails.send({
+      from: "Deen Relief Website <noreply@deenrelief.org>",
+      to,
+      subject: "ALERT: Monthly donation subscription failed to set up",
+      text: [
+        `A monthly donation SetupIntent succeeded but we could not create the subscription.`,
+        ``,
+        `SetupIntent: ${setupIntentId}`,
+        `Donation row: ${donationId ?? "(not found)"}`,
+        `Reason: ${reason}`,
+        ``,
+        `The donor's card was validated but no charge was made. They will NOT be billed and will NOT receive a receipt.`,
+        `Please check the donation row in Supabase, the SetupIntent in Stripe, and decide whether to contact the donor.`,
+      ].join("\n"),
+    });
+  } catch (err) {
+    console.error("[webhook] notifySubscriptionFailure failed:", err);
+  }
 }
 
 /**
