@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
+import LazyVideo from "@/components/LazyVideo";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
 import Footer from "@/components/Footer";
@@ -266,17 +267,16 @@ export default function PalestinePage() {
 
             {/* ── Mobile layout: video, then 2 images stacked ── */}
             <div className="grid gap-3 lg:hidden">
+              {/* Poster-first on mobile: the 9.6 MB field video only
+                  downloads if the user taps play. Saves every mobile
+                  visitor the whole weight otherwise. */}
               <div className="relative rounded-2xl overflow-hidden aspect-[4/5] bg-charcoal">
-                <video
-                  className="w-full h-full object-cover"
+                <LazyVideo
                   src="/videos/gaza-field.mp4"
                   poster="/images/gaza-aid-handover.jpeg"
-                  preload="metadata"
-                  playsInline
-                  muted
-                  loop
-                  autoPlay
-                  controls
+                  alt="Deen Relief field team distributing aid in Gaza"
+                  posterSizes="100vw"
+                  posterObjectPosition="center 30%"
                 />
                 <ProofTag location="Gaza" />
               </div>
