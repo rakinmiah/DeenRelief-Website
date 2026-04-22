@@ -344,6 +344,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const completedAt = new Date((invoice.status_transitions?.paid_at ?? invoice.created) * 1000);
   const piId = getInvoicePaymentIntentId(invoice);
   const amountPence = invoice.amount_paid;
+  const customerId =
+    typeof invoice.customer === "string"
+      ? invoice.customer
+      : invoice.customer?.id ?? undefined;
 
   // Try to find a pending donation for this subscription (month 1 case).
   const { data: existing } = await supabase
@@ -367,7 +371,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       .eq("id", existing.id);
     if (updErr) throw new Error(`Invoice paid update failed: ${updErr.message}`);
 
-    await dispatchReceipt(existing as DonationRow, piId ?? invoice.id!, completedAt);
+    await dispatchReceipt(existing as DonationRow, piId ?? invoice.id!, completedAt, customerId);
     return;
   }
 
@@ -415,7 +419,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     throw new Error(`Renewal donation insert failed: ${insErr?.message}`);
   }
 
-  await dispatchReceipt(inserted as DonationRow, piId ?? invoice.id!, completedAt);
+  await dispatchReceipt(inserted as DonationRow, piId ?? invoice.id!, completedAt, customerId);
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
@@ -553,21 +557,32 @@ function getInvoicePaymentIntentId(invoice: Stripe.Invoice): string | null {
 /**
  * Fetch donor row, send the receipt email. Swallow errors — a failing email
  * must not cause Stripe to retry the webhook.
+ *
+ * `stripeCustomerId` is passed for monthly donations so the email can
+ * include a self-service "manage" link. Omit for one-time donations.
  */
 async function dispatchReceipt(
   donation: DonationRow,
   referenceId: string,
-  completedAt: Date
+  completedAt: Date,
+  stripeCustomerId?: string
 ) {
   try {
     const supabase = getSupabaseAdmin();
     const { data: donor } = await supabase
       .from("donors")
-      .select("first_name, last_name, email")
+      .select("first_name, last_name, email, stripe_customer_id")
       .eq("id", donation.donor_id)
       .maybeSingle();
 
     if (donor?.email) {
+      // Prefer the customer ID passed explicitly (from invoice.customer),
+      // fall back to the donor row's cached value.
+      const customerId =
+        stripeCustomerId ??
+        (donor as unknown as { stripe_customer_id?: string }).stripe_customer_id ??
+        undefined;
+
       await sendDonationReceipt({
         toEmail: donor.email,
         firstName: donor.first_name,
@@ -578,6 +593,7 @@ async function dispatchReceipt(
         giftAidClaimed: donation.gift_aid_claimed,
         paymentIntentId: referenceId,
         completedAt,
+        stripeCustomerId: donation.frequency === "monthly" ? customerId : undefined,
       });
     } else {
       console.warn(`[webhook] No donor email for donation ${donation.id}.`);

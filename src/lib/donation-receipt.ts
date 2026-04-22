@@ -13,6 +13,7 @@
 import { Resend } from "resend";
 import { CHARITY_NAME, CHARITY_NUMBER, totalWithGiftAidGbp } from "@/lib/gift-aid";
 import { fromPence } from "@/lib/stripe";
+import { signManageToken } from "@/lib/signed-token";
 
 export interface DonationReceiptInput {
   toEmail: string;
@@ -24,6 +25,12 @@ export interface DonationReceiptInput {
   giftAidClaimed: boolean;
   paymentIntentId: string;
   completedAt: Date;
+  /**
+   * Stripe Customer ID. Required for monthly donations so we can include
+   * the self-service "manage" link. One-time donations don't have a
+   * Customer (PaymentIntent-only flow).
+   */
+  stripeCustomerId?: string;
 }
 
 /** Send the receipt. Returns true on success, false on any error. */
@@ -96,6 +103,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
     giftAidClaimed,
     paymentIntentId,
     completedAt,
+    stripeCustomerId,
   } = input;
 
   const amountGbp = fromPence(amountPence);
@@ -106,6 +114,23 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
   const ref = shortRef(paymentIntentId);
   const dateStr = formatDate(completedAt);
   const subject = `Thank you for your donation to ${CHARITY_NAME} — receipt #${ref}`;
+
+  // Monthly-only: generate a signed "manage" link so the donor can cancel
+  // or update their payment method without needing an account. Each receipt
+  // regenerates the token — its 90-day TTL effectively rolls forward as
+  // long as they receive monthly receipts.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://deenrelief.org";
+  let manageUrl: string | null = null;
+  if (frequency === "monthly" && stripeCustomerId) {
+    try {
+      const token = signManageToken(stripeCustomerId);
+      manageUrl = `${siteUrl}/manage?token=${encodeURIComponent(token)}`;
+    } catch (err) {
+      // APP_SECRET not configured — skip the link rather than crash.
+      console.warn("[donation-receipt] Could not sign manage token:", err);
+    }
+  }
 
   // ── HTML email ──
   // Single-column 600px max-width, inline styles only, brand palette
@@ -194,12 +219,26 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;">
                 <tr>
                   <td align="center">
-                    <a href="https://deenrelief.org/our-work" style="display:inline-block;padding:14px 28px;background-color:#1F6B3A;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;">
+                    <a href="${siteUrl}/our-work" style="display:inline-block;padding:14px 28px;background-color:#1F6B3A;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:999px;">
                       See the impact
                     </a>
                   </td>
                 </tr>
               </table>
+
+              ${
+                manageUrl
+                  ? `<!-- Manage monthly subscription -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;padding-top:20px;border-top:1px solid #E5E7EB;">
+                <tr>
+                  <td style="font-size:13px;color:#6B7280;line-height:1.6;text-align:center;">
+                    Need to pause, cancel, or change your payment details?<br />
+                    <a href="${manageUrl}" style="color:#1F6B3A;text-decoration:underline;font-weight:600;">Manage your monthly donation</a>
+                  </td>
+                </tr>
+              </table>`
+                  : ""
+              }
             </td>
           </tr>
 
@@ -242,8 +281,11 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
     `Frequency:  ${frequency === "monthly" ? "Monthly" : "One-time"}`,
     `Gift Aid:   ${giftAidClaimed ? "Yes — 25% added at no cost to you" : "Not claimed"}`,
     ``,
-    `See the impact: https://deenrelief.org/our-work`,
+    `See the impact: ${siteUrl}/our-work`,
     ``,
+    manageUrl
+      ? `Manage your monthly donation (pause / cancel / update card):\n${manageUrl}\n`
+      : "",
     `──────────────────────────────`,
     `${CHARITY_NAME}`,
     `Registered charity in England & Wales, No. ${CHARITY_NUMBER}`,
