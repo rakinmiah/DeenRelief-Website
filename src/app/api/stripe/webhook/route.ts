@@ -662,6 +662,7 @@ async function dispatchReceipt(
         lastName: donor.last_name,
         amountPence: donation.amount_pence,
         campaignLabel: donation.campaign_label,
+        campaignSlug: donation.campaign,
         frequency: donation.frequency,
         giftAidClaimed: donation.gift_aid_claimed,
         paymentIntentId: referenceId,

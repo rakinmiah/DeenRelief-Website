@@ -10,10 +10,34 @@
  * resources by default.
  */
 
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { Resend } from "resend";
+import { getCampaignReceiptMessage } from "@/lib/campaigns";
 import { CHARITY_NAME, CHARITY_NUMBER, totalWithGiftAidGbp } from "@/lib/gift-aid";
 import { fromPence } from "@/lib/stripe";
 import { signManageToken } from "@/lib/signed-token";
+
+/**
+ * The email logo is attached inline (via `cid:logo`) rather than linked
+ * to https://deenrelief.org/images/logo.png. The production domain is still
+ * serving the old WordPress site, so the hotlink 404s in inboxes — and even
+ * after DNS cutover, inline attachments are more reliable across clients
+ * (some block remote images by default). Read once, cached per process.
+ */
+const LOGO_CID = "logo";
+let logoBufferCache: Buffer | null = null;
+async function loadLogoBuffer(): Promise<Buffer | null> {
+  if (logoBufferCache) return logoBufferCache;
+  try {
+    const p = path.join(process.cwd(), "public", "images", "logo.png");
+    logoBufferCache = await readFile(p);
+    return logoBufferCache;
+  } catch (err) {
+    console.warn("[donation-receipt] Could not load logo for inline attach:", err);
+    return null;
+  }
+}
 
 export interface DonationReceiptInput {
   toEmail: string;
@@ -21,6 +45,12 @@ export interface DonationReceiptInput {
   lastName: string;
   amountPence: number;
   campaignLabel: string;
+  /**
+   * Campaign slug from the CAMPAIGNS registry — drives the contextual
+   * gratitude line in the receipt body. Falls back to the general copy
+   * if missing or unknown, so older call sites that don't pass it still work.
+   */
+  campaignSlug?: string;
   frequency: "one-time" | "monthly";
   giftAidClaimed: boolean;
   paymentIntentId: string;
@@ -46,6 +76,7 @@ export async function sendDonationReceipt(
   try {
     const resend = new Resend(key);
     const { subject, html, text } = buildReceiptEmail(input);
+    const logoBuffer = await loadLogoBuffer();
 
     console.log("[donation-receipt] Sending to", input.toEmail);
     const result = await resend.emails.send({
@@ -54,6 +85,18 @@ export async function sendDonationReceipt(
       subject,
       html,
       text,
+      ...(logoBuffer
+        ? {
+            attachments: [
+              {
+                filename: "logo.png",
+                content: logoBuffer,
+                contentType: "image/png",
+                contentId: LOGO_CID,
+              },
+            ],
+          }
+        : {}),
     });
 
     if (result.error) {
@@ -99,12 +142,15 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
     firstName,
     amountPence,
     campaignLabel,
+    campaignSlug,
     frequency,
     giftAidClaimed,
     paymentIntentId,
     completedAt,
     stripeCustomerId,
   } = input;
+
+  const gratitudeLine = getCampaignReceiptMessage(campaignSlug ?? "general");
 
   const amountGbp = fromPence(amountPence);
   const giftAidGbp = giftAidClaimed
@@ -152,7 +198,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
           <tr>
             <td style="padding:32px 40px 20px;background-color:#ffffff;text-align:center;border-bottom:1px solid #E5E7EB;">
               <img
-                src="https://deenrelief.org/images/logo.png"
+                src="cid:${LOGO_CID}"
                 alt="${CHARITY_NAME}"
                 width="180"
                 style="display:block;margin:0 auto;width:180px;max-width:60%;height:auto;border:0;outline:none;text-decoration:none;"
@@ -168,7 +214,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
                 Thank you, ${escapeHtml(firstName)}.
               </h1>
               <p style="margin:0 0 24px;font-size:16px;color:#4B5563;">
-                Your donation has been received. 100% will go directly to the people who need it most, in shā’ Allāh.
+                ${escapeHtml(gratitudeLine)}
               </p>
 
               <!-- Receipt card -->
@@ -266,7 +312,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
   const textLines = [
     `Thank you, ${firstName}.`,
     ``,
-    `Your donation has been received. 100% will go directly to the people who need it most, in shā’ Allāh.`,
+    gratitudeLine,
     ``,
     `──────────────────────────────`,
     `${campaignLabel}`,
