@@ -243,7 +243,7 @@ export default function DonationForm() {
 
       {/* Trust Microcopy */}
       <div className="flex flex-wrap items-center gap-2.5 mt-3 text-[11px] text-grey/60 font-medium">
-        <span>100% to cancer care</span>
+        <span>100% pledge on cancer care</span>
         <span className="text-grey/25">·</span>
         <span>
           {frequency === "monthly"

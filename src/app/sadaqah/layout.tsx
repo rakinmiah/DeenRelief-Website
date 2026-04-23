@@ -4,7 +4,7 @@ import { buildDonationPageSchema } from "@/lib/donationSchema";
 
 const title = "Give Sadaqah and Sadaqah Jariyah | Deen Relief";
 const description =
-  "Give Sadaqah and Sadaqah Jariyah through a trusted UK Islamic charity. 3,200+ donors since 2013, no minimum, 100% to those in need. Charity No. 1158608.";
+  "Give Sadaqah and Sadaqah Jariyah through a trusted UK Islamic charity. 3,200+ donors since 2013, no minimum, delivered directly to those in need. Charity No. 1158608.";
 
 export const metadata: Metadata = {
   title,

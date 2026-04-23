@@ -111,7 +111,7 @@ export default function DonationForm() {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2.5 mt-3 text-[11px] text-grey/60 font-medium">
-        <span>100% to community outreach</span>
+        <span>100% pledge on homeless outreach</span>
         <span className="text-grey/25">·</span>
         <span>{frequency === "monthly" ? "Cancel anytime" : "Reg. charity 1158608"}</span>
       </div>

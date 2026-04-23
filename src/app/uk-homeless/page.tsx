@@ -112,7 +112,7 @@ export default function UKHomelessPage() {
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
                 <span className="text-white/20">·</span>
-                <span>100% to Relief</span>
+                <span>100% pledge on homeless outreach</span>
                 <span className="text-white/20">·</span>
                 <span>Gift Aid Eligible</span>
               </div>
