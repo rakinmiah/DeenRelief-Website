@@ -273,8 +273,8 @@ export default function PalestinePage() {
               <div className="relative rounded-2xl overflow-hidden aspect-[4/5] bg-charcoal">
                 <LazyVideo
                   src="/videos/gaza-field.mp4"
-                  poster="/images/gaza-aid-handover.jpeg"
-                  alt="Deen Relief field team distributing aid in Gaza"
+                  poster="/images/gaza-aid-distribution-1.webp"
+                  alt="Deen Relief field worker delivering aid in a Gaza displacement camp"
                   posterSizes="100vw"
                   posterObjectPosition="center 30%"
                 />
@@ -304,18 +304,17 @@ export default function PalestinePage() {
 
             {/* ── Desktop layout: video square left (50%), 2 images stacked right (50%) ── */}
             <div className="hidden lg:grid lg:grid-cols-2 gap-4">
-              {/* Left column — video, square aspect, full height of section */}
+              {/* Left column — video, square aspect, full height of section.
+                  Also poster-first now: autoplaying ~10 MB on every desktop
+                  load was hurting first-paint and Landing Page Experience
+                  even on broadband. Tap to watch. */}
               <div className="relative rounded-2xl overflow-hidden aspect-square bg-charcoal">
-                <video
-                  className="w-full h-full object-cover"
+                <LazyVideo
                   src="/videos/gaza-field.mp4"
-                  poster="/images/gaza-aid-handover.jpeg"
-                  preload="metadata"
-                  playsInline
-                  muted
-                  loop
-                  autoPlay
-                  controls
+                  poster="/images/gaza-aid-distribution-1.webp"
+                  alt="Deen Relief field worker delivering aid in a Gaza displacement camp"
+                  posterSizes="50vw"
+                  posterObjectPosition="center 30%"
                 />
                 <ProofTag location="Gaza" />
               </div>
