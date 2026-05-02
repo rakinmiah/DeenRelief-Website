@@ -35,7 +35,7 @@ export default function Partners() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Label */}
         <p className="text-center text-green text-sm font-bold tracking-[0.1em] uppercase mb-10">
-          Our Partners
+          Working Alongside
         </p>
 
         {/* Logos — 3×2 grid on mobile, single row on sm+ */}
