@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import Button from "./Button";
 import ProofTag from "./ProofTag";
 import Skeleton from "./Skeleton";
@@ -233,6 +234,17 @@ export default function FeaturedCampaign() {
                   : "Reg. charity 1158608"}
               </span>
             </div>
+
+            {/* Off-intent recovery — donors who want a different cause */}
+            <p className="mt-3 pt-3 border-t border-grey-light/70 text-[12px] text-grey/70">
+              Want to give to a different cause?{" "}
+              <Link
+                href="/our-work"
+                className="font-semibold text-green hover:text-green-dark underline underline-offset-2 decoration-green/30 hover:decoration-green"
+              >
+                See all campaigns
+              </Link>
+            </p>
           </div>
         </div>
       </div>
