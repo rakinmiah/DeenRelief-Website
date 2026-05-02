@@ -6,6 +6,8 @@ import Button from "./Button";
 import ProofTag from "./ProofTag";
 import Skeleton from "./Skeleton";
 
+const MIN_AMOUNT = 5;
+
 const donationAmounts = {
   "one-time": [
     { value: 25, label: "£25", outcome: "Provides emergency food for a family in Gaza" },
@@ -53,10 +55,11 @@ export default function FeaturedCampaign() {
   const [frequency, setFrequency] = useState<Frequency>("one-time");
   const [selectedAmount, setSelectedAmount] = useState(50);
   const [customAmount, setCustomAmount] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const amounts = donationAmounts[frequency];
   const isCustom = !amounts.some((a) => a.value === selectedAmount);
+  const amountForUrl = selectedAmount || Number(customAmount) || 0;
+  const isAmountValid = amountForUrl >= MIN_AMOUNT;
 
   const currentOutcome =
     amounts.find((a) => a.value === selectedAmount)?.outcome ?? "";
@@ -196,32 +199,31 @@ export default function FeaturedCampaign() {
               </p>
             )}
 
-            {/* CTA */}
-            <Button
-              variant="primary"
-              size="lg"
-              href="#donate"
-              className={`w-full sm:w-auto ${isSubmitting ? "opacity-75 pointer-events-none" : ""}`}
-            >
-              {isSubmitting ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Processing…
-                </span>
-              ) : (
-                <>
-                  Donate £{selectedAmount || customAmount || "0"}
-                  {frequency === "monthly" ? "/month" : ""} Now
-                </>
-              )}
-            </Button>
+            {/* CTA — routes to /donate checkout with campaign + amount + frequency. */}
+            {isAmountValid ? (
+              <Button
+                variant="primary"
+                size="lg"
+                href={`/donate?campaign=palestine&amount=${amountForUrl}&frequency=${frequency}`}
+                className="w-full sm:w-auto"
+              >
+                Donate £{amountForUrl.toLocaleString()}
+                {frequency === "monthly" ? "/month" : ""} Now
+              </Button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="inline-flex w-full sm:w-auto items-center justify-center px-8 py-4 rounded-full bg-grey-light text-charcoal/40 font-semibold text-lg cursor-not-allowed"
+              >
+                Enter £{MIN_AMOUNT} or more to continue
+              </button>
+            )}
 
             {/* Trust microcopy */}
             <div className="flex flex-wrap items-center gap-2.5 mt-5 text-[11px] text-grey/60 font-medium">
-              <span>100% to emergency relief</span>
+              <span>100% pledge on emergency relief</span>
               <span className="text-grey/25">·</span>
               <span>Gift Aid adds 25% at no cost</span>
               <span className="text-grey/25">·</span>
