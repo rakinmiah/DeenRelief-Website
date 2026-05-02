@@ -60,16 +60,15 @@ export default function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
+            {/* Width/height match the asset's intrinsic 2085×349 ratio
+                (≈5.97). Mismatching them trips Next.js Image's aspect-
+                ratio warning when CSS resizes the height. */}
             <Image
               src="/images/logo.webp"
               alt="Deen Relief"
-              width={180}
+              width={191}
               height={32}
-              className="transition-all duration-300"
-              style={{
-                height: scrolled ? "28px" : "32px",
-                width: "auto",
-              }}
+              className={`w-auto transition-[height] duration-300 ${scrolled ? "h-7" : "h-8"}`}
               priority
             />
           </Link>
