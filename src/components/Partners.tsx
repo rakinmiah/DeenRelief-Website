@@ -34,7 +34,7 @@ export default function Partners() {
     <section className="py-10 md:py-12 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Label */}
-        <p className="text-center text-green text-sm font-bold tracking-[0.1em] uppercase mb-10">
+        <p className="text-center text-green text-base sm:text-[17px] font-bold tracking-[0.12em] uppercase mb-10">
           Working Alongside
         </p>
 
@@ -53,7 +53,7 @@ export default function Partners() {
                 height={partner.height}
                 loading="lazy"
                 decoding="async"
-                className="max-h-[72px] sm:max-h-[80px] md:max-h-[88px] max-w-full w-auto h-auto object-contain opacity-75 hover:opacity-100 transition-opacity duration-200"
+                className="max-h-[60px] sm:max-h-[68px] md:max-h-[72px] max-w-full w-auto h-auto object-contain opacity-75 hover:opacity-100 transition-opacity duration-200"
               />
             </div>
           ))}
