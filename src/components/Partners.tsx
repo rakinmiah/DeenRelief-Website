@@ -19,8 +19,10 @@ const partners = [
   { name: "Trussell", logo: "/images/partners/trussell.svg", width: 145, height: 38 },
   // square emblem
   { name: "Bangladesh Red Crescent Society", logo: "/images/partners/bangladesh-red-crescent.svg", width: 400, height: 400 },
-  // 2:1 horizontal
-  { name: "READ Foundation", logo: "/images/partners/read-foundation.png", width: 1000, height: 500 },
+  // square brand tile (knockout logo on the foundation's green) — only
+  // usable variant; the transparent PNG is white-on-transparent so it
+  // would disappear against the strip's white background.
+  { name: "READ Foundation", logo: "/images/partners/read-foundation.jpeg", width: 400, height: 400 },
   // square-ish
   { name: "Human Appeal", logo: "/images/partners/human-appeal.png", width: 334, height: 357 },
   // very wide wordmark — anchors the row
