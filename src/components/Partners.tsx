@@ -41,7 +41,7 @@ export default function Partners({
     <section className={`py-10 md:py-12 ${background === "cream" ? "bg-cream" : "bg-white"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Label */}
-        <p className="text-center text-green text-base sm:text-[17px] font-bold tracking-[0.12em] uppercase mb-10">
+        <p className="text-center text-green text-sm sm:text-[15px] font-bold tracking-[0.12em] uppercase mb-10">
           Working Alongside
         </p>
 
