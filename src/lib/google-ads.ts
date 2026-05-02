@@ -27,7 +27,7 @@
  * token arrives.
  */
 
-import { createHash } from "node:crypto";
+export { hashForEnhancedConversion } from "./google-ads-hash";
 
 const API_VERSION = "v18";
 
@@ -119,22 +119,6 @@ export async function getAccessToken(env: GoogleAdsEnv): Promise<string> {
     expiresAt: Date.now() + json.expires_in * 1000,
   };
   return tokenCache.token;
-}
-
-// ─── Enhanced Conversions hashing ───
-
-/**
- * Normalize + SHA-256 hash a value per Google's Enhanced Conversions spec:
- *   - lowercase
- *   - strip whitespace
- *   - hash as hex
- * Empty / null input returns null (so we don't upload an empty-string hash).
- */
-export function hashForEnhancedConversion(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const normalized = raw.trim().toLowerCase();
-  if (!normalized) return null;
-  return createHash("sha256").update(normalized).digest("hex");
 }
 
 // ─── ClickConversion upload ───
