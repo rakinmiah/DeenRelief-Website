@@ -32,7 +32,7 @@ const partners = [
 export default function Partners() {
   return (
     <section className="py-10 md:py-12 bg-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Label */}
         <p className="text-center text-green text-sm font-bold tracking-[0.1em] uppercase mb-10">
           Working Alongside
@@ -53,7 +53,7 @@ export default function Partners() {
                 height={partner.height}
                 loading="lazy"
                 decoding="async"
-                className="max-h-[56px] sm:max-h-[60px] md:max-h-[64px] max-w-[120px] sm:max-w-[140px] w-auto h-auto object-contain opacity-75 hover:opacity-100 transition-opacity duration-200"
+                className="max-h-[72px] sm:max-h-[80px] md:max-h-[88px] max-w-[160px] sm:max-w-[180px] md:max-w-[200px] w-auto h-auto object-contain opacity-75 hover:opacity-100 transition-opacity duration-200"
               />
             </div>
           ))}
