@@ -29,9 +29,16 @@ const partners = [
   { name: "Ummah Welfare Trust", logo: "/images/partners/ummah-welfare-trust.png", width: 800, height: 104 },
 ];
 
-export default function Partners() {
+export default function Partners({
+  background = "white",
+}: {
+  /** Section background. Homepage uses "cream" to break up the all-white
+   *  flow above; campaign pages default to "white" to sit cleanly between
+   *  the hero and the donation panel. */
+  background?: "white" | "cream";
+} = {}) {
   return (
-    <section className="py-10 md:py-12 bg-cream">
+    <section className={`py-10 md:py-12 ${background === "cream" ? "bg-cream" : "bg-white"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Label */}
         <p className="text-center text-green text-base sm:text-[17px] font-bold tracking-[0.12em] uppercase mb-10">

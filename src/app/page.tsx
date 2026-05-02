@@ -71,7 +71,7 @@ export default function Home() {
 
       <main id="main-content" className="flex-1">
         <Hero />
-        <Partners />
+        <Partners background="cream" />
         <FeaturedCampaign />
         <CancerCareCentres />
         <GivingPathways />
