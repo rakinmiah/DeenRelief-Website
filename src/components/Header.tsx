@@ -115,17 +115,9 @@ export default function Header() {
             </Button>
           </div>
 
-          {/* Mobile: Donate Button + Hamburger.
-              Donate is hidden below 360px (Galaxy Z Fold closed mode) where
-              logo + Donate + hamburger don't fit. The hamburger menu has
-              its own Donate link so the action is still reachable. */}
+          {/* Mobile: Donate Button + Hamburger */}
           <div className="flex lg:hidden items-center gap-3">
-            <Button
-              variant="primary"
-              size="sm"
-              href={donateHref}
-              className="max-[359px]:hidden"
-            >
+            <Button variant="primary" size="sm" href={donateHref}>
               Donate
             </Button>
             <button
@@ -174,23 +166,6 @@ export default function Header() {
               aria-label="Mobile navigation"
             >
               <div className="flex flex-col gap-4">
-                {/* Donate first — primary action, always reachable inside
-                    the menu. Especially important at < 360px where the
-                    standalone Donate button is hidden. */}
-                <Link
-                  href={donateHref}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-amber text-charcoal font-semibold text-base shadow-sm hover:bg-amber-dark transition-all duration-300 ${
-                    mobileMenuOpen
-                      ? "translate-y-0 opacity-100"
-                      : "-translate-y-2 opacity-0"
-                  }`}
-                  style={{
-                    transitionDelay: mobileMenuOpen ? "75ms" : "0ms",
-                  }}
-                >
-                  Donate
-                </Link>
                 {navLinks.map((link, i) => {
                   const active = isActive(link.href);
                   return (
@@ -209,7 +184,7 @@ export default function Header() {
                       }`}
                       style={{
                         transitionDelay: mobileMenuOpen
-                          ? `${115 + i * 40}ms`
+                          ? `${75 + i * 40}ms`
                           : "0ms",
                       }}
                     >
