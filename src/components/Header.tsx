@@ -110,7 +110,7 @@ export default function Header() {
             </Button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-charcoal/70 transition-colors duration-200"
+              className="p-2.5 text-charcoal/70 transition-colors duration-200"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
             >

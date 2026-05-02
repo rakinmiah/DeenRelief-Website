@@ -115,10 +115,11 @@ export default function ZakatCalculator() {
                 </span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={manualNisab}
                   onChange={(e) => setManualNisab(e.target.value)}
                   placeholder="Enter current nisab in GBP"
-                  className="w-full pl-7 pr-4 py-2 rounded-lg border border-charcoal/10 text-charcoal text-sm placeholder:text-grey/40 focus:outline-none focus:border-green/40"
+                  className="w-full pl-7 pr-4 py-2 rounded-lg border border-charcoal/10 text-charcoal text-base placeholder:text-grey/40 focus:outline-none focus:border-green/40"
                 />
               </div>
             </div>
@@ -151,6 +152,7 @@ export default function ZakatCalculator() {
               <input
                 id="zakat-assets"
                 type="number"
+                inputMode="decimal"
                 value={assets}
                 onChange={(e) => setAssets(e.target.value)}
                 placeholder="0"
@@ -171,6 +173,7 @@ export default function ZakatCalculator() {
               <input
                 id="zakat-liabilities"
                 type="number"
+                inputMode="decimal"
                 value={liabilities}
                 onChange={(e) => setLiabilities(e.target.value)}
                 placeholder="0"

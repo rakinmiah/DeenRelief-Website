@@ -4,7 +4,7 @@ import ProofTag from "./ProofTag";
 
 export default function Hero() {
   return (
-    <section className="relative min-h-[68vh] md:min-h-[78vh] flex items-end mt-[60px] md:mt-[64px]">
+    <section className="relative min-h-[68dvh] md:min-h-[78dvh] flex items-end mt-[60px] md:mt-[64px]">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
         <Image

@@ -28,7 +28,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+    <div className="min-h-dvh bg-white flex items-center justify-center px-4">
       <div className="max-w-sm w-full text-center">
         <Image
           src="/images/logo.webp"
