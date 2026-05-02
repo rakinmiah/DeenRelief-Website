@@ -53,7 +53,7 @@ export default function Partners() {
                 height={partner.height}
                 loading="lazy"
                 decoding="async"
-                className="max-h-[72px] sm:max-h-[80px] md:max-h-[88px] max-w-[160px] sm:max-w-[180px] md:max-w-[200px] w-auto h-auto object-contain opacity-75 hover:opacity-100 transition-opacity duration-200"
+                className="max-h-[72px] sm:max-h-[80px] md:max-h-[88px] max-w-full w-auto h-auto object-contain opacity-75 hover:opacity-100 transition-opacity duration-200"
               />
             </div>
           ))}
