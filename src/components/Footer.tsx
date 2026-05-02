@@ -1,11 +1,10 @@
 import Link from "next/link";
 import ManageCookiesLink from "./ManageCookiesLink";
 
-// Copyright year — hardcoded to keep SSR and client hydration identical.
-// Using `new Date().getFullYear()` here caused a React hydration mismatch
-// (server-evaluated year can diverge from the client's evaluation due to
-// timezone or evaluation timing). Update this annually on Jan 1.
-const COPYRIGHT_YEAR = 2026;
+// Footer is a server component (no "use client") so this evaluates once
+// at build / request time and ships to the browser as static HTML — no
+// hydration mismatch is possible. Stays current with each Vercel deploy
+// (and re-evaluates on every request for force-dynamic pages).
 
 const quickLinks = [
   { label: "Our Work", href: "/our-work" },
@@ -138,7 +137,7 @@ export default function Footer() {
             {/* Registration */}
             <div className="text-white/40 text-xs">
               Charity Commission Reg. No. 1158608 &middot; Company No.
-              08593822 &middot; &copy; {COPYRIGHT_YEAR} Deen Relief.
+              08593822 &middot; &copy; {new Date().getFullYear()} Deen Relief.
               All rights reserved.
             </div>
 
