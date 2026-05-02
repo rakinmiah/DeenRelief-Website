@@ -42,36 +42,48 @@ function AnimatedNumber({
   suffix?: string;
   prefix?: string;
 }) {
-  const [count, setCount] = useState(0);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  // Initialise to the FINAL target so SSR / no-JS / search bots /
+  // backgrounded tabs / reduced-motion users see the real number rather
+  // than "0+". Count-up is visual flair only.
+  const [count, setCount] = useState(target);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (!ref.current) return;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Only count up if the bar is BELOW the viewport at mount.
+    // If it's in view or scrolled-past, leave at target.
+    const rect = ref.current.getBoundingClientRect();
+    const isBelowViewport = rect.top >= window.innerHeight;
+    if (!isBelowViewport) return;
+
+    setCount(0);
+
+    let done = false;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
-          const duration = 1500;
-          const startTime = performance.now();
-
-          const animate = (currentTime: number) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setCount(Math.round(eased * target));
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            }
-          };
-          requestAnimationFrame(animate);
-        }
+        if (!entry.isIntersecting || done) return;
+        done = true;
+        observer.disconnect();
+        const duration = 1500;
+        const startTime = performance.now();
+        const animate = (currentTime: number) => {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setCount(Math.round(eased * target));
+          if (progress < 1) requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
       },
       { threshold: 0.5 }
     );
 
-    if (ref.current) observer.observe(ref.current);
+    observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [target, hasAnimated]);
+  }, [target]);
 
   return (
     <span ref={ref}>

@@ -17,34 +17,54 @@ const stats: Stat[] = [
 ];
 
 function CountUp({ value, suffix, prefix = "" }: { value: number; suffix: string; prefix?: string }) {
-  const [count, setCount] = useState(0);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  // Initialise to the FINAL value so SSR, no-JS, search-engine crawlers,
+  // backgrounded tabs and reduced-motion users all see the real number.
+  // The count-up is purely visual flair and only kicks in when the user
+  // scrolls the section into view from below.
+  const [count, setCount] = useState(value);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (!ref.current) return;
+
+    // Respect prefers-reduced-motion — skip animation entirely.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Only count up if the section is BELOW the viewport at mount.
+    // If it's already in view (user landed on this part of the page) or
+    // already above (user reloaded while scrolled past), leave the final
+    // value visible — no jarring reset to zero.
+    const rect = ref.current.getBoundingClientRect();
+    const isBelowViewport = rect.top >= window.innerHeight;
+    if (!isBelowViewport) return;
+
+    // Otherwise: start from zero so the count-up has somewhere to go
+    // when the user scrolls into view.
+    setCount(0);
+
+    let done = false;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
-          const duration = 2000;
-          const startTime = performance.now();
-
-          const animate = (currentTime: number) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setCount(Math.round(eased * value));
-            if (progress < 1) requestAnimationFrame(animate);
-          };
-          requestAnimationFrame(animate);
-        }
+        if (!entry.isIntersecting || done) return;
+        done = true;
+        observer.disconnect();
+        const duration = 2000;
+        const startTime = performance.now();
+        const animate = (currentTime: number) => {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setCount(Math.round(eased * value));
+          if (progress < 1) requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
       },
       { threshold: 0.3 }
     );
 
-    if (ref.current) observer.observe(ref.current);
+    observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [value, hasAnimated]);
+  }, [value]);
 
   return (
     <span ref={ref}>
