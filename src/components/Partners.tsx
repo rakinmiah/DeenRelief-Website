@@ -31,7 +31,7 @@ const partners = [
 
 export default function Partners() {
   return (
-    <section className="py-10 md:py-12 bg-white">
+    <section className="py-10 md:py-12 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Label */}
         <p className="text-center text-green text-sm font-bold tracking-[0.1em] uppercase mb-10">
