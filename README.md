@@ -56,10 +56,16 @@ for rows X, Y, Z." So:
 - `?phase=fetch` (default): Google polls, we serve the CSV and stamp
   `csv_served_at` on every row included. Served rows drop out of the next
   fetch.
-- `?phase=commit`: hourly Vercel cron at `:15` past the hour. Promotes rows
-  whose `csv_served_at` is older than 6h (Google's processing window) to
+- `?phase=commit`: daily Vercel cron at `03:30 UTC`. Promotes rows whose
+  `csv_served_at` is older than 6h (Google's processing window) to
   `csv_uploaded_at`. Defensively resets rows stuck in "served" state for
   more than 24h so they re-enter the queue on the next fetch.
+
+  *Why daily, not hourly?* Vercel Hobby plans cap cron frequency at once
+  per day — anything more frequent fails deployment. If we upgrade to Pro,
+  bump this to `15 * * * *` for tighter pickup latency. Daily is fine
+  semantically: Google Ads' polling cadence is independent (configured in
+  their UI), and our 6h commit window is well-clear of any 24h gap.
 
 **GCLID expiry:** Google rejects GCLIDs older than 90 days. We filter at 85
 to stay well clear of the boundary — older donations silently drop out of
