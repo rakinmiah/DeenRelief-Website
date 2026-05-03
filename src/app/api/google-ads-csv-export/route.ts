@@ -52,6 +52,14 @@ const RESET_AFTER_HOURS = 24;
  */
 const MAX_ROWS_PER_FETCH = 10000;
 
+/**
+ * Applied to EVERY response from this route. Vercel's edge will otherwise
+ * cache 404s aggressively — and a cached 404 from a transient mis-token or
+ * cold-start failure breaks the endpoint until cache eviction. Both
+ * directives together are what's needed to defeat edge + browser caches.
+ */
+const NO_CACHE_HEADER = "no-store, max-age=0";
+
 interface DonationRow {
   id: string;
   amount_pence: number;
@@ -70,13 +78,22 @@ export async function GET(request: Request) {
 
   if (!verifyToken(providedToken)) {
     // 404, not 401 — don't advertise that this endpoint exists.
-    return new Response("Not found", { status: 404 });
+    return notFound();
   }
 
   if (phase === "commit") return handleCommit();
   if (phase === "fetch") return handleFetch();
 
-  return new Response("Not found", { status: 404 });
+  return notFound();
+}
+
+function notFound(): Response {
+  // no-store on the 404 too — otherwise Vercel's edge can cache a stale
+  // 404 from a transient mis-token request and shadow real ones.
+  return new Response("Not found", {
+    status: 404,
+    headers: { "Cache-Control": NO_CACHE_HEADER },
+  });
 }
 
 // ─── Token verification ────────────────────────────────────────────────────
@@ -154,7 +171,7 @@ async function handleFetch(): Promise<Response> {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Cache-Control": "no-store",
+      "Cache-Control": NO_CACHE_HEADER,
     },
   });
 }
@@ -210,7 +227,9 @@ async function handleCommit(): Promise<Response> {
   console.log(
     `[google-ads-csv-export] commit phase: committed=${result.committed} retried=${result.retried}`
   );
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: { "Cache-Control": NO_CACHE_HEADER },
+  });
 }
 
 // ─── CSV building ──────────────────────────────────────────────────────────
@@ -306,5 +325,11 @@ function londonOffset(d: Date): string {
 
 function errorResponse(): Response {
   // Generic body — never echo DB errors to a public endpoint.
-  return NextResponse.json({ error: "Internal server error." }, { status: 500 });
+  return NextResponse.json(
+    { error: "Internal server error." },
+    {
+      status: 500,
+      headers: { "Cache-Control": NO_CACHE_HEADER },
+    }
+  );
 }
