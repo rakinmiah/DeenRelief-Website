@@ -99,7 +99,7 @@ export default function DonationForm() {
 
       {isAmountValid ? (
         <Button variant="primary" size="lg" href={`/donate?campaign=zakat&amount=${amountForUrl}&frequency=${frequency}`} className="w-full justify-center">
-          Pay Zakat £{amountForUrl.toLocaleString()}{frequency === "monthly" ? "/month" : ""} Now
+          Pay £{amountForUrl.toLocaleString()}{frequency === "monthly" ? "/month" : ""} Zakat Now
         </Button>
       ) : (
         <button type="button" disabled aria-disabled="true" className="inline-flex w-full items-center justify-center px-8 py-4 rounded-full bg-grey-light text-charcoal/40 font-semibold text-lg cursor-not-allowed">Enter £{MIN_AMOUNT} or more to continue</button>

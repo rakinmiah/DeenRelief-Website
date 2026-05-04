@@ -133,7 +133,7 @@ export default function OurWorkPage() {
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 md:py-16 lg:py-20">
             <div className="max-w-[22rem] sm:max-w-[26rem] md:max-w-[28rem]">
-              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-white/50 mb-3">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-amber mb-3">
                 Our Work
               </span>
               <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] sm:leading-[1.14] lg:leading-[1.12] text-white font-heading font-bold mb-4 tracking-[-0.02em]">

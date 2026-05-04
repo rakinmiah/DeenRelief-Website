@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
+import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
@@ -296,40 +297,26 @@ export default function OrphanSponsorshipPage() {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
-              {[
+            <ProcessSteps
+              steps={[
                 {
-                  step: "01",
+                  n: "01",
                   title: "We Identify",
-                  description:
-                    "Our local partners identify orphaned children in greatest need across Bangladesh, assessing each case individually.",
+                  body: "Our local partners identify orphaned children in greatest need across Bangladesh, assessing each case individually.",
                 },
                 {
-                  step: "02",
+                  n: "02",
                   title: "We Support",
-                  description:
-                    "Your £30/month is directed to education, nutrition, shelter, and healthcare for your sponsored child.",
+                  body: "Your £30/month is directed to education, nutrition, shelter, and healthcare for your sponsored child.",
                 },
                 {
-                  step: "03",
+                  n: "03",
                   title: "We Report",
-                  description:
-                    "Annual reports and audited financial statements are published openly through the Charity Commission.",
+                  body: "Annual reports and audited financial statements are published openly through the Charity Commission.",
                 },
-              ].map((item) => (
-                <div key={item.step} className="text-center">
-                  <span className="inline-block text-3xl font-heading font-bold text-green/20 mb-3">
-                    {item.step}
-                  </span>
-                  <h3 className="font-heading font-bold text-lg text-charcoal mb-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-grey/80 text-[0.8125rem] leading-[1.6]">
-                    {item.description}
-                  </p>
-                </div>
-              ))}
-            </div>
+              ]}
+              className="max-w-4xl mx-auto mb-12"
+            />
 
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">
               <span>Charity No. 1158608</span>

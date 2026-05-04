@@ -48,7 +48,7 @@ export default function MiniDonationPicker() {
       )}
       {isAmountValid ? (
         <Link href={`/donate?campaign=zakat&amount=${amountForUrl}&frequency=${frequency}`} className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-amber text-charcoal hover:bg-amber-dark font-semibold shadow-sm text-base transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-          Pay Zakat £{amountForUrl.toLocaleString()}{frequency === "monthly" ? "/month" : ""} Now
+          Pay £{amountForUrl.toLocaleString()}{frequency === "monthly" ? "/month" : ""} Zakat Now
         </Link>
       ) : (
         <button type="button" disabled aria-disabled="true" className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-white/10 text-white/40 font-semibold text-base cursor-not-allowed">Enter £{MIN_AMOUNT} or more to continue</button>

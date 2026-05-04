@@ -20,6 +20,7 @@ export const CAMPAIGNS = {
   "uk-homeless": "UK Homeless",
   zakat: "Zakat",
   sadaqah: "Sadaqah",
+  qurbani: "Qurbani 2026",
   general: "General Donation",
 } as const;
 
@@ -56,6 +57,8 @@ const CAMPAIGN_RECEIPT_MESSAGE: Record<CampaignSlug, string> = {
     "Your Zakat reaches those eligible under the eight asnaf — delivered carefully and with full accountability, in shā’ Allāh.",
   sadaqah:
     "Your Sadaqah supports whoever needs it most — the ongoing, quiet work that rarely makes headlines, in shā’ Allāh.",
+  qurbani:
+    "Your Qurbani is performed in accordance with Islamic guidelines, with the meat distributed locally to families in need, in shā’ Allāh.",
   general:
     "Your donation is directed wherever the need is greatest, in shā’ Allāh.",
 };

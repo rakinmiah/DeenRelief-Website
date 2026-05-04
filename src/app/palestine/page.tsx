@@ -4,6 +4,7 @@ import Button from "@/components/Button";
 import LazyVideo from "@/components/LazyVideo";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
+import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
@@ -363,40 +364,26 @@ export default function PalestinePage() {
             </div>
 
             {/* 3-Step Process */}
-            <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
-              {[
+            <ProcessSteps
+              steps={[
                 {
-                  step: "01",
+                  n: "01",
                   title: "We Verify",
-                  description:
-                    "Our field teams identify urgent household needs on the ground in Gaza, prioritising the most vulnerable families.",
+                  body: "Our field teams identify urgent household needs on the ground in Gaza, prioritising the most vulnerable families.",
                 },
                 {
-                  step: "02",
+                  n: "02",
                   title: "We Allocate",
-                  description:
-                    "Funds are directed where pressure is highest. Every pound goes to the families who need it most.",
+                  body: "Funds are directed where pressure is highest. Every pound goes to the families who need it most.",
                 },
                 {
-                  step: "03",
+                  n: "03",
                   title: "We Report",
-                  description:
-                    "Audited reports published through the Charity Commission. Full transparency, always.",
+                  body: "Audited reports published through the Charity Commission. Full transparency, always.",
                 },
-              ].map((item) => (
-                <div key={item.step} className="text-center">
-                  <span className="inline-block text-3xl font-heading font-bold text-green/20 mb-3">
-                    {item.step}
-                  </span>
-                  <h3 className="font-heading font-bold text-lg text-charcoal mb-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-grey/80 text-[0.8125rem] leading-[1.6]">
-                    {item.description}
-                  </p>
-                </div>
-              ))}
-            </div>
+              ]}
+              className="max-w-4xl mx-auto mb-12"
+            />
 
             {/* Trust Stats Row */}
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">

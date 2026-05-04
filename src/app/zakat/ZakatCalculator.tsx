@@ -68,7 +68,7 @@ export default function ZakatCalculator() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl p-6 sm:p-8">
+      <div className="bg-white border border-charcoal/8 rounded-2xl p-6 sm:p-8">
         {/* Nisab display */}
         <div className="mb-6 p-4 rounded-xl bg-green-light/40 border border-green/8">
           <div className="flex items-center justify-between mb-3">

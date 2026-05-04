@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Button from "@/components/Button";
 import ProofTag from "@/components/ProofTag";
 import Partners from "@/components/Partners";
+import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
@@ -215,19 +216,14 @@ export default function ZakatPage() {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
-              {[
-                { step: "01", title: "We Assess", description: "Every case is reviewed by our trustees before funds are released. We verify eligibility against established Islamic criteria." },
-                { step: "02", title: "We Allocate", description: "Project-specific donations go directly to your chosen pathway. Unrestricted Zakat is directed where the need is greatest." },
-                { step: "03", title: "We Report", description: "Annual reports and audited financial statements are published openly on the Charity Commission website." },
-              ].map((item) => (
-                <div key={item.step} className="text-center">
-                  <span className="inline-block text-3xl font-heading font-bold text-green/20 mb-3">{item.step}</span>
-                  <h3 className="font-heading font-bold text-lg text-charcoal mb-2">{item.title}</h3>
-                  <p className="text-grey/80 text-[0.8125rem] leading-[1.6]">{item.description}</p>
-                </div>
-              ))}
-            </div>
+            <ProcessSteps
+              steps={[
+                { n: "01", title: "We Assess", body: "Every case is reviewed by our trustees before funds are released. We verify eligibility against established Islamic criteria." },
+                { n: "02", title: "We Allocate", body: "Project-specific donations go directly to your chosen pathway. Unrestricted Zakat is directed where the need is greatest." },
+                { n: "03", title: "We Report", body: "Annual reports and audited financial statements are published openly on the Charity Commission website." },
+              ]}
+              className="max-w-4xl mx-auto mb-12"
+            />
 
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">
               <span>Charity No. 1158608</span>
