@@ -30,6 +30,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendDonationReceipt } from "@/lib/donation-receipt";
+import { sendDonationStaffNotification } from "@/lib/donation-staff-notification";
 
 export const dynamic = "force-dynamic";
 
@@ -628,11 +629,18 @@ function getInvoicePaymentIntentId(invoice: Stripe.Invoice): string | null {
 }
 
 /**
- * Fetch donor row, send the receipt email. Swallow errors — a failing email
- * must not cause Stripe to retry the webhook.
+ * Fetch donor + donation extras, then fire the donor receipt and the staff
+ * notification in parallel. Swallow errors — a failing email must not cause
+ * Stripe to retry the webhook (it would re-process and double-charge donor
+ * trust, even though Stripe itself is idempotent).
  *
- * `stripeCustomerId` is passed for monthly donations so the email can
+ * `stripeCustomerId` is passed for monthly donations so the donor email can
  * include a self-service "manage" link. Omit for one-time donations.
+ *
+ * Two queries (donor + donation extras) run in parallel so the staff email
+ * can include the full picture: phone/address/marketing-consent (donors row)
+ * plus UTM/gclid attribution + all Stripe IDs (donations row). The base
+ * DonationRow only carries the fields the receipt itself needs.
  */
 async function dispatchReceipt(
   donation: DonationRow,
@@ -642,21 +650,42 @@ async function dispatchReceipt(
 ) {
   try {
     const supabase = getSupabaseAdmin();
-    const { data: donor } = await supabase
-      .from("donors")
-      .select("first_name, last_name, email, stripe_customer_id")
-      .eq("id", donation.donor_id)
-      .maybeSingle();
+    const [donorRes, extrasRes] = await Promise.all([
+      supabase
+        .from("donors")
+        .select(
+          "first_name, last_name, email, phone, address_line1, address_line2, city, postcode, country, marketing_consent, stripe_customer_id"
+        )
+        .eq("id", donation.donor_id)
+        .maybeSingle(),
+      supabase
+        .from("donations")
+        .select(
+          "stripe_payment_intent_id, stripe_customer_id, stripe_subscription_id, stripe_invoice_id, currency, utm_source, utm_medium, utm_campaign, utm_term, utm_content, gclid, landing_page, landing_referrer"
+        )
+        .eq("id", donation.id)
+        .maybeSingle(),
+    ]);
 
-    if (donor?.email) {
-      // Prefer the customer ID passed explicitly (from invoice.customer),
-      // fall back to the donor row's cached value.
-      const customerId =
-        stripeCustomerId ??
-        (donor as unknown as { stripe_customer_id?: string }).stripe_customer_id ??
-        undefined;
+    const donor = donorRes.data;
+    const extras = extrasRes.data;
 
-      await sendDonationReceipt({
+    if (!donor?.email) {
+      console.warn(`[webhook] No donor email for donation ${donation.id}.`);
+      return;
+    }
+
+    const customerId =
+      stripeCustomerId ??
+      donor.stripe_customer_id ??
+      extras?.stripe_customer_id ??
+      undefined;
+
+    // Both emails fire in parallel; each helper logs its own failure and
+    // returns false on error — neither rejects, so allSettled is belt-and-
+    // braces against future internals changing.
+    await Promise.allSettled([
+      sendDonationReceipt({
         toEmail: donor.email,
         firstName: donor.first_name,
         lastName: donor.last_name,
@@ -667,11 +696,42 @@ async function dispatchReceipt(
         giftAidClaimed: donation.gift_aid_claimed,
         paymentIntentId: referenceId,
         completedAt,
-        stripeCustomerId: donation.frequency === "monthly" ? customerId : undefined,
-      });
-    } else {
-      console.warn(`[webhook] No donor email for donation ${donation.id}.`);
-    }
+        stripeCustomerId:
+          donation.frequency === "monthly" ? customerId : undefined,
+      }),
+      sendDonationStaffNotification({
+        firstName: donor.first_name,
+        lastName: donor.last_name,
+        email: donor.email,
+        phone: donor.phone,
+        addressLine1: donor.address_line1,
+        addressLine2: donor.address_line2,
+        city: donor.city,
+        postcode: donor.postcode,
+        country: donor.country,
+        marketingConsent: donor.marketing_consent,
+        amountPence: donation.amount_pence,
+        currency: extras?.currency ?? "GBP",
+        campaignLabel: donation.campaign_label,
+        campaignSlug: donation.campaign,
+        frequency: donation.frequency,
+        giftAidClaimed: donation.gift_aid_claimed,
+        completedAt,
+        paymentIntentId: referenceId,
+        stripePaymentIntentId: extras?.stripe_payment_intent_id ?? null,
+        stripeCustomerId: customerId ?? null,
+        stripeSubscriptionId: extras?.stripe_subscription_id ?? null,
+        stripeInvoiceId: extras?.stripe_invoice_id ?? null,
+        utmSource: extras?.utm_source ?? null,
+        utmMedium: extras?.utm_medium ?? null,
+        utmCampaign: extras?.utm_campaign ?? null,
+        utmTerm: extras?.utm_term ?? null,
+        utmContent: extras?.utm_content ?? null,
+        gclid: extras?.gclid ?? null,
+        landingPage: extras?.landing_page ?? null,
+        landingReferrer: extras?.landing_referrer ?? null,
+      }),
+    ]);
   } catch (err) {
     console.error("[webhook] Receipt dispatch failed:", err);
   }
