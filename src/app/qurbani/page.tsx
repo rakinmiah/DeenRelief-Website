@@ -81,13 +81,13 @@ export default function QurbaniPage() {
 
       <main id="main-content" className="flex-1">
         {/* ─── 1. Hero ─── */}
-        <section className="relative md:min-h-[50vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
+        <section className="relative md:min-h-[80vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/qurbani-hero.webp"
-              alt="Deen Relief team members standing with smiling Bangladeshi children in a rural village"
+              src="/images/qurbani-hero-v3.jpeg"
+              alt="A Deen Relief worker with a Bangladeshi child alongside food parcels of rice and supplies"
               fill
-              className="object-cover object-[55%_20%]"
+              className="object-cover object-[center_35%]"
               priority
             />
             <div
@@ -118,24 +118,22 @@ export default function QurbaniPage() {
                 Fulfil the Sunnah of Ibrahim (AS) this Eid.
               </p>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                Sheep, goat, and cow shares from £50 — performed locally in
-                Bangladesh, India, Pakistan, and Syria, with the meat
-                distributed to families in need.
+                Sheep, goat, and cow shares from £50. Performed locally
+                and delivered to families in need.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
                 <span className="text-white/20">·</span>
-                <HeroDeadline />
-                <span className="text-white/20">·</span>
                 <span>Gift Aid Eligible</span>
               </div>
+              <HeroDeadline />
               <Button variant="primary" href="#donate-form">
                 Donate Qurbani Now
               </Button>
             </div>
           </div>
 
-          <ProofTag location="Bangladesh" position="bottom-right" />
+          <ProofTag location="Gaza" position="bottom-right" />
         </section>
 
         {/* ─── 2. Donation Panel ─── */}
@@ -178,15 +176,14 @@ export default function QurbaniPage() {
 
                 {/* Mobile-only inline image — restores photographic proof
                     immediately after the section heading. */}
-                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
+                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/5] mb-6">
                   <Image
-                    src="/images/qurbani-distribution.jpg"
-                    alt="Deen Relief field worker sitting with a child alongside food parcels in Bangladesh"
+                    src="/images/gaza-displacement-camp-children.jpeg"
+                    alt="Deen Relief field worker delivering an aid package to children in a Gaza displacement camp"
                     fill
-                    className="object-cover object-[center_40%]"
+                    className="object-cover object-[center_85%]"
                     sizes="100vw"
                   />
-                  <ProofTag location="Bangladesh" />
                 </div>
 
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
@@ -238,13 +235,12 @@ export default function QurbaniPage() {
               {/* Desktop-only image — mobile has the inline image above */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px]">
                 <Image
-                  src="/images/qurbani-distribution.jpg"
-                  alt="Deen Relief field worker sitting with a child alongside food parcels in Bangladesh"
+                  src="/images/gaza-displacement-camp-children.jpeg"
+                  alt="Deen Relief field worker delivering an aid package to children in a Gaza displacement camp"
                   fill
-                  className="object-cover object-[center_40%]"
+                  className="object-cover object-[center_85%]"
                   sizes="50vw"
                 />
-                <ProofTag location="Bangladesh" />
               </div>
             </div>
           </div>

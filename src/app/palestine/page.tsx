@@ -156,12 +156,12 @@ export default function PalestinePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
               {/* Image */}
-              <div className="relative rounded-2xl overflow-hidden aspect-[5/4]">
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/5]">
                 <Image
-                  src="/images/gaza-aid-distribution-2.webp"
-                  alt="Deen Relief worker delivering aid to a child in a Gaza displacement camp"
+                  src="/images/gaza-displacement-camp-children.jpeg"
+                  alt="Deen Relief field worker delivering an aid package to children in a Gaza displacement camp"
                   fill
-                  className="object-cover object-[center_45%]"
+                  className="object-cover object-[center_85%]"
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
                 <ProofTag location="Gaza" date="2026" />
@@ -192,10 +192,10 @@ export default function PalestinePage() {
                 {/* Mobile-only inline image — restores photographic proof after the hero-integrated donation panel */}
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
-                    src="/images/palestine-relief.webp"
-                    alt="Deen Relief worker distributing aid to a family in a Gaza displacement camp"
+                    src="/images/gaza-aid-distribution-2.webp"
+                    alt="Deen Relief worker delivering aid to a child in a Gaza displacement camp"
                     fill
-                    className="object-cover object-[center_37%]"
+                    className="object-cover object-[center_45%]"
                     sizes="100vw"
                   />
                   <ProofTag location="Gaza" />
@@ -238,10 +238,10 @@ export default function PalestinePage() {
               {/* Image — desktop only; mobile has an inline copy above, directly after the H2 */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px]">
                 <Image
-                  src="/images/palestine-relief.webp"
-                  alt="Deen Relief worker distributing aid to a family in a Gaza displacement camp"
+                  src="/images/gaza-aid-distribution-2.webp"
+                  alt="Deen Relief worker delivering aid to a child in a Gaza displacement camp"
                   fill
-                  className="object-cover object-[center_37%]"
+                  className="object-cover object-[center_45%]"
                   sizes="50vw"
                 />
                 <ProofTag location="Gaza" />
@@ -301,6 +301,19 @@ export default function PalestinePage() {
                 />
                 <ProofTag location="Gaza" date="2026" position="bottom-right" />
               </div>
+
+              {/* Mobile-only reminder — surfaces the donate CTA after a long
+                  scroll through the field-evidence stack so visitors who
+                  came ready to act don't have to scroll back up. */}
+              <p className="pt-4 text-center text-[12px] text-grey/70">
+                Ready to help these families?{" "}
+                <a
+                  href="#donate-form"
+                  className="font-semibold text-green hover:text-green-dark underline underline-offset-2 decoration-green/30 hover:decoration-green"
+                >
+                  Donate now
+                </a>
+              </p>
             </div>
 
             {/* ── Desktop layout: video square left (50%), 2 images stacked right (50%) ── */}

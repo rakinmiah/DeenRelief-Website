@@ -18,8 +18,8 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/images/qurbani-hero.webp",
-        alt: "Deen Relief team members standing with smiling Bangladeshi children in a rural village",
+        url: "/images/qurbani-hero-v2.jpeg",
+        alt: "A Deen Relief field worker handing a bag of supplies to children sitting outside a UN displacement camp tent",
       },
     ],
   },
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     site: "@deenrelief",
     title,
     description,
-    images: ["/images/qurbani-hero.webp"],
+    images: ["/images/qurbani-hero-v2.jpeg"],
   },
 };
 
