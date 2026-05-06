@@ -90,37 +90,6 @@ export default function Newsletter() {
               </button>
             </form>
           )}
-
-          {/* Social Links */}
-          <div className="mt-7 pt-6 border-t border-white/8 flex items-center justify-center gap-4">
-            {[
-              { name: "Facebook", href: "https://facebook.com/deenrelief", icon: "M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" },
-              { name: "Instagram", href: "https://instagram.com/deenrelief", icon: "M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2z" },
-              { name: "Twitter", href: "https://twitter.com/deenrelief", icon: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" },
-              { name: "YouTube", href: "https://youtube.com/deenrelief", icon: "m22 8-6 4 6 4V8ZM2 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6Z" },
-            ].map((social) => (
-              <a
-                key={social.name}
-                href={social.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/45 hover:bg-white/16 hover:text-white/80 transition-all duration-200"
-                aria-label={`Follow us on ${social.name}`}
-              >
-                <svg
-                  className="w-[18px] h-[18px]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  viewBox="0 0 24 24"
-                >
-                  <path d={social.icon} />
-                </svg>
-              </a>
-            ))}
-          </div>
         </div>
       </div>
     </section>

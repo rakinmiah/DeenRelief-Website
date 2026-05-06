@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ManageCookiesLink from "./ManageCookiesLink";
+import { SOCIAL_LINKS } from "@/lib/social";
 
 // Footer is a server component (no "use client") so this evaluates once
 // at build / request time and ships to the browser as static HTML — no
@@ -63,6 +64,32 @@ export default function Footer() {
                 <a href="mailto:info@deenrelief.org" className="hover:text-white transition-colors duration-200">
                   info@deenrelief.org
                 </a>
+              </div>
+            </div>
+
+            {/* Social — separated from contact details by a hairline so the
+                icon row reads as its own block without needing a heading. */}
+            <div className="mt-5 pt-4 border-t border-white/8">
+              <p className="text-white/40 text-xs font-medium mb-3">Follow us</p>
+              <div className="flex items-center gap-2.5">
+                {SOCIAL_LINKS.map((social) => (
+                  <a
+                    key={social.name}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/45 hover:bg-white/16 hover:text-white/80 transition-all duration-200"
+                    aria-label={`Follow us on ${social.name}`}
+                  >
+                    <svg
+                      className="w-[18px] h-[18px]"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d={social.icon} />
+                    </svg>
+                  </a>
+                ))}
               </div>
             </div>
           </div>

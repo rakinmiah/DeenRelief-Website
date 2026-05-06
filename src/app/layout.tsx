@@ -5,6 +5,7 @@ import AttributionCapture from "@/components/AttributionCapture";
 import ConsentBanner from "@/components/ConsentBanner";
 import ConsentBootstrap from "@/components/ConsentBootstrap";
 import JsonLd from "@/components/JsonLd";
+import { SOCIAL_LINKS } from "@/lib/social";
 
 const SITE_URL = "https://deenrelief.org";
 const ORG_ID = `${SITE_URL}/#organization`;
@@ -70,12 +71,7 @@ const organizationSchema = {
   ],
   telephone: "+44-300-365-8899",
   email: "info@deenrelief.org",
-  sameAs: [
-    "https://www.facebook.com/DeenRelief/",
-    "https://www.instagram.com/deenrelief",
-    "https://twitter.com/deenrelief/",
-    "https://www.youtube.com/@deenrelief9734",
-  ],
+  sameAs: SOCIAL_LINKS.map((s) => s.href),
   // LimitedByGuaranteeCharity is the correct type for UK charities that also have a
   // Companies House number — CIOs don't register with Companies House. Deen Relief's
   // Companies House registration (08593822) confirms this structure.
