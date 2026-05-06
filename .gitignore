@@ -47,6 +47,11 @@ next-env.d.ts
 # Files are copied into /public/ when needed and committed there instead.
 /DeenReliefMedia/
 
+# Google Ads upload bundle — Google-Ads-accepted format conversions of
+# /public/images/. Regenerated on demand from /public/, not source of truth.
+# See google-ads-assets/README.md for the conversion recipe.
+/google-ads-assets/
+
 # Shop initiative — post-launch Shopify Headless work. Untracked until we're
 # ready to integrate. To commit later: remove these lines, then `git add`.
 /shop-draft/
