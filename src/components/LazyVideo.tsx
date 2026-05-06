@@ -21,7 +21,7 @@ export default function LazyVideo({
   src,
   poster,
   alt,
-  videoClassName = "w-full h-full object-cover",
+  videoClassName = "absolute inset-0 w-full h-full object-cover",
   posterClassName = "object-cover",
   posterSizes = "100vw",
   posterObjectPosition,
@@ -44,6 +44,7 @@ export default function LazyVideo({
         poster={typeof poster === "string" ? poster : poster.src}
         playsInline
         autoPlay
+        muted
         controls
       />
     );

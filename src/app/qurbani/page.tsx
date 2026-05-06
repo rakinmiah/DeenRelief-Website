@@ -7,6 +7,7 @@ import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+import LazyVideo from "@/components/LazyVideo";
 import DonationForm from "./DonationForm";
 import FaqAccordion from "./FaqAccordion";
 import HeroDeadline from "./HeroDeadline";
@@ -84,10 +85,10 @@ export default function QurbaniPage() {
         <section className="relative md:min-h-[80vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/qurbani-hero-v3.jpeg"
-              alt="A Deen Relief worker with a Bangladeshi child alongside food parcels of rice and supplies"
+              src="/images/qurbani-hero-v4.webp"
+              alt="A Deen Relief field worker with around twenty Bangladeshi children, alongside dozens of packed Qurbani aid parcels and food supplies ready for distribution"
               fill
-              className="object-cover object-[center_35%]"
+              className="object-cover object-[center_40%]"
               priority
             />
             <div
@@ -133,7 +134,7 @@ export default function QurbaniPage() {
             </div>
           </div>
 
-          <ProofTag location="Gaza" position="bottom-right" />
+          <ProofTag location="Bangladesh" position="bottom-right" />
         </section>
 
         {/* ─── 2. Donation Panel ─── */}
@@ -174,16 +175,19 @@ export default function QurbaniPage() {
                   Performed Locally, Distributed Locally
                 </h2>
 
-                {/* Mobile-only inline image — restores photographic proof
-                    immediately after the section heading. */}
-                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/5] mb-6">
-                  <Image
-                    src="/images/gaza-displacement-camp-children.jpeg"
-                    alt="Deen Relief field worker delivering an aid package to children in a Gaza displacement camp"
-                    fill
-                    className="object-cover object-[center_85%]"
-                    sizes="100vw"
+                {/* Mobile-only inline video — Bangladesh Qurbani 2024
+                    distribution by boat (rural villages reached during the
+                    monsoon Eid). Poster-first via LazyVideo: the 7.8 MB
+                    file only downloads when the donor taps play. */}
+                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/5] mb-6 bg-charcoal">
+                  <LazyVideo
+                    src="/videos/qurbani-bangladesh-2024.mp4"
+                    poster="/videos/qurbani-bangladesh-2024-poster.jpg"
+                    alt="Deen Relief team distributing Qurbani 2024 meat parcels by boat to families in rural Bangladesh"
+                    posterSizes="100vw"
+                    posterObjectPosition="center 50%"
                   />
+                  <ProofTag location="Bangladesh — Qurbani 2024" />
                 </div>
 
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
@@ -232,15 +236,18 @@ export default function QurbaniPage() {
                 </div>
               </div>
 
-              {/* Desktop-only image — mobile has the inline image above */}
-              <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px]">
-                <Image
-                  src="/images/gaza-displacement-camp-children.jpeg"
-                  alt="Deen Relief field worker delivering an aid package to children in a Gaza displacement camp"
-                  fill
-                  className="object-cover object-[center_85%]"
-                  sizes="50vw"
+              {/* Desktop-only video — mobile has the inline video above.
+                  Same poster-first treatment so the file only downloads
+                  when the donor taps play. */}
+              <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px] bg-charcoal">
+                <LazyVideo
+                  src="/videos/qurbani-bangladesh-2024.mp4"
+                  poster="/videos/qurbani-bangladesh-2024-poster.jpg"
+                  alt="Deen Relief team distributing Qurbani 2024 meat parcels by boat to families in rural Bangladesh"
+                  posterSizes="50vw"
+                  posterObjectPosition="center 50%"
                 />
+                <ProofTag location="Bangladesh — Qurbani 2024" />
               </div>
             </div>
           </div>
@@ -292,7 +299,7 @@ export default function QurbaniPage() {
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">
               <span>Charity No. 1158608</span>
               <span className="text-charcoal/15">|</span>
-              <span>100% to relief</span>
+              <span>Max 10% on admin</span>
               <span className="text-charcoal/15">|</span>
               <span>Audited annually</span>
               <span className="text-charcoal/15">|</span>

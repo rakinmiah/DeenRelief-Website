@@ -18,8 +18,10 @@ export const metadata: Metadata = {
     description,
     images: [
       {
-        url: "/images/qurbani-hero-v2.jpeg",
-        alt: "A Deen Relief field worker handing a bag of supplies to children sitting outside a UN displacement camp tent",
+        url: "/images/qurbani-hero-v4-og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "A Deen Relief field worker in a Deen-Relief-branded shirt with around twenty Bangladeshi children at a Qurbani distribution",
       },
     ],
   },
@@ -28,7 +30,7 @@ export const metadata: Metadata = {
     site: "@deenrelief",
     title,
     description,
-    images: ["/images/qurbani-hero-v2.jpeg"],
+    images: ["/images/qurbani-hero-v4-og.jpg"],
   },
 };
 
