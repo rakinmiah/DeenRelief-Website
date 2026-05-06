@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { QURBANI_DEADLINE } from "@/lib/qurbani";
 
 /**
  * Live ticking countdown — days / hours / minutes / seconds — for the
@@ -19,10 +20,9 @@ import { useEffect, useState } from "react";
  *     second and on tab refocus.
  *   - After deadline: switches to "Final orders being processed".
  *
- * Deadline is Europe/London end-of-day 23 May 2026 — UK donor base.
+ * Deadline lives in src/lib/qurbani.ts so the Header nav entry hides on
+ * the same boundary.
  */
-
-const DEADLINE = new Date("2026-05-23T23:59:59+01:00");
 
 export default function HeroDeadline() {
   const [hydrated, setHydrated] = useState(false);
@@ -55,7 +55,7 @@ export default function HeroDeadline() {
     );
   }
 
-  const diffMs = DEADLINE.getTime() - now;
+  const diffMs = QURBANI_DEADLINE.getTime() - now;
   if (diffMs <= 0) {
     return (
       <p className="mt-5 mb-7 text-[11px] font-bold tracking-[0.1em] uppercase text-amber">
