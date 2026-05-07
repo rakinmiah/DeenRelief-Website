@@ -56,6 +56,13 @@ export interface StaffNotificationInput {
   gclid: string | null;
   landingPage: string | null;
   landingReferrer: string | null;
+
+  /**
+   * Qurbani only: names the slaughter is performed for. Empty array means
+   * "performed in the billing donor's name" — staff email then shows
+   * the donor's full name in the section.
+   */
+  qurbaniNames?: string[];
 }
 
 export async function sendDonationStaffNotification(
@@ -127,7 +134,7 @@ function formatDateTime(d: Date): string {
   });
 }
 
-function buildStaffEmail(input: StaffNotificationInput): {
+export function buildStaffEmail(input: StaffNotificationInput): {
   subject: string;
   html: string;
   text: string;
@@ -163,6 +170,15 @@ function buildStaffEmail(input: StaffNotificationInput): {
       input.landingReferrer
   );
 
+  // Qurbani names section: shown only on Qurbani campaigns. Empty input
+  // resolves to the billing donor's name so the section never appears empty.
+  const qurbaniNamesResolved =
+    input.campaignSlug === "qurbani"
+      ? input.qurbaniNames && input.qurbaniNames.length > 0
+        ? input.qurbaniNames
+        : [fullName]
+      : [];
+
   // ── Plain text — primary format for staff inbox triage and forwarding ──
   const textLines = [
     `New ${freqLabel.toLowerCase()} donation`,
@@ -186,6 +202,9 @@ function buildStaffEmail(input: StaffNotificationInput): {
     ...addressLines.map((l) => `  ${l}`),
     `Marketing consent:  ${input.marketingConsent ? "Yes — opted in" : "No"}`,
     ``,
+    qurbaniNamesResolved.length > 0
+      ? `── Performed in the name of ──────────────────────\n${qurbaniNamesResolved.map((n, i) => `${String(i + 1).padStart(2, " ")}. ${n}`).join("\n")}\n`
+      : "",
     `── Stripe references ─────────────────────────────`,
     `PaymentIntent:      ${input.stripePaymentIntentId ?? "—"}`,
     `Customer:           ${input.stripeCustomerId ?? "—"}`,
@@ -264,6 +283,15 @@ function buildStaffEmail(input: StaffNotificationInput): {
                 ${row("Phone", input.phone ?? "(not provided)")}
                 ${row("Address", addressLines.join("\n"))}
                 ${row("Marketing consent", input.marketingConsent ? "Yes — opted in" : "No")}
+
+                ${
+                  qurbaniNamesResolved.length > 0
+                    ? `${sectionHeader("Performed in the name of")}
+                ${qurbaniNamesResolved
+                  .map((n, i) => row(`Share ${i + 1}`, n))
+                  .join("")}`
+                    : ""
+                }
 
                 ${sectionHeader("Stripe references")}
                 ${row("PaymentIntent", input.stripePaymentIntentId ?? "—", true)}

@@ -282,7 +282,7 @@ export default function DonationForm() {
       <Button
         variant="primary"
         size="lg"
-        href={`/donate?campaign=qurbani&amount=${selected.amount}&frequency=one-time`}
+        href={`/donate?campaign=qurbani&amount=${selected.amount}&frequency=one-time&qurbani=${selected.id}`}
         className="w-full justify-center"
       >
         Pay £{selected.amount.toLocaleString()} Qurbani Now

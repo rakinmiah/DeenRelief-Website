@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutClient from "./CheckoutClient";
 import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
+import { getQurbaniShareCount } from "@/lib/qurbani";
 
 export const metadata: Metadata = {
   title: "Donate | Deen Relief",
@@ -17,6 +18,7 @@ interface DonatePageProps {
     campaign?: string;
     amount?: string;
     frequency?: string;
+    qurbani?: string;
   }>;
 }
 
@@ -35,6 +37,14 @@ export default async function DonatePage({ searchParams }: DonatePageProps) {
   const frequency: "one-time" | "monthly" =
     params.frequency === "monthly" ? "monthly" : "one-time";
 
+  // Qurbani product id (e.g. "bd-cow") drives the per-share names section in
+  // checkout. Validated against the lookup; unknown ids are dropped silently
+  // so the checkout still loads (donor just won't see the names section).
+  const qurbaniProductId =
+    campaign === "qurbani" && params.qurbani && getQurbaniShareCount(params.qurbani) !== null
+      ? params.qurbani
+      : null;
+
   return (
     <>
       <Header />
@@ -46,6 +56,7 @@ export default async function DonatePage({ searchParams }: DonatePageProps) {
               campaignLabel={getCampaignLabel(campaign)}
               initialAmountGbp={amountGbp}
               initialFrequency={frequency}
+              qurbaniProductId={qurbaniProductId}
             />
           </div>
         </section>

@@ -61,6 +61,12 @@ export interface DonationReceiptInput {
    * Customer (PaymentIntent-only flow).
    */
   stripeCustomerId?: string;
+  /**
+   * Qurbani only: names the slaughter is performed for. Empty array means
+   * "performed in the billing donor's name" — receipt section then shows
+   * just the donor's name (assembled from firstName + lastName).
+   */
+  qurbaniNames?: string[];
 }
 
 /** Send the receipt. Returns true on success, false on any error. */
@@ -140,6 +146,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
 } {
   const {
     firstName,
+    lastName,
     amountPence,
     campaignLabel,
     campaignSlug,
@@ -148,7 +155,18 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
     paymentIntentId,
     completedAt,
     stripeCustomerId,
+    qurbaniNames,
   } = input;
+
+  // Resolve the names list for the Qurbani "performed in the name of" block.
+  // Section is rendered only when this array has at least one entry — i.e.
+  // for Qurbani donations. Empty input falls back to the billing donor name.
+  const qurbaniNamesResolved =
+    campaignSlug === "qurbani"
+      ? qurbaniNames && qurbaniNames.length > 0
+        ? qurbaniNames
+        : [`${firstName} ${lastName}`.trim()]
+      : [];
 
   const gratitudeLine = getCampaignReceiptMessage(campaignSlug ?? "general");
 
@@ -241,6 +259,25 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
                 </tr>
               </table>
 
+              ${
+                qurbaniNamesResolved.length > 0
+                  ? `<!-- Qurbani: performed in the name of -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border:1px solid #E5E7EB;border-radius:12px;padding:20px;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:0;">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#1F6B3A;margin-bottom:10px;">Performed in the name of</div>
+                    ${qurbaniNamesResolved
+                      .map(
+                        (n) =>
+                          `<div style="font-size:15px;color:#1F2937;line-height:1.6;">${escapeHtml(n)}</div>`
+                      )
+                      .join("")}
+                  </td>
+                </tr>
+              </table>`
+                  : ""
+              }
+
               <!-- Details -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#4B5563;border-collapse:collapse;">
                 <tr>
@@ -322,6 +359,9 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
       : "",
     `──────────────────────────────`,
     ``,
+    qurbaniNamesResolved.length > 0
+      ? `Performed in the name of:\n${qurbaniNamesResolved.map((n) => `  ${n}`).join("\n")}\n`
+      : "",
     `Date:       ${dateStr}`,
     `Reference:  #${ref}`,
     `Frequency:  ${frequency === "monthly" ? "Monthly" : "One-time"}`,

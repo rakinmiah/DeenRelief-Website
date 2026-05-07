@@ -36,6 +36,7 @@ import {
   buildDeclarationText,
   totalWithGiftAidGbp,
 } from "@/lib/gift-aid";
+import { QURBANI_NAME_MAX_LENGTH, getQurbaniShareCount } from "@/lib/qurbani";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -46,6 +47,12 @@ interface Props {
   campaignLabel: string;
   initialAmountGbp: number;
   initialFrequency: "one-time" | "monthly";
+  /**
+   * Qurbani product id (e.g. "bd-cow"). When present + valid, unlocks the
+   * "Performed in the name of" section with up to N name inputs based on
+   * the product's Islamic share count. Null on non-Qurbani checkouts.
+   */
+  qurbaniProductId?: string | null;
 }
 
 export default function CheckoutClient({
@@ -53,6 +60,7 @@ export default function CheckoutClient({
   campaignLabel,
   initialAmountGbp,
   initialFrequency,
+  qurbaniProductId = null,
 }: Props) {
   const [amountGbp, setAmountGbp] = useState<number>(initialAmountGbp);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -177,6 +185,7 @@ export default function CheckoutClient({
             paymentIntentId={paymentIntentId}
             setupIntentId={setupIntentId}
             customerId={customerId}
+            qurbaniProductId={qurbaniProductId}
           />
         </Elements>
       )}
@@ -269,6 +278,7 @@ function CheckoutForm({
   paymentIntentId,
   setupIntentId,
   customerId,
+  qurbaniProductId,
 }: {
   amountGbp: number;
   campaign: string;
@@ -277,6 +287,7 @@ function CheckoutForm({
   paymentIntentId: string | null;
   setupIntentId: string | null;
   customerId: string | null;
+  qurbaniProductId: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -291,6 +302,14 @@ function CheckoutForm({
   const [addressLine2, setAddressLine2] = useState("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
+
+  // Qurbani names — one input per Islamic share. Empty array on non-Qurbani.
+  // All optional; blank entries are filtered server-side and the email then
+  // falls back to "performed in the name of [billing donor]".
+  const qurbaniShareCount = qurbaniProductId ? getQurbaniShareCount(qurbaniProductId) : null;
+  const [qurbaniNames, setQurbaniNames] = useState<string[]>(() =>
+    qurbaniShareCount ? Array(qurbaniShareCount).fill("") : []
+  );
 
   // Gift Aid
   const [giftAidEnabled, setGiftAidEnabled] = useState(false);
@@ -362,6 +381,15 @@ function CheckoutForm({
           : { enabled: false },
         marketingConsent: false,
       };
+      if (qurbaniProductId) {
+        confirmBody.qurbaniProductId = qurbaniProductId;
+        // Trim and drop empty entries; server caps the array length and
+        // re-validates. Empty list is fine — server will fall back to the
+        // billing donor's name in the receipt.
+        confirmBody.qurbaniNames = qurbaniNames
+          .map((n) => n.trim())
+          .filter((n) => n.length > 0);
+      }
       if (mode === "payment") {
         confirmBody.paymentIntentId = paymentIntentId;
       } else {
@@ -483,6 +511,41 @@ function CheckoutForm({
           />
         </div>
       </fieldset>
+
+      {/* Qurbani names — only when arriving from the Qurbani picker. */}
+      {qurbaniProductId && qurbaniShareCount && (
+        <fieldset className="space-y-3">
+          <legend className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/60 mb-2">
+            Performed in the name of (optional)
+          </legend>
+          <p className="text-sm text-grey -mt-1 leading-relaxed">
+            {qurbaniShareCount === 1
+              ? "Add the name this Qurbani should be performed for. Leave blank to use your name above."
+              : `Up to ${qurbaniShareCount} names can be added — one per share. Leave blank to use your name above for the whole Qurbani.`}
+          </p>
+          <div className="space-y-2">
+            {qurbaniNames.map((name, i) => (
+              <input
+                key={i}
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  const next = [...qurbaniNames];
+                  next[i] = e.target.value;
+                  setQurbaniNames(next);
+                }}
+                maxLength={QURBANI_NAME_MAX_LENGTH}
+                placeholder={
+                  qurbaniShareCount === 1
+                    ? "Full name"
+                    : `Name ${i + 1}`
+                }
+                className="w-full px-4 py-3 border border-charcoal/10 rounded-xl bg-white focus:outline-none focus:border-green focus:ring-2 focus:ring-green/10 text-base"
+              />
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {/* Gift Aid */}
       <fieldset>
