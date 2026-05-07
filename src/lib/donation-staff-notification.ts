@@ -63,6 +63,13 @@ export interface StaffNotificationInput {
    * the donor's full name in the section.
    */
   qurbaniNames?: string[];
+  /**
+   * Zakat-only distribution pathway slug + label. Surfaced in both the
+   * subject line and the campaign row so trustees see at a glance which
+   * programme a Zakat donation is earmarked for.
+   */
+  pathwaySlug?: string;
+  pathwayLabel?: string;
 }
 
 export async function sendDonationStaffNotification(
@@ -150,7 +157,13 @@ export function buildStaffEmail(input: StaffNotificationInput): {
   const freqLabel = input.frequency === "monthly" ? "Monthly" : "One-time";
   const amountSuffix = input.frequency === "monthly" ? " / month" : "";
 
-  const subject = `New ${freqLabel.toLowerCase()} donation: ${formatGbp(input.amountPence)} — ${input.campaignLabel} — ${fullName} [#${ref}]`;
+  // Suffix the campaign name with the pathway for Zakat donations that have
+  // one selected. Both subject + body inherit the suffix.
+  const displayCampaignLabel = input.pathwayLabel
+    ? `${input.campaignLabel} (Pathway: ${input.pathwayLabel})`
+    : input.campaignLabel;
+
+  const subject = `New ${freqLabel.toLowerCase()} donation: ${formatGbp(input.amountPence)} — ${displayCampaignLabel} — ${fullName} [#${ref}]`;
 
   const addressLines = [
     input.addressLine1,
@@ -187,7 +200,7 @@ export function buildStaffEmail(input: StaffNotificationInput): {
     `Receipt reference:  #${ref}`,
     `Date / time:        ${dateStr}`,
     ``,
-    `Campaign:           ${input.campaignLabel}  (slug: ${input.campaignSlug})`,
+    `Campaign:           ${displayCampaignLabel}  (slug: ${input.campaignSlug})`,
     `Amount:             ${formatGbp(input.amountPence)}${amountSuffix}`,
     input.giftAidClaimed
       ? `Gift Aid:           Yes — +${formatGbpAmount(giftAidGbp)} reclaimed (total impact ${formatGbpAmount(totalGbp)})`
@@ -257,7 +270,7 @@ export function buildStaffEmail(input: StaffNotificationInput): {
             <td style="padding:24px 28px;">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#1F6B3A;margin-bottom:6px;">New ${escapeHtml(freqLabel.toLowerCase())} donation</div>
               <h1 style="margin:0;font-size:22px;font-weight:700;color:#1F2937;line-height:1.3;">
-                ${escapeHtml(formatGbp(input.amountPence))}${escapeHtml(amountSuffix)} — ${escapeHtml(input.campaignLabel)}
+                ${escapeHtml(formatGbp(input.amountPence))}${escapeHtml(amountSuffix)} — ${escapeHtml(displayCampaignLabel)}
               </h1>
               <div style="margin-top:6px;font-size:14px;color:#6B7280;">
                 ${escapeHtml(fullName)} · #${escapeHtml(ref)} · ${escapeHtml(dateStr)}
@@ -272,7 +285,7 @@ export function buildStaffEmail(input: StaffNotificationInput): {
                 ${sectionHeader("Donation")}
                 ${row("Reference", `#${ref}`, true)}
                 ${row("Date / time", dateStr)}
-                ${row("Campaign", `${input.campaignLabel}  (slug: ${input.campaignSlug})`)}
+                ${row("Campaign", `${displayCampaignLabel}  (slug: ${input.campaignSlug})`)}
                 ${row("Amount", `${formatGbp(input.amountPence)}${amountSuffix}`)}
                 ${row("Frequency", freqLabel)}
                 ${row("Gift Aid", input.giftAidClaimed ? `Yes — +${formatGbpAmount(giftAidGbp)} reclaimed (total ${formatGbpAmount(totalGbp)})` : "No")}

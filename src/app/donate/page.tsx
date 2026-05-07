@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutClient from "./CheckoutClient";
-import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
+import { getCampaignLabel, isValidCampaign, resolvePathway } from "@/lib/campaigns";
 import { getQurbaniShareCount } from "@/lib/qurbani";
 
 export const metadata: Metadata = {
@@ -19,6 +19,7 @@ interface DonatePageProps {
     amount?: string;
     frequency?: string;
     qurbani?: string;
+    pathway?: string;
   }>;
 }
 
@@ -45,6 +46,11 @@ export default async function DonatePage({ searchParams }: DonatePageProps) {
       ? params.qurbani
       : null;
 
+  // Zakat pathway (e.g. "emergency-relief") only resolves for the zakat
+  // campaign. Unknown / missing / wrong-campaign values yield null →
+  // checkout shows no pathway label (silent fallback).
+  const pathway = resolvePathway(campaign, params.pathway);
+
   return (
     <>
       <Header />
@@ -57,6 +63,8 @@ export default async function DonatePage({ searchParams }: DonatePageProps) {
               initialAmountGbp={amountGbp}
               initialFrequency={frequency}
               qurbaniProductId={qurbaniProductId}
+              pathwaySlug={pathway?.slug ?? null}
+              pathwayLabel={pathway?.label ?? null}
             />
           </div>
         </section>

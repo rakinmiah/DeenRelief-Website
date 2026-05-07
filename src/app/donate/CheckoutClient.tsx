@@ -53,6 +53,14 @@ interface Props {
    * the product's Islamic share count. Null on non-Qurbani checkouts.
    */
   qurbaniProductId?: string | null;
+  /**
+   * Zakat-only pathway slug (e.g. "emergency-relief"). When present, the
+   * pathway is written to PaymentIntent metadata at create-intent time and
+   * threaded through to the receipt + GA4 purchase event. Null otherwise.
+   */
+  pathwaySlug?: string | null;
+  /** Human-readable pathway label corresponding to pathwaySlug. */
+  pathwayLabel?: string | null;
 }
 
 export default function CheckoutClient({
@@ -61,6 +69,8 @@ export default function CheckoutClient({
   initialAmountGbp,
   initialFrequency,
   qurbaniProductId = null,
+  pathwaySlug = null,
+  pathwayLabel = null,
 }: Props) {
   const [amountGbp, setAmountGbp] = useState<number>(initialAmountGbp);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -82,6 +92,10 @@ export default function CheckoutClient({
           campaign: initialCampaign,
           amount: Math.round(gbp * 100),
           frequency: initialFrequency,
+          // Zakat pathway slug — server validates against the whitelist and
+          // writes to PI metadata. Null on non-Zakat campaigns or when no
+          // pathway was specified (silent fallback at the page-router layer).
+          pathway: pathwaySlug ?? undefined,
         }),
       });
       const data = await res.json();
@@ -102,7 +116,7 @@ export default function CheckoutClient({
     } finally {
       setIntentLoading(false);
     }
-  }, [initialCampaign, initialFrequency]);
+  }, [initialCampaign, initialFrequency, pathwaySlug]);
 
   // React StrictMode double-invokes effects in dev. Without this ref guard,
   // we'd create two PaymentIntents on mount — the second (B) overwrites state
@@ -144,7 +158,12 @@ export default function CheckoutClient({
       <h1 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-2">
         Complete Your Donation
       </h1>
-      <p className="text-grey mb-6">{campaignLabel}</p>
+      <p className={`text-grey ${pathwayLabel ? "mb-1" : "mb-6"}`}>{campaignLabel}</p>
+      {pathwayLabel && (
+        <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-green/80 mb-6">
+          Pathway: <span className="text-green">{pathwayLabel}</span>
+        </p>
+      )}
 
       {/* Amount summary + inline edit */}
       <AmountBlock

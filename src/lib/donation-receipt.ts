@@ -67,6 +67,13 @@ export interface DonationReceiptInput {
    * just the donor's name (assembled from firstName + lastName).
    */
   qurbaniNames?: string[];
+  /**
+   * Zakat-only distribution pathway slug + human-readable label. When set,
+   * the campaign name in the receipt body is suffixed with "(Pathway: X)"
+   * so the donor sees which programme their Zakat funds.
+   */
+  pathwaySlug?: string;
+  pathwayLabel?: string;
 }
 
 /** Send the receipt. Returns true on success, false on any error. */
@@ -156,7 +163,15 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
     completedAt,
     stripeCustomerId,
     qurbaniNames,
+    pathwayLabel,
   } = input;
+
+  // Suffix the campaign name with the pathway when the donor selected one.
+  // e.g. "Zakat" → "Zakat (Pathway: Emergency Relief)". Surfaces the pathway
+  // wherever campaignLabel renders without changing every code path.
+  const displayCampaignLabel = pathwayLabel
+    ? `${campaignLabel} (Pathway: ${pathwayLabel})`
+    : campaignLabel;
 
   // Resolve the names list for the Qurbani "performed in the name of" block.
   // Section is rendered only when this array has at least one entry — i.e.
@@ -239,7 +254,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F5F1E8;border-radius:12px;padding:24px;margin-bottom:24px;">
                 <tr>
                   <td style="padding:0;">
-                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#1F6B3A;opacity:0.8;margin-bottom:6px;">${escapeHtml(campaignLabel)}</div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#1F6B3A;opacity:0.8;margin-bottom:6px;">${escapeHtml(displayCampaignLabel)}</div>
                     <div style="font-family:Georgia,'Times New Roman',serif;font-size:32px;font-weight:700;color:#1F2937;line-height:1;">
                       ${formatGbp(amountPence)}${frequency === "monthly" ? '<span style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:16px;font-weight:500;color:#6B7280;"> / month</span>' : ""}
                     </div>
@@ -352,7 +367,7 @@ export function buildReceiptEmail(input: DonationReceiptInput): {
     gratitudeLine,
     ``,
     `──────────────────────────────`,
-    `${campaignLabel}`,
+    `${displayCampaignLabel}`,
     `${formatGbp(amountPence)}${frequency === "monthly" ? " / month" : ""}`,
     giftAidClaimed
       ? `+ £${giftAidGbp.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Gift Aid reclaimed\nTotal impact: £${totalGbp.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

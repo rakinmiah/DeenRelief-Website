@@ -211,7 +211,12 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   // to no-names (receipts show billing donor's name).
   const qurbaniNames = parseQurbaniNamesFromMetadata(pi.metadata);
 
-  await dispatchReceipt(donation, pi.id, completedAt, undefined, qurbaniNames);
+  // Zakat-only: pathway slug + label written by /create-intent. Either is
+  // null on non-Zakat PIs (silently dropped at create-intent time).
+  const pathwaySlug = (pi.metadata?.pathway as string | undefined) ?? null;
+  const pathwayLabel = (pi.metadata?.pathway_label as string | undefined) ?? null;
+
+  await dispatchReceipt(donation, pi.id, completedAt, undefined, qurbaniNames, pathwaySlug, pathwayLabel);
 }
 
 /** Defensive parse of pi.metadata.qurbani_names — returns [] on any failure. */
@@ -327,6 +332,12 @@ async function handleSetupIntentSucceeded(si: Stripe.SetupIntent) {
 
     console.log(`[webhook] setup_intent ${si.id}: created product ${product.id}, creating subscription...`);
 
+    // Carry pathway through from the SetupIntent metadata onto the
+    // Subscription so each renewal invoice's PI also surfaces it (Stripe
+    // copies subscription.metadata onto invoice → PI for charges).
+    const siPathway = (si.metadata?.pathway as string | undefined) ?? null;
+    const siPathwayLabel = (si.metadata?.pathway_label as string | undefined) ?? null;
+
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       default_payment_method: paymentMethodId,
@@ -345,6 +356,8 @@ async function handleSetupIntentSucceeded(si: Stripe.SetupIntent) {
         campaign_label: campaignLabel,
         frequency: "monthly",
         donation_id: donation.id,
+        ...(siPathway ? { pathway: siPathway } : {}),
+        ...(siPathwayLabel ? { pathway_label: siPathwayLabel } : {}),
       },
       // Charge immediately. If the first charge fails, we'll get
       // invoice.payment_failed and can surface it.
@@ -443,6 +456,19 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       ? invoice.customer
       : invoice.customer?.id ?? undefined;
 
+  // Pull pathway metadata off the parent Subscription so monthly Zakat
+  // donors get the same pathway-aware receipt as one-time Zakat donors.
+  // Failure here is non-fatal — receipt still sends without the pathway.
+  let pathwaySlug: string | null = null;
+  let pathwayLabel: string | null = null;
+  try {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    pathwaySlug = (sub.metadata?.pathway as string | undefined) ?? null;
+    pathwayLabel = (sub.metadata?.pathway_label as string | undefined) ?? null;
+  } catch (err) {
+    console.warn("[webhook] subscription retrieve for pathway failed:", err);
+  }
+
   // Try to find a pending donation for this subscription (month 1 case).
   const { data: existing } = await supabase
     .from("donations")
@@ -465,7 +491,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       .eq("id", existing.id);
     if (updErr) throw new Error(`Invoice paid update failed: ${updErr.message}`);
 
-    await dispatchReceipt(existing as DonationRow, piId ?? invoice.id!, completedAt, customerId);
+    await dispatchReceipt(existing as DonationRow, piId ?? invoice.id!, completedAt, customerId, [], pathwaySlug, pathwayLabel);
     return;
   }
 
@@ -513,7 +539,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     throw new Error(`Renewal donation insert failed: ${insErr?.message}`);
   }
 
-  await dispatchReceipt(inserted as DonationRow, piId ?? invoice.id!, completedAt, customerId);
+  await dispatchReceipt(inserted as DonationRow, piId ?? invoice.id!, completedAt, customerId, [], pathwaySlug, pathwayLabel);
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
@@ -667,7 +693,9 @@ async function dispatchReceipt(
   referenceId: string,
   completedAt: Date,
   stripeCustomerId?: string,
-  qurbaniNames: string[] = []
+  qurbaniNames: string[] = [],
+  pathwaySlug: string | null = null,
+  pathwayLabel: string | null = null
 ) {
   try {
     const supabase = getSupabaseAdmin();
@@ -720,6 +748,8 @@ async function dispatchReceipt(
         stripeCustomerId:
           donation.frequency === "monthly" ? customerId : undefined,
         qurbaniNames,
+        pathwaySlug: pathwaySlug ?? undefined,
+        pathwayLabel: pathwayLabel ?? undefined,
       }),
       sendDonationStaffNotification({
         firstName: donor.first_name,
@@ -753,6 +783,8 @@ async function dispatchReceipt(
         landingPage: extras?.landing_page ?? null,
         landingReferrer: extras?.landing_referrer ?? null,
         qurbaniNames,
+        pathwaySlug: pathwaySlug ?? undefined,
+        pathwayLabel: pathwayLabel ?? undefined,
       }),
     ]);
   } catch (err) {
