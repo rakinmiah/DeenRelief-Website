@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import Button from "@/components/Button";
 
 /**
@@ -129,8 +130,26 @@ const COUNTRIES: CountryGroup[] = [
 /** Default — Bangladesh sheep is the entry-level, most-affordable option. */
 const DEFAULT_ID = "bd-sheep";
 
+/**
+ * Whitelist of valid `?preselect=` values, derived from COUNTRIES so it
+ * stays in sync with the catalogue automatically.
+ */
+const VALID_IDS = new Set(COUNTRIES.flatMap((c) => c.options.map((o) => o.id)));
+
 export default function DonationForm() {
   const [selectedId, setSelectedId] = useState<string>(DEFAULT_ID);
+  const searchParams = useSearchParams();
+
+  // Inbound deep-link from Google Ads sitelinks (e.g.
+  // /qurbani?preselect=sy-cow#donate-form). Applied post-mount to keep the
+  // server-rendered HTML stable and avoid a hydration mismatch. Bad/unknown
+  // values fall through silently to DEFAULT_ID — no UI surface, no error.
+  useEffect(() => {
+    const preselect = searchParams.get("preselect");
+    if (preselect && VALID_IDS.has(preselect)) {
+      setSelectedId(preselect);
+    }
+  }, [searchParams]);
 
   const allOptions = COUNTRIES.flatMap((c) =>
     c.options.map((o) => ({ ...o, country: c.country }))
