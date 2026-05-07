@@ -83,10 +83,10 @@ export default function ZakatPage() {
         <section className="relative md:min-h-[50vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/cancer-care-housing.webp"
-              alt="Deen Relief worker sitting with a child in the family housing programme in Adana, Turkey"
+              src="/images/zakat-hero.webp"
+              alt="A Deen Relief team member sitting with three Syrian children supported by the charity's cancer-care programme"
               fill
-              className="object-cover object-center"
+              className="object-cover object-[center_55%]"
               priority
             />
             <div
