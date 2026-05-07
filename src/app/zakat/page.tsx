@@ -75,10 +75,10 @@ export default function ZakatPage() {
         <section className="relative md:min-h-[50vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/palestine-relief.webp"
-              alt="Deen Relief worker distributing aid to a family in Gaza"
+              src="/images/cancer-care-housing.webp"
+              alt="Deen Relief worker sitting with a child in the family housing programme in Adana, Turkey"
               fill
-              className="object-cover object-[center_37%]"
+              className="object-cover object-center"
               priority
             />
             <div
@@ -124,8 +124,6 @@ export default function ZakatPage() {
               </Button>
             </div>
           </div>
-
-          <ProofTag location="Gaza" position="bottom-right" />
         </section>
 
         {/* ─── 2. Donation Panel (centred, bordered) ─── */}

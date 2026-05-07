@@ -13,14 +13,19 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    images: [{ url: "/images/palestine-relief.webp", alt: "Deen Relief aid distribution" }],
+    images: [
+      {
+        url: "/images/cancer-care-family.webp",
+        alt: "Deen Relief programmes reach families across multiple regions",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     site: "@deenrelief",
     title,
     description,
-    images: ["/images/palestine-relief.webp"],
+    images: ["/images/cancer-care-family.webp"],
   },
 };
 
