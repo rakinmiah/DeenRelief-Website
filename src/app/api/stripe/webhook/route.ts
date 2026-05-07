@@ -206,7 +206,27 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
     throw new Error(`Donation update failed: ${updateErr.message}`);
   }
 
-  await dispatchReceipt(donation, pi.id, completedAt);
+  // Qurbani-only: read the names array out of PI metadata. /confirm wrote
+  // it as a JSON-encoded string. Defensive parse — bad JSON falls through
+  // to no-names (receipts show billing donor's name).
+  const qurbaniNames = parseQurbaniNamesFromMetadata(pi.metadata);
+
+  await dispatchReceipt(donation, pi.id, completedAt, undefined, qurbaniNames);
+}
+
+/** Defensive parse of pi.metadata.qurbani_names — returns [] on any failure. */
+function parseQurbaniNamesFromMetadata(
+  metadata: Stripe.Metadata | null | undefined
+): string[] {
+  const raw = metadata?.qurbani_names;
+  if (!raw || typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((n): n is string => typeof n === "string");
+  } catch {
+    return [];
+  }
 }
 
 async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
@@ -646,7 +666,8 @@ async function dispatchReceipt(
   donation: DonationRow,
   referenceId: string,
   completedAt: Date,
-  stripeCustomerId?: string
+  stripeCustomerId?: string,
+  qurbaniNames: string[] = []
 ) {
   try {
     const supabase = getSupabaseAdmin();
@@ -698,6 +719,7 @@ async function dispatchReceipt(
         completedAt,
         stripeCustomerId:
           donation.frequency === "monthly" ? customerId : undefined,
+        qurbaniNames,
       }),
       sendDonationStaffNotification({
         firstName: donor.first_name,
@@ -730,6 +752,7 @@ async function dispatchReceipt(
         gclid: extras?.gclid ?? null,
         landingPage: extras?.landing_page ?? null,
         landingReferrer: extras?.landing_referrer ?? null,
+        qurbaniNames,
       }),
     ]);
   } catch (err) {

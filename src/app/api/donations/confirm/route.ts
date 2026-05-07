@@ -25,6 +25,7 @@ import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
 import { CONSENT_COOKIE, parseConsentCookieValue } from "@/lib/consent";
 import { getCampaignLabel, isValidCampaign } from "@/lib/campaigns";
 import { type GiftAidScope } from "@/lib/gift-aid";
+import { QURBANI_NAME_MAX_LENGTH, getQurbaniShareCount } from "@/lib/qurbani";
 
 interface ConfirmBody {
   // Exactly one of these is set, depending on frequency.
@@ -50,6 +51,12 @@ interface ConfirmBody {
     declarationText?: string;
   };
   marketingConsent?: boolean;
+
+  // Qurbani-only: product id (e.g. "bd-cow") and the optional list of names
+  // the slaughter should be performed for, capped server-side to the Islamic
+  // share count (1/3/7).
+  qurbaniProductId?: string;
+  qurbaniNames?: string[];
 }
 
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i;
@@ -81,6 +88,8 @@ export async function POST(request: Request) {
     donor,
     giftAid,
     marketingConsent,
+    qurbaniProductId,
+    qurbaniNames,
   } = body;
 
   if (!campaign || !isValidCampaign(campaign)) {
@@ -150,6 +159,31 @@ export async function POST(request: Request) {
     }
   }
 
+  // Qurbani validation. Only honoured for the qurbani campaign — silently
+  // dropped on other campaigns to avoid PI metadata pollution.
+  let qurbaniNamesClean: string[] = [];
+  let qurbaniProductIdClean: string | null = null;
+  if (campaign === "qurbani" && qurbaniProductId) {
+    const shareCount = getQurbaniShareCount(qurbaniProductId);
+    if (shareCount === null) {
+      return NextResponse.json({ error: "Unknown Qurbani product." }, { status: 400 });
+    }
+    qurbaniProductIdClean = qurbaniProductId;
+    if (Array.isArray(qurbaniNames)) {
+      qurbaniNamesClean = qurbaniNames
+        .filter((n): n is string => typeof n === "string")
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0)
+        .map((n) => n.slice(0, QURBANI_NAME_MAX_LENGTH));
+      if (qurbaniNamesClean.length > shareCount) {
+        return NextResponse.json(
+          { error: `At most ${shareCount} name(s) for this Qurbani.` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   // Cross-check against Stripe — the PI or SI must exist and match campaign
   let amountPence: number;
   try {
@@ -183,6 +217,25 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[confirm] Intent retrieve failed:", err);
     return NextResponse.json({ error: "Intent not found." }, { status: 404 });
+  }
+
+  // Stash Qurbani fields onto the PaymentIntent metadata. The webhook reads
+  // them back in handlePaymentIntentSucceeded → dispatchReceipt to render
+  // the names section in both the donor receipt and the staff notification.
+  // Names are JSON-encoded into a single metadata key — Stripe limits each
+  // value to 500 chars, well above 7 names × ~50 chars + brackets.
+  if (frequency === "one-time" && qurbaniProductIdClean) {
+    try {
+      await stripe.paymentIntents.update(paymentIntentId!, {
+        metadata: {
+          qurbani_product_id: qurbaniProductIdClean,
+          qurbani_names: JSON.stringify(qurbaniNamesClean),
+        },
+      });
+    } catch (err) {
+      // Non-fatal — payment still works; the receipt just won't show names.
+      console.warn("[confirm] PI metadata update for Qurbani names failed:", err);
+    }
   }
 
   const supabase = getSupabaseAdmin();
