@@ -52,6 +52,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
   let email: string | null = null;
   let giftAidClaimed = false;
   let isMonthly = false;
+  let pathway: string | null = null;
 
   if (piId) {
     // ── One-time path ──
@@ -62,6 +63,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       campaignSlug = (pi.metadata?.campaign as string) ?? null;
       campaignLabel = (pi.metadata?.campaign_label as string) ?? null;
       email = pi.receipt_email ?? null;
+      pathway = (pi.metadata?.pathway as string) ?? null;
     } catch (err) {
       console.error("[thank-you] PI retrieve failed:", err);
     }
@@ -88,6 +90,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       status = si.status;
       campaignSlug = (si.metadata?.campaign as string) ?? null;
       campaignLabel = (si.metadata?.campaign_label as string) ?? null;
+      pathway = (si.metadata?.pathway as string) ?? null;
       const amountPence = si.metadata?.amount_pence ? Number(si.metadata.amount_pence) : null;
       amountGbp = amountPence ? fromPence(amountPence) : null;
 
@@ -131,6 +134,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
           frequency: (isMonthly ? "monthly" : "one-time") as "one-time" | "monthly",
           giftAidClaimed,
           email,
+          pathway,
         }
       : null;
 

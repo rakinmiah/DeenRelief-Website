@@ -33,6 +33,7 @@ import {
   MIN_AMOUNT_PENCE,
   getCampaignLabel,
   isValidCampaign,
+  resolvePathway,
 } from "@/lib/campaigns";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -40,6 +41,8 @@ interface CreateIntentBody {
   campaign?: string;
   amount?: number;        // pence
   frequency?: "one-time" | "monthly";
+  /** Zakat-only — see resolvePathway. Other campaigns silently ignore. */
+  pathway?: string;
 }
 
 export async function POST(request: Request) {
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { campaign, amount, frequency } = body;
+  const { campaign, amount, frequency, pathway } = body;
 
   if (!campaign || typeof campaign !== "string" || !isValidCampaign(campaign)) {
     return NextResponse.json({ error: "Invalid campaign." }, { status: 400 });
@@ -92,12 +95,23 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const attribution = parseAttribution(cookieStore.get(ATTRIBUTION_COOKIE)?.value);
 
+  // Pathway is Zakat-only and silently dropped for other campaigns. Validation
+  // mirrors the page-level resolvePathway so a stray ?pathway= on a non-Zakat
+  // campaign doesn't pollute PI metadata.
+  const resolvedPathway = resolvePathway(campaign, pathway);
+
   const commonMetadata: Stripe.MetadataParam = {
     campaign,
     campaign_label: getCampaignLabel(campaign),
     amount_pence: String(amount),
     frequency,
     ...attributionToStripeMetadata(attribution),
+    ...(resolvedPathway
+      ? {
+          pathway: resolvedPathway.slug,
+          pathway_label: resolvedPathway.label,
+        }
+      : {}),
   };
 
   try {

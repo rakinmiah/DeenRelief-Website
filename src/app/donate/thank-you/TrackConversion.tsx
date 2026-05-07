@@ -31,6 +31,7 @@ export default function TrackConversion({
   frequency,
   giftAidClaimed,
   email,
+  pathway,
 }: {
   transactionId: string;
   value: number;
@@ -41,6 +42,8 @@ export default function TrackConversion({
   giftAidClaimed: boolean;
   /** Donor email for Enhanced Conversions. Hashed client-side before send. */
   email?: string | null;
+  /** Zakat-only pathway slug; surfaced on the GA4 purchase event when set. */
+  pathway?: string | null;
 }) {
   const firedFor = useRef<string | null>(null);
 
@@ -67,6 +70,7 @@ export default function TrackConversion({
         frequency,
         gift_aid_claimed: giftAidClaimed,
         hashed_email: hashedEmail,
+        pathway: pathway ?? undefined,
       });
     })();
   }, [
@@ -78,6 +82,7 @@ export default function TrackConversion({
     frequency,
     giftAidClaimed,
     email,
+    pathway,
   ]);
 
   return null;

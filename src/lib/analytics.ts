@@ -56,6 +56,12 @@ export interface DonationPurchaseParams {
    * ad_user_data consent. Undefined when absent or consent missing.
    */
   hashed_email?: string;
+  /**
+   * Zakat-only distribution pathway slug (e.g. "emergency-relief"). Lets
+   * the campaign team segment Zakat donations by pathway in GA4. Undefined
+   * for non-Zakat donations or when no pathway was selected.
+   */
+  pathway?: string;
 }
 
 /**
@@ -81,6 +87,10 @@ export function trackDonationPurchase(p: DonationPurchaseParams): void {
     frequency: p.frequency,
     campaign_slug: p.campaign_slug,
     items: [item],
+    // Zakat pathway, if specified. Reported as a top-level event field so
+    // GA4 audiences / explorations can segment without unpacking the items
+    // array. Omitted entirely when no pathway was selected.
+    ...(p.pathway ? { pathway: p.pathway } : {}),
     // Enhanced Conversions: Google Ads picks this up automatically from the
     // purchase event's user_data block and uses it to match the conversion
     // back to the click even when cookies are unavailable.
