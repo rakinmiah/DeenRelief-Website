@@ -86,7 +86,7 @@ export default function ZakatPage() {
               src="/images/zakat-hero.webp"
               alt="A Deen Relief team member sitting with three Syrian children supported by the charity's cancer-care programme"
               fill
-              className="object-cover object-[center_55%]"
+              className="object-cover object-[center_30%]"
               priority
             />
             <div
