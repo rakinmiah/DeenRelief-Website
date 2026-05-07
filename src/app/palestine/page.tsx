@@ -43,7 +43,7 @@ const faqs = [
   {
     question: "How much goes to administration?",
     answer:
-      "We commit to spending no more than 10% of income on administration and running costs. 100% of emergency relief donations go directly to supporting families on the ground.",
+      "We commit to spending no more than 10% of income on administration and running costs. Our annual accounts are audited and filed openly with the Charity Commission.",
     links: [{ href: "/about", label: "About Deen Relief" }],
   },
   {
@@ -126,8 +126,6 @@ export default function PalestinePage() {
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
-                <span className="text-white/20">·</span>
-                <span>100% pledge on emergency relief</span>
                 <span className="text-white/20">·</span>
                 <span>Gift Aid Eligible</span>
               </div>
@@ -401,8 +399,6 @@ export default function PalestinePage() {
             {/* Trust Stats Row */}
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">
               <span>Charity No. 1158608</span>
-              <span className="text-charcoal/15">|</span>
-              <span>100% pledge on emergency relief</span>
               <span className="text-charcoal/15">|</span>
               <span>Audited annually</span>
               <span className="text-charcoal/15">|</span>
