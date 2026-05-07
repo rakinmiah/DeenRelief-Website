@@ -13,31 +13,39 @@ import MiniDonationPicker from "./MiniDonationPicker";
 import ZakatCalculator from "./ZakatCalculator";
 
 /* ── FAQ data ── */
+// Slugs are stable anchor identifiers (rendered as `id="faq-<slug>"` by
+// FaqAccordion) so Google Ads sitelinks can deep-link to a specific FAQ
+// via /zakat#faq-<slug>. Don't rename without updating outbound links.
 const faqs = [
   {
+    slug: "gift-aid",
     question: "Is my Zakat eligible for Gift Aid?",
     answer:
       "Yes. If you are a UK taxpayer, we can claim an extra 25% on your Zakat at no additional cost to you. Simply check the Gift Aid box during checkout — your £100 becomes £125.",
     links: [{ href: "/blog/can-you-pay-zakat-with-a-credit-card", label: "Can you pay Zakat with a credit card?" }],
   },
   {
+    slug: "eligible-recipients",
     question: "How do you ensure Zakat reaches eligible recipients?",
     answer:
       "Our trustees assess every case against established eligibility criteria before funds are released. We work with verified local partners to deliver support directly to those in need.",
     links: [{ href: "/about", label: "About our team" }],
   },
   {
+    slug: "pathway-choice",
     question: "Can I specify where my Zakat goes?",
     answer:
       "Yes. You can choose from four pathways: Emergency Relief, Medical Support, Family Essentials, or Recovery & Stability. If you prefer, unrestricted donations are directed to where the need is greatest.",
   },
   {
+    slug: "100-policy",
     question: "Do you have a 100% donation policy?",
     answer:
       "Yes. Your Zakat is ring-fenced for eligible recipients only. Administrative costs are covered separately, ensuring every penny of your Zakat reaches those who need it.",
     links: [{ href: "/blog/zakat-vs-sadaqah-difference", label: "Zakat vs Sadaqah explained" }],
   },
   {
+    slug: "regulated",
     question: "How is Deen Relief regulated?",
     answer:
       "Deen Relief is registered with the Charity Commission (No. 1158608) and Companies House (No. 08593822). Our accounts are publicly audited and filed annually.",
