@@ -14,40 +14,50 @@ import HeroDeadline from "./HeroDeadline";
 import MiniDonationPicker from "./MiniDonationPicker";
 
 /* ── FAQ data ── */
+// Slugs are stable anchor identifiers (rendered as `id="faq-<slug>"` by
+// FaqAccordion) so Google Ads sitelinks can deep-link to a specific FAQ
+// via /qurbani#faq-<slug>. Don't rename without updating outbound links.
 const faqs = [
   {
+    slug: "how-distributed",
     question: "How does my Qurbani reach families in need?",
     answer:
       "Each Qurbani is performed locally in your chosen country during the days of Eid al-Adha, in accordance with Islamic guidelines. Our field teams and verified partners then distribute the meat to families known to be in need — those who would not otherwise have meat on Eid.",
     links: [{ href: "/about", label: "About our team" }],
   },
   {
+    slug: "gift-aid",
     question: "Is my Qurbani eligible for Gift Aid?",
     answer:
       "Yes. If you are a UK taxpayer, we can claim an extra 25% on your Qurbani at no additional cost to you. Tick the Gift Aid box during checkout — your £50 sheep share becomes worth £62.50 to the families we serve.",
   },
   {
+    slug: "deadline",
     question: "What is the deadline for ordering?",
     answer:
       "Orders must be placed by 23 May 2026 to guarantee performance on the first day of Eid. Orders received after this date will be performed on the second or third day of Eid where possible.",
     links: [{ href: "/contact", label: "Contact us about late orders" }],
   },
   {
+    slug: "cow-sharing",
     question: "Can I split a cow share with my family?",
     answer:
       "Yes. A cow can be shared between up to seven people. Order one share per person — for example, a household of four could order four half-cow shares between two cows. Add each person's name as the donor when prompted at checkout.",
   },
   {
+    slug: "animals-countries",
     question: "What animals are eligible, and which countries do you operate in?",
     answer:
       "Sheep and goats count as one share. Cows, buffalo, and camels can be shared between up to seven people. We deliver Qurbani in Bangladesh (sheep £50, cow £480, half cow £240), India (goat £120), Pakistan (sheep £70, cow £480, half cow £240) and Syria (sheep £250, cow £1,300, half cow £650).",
   },
   {
+    slug: "monthly",
     question: "Can I set up a monthly donation toward next year's Qurbani?",
     answer:
       "Yes. Many donors prefer to spread the cost across the year — £20/month builds toward a goat or half cow Qurbani by next Eid. Set up a monthly donation at any time and cancel whenever you wish.",
   },
   {
+    slug: "regulated",
     question: "How is Deen Relief regulated?",
     answer:
       "Deen Relief is registered with the Charity Commission (No. 1158608) and Companies House (No. 08593822). Our accounts are publicly audited and filed annually.",
