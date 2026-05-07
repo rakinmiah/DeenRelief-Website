@@ -306,10 +306,16 @@ function CheckoutForm({
   // Qurbani names — one input per Islamic share. Empty array on non-Qurbani.
   // All optional; blank entries are filtered server-side and the email then
   // falls back to "performed in the name of [billing donor]".
+  //
+  // Progressive disclosure: we render only `revealedNameCount` inputs at a
+  // time (starts at 1) so the checkout panel doesn't balloon to 7 empty
+  // boxes for full-cow donors. As the donor types into the latest visible
+  // slot, the next slot is revealed (monotonic — never shrinks back).
   const qurbaniShareCount = qurbaniProductId ? getQurbaniShareCount(qurbaniProductId) : null;
   const [qurbaniNames, setQurbaniNames] = useState<string[]>(() =>
     qurbaniShareCount ? Array(qurbaniShareCount).fill("") : []
   );
+  const [revealedNameCount, setRevealedNameCount] = useState<number>(1);
 
   // Gift Aid
   const [giftAidEnabled, setGiftAidEnabled] = useState(false);
@@ -521,18 +527,26 @@ function CheckoutForm({
           <p className="text-sm text-grey -mt-1 leading-relaxed">
             {qurbaniShareCount === 1
               ? "Add the name this Qurbani should be performed for. Leave blank to use your name above."
-              : `Up to ${qurbaniShareCount} names can be added — one per share. Leave blank to use your name above for the whole Qurbani.`}
+              : `Up to ${qurbaniShareCount} names can be added — one per share. A new slot appears as you fill each in. Leave blank to use your name above for the whole Qurbani.`}
           </p>
           <div className="space-y-2">
-            {qurbaniNames.map((name, i) => (
+            {qurbaniNames.slice(0, revealedNameCount).map((name, i) => (
               <input
                 key={i}
                 type="text"
                 value={name}
                 onChange={(e) => {
+                  const value = e.target.value;
                   const next = [...qurbaniNames];
-                  next[i] = e.target.value;
+                  next[i] = value;
                   setQurbaniNames(next);
+                  // Reveal the next slot once this one has any non-blank
+                  // content. Monotonic — clearing the box won't hide the
+                  // next one (avoids surprise disappearance after the
+                  // donor's already started typing).
+                  if (value.trim().length > 0 && i + 2 <= qurbaniShareCount) {
+                    setRevealedNameCount((prev) => Math.max(prev, i + 2));
+                  }
                 }}
                 maxLength={QURBANI_NAME_MAX_LENGTH}
                 placeholder={
