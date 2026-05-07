@@ -224,8 +224,6 @@ export default function FeaturedCampaign() {
 
             {/* Trust microcopy */}
             <div className="flex flex-wrap items-center gap-2.5 mt-5 text-[11px] text-grey/60 font-medium">
-              <span>100% pledge on emergency relief</span>
-              <span className="text-grey/25">·</span>
               <span>Gift Aid adds 25% at no cost</span>
               <span className="text-grey/25">·</span>
               <span>
