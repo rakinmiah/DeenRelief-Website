@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Button from "@/components/Button";
 
@@ -138,18 +137,18 @@ const VALID_IDS = new Set(COUNTRIES.flatMap((c) => c.options.map((o) => o.id)));
 
 export default function DonationForm() {
   const [selectedId, setSelectedId] = useState<string>(DEFAULT_ID);
-  const searchParams = useSearchParams();
 
   // Inbound deep-link from Google Ads sitelinks (e.g.
-  // /qurbani?preselect=sy-cow#donate-form). Applied post-mount to keep the
-  // server-rendered HTML stable and avoid a hydration mismatch. Bad/unknown
-  // values fall through silently to DEFAULT_ID — no UI surface, no error.
+  // /qurbani?preselect=sy-cow#donate-form). Read window.location.search
+  // post-mount instead of useSearchParams() to keep the page statically
+  // prerenderable — useSearchParams forces a Suspense boundary at build
+  // time. Bad/unknown values fall through silently to DEFAULT_ID.
   useEffect(() => {
-    const preselect = searchParams.get("preselect");
+    const preselect = new URLSearchParams(window.location.search).get("preselect");
     if (preselect && VALID_IDS.has(preselect)) {
       setSelectedId(preselect);
     }
-  }, [searchParams]);
+  }, []);
 
   const allOptions = COUNTRIES.flatMap((c) =>
     c.options.map((o) => ({ ...o, country: c.country }))
