@@ -558,7 +558,9 @@ export default function ZakatCalculator() {
 
           {/* Category 7 — Liabilities (deductible). Spans both columns on
               lg+ so it sits as a distinct full-width row at the bottom of
-              the grid (rather than as an orphan in the left column of row 4). */}
+              the grid (rather than as an orphan in the left column of row 4).
+              Header text is centered to read as a distinct section
+              separator below the 2-col grid of asset categories. */}
           <Section
             id="liabilities"
             title="Liabilities (deductible)"
@@ -568,6 +570,7 @@ export default function ZakatCalculator() {
             subtotal={sectionTotals.liabilities}
             subtotalLabel="Deductible"
             className="lg:col-span-2"
+            centerHeader
           >
             <MoneyInput
               label="Immediate debts due"
@@ -653,6 +656,13 @@ interface SectionProps {
   subtotalLabel?: string;
   /** Optional extra classes on the outer wrapper — used to span both grid columns. */
   className?: string;
+  /**
+   * Center the title + description horizontally in the header. Subtotal
+   * and chevron are absolute-positioned to the right edge so they don't
+   * push the text off-centre. Used for the Liabilities card so its
+   * full-width row reads as a distinct deduction section.
+   */
+  centerHeader?: boolean;
   children: React.ReactNode;
 }
 
@@ -665,10 +675,22 @@ function Section({
   subtotal,
   subtotalLabel,
   className = "",
+  centerHeader = false,
   children,
 }: SectionProps) {
   const showSubtotal = subtotal > 0;
   const sectionElementId = `zakat-section-${id}`;
+
+  const buttonClass = centerHeader
+    ? "w-full relative flex items-center justify-center p-4 text-center hover:bg-charcoal/[0.015] transition-colors duration-150 min-h-[96px]"
+    : "w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-charcoal/[0.015] transition-colors duration-150 min-h-[96px]";
+
+  const textContainerClass = centerHeader ? "" : "min-w-0 flex-1";
+
+  const controlsContainerClass = centerHeader
+    ? "absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2"
+    : "flex items-center gap-2 flex-shrink-0";
+
   return (
     <div
       className={`rounded-xl border border-charcoal/10 overflow-hidden bg-white ${className}`}
@@ -678,9 +700,9 @@ function Section({
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={sectionElementId}
-        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-charcoal/[0.015] transition-colors duration-150 min-h-[96px]"
+        className={buttonClass}
       >
-        <div className="min-w-0 flex-1">
+        <div className={textContainerClass}>
           <p className="font-heading font-semibold text-[1rem] text-charcoal leading-tight">
             {title}
           </p>
@@ -688,7 +710,7 @@ function Section({
             {description}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className={controlsContainerClass}>
           {showSubtotal && (
             <span className="text-sm font-semibold text-green-dark tabular-nums">
               {subtotalLabel ? `${subtotalLabel} ` : ""}
