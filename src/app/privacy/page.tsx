@@ -101,13 +101,48 @@ export default function PrivacyPage() {
 
               <div>
                 <h2 className="text-xl font-heading font-bold text-charcoal mb-3">
-                  5. Cookies
+                  5. Cookies & Analytics
                 </h2>
                 <p className="text-grey text-base leading-[1.7] mb-3">
-                  Our website uses essential cookies to ensure proper
-                  functionality. We may also use analytics cookies to
-                  understand how visitors use our site. You can control cookie
-                  preferences through your browser settings.
+                  Our website uses essential cookies to keep core features
+                  working — including remembering your cookie choice itself,
+                  rate-limiting against abuse, and processing donations
+                  securely. These run regardless of consent because the site
+                  cannot function without them.
+                </p>
+                <p className="text-grey text-base leading-[1.7] mb-3">
+                  With your consent (the &ldquo;Analytics&rdquo; toggle in our
+                  cookie banner), we use the following tools to understand
+                  how visitors interact with our site so we can improve it:
+                </p>
+                <ul className="text-grey text-base leading-[1.7] list-disc pl-5 space-y-1.5 mb-3">
+                  <li>
+                    <strong>Google Analytics 4</strong> — measures aggregate
+                    page views, donation funnel progress, and which campaign
+                    pages bring donors. IP addresses are anonymised.
+                  </li>
+                  <li>
+                    <strong>Microsoft Clarity</strong> — records anonymised
+                    session replays and heatmaps so we can see where the
+                    donation form confuses people. Form fields (card number,
+                    name, email, address) are masked by default and never
+                    recorded. We use this purely for usability research.
+                  </li>
+                </ul>
+                <p className="text-grey text-base leading-[1.7] mb-3">
+                  With your consent (the &ldquo;Advertising&rdquo; toggle), we
+                  also use Google Ads conversion tracking so we can measure
+                  whether our donation campaigns are reaching the right
+                  audiences. We use Google&apos;s Enhanced Conversions feature
+                  with hashed (one-way encrypted) email addresses for
+                  measurement only — we never share your raw email with
+                  Google.
+                </p>
+                <p className="text-grey text-base leading-[1.7] mb-3">
+                  You can change your choices any time by clicking
+                  &ldquo;Manage cookies&rdquo; in our footer. Declining
+                  analytics or advertising cookies does not affect your
+                  ability to donate or use any part of the site.
                 </p>
                 <p className="text-grey text-base leading-[1.7]">
                   Embedded content from external services (such as videos)
