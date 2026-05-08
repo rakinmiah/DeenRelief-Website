@@ -57,6 +57,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const utility: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/prayer-times`, lastModified: now, changeFrequency: "daily", priority: 0.7 },
     { url: `${BASE_URL}/volunteer`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/zakat/methodology`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
   ];
 
   // Legal pages — low priority
