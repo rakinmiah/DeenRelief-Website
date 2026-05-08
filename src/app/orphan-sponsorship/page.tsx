@@ -208,8 +208,20 @@ export default function OrphanSponsorshipPage() {
           </div>
         </section>
 
-        {/* ─── 3. What £30 Covers ─── */}
-        <section className="pt-16 md:pt-24 pb-8 md:pb-10 bg-white">
+        {/* ─── 3. Donation Panel (centered card) ─── */}
+        <section id="sponsor-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8 bg-white">
+              <DonationForm />
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 4. Partners ─── */}
+        <Partners />
+
+        {/* ─── 5. What £30 Covers ─── */}
+        <section className="pt-16 md:pt-24 pb-8 md:pb-10 bg-cream">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
               {/* Desktop image — left column */}
@@ -282,18 +294,6 @@ export default function OrphanSponsorshipPage() {
                   Sponsor a Child — £30/month
                 </Button>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── 4. Partners ─── */}
-        <Partners />
-
-        {/* ─── 5. Donation Panel (centered card) ─── */}
-        <section id="sponsor-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-cream scroll-mt-20">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8 bg-white">
-              <DonationForm />
             </div>
           </div>
         </section>
