@@ -9,9 +9,6 @@ const description =
 export const metadata: Metadata = {
   title,
   description,
-  // Page is reachable for paid traffic but excluded from search until launch.
-  // Flip to { index: true, follow: true } once we add it to sitemap + nav.
-  robots: { index: false, follow: false },
   alternates: { canonical: "/qurbani" },
   openGraph: {
     title,

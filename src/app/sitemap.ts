@@ -25,6 +25,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "uk-homeless",
     "zakat",
     "sadaqah",
+    "qurbani",
   ].map((slug) => ({
     url: `${BASE_URL}/${slug}`,
     lastModified: now,
