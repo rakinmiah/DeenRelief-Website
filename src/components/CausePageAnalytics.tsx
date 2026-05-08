@@ -1,15 +1,18 @@
 "use client";
 
 import {
+  useCrossCauseNavigation,
   useSectionViewTracking,
   useSitelinkLanding,
 } from "@/lib/analytics-hooks";
 import type { DonationCampaign } from "@/lib/analytics";
 
 /**
- * Mounts the two cause-page analytics hooks (sitelink_landing on mount +
- * cause_page_section_view via IntersectionObserver) without forcing the
- * containing page to become a client component.
+ * Mounts the cause-page analytics hooks without forcing the containing
+ * page to become a client component:
+ *   - sitelink_landing on mount (when external deep-link with hash)
+ *   - cause_page_section_view via IntersectionObserver
+ *   - cross_cause_navigation via document-level click delegation
  *
  * Drop one of these into any cause page that has `data-track-section`
  * attributes on its sections:
@@ -27,5 +30,6 @@ export default function CausePageAnalytics({
 }) {
   useSitelinkLanding(causePage);
   useSectionViewTracking(causePage);
+  useCrossCauseNavigation(causePage);
   return null;
 }
