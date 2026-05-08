@@ -340,8 +340,13 @@ export default function ZakatCalculator() {
           </div>
         )}
 
-        {/* ── Asset categories ── */}
-        <div className="space-y-3">
+        {/* ── Asset categories — 1 col on mobile, 2 cols on lg+ so seven
+              cards lay out as 2/2/2/1 rows instead of 7 single rows. Each
+              card's expanded body has single-column inputs (each card is
+              now half-width on desktop, so 2-col inputs would be cramped).
+              align-items:start so a collapsed card next to an expanded one
+              stays at the top of its row rather than stretching vertically. ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
           {/* Category 1 — Cash and savings */}
           <Section
             id="cash"
@@ -385,7 +390,6 @@ export default function ZakatCalculator() {
             isOpen={openSections.has("gold")}
             onToggle={() => toggleSection("gold")}
             subtotal={sectionTotals.gold}
-            singleColumnInputs
           >
             <ModeToggle
               mode={gold.mode}
@@ -423,7 +427,6 @@ export default function ZakatCalculator() {
             isOpen={openSections.has("silver")}
             onToggle={() => toggleSection("silver")}
             subtotal={sectionTotals.silver}
-            singleColumnInputs
           >
             <ModeToggle
               mode={silver.mode}
@@ -548,7 +551,7 @@ export default function ZakatCalculator() {
                 setProperty((p) => ({ ...p, landForSale: v }))
               }
             />
-            <p className="text-[12px] text-charcoal/50 leading-[1.6] lg:col-span-2 -mt-1">
+            <p className="text-[12px] text-charcoal/50 leading-[1.6] mt-2">
               Your primary residence is exempt from Zakat regardless of value.
             </p>
           </Section>
@@ -645,14 +648,6 @@ interface SectionProps {
   onToggle: () => void;
   subtotal: number;
   subtotalLabel?: string;
-  /**
-   * Force single-column body layout even on desktop. Used for gold/silver
-   * sections where only one input is rendered at a time (the mode toggle
-   * gates either the weight input or the value input). Default false —
-   * Cash, Investments, Business, Property, Liabilities all use a 2-column
-   * grid at the lg breakpoint to halve their vertical height.
-   */
-  singleColumnInputs?: boolean;
   children: React.ReactNode;
 }
 
@@ -664,16 +659,12 @@ function Section({
   onToggle,
   subtotal,
   subtotalLabel,
-  singleColumnInputs = false,
   children,
 }: SectionProps) {
   const showSubtotal = subtotal > 0;
   const sectionElementId = `zakat-section-${id}`;
-  const bodyLayout = singleColumnInputs
-    ? "space-y-4"
-    : "grid grid-cols-1 lg:grid-cols-2 gap-4";
   return (
-    <div className="rounded-xl border border-charcoal/10 overflow-hidden">
+    <div className="rounded-xl border border-charcoal/10 overflow-hidden bg-white">
       <button
         type="button"
         onClick={onToggle}
@@ -717,7 +708,7 @@ function Section({
       {isOpen && (
         <div
           id={sectionElementId}
-          className={`border-t border-charcoal/8 p-4 bg-charcoal/[0.01] ${bodyLayout}`}
+          className="border-t border-charcoal/8 p-4 bg-charcoal/[0.01] space-y-4"
         >
           {children}
         </div>
