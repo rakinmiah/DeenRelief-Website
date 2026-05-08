@@ -168,14 +168,38 @@ export function trackDonationPurchase(p: DonationPurchaseParams): void {
 // becomes confusion at analysis time, so these are the single source of
 // truth for what each event carries.
 
-/** Donation funnel campaign vocabulary. "other" catches /palestine etc.
- *  general flows that aren't cause-tagged in the spec's funnel. */
+/** Donation funnel campaign vocabulary. "other" buckets all non-priority
+ *  flows (cancer-care, clean-water, build-a-school, uk-homeless, sadaqah,
+ *  general donate) so the four primary cause pages stay segmentable in
+ *  GA4 while the long tail rolls up cleanly. */
 export type DonationCampaign =
   | "palestine"
   | "qurbani"
   | "zakat"
   | "orphan-sponsorship"
   | "other";
+
+/**
+ * Map any CampaignSlug-ish string (including "general", "cancer-care",
+ * etc.) to the DonationCampaign vocabulary used in funnel events.
+ *
+ * Why a narrow vocabulary: GA4 explorations get unwieldy when every
+ * campaign is its own value. The four cause pages with paid acquisition
+ * + dedicated audit docs stay segmentable; everything else rolls up to
+ * "other" and is broken down at the campaign_slug parameter level if
+ * needed (which the GA4 `purchase` event already carries).
+ */
+export function toDonationCampaign(slug: string): DonationCampaign {
+  switch (slug) {
+    case "palestine":
+    case "qurbani":
+    case "zakat":
+    case "orphan-sponsorship":
+      return slug;
+    default:
+      return "other";
+  }
+}
 
 export type DonationFrequency = "one-time" | "monthly";
 
