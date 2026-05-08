@@ -556,7 +556,9 @@ export default function ZakatCalculator() {
             </p>
           </Section>
 
-          {/* Category 7 — Liabilities (deductible) */}
+          {/* Category 7 — Liabilities (deductible). Spans both columns on
+              lg+ so it sits as a distinct full-width row at the bottom of
+              the grid (rather than as an orphan in the left column of row 4). */}
           <Section
             id="liabilities"
             title="Liabilities (deductible)"
@@ -565,6 +567,7 @@ export default function ZakatCalculator() {
             onToggle={() => toggleSection("liabilities")}
             subtotal={sectionTotals.liabilities}
             subtotalLabel="Deductible"
+            className="lg:col-span-2"
           >
             <MoneyInput
               label="Immediate debts due"
@@ -648,6 +651,8 @@ interface SectionProps {
   onToggle: () => void;
   subtotal: number;
   subtotalLabel?: string;
+  /** Optional extra classes on the outer wrapper — used to span both grid columns. */
+  className?: string;
   children: React.ReactNode;
 }
 
@@ -659,18 +664,21 @@ function Section({
   onToggle,
   subtotal,
   subtotalLabel,
+  className = "",
   children,
 }: SectionProps) {
   const showSubtotal = subtotal > 0;
   const sectionElementId = `zakat-section-${id}`;
   return (
-    <div className="rounded-xl border border-charcoal/10 overflow-hidden bg-white">
+    <div
+      className={`rounded-xl border border-charcoal/10 overflow-hidden bg-white ${className}`}
+    >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={sectionElementId}
-        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-charcoal/[0.015] transition-colors duration-150"
+        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-charcoal/[0.015] transition-colors duration-150 min-h-[96px]"
       >
         <div className="min-w-0 flex-1">
           <p className="font-heading font-semibold text-[1rem] text-charcoal leading-tight">
