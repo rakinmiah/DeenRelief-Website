@@ -112,7 +112,7 @@ export default function OurWorkPage() {
               src="/images/cancer-gulucuk-evi-group.webp"
               alt="Deen Relief team with a large group of children at the entrance of the Gülücük Evi care centre in Adana, Turkey"
               fill
-              className="object-cover object-[center_40%]"
+              className="object-cover object-[center_55%]"
               priority
             />
             <div
