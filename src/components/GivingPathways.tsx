@@ -85,13 +85,16 @@ export default function GivingPathways() {
           </p>
         </div>
 
-        {/* Pathway Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Pathway Grid — mobile: horizontal scroll-snap carousel (saves
+            ~750px versus six stacked cards). Desktop: 2-col at sm+,
+            3-col at lg+ as before. Same pattern as the campaign-page
+            carousels. */}
+        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {pathways.map((pathway) => (
             <Link
               key={pathway.title}
               href={pathway.href}
-              className="group block bg-white border border-charcoal/5 rounded-2xl p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+              className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink group block bg-white border border-charcoal/5 rounded-2xl p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-1"
             >
               {/* Icon */}
               <div
