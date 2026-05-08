@@ -303,19 +303,100 @@ spec is signed off)
 
 ---
 
-## Phase 3 events (planned, not yet shipped)
+## Phase 3 events
 
-### `engaged_session`
+### `engaged_session` (custom)
 
-Fires once per session when the cumulative metrics cross
-60s on-site + 2 sections viewed + 75% max scroll on any page. A higher
-fidelity engagement signal than GA4's default.
+Fires exactly **once per session** when the donor crosses ALL THREE
+engagement thresholds:
 
-### `recurring_lifecycle` (server-side)
+- **60 seconds** cumulative on-site (foreground only — backgrounded
+  tabs don't accumulate time).
+- **2 distinct** `(cause_page, section)` tuples viewed via
+  IntersectionObserver.
+- **75% scroll depth** reached on any single page (bottom-of-viewport
+  heuristic — matches GA4's `scroll_depth`).
 
-Stripe webhook → Supabase → server-side Measurement Protocol push.
-Tracks monthly donor lifecycle events (subscription renewed, cancelled,
-payment failed). Deferred — separate spec.
+| Parameter            | Type   | Notes                                                                |
+|----------------------|--------|----------------------------------------------------------------------|
+| `cumulative_seconds` | number | Total foreground seconds across pages in this session.               |
+| `sections_viewed`    | number | Count of unique `(cause_page, section)` tuples in `dr_section_view_*`.|
+| `max_scroll_pct`     | number | Highest scroll % reached on any page in this session (0–100).        |
+
+Higher fidelity than GA4's default 10-second engagement signal —
+filters out skim-readers and bot traffic. The thresholds are deliberate
+trade-offs: too lenient and the audience fills with bounces, too
+strict and the audience is too small for meaningful remarketing.
+
+**Fired by:** `trackEngagedSession()` in `src/lib/analytics.ts`.
+Driven by `EngagedSessionTracker` mounted globally in
+`src/app/layout.tsx` so metrics persist across page navigations via
+sessionStorage:
+
+- `dr_session_engaged_time_ms` — cumulative foreground time.
+- `dr_session_engaged_max_scroll` — max scroll % reached.
+- `dr_session_engaged_fired` — `"1"` once event has fired (idempotent).
+- `dr_section_view_*` — reused from `useSectionViewTracking`; the
+  count of these keys is the `sections_viewed` dimension.
+
+**GA4 admin:** mark as Engagement event. Build an audience of "donors
+who hit `engaged_session` but didn't hit `purchase`" → primary
+remarketing cohort for high-quality donors who browsed-but-didn't-buy.
+
+---
+
+### `recurring_lifecycle` (server-side, deferred)
+
+> **Status:** schema documented here; implementation deferred. Belongs
+> to the Stripe webhook → Supabase → GA4 Measurement Protocol path
+> (server-side, not browser), so it lives outside the
+> `src/lib/analytics.ts` client surface.
+
+Tracks monthly donor lifecycle events that originate from Stripe
+webhooks rather than donor browser actions. Browser-side analytics
+can't see these because the donor is no longer on the site when the
+events happen.
+
+| Parameter        | Type                      | Notes                                                               |
+|------------------|---------------------------|---------------------------------------------------------------------|
+| `lifecycle_step` | enum (see below)          | Which lifecycle event fired.                                        |
+| `subscription_id`| string                    | Stripe subscription ID. Used as the GA4 dedup key.                  |
+| `campaign_slug`  | string                    | The originating campaign (e.g. `"orphan-sponsorship"`).              |
+| `value`          | number                    | The actual GBP charged for this lifecycle event.                    |
+| `currency`       | string                    | "GBP".                                                              |
+| `month_index`    | number                    | 1-based number of the donor's lifetime months on this subscription. |
+| `client_id`      | string                    | The GA4 client_id captured at subscription creation, persisted on   |
+|                  |                           | the donations row, replayed here so server events join browser ones. |
+
+`lifecycle_step` values:
+
+| Value                  | Source webhook                   | When                                                                                  |
+|------------------------|----------------------------------|---------------------------------------------------------------------------------------|
+| `renewal_succeeded`    | `invoice.payment_succeeded`      | Each successful monthly charge after the first (the first IS the GA4 `purchase`).      |
+| `renewal_failed`       | `invoice.payment_failed`         | Stripe Smart Retries didn't recover. Donor gets a retention email; track for cohorting.|
+| `subscription_canceled`| `customer.subscription.deleted`  | Donor canceled or churned out via dunning. Cancel reason forwarded as a parameter.     |
+| `subscription_paused`  | `customer.subscription.paused`   | Optional pause flow if/when the manage page exposes it.                               |
+
+**Implementation outline (when scheduled):**
+
+1. Stripe webhooks already exist; extend the handler to write a row
+   to a `recurring_lifecycle_events` table on each of the four hooks.
+2. A Vercel cron / Supabase function reads from that table and POSTs
+   to GA4 Measurement Protocol with `client_id` from the donations row.
+3. Add `recurring_lifecycle` to GA4's custom event allow-list with the
+   custom dimensions registered.
+
+**Why server-side, not browser:**
+- The donor is not on the site when these events happen.
+- Server-side events have stable client identity (no consent flicker).
+- One source of truth (Stripe webhooks) — no double-counting risk.
+
+**GA4 admin (when shipped):**
+- `renewal_succeeded` → Conversion event. Smart Bidding optimises for
+  long-term value — knowing renewals continue is critical for the
+  LTV-loaded `purchase.value` to be defensible.
+- `renewal_failed` → Engagement (audience: "at-risk recurring donors").
+- `subscription_canceled` → Engagement (cohort analysis).
 
 ---
 
