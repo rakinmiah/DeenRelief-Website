@@ -12,39 +12,50 @@ import FaqAccordion from "./FaqAccordion";
 import MiniDonationPicker from "./MiniDonationPicker";
 
 /* ── FAQ data ── */
+// Slugs are stable anchor identifiers (rendered as `id="faq-<slug>"` by
+// FaqAccordion) so Google Ads sitelinks can deep-link to a specific FAQ
+// via /orphan-sponsorship#faq-<slug>. Don't rename without updating
+// outbound links.
 const faqs = [
   {
+    slug: "cover",
     question: "What does £30/month cover?",
     answer:
       "Your £30 monthly sponsorship covers education (school fees, uniforms, and materials), daily nutrition, safe shelter in a caring environment, and healthcare including medical check-ups and vaccinations.",
   },
   {
+    slug: "cancel",
     question: "Can I cancel my sponsorship?",
     answer:
       "Yes. You can cancel your monthly sponsorship at any time by contacting us at info@deenrelief.org. There are no contracts or penalties.",
   },
   {
+    slug: "gift-aid",
     question: "Is my sponsorship eligible for Gift Aid?",
     answer:
       "Yes. If you are a UK taxpayer, we can claim an extra 25% on your sponsorship at no additional cost to you. Your £30 becomes £37.50 every month.",
   },
   {
+    slug: "100-policy",
     question: "Do you have a 100% donation policy?",
     answer:
       "Yes. Your monthly sponsorship is ring-fenced for direct orphan care — education, nutrition, shelter, and healthcare for the children in our Bangladesh programme. Administrative costs are covered separately through Gift Aid recovery and unrestricted donations, so 100% of your sponsorship reaches the orphan care programme.",
   },
   {
+    slug: "reaches-child",
     question: "How do I know my sponsorship reaches a child?",
     answer:
       "Our trustees oversee every sponsorship. We work with verified local partners in Bangladesh who deliver support directly. Our accounts are publicly audited and filed annually with the Charity Commission.",
     links: [{ href: "/about", label: "About our team" }],
   },
   {
+    slug: "multiple",
     question: "Can I sponsor more than one child?",
     answer:
       "Yes. You can set up multiple sponsorships — each at £30/month — to support additional children. Contact us at info@deenrelief.org to arrange this.",
   },
   {
+    slug: "regulated",
     question: "How is Deen Relief regulated?",
     answer:
       "Deen Relief is registered with the Charity Commission (No. 1158608) and Companies House (No. 08593822). Our accounts are publicly audited and filed annually.",

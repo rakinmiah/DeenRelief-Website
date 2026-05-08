@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface FaqLink {
   href: string;
@@ -9,6 +9,8 @@ interface FaqLink {
 }
 
 interface Faq {
+  /** Stable anchor identifier — rendered as `id="faq-<slug>"` for deep-linking. */
+  slug: string;
   question: string;
   answer: string;
   /** Optional in-answer CTA rendered below the answer text. */
@@ -18,10 +20,23 @@ interface Faq {
 export default function FaqAccordion({ faqs }: { faqs: Faq[] }) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // Inbound deep-link from Google Ads sitelinks. See parallel implementation
+  // in /qurbani's FaqAccordion (commit 108858e) and /zakat's FaqAccordion
+  // (commit b383643).
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#faq-")) return;
+    const slug = hash.slice("#faq-".length);
+    const matchIndex = faqs.findIndex((f) => f.slug === slug);
+    if (matchIndex !== -1) {
+      setOpenFaq(matchIndex);
+    }
+  }, [faqs]);
+
   return (
     <div className="divide-y divide-charcoal/5">
       {faqs.map((faq, index) => (
-        <div key={index}>
+        <div key={index} id={`faq-${faq.slug}`}>
           <button
             onClick={() => setOpenFaq(openFaq === index ? null : index)}
             aria-expanded={openFaq === index}
