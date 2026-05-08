@@ -272,6 +272,89 @@ export function trackSitelinkLanding(opts: {
 }
 
 /**
+ * Fire a donation_form_abandoned event.
+ *
+ * Fired on `pagehide` (or `beforeunload` fallback) when the donor leaves
+ * /donate without completing — i.e. without the redirect to thank-you.
+ * The `transport: 'beacon'` flag tells gtag to use navigator.sendBeacon
+ * under the hood, which is the only reliable transport during page
+ * unload (XHR / fetch are torn down before they flush).
+ *
+ * `deepestStep` is the furthest funnel step the donor reached during
+ * this checkout mount. `secondsOnForm` is the time elapsed from
+ * begin_checkout to the unload — a coarse engagement signal.
+ *
+ * Configured as Engagement event in GA4. Pairs with the funnel report
+ * to surface "donors who reached payment_method_added but didn't
+ * complete" — the highest-leverage retargeting cohort.
+ */
+export function trackDonationFormAbandoned(opts: {
+  campaign: DonationCampaign;
+  amount: number;
+  frequency: DonationFrequency;
+  deepestStep: DonationFunnelStep;
+  secondsOnForm: number;
+  pathway?: string;
+}): void {
+  trackEvent("donation_form_abandoned", {
+    campaign: opts.campaign,
+    amount: opts.amount,
+    frequency: opts.frequency,
+    deepest_step: opts.deepestStep,
+    seconds_on_form: opts.secondsOnForm,
+    ...(opts.pathway ? { pathway: opts.pathway } : {}),
+    // Beacon transport is the only one that survives page unload —
+    // gtag forwards this to navigator.sendBeacon when set.
+    transport: "beacon",
+  });
+}
+
+/**
+ * Fire a cross_cause_navigation event.
+ *
+ * Fired when a donor clicks an internal Link from one cause page to
+ * another (e.g. Palestine FAQ → Zakat page). Reveals which causes
+ * cross-pollinate and informs internal cross-link placement.
+ *
+ * Configured as Engagement event in GA4.
+ */
+export function trackCrossCauseNavigation(opts: {
+  fromCausePage: DonationCampaign;
+  toCausePage: DonationCampaign;
+  context: string;
+}): void {
+  trackEvent("cross_cause_navigation", {
+    from_cause_page: opts.fromCausePage,
+    to_cause_page: opts.toCausePage,
+    context: opts.context,
+  });
+}
+
+/**
+ * Fire a faq_expanded event.
+ *
+ * Fired on every FAQ accordion open. Reveals which questions block
+ * donations (and conversely, which copy isn't being read). Configured
+ * as Engagement event in GA4.
+ *
+ * `faqSlug` is the stable slug attribute when the FAQ has one
+ * (configured via FAQ data). Falls back to the question's index in the
+ * list when no slug is available — combine with `cause_page` for a
+ * unique identifier.
+ */
+export function trackFaqExpanded(opts: {
+  causePage: DonationCampaign;
+  faqSlug?: string;
+  faqIndex: number;
+}): void {
+  trackEvent("faq_expanded", {
+    cause_page: opts.causePage,
+    faq_index: opts.faqIndex,
+    ...(opts.faqSlug ? { faq_slug: opts.faqSlug } : {}),
+  });
+}
+
+/**
  * Fire a cause_page_section_view event.
  *
  * Fired when a section of a cause page enters the viewport at ≥50%

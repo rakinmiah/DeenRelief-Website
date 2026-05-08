@@ -37,7 +37,12 @@ import {
   totalWithGiftAidGbp,
 } from "@/lib/gift-aid";
 import { QURBANI_NAME_MAX_LENGTH, getQurbaniShareCount } from "@/lib/qurbani";
-import { toDonationCampaign, trackDonationFunnelStep } from "@/lib/analytics";
+import {
+  toDonationCampaign,
+  trackDonationFormAbandoned,
+  trackDonationFunnelStep,
+  type DonationFunnelStep,
+} from "@/lib/analytics";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -81,6 +86,21 @@ export default function CheckoutClient({
   const [mode, setMode] = useState<"payment" | "setup">("payment");
   const [intentError, setIntentError] = useState<string | null>(null);
   const [intentLoading, setIntentLoading] = useState<boolean>(true);
+
+  // ─── Abandonment tracking refs ─────────────────────────────────────────────
+  // Mutable refs (not state) — we read these inside the unload handler and
+  // don't need re-renders when they change. The handler registers once and
+  // captures the refs by reference.
+  const mountTimestampRef = useRef<number>(Date.now());
+  const deepestStepRef = useRef<DonationFunnelStep>("begin_checkout");
+  // Set true at the moment we hand off to stripe.confirm{Payment,Setup} so
+  // the redirect-driven unload doesn't fire abandonment. Anything else
+  // (back button, tab close, internal nav) IS an abandonment.
+  const intentionalNavigationRef = useRef<boolean>(false);
+  // Latest amount in a ref so the unload handler reports the current value
+  // (donor may have edited it via AmountBlock between mount and unload).
+  const latestAmountRef = useRef<number>(initialAmountGbp);
+  useEffect(() => { latestAmountRef.current = amountGbp; }, [amountGbp]);
 
   const createIntent = useCallback(async (gbp: number) => {
     setIntentLoading(true);
@@ -128,6 +148,7 @@ export default function CheckoutClient({
   useEffect(() => {
     if (initialIntentCreated.current) return;
     initialIntentCreated.current = true;
+    mountTimestampRef.current = Date.now();
     createIntent(amountGbp);
     // Funnel entry — fire once per checkout mount alongside intent creation.
     // Intentionally NOT a GA4 conversion (too high-funnel for Smart Bidding);
@@ -141,6 +162,37 @@ export default function CheckoutClient({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ─── Abandonment unload handler ────────────────────────────────────────────
+  // pagehide is the modern, mobile-reliable equivalent of beforeunload —
+  // beforeunload doesn't fire on iOS Safari when the user backgrounds the
+  // tab, but pagehide does. We register both to maximise capture: pagehide
+  // for legit unload paths, beforeunload as a desktop fallback. The handler
+  // is idempotent — sets a fired ref so a single donor doesn't generate
+  // both events for the same exit.
+  useEffect(() => {
+    let fired = false;
+    const fire = () => {
+      if (fired) return;
+      if (intentionalNavigationRef.current) return; // success redirect
+      fired = true;
+      const seconds = Math.round((Date.now() - mountTimestampRef.current) / 1000);
+      trackDonationFormAbandoned({
+        campaign: toDonationCampaign(initialCampaign),
+        amount: latestAmountRef.current,
+        frequency: initialFrequency,
+        deepestStep: deepestStepRef.current,
+        secondsOnForm: seconds,
+        ...(pathwaySlug ? { pathway: pathwaySlug } : {}),
+      });
+    };
+    window.addEventListener("pagehide", fire);
+    window.addEventListener("beforeunload", fire);
+    return () => {
+      window.removeEventListener("pagehide", fire);
+      window.removeEventListener("beforeunload", fire);
+    };
+  }, [initialCampaign, initialFrequency, pathwaySlug]);
 
   const elementsOptions: StripeElementsOptions | undefined = useMemo(
     () =>
@@ -217,6 +269,12 @@ export default function CheckoutClient({
             customerId={customerId}
             qurbaniProductId={qurbaniProductId}
             pathwaySlug={pathwaySlug}
+            onPaymentMethodAdded={() => {
+              deepestStepRef.current = "payment_method_added";
+            }}
+            onIntentionalNavigation={(intentional) => {
+              intentionalNavigationRef.current = intentional;
+            }}
           />
         </Elements>
       )}
@@ -311,6 +369,8 @@ function CheckoutForm({
   customerId,
   qurbaniProductId,
   pathwaySlug,
+  onPaymentMethodAdded,
+  onIntentionalNavigation,
 }: {
   amountGbp: number;
   campaign: string;
@@ -321,6 +381,12 @@ function CheckoutForm({
   customerId: string | null;
   qurbaniProductId: string | null;
   pathwaySlug: string | null;
+  /** Called once when Stripe Elements transitions to complete: true. */
+  onPaymentMethodAdded: () => void;
+  /** Called with `true` immediately before stripe.confirm{Payment,Setup}
+   *  hands off to the redirect (suppresses abandonment), and `false` if
+   *  the confirm fails inline so the donor's next exit IS abandonment. */
+  onIntentionalNavigation: (intentional: boolean) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -467,6 +533,13 @@ function CheckoutForm({
 
       const returnUrl = `${window.location.origin}/donate/thank-you`;
 
+      // Mark the upcoming Stripe redirect as intentional so the
+      // pagehide / beforeunload handlers don't fire donation_form_abandoned
+      // for what is actually a successful conversion. If confirm fails
+      // inline (no redirect — stripeError below), we'd want abandonment
+      // tracking re-enabled. Cleared by the error branch below.
+      onIntentionalNavigation(true);
+
       const { error: stripeError } =
         mode === "payment"
           ? await stripe.confirmPayment({
@@ -488,11 +561,16 @@ function CheckoutForm({
       if (stripeError) {
         setError(stripeError.message ?? "Payment failed. Please try again.");
         setSubmitting(false);
+        // No redirect happened — re-enable abandonment tracking so a
+        // donor who gives up after a card decline still records.
+        onIntentionalNavigation(false);
       }
       // On success, Stripe redirects — no need to clear submitting.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error.");
       setSubmitting(false);
+      // Pre-redirect failure (e.g. /confirm error) — re-enable abandonment.
+      onIntentionalNavigation(false);
     }
   };
 
@@ -682,6 +760,9 @@ function CheckoutForm({
                   frequency,
                   ...(pathwaySlug ? { pathway: pathwaySlug } : {}),
                 });
+                // Bubble to parent so the abandonment handler reports the
+                // accurate "deepest step reached" if the donor leaves now.
+                onPaymentMethodAdded();
               }
             }}
           />

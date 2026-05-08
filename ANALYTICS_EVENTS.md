@@ -227,25 +227,76 @@ same consent gate.
 
 ---
 
-## Phase 2 events (planned, not yet shipped)
+## Phase 2 events
 
-### `donation_form_abandoned`
+### `donation_form_abandoned` (custom)
 
-Fired via `beforeunload` + `navigator.sendBeacon()` when the donor
-leaves `/donate` without completing. Carries the deepest funnel step
-they reached and the time spent on the form. Dedup'd at the
-sessionStorage layer to one fire per page load.
+Fired when the donor leaves `/donate` without completing. The unload
+handler in `CheckoutClient.tsx` fires on `pagehide` (mobile-reliable)
+with `beforeunload` as a desktop fallback — both are wired so legit
+exits are captured on iOS Safari and Chrome alike. The handler is
+idempotent (one event per mount).
 
-### `cross_cause_navigation`
+Suppression: a `intentionalNavigationRef` flips to `true` immediately
+before `stripe.confirm{Payment,Setup}` so the success-redirect-driven
+unload doesn't fire abandonment. If Stripe surfaces an inline error
+(no redirect happened), the ref is cleared so a subsequent retry-then-
+bail still records. Anything else — back button, tab close, internal
+link — IS abandonment.
 
-Fires when the donor clicks an internal `<Link>` to a different cause
+| Parameter         | Type                      | Notes                                                                           |
+|-------------------|---------------------------|---------------------------------------------------------------------------------|
+| `campaign`        | enum DonationCampaign     |                                                                                 |
+| `amount`          | number                    | Latest amount visible to the donor at unload (donor may have edited it).        |
+| `frequency`       | "one-time" \| "monthly"   |                                                                                 |
+| `deepest_step`    | enum DonationFunnelStep   | Furthest step reached: `begin_checkout` or `payment_method_added`.              |
+| `seconds_on_form` | number                    | Wall-clock seconds from begin_checkout to unload.                               |
+| `pathway`         | string                    | Optional. Zakat-only.                                                           |
+| `transport`       | "beacon"                  | Tells gtag to use navigator.sendBeacon — only transport that survives unload.   |
+
+**Fired by:** `trackDonationFormAbandoned()` in `src/lib/analytics.ts`,
+called from the unload effect in `src/app/donate/CheckoutClient.tsx`.
+
+**GA4 admin:** mark as Engagement event. Build an audience of "donors
+who reached `payment_method_added` but then abandoned" (`deepest_step
+= payment_method_added` AND fired `donation_form_abandoned`) → highest-
+leverage retargeting cohort.
+
+---
+
+### `cross_cause_navigation` (custom)
+
+Fired when the donor clicks an internal anchor to a different cause
 page from within a cause page. Reveals which causes cross-pollinate
 (e.g. donors browsing Palestine often look at Sadaqah next).
 
-### `faq_expanded`
+| Parameter          | Type                  | Notes                                                                |
+|--------------------|-----------------------|----------------------------------------------------------------------|
+| `from_cause_page`  | enum DonationCampaign | The page the donor is leaving.                                       |
+| `to_cause_page`    | enum DonationCampaign | The page the donor is going to.                                      |
+| `context`          | string                | Where on the page the click happened — `"faq_link"`, `"body"`, etc.  |
 
-Fires on every `FaqAccordion` expansion with the FAQ slug as parameter.
-Reveals which questions block donations.
+**Fired by:** `trackCrossCauseNavigation()` in `src/lib/analytics.ts`.
+Wired via document-level click delegation inside `CausePageAnalytics`
+so server-rendered cause pages don't need per-link instrumentation.
+
+---
+
+### `faq_expanded` (custom)
+
+Fires on every FAQ accordion open. Reveals which questions block
+donations (and conversely, which copy isn't being read).
+
+| Parameter      | Type                  | Notes                                                                  |
+|----------------|-----------------------|------------------------------------------------------------------------|
+| `cause_page`   | enum DonationCampaign |                                                                        |
+| `faq_index`    | number                | Position of the FAQ in the list — always present.                      |
+| `faq_slug`     | string                | Stable slug, when the FAQ data has one (qurbani, zakat, orphan have).  |
+
+**Fired by:** `trackFaqExpanded()` in `src/lib/analytics.ts`, called
+from the toggle handler in each cause-page FaqAccordion component.
+
+---
 
 ### `calculator_engagement` (deferred until Zakat calculator analytics
 spec is signed off)
