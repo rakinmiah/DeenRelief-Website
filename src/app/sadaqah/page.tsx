@@ -219,7 +219,11 @@ export default function SadaqahPage() {
               </h2>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {/* Mobile: horizontal scroll-snap carousel (saves ~350px of
+                vertical scroll versus three stacked impact cards). Desktop:
+                3-col grid as before, max-w-4xl mx-auto centring preserved
+                via sm: prefixes. */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:max-w-4xl sm:mx-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 {
                   title: "Emergency Relief",
@@ -237,7 +241,7 @@ export default function SadaqahPage() {
                   icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>,
                 },
               ].map((item) => (
-                <div key={item.title} className="bg-cream border border-charcoal/5 rounded-2xl p-6 text-center">
+                <div key={item.title} className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink bg-cream border border-charcoal/5 rounded-2xl p-6 text-center">
                   <div className="w-12 h-12 rounded-xl bg-green/10 text-green flex items-center justify-center mx-auto mb-4">{item.icon}</div>
                   <h3 className="font-heading font-bold text-[1.0625rem] text-charcoal mb-2">{item.title}</h3>
                   <p className="text-grey/80 text-[0.8125rem] leading-[1.6]">{item.description}</p>
