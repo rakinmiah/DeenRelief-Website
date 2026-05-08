@@ -393,7 +393,7 @@ export default function ZakatPage() {
               </h2>
             </div>
 
-            <FaqAccordion faqs={faqs} />
+            <FaqAccordion faqs={faqs} causePage="zakat" />
           </div>
         </section>
 

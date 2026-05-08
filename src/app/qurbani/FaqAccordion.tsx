@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { trackFaqExpanded, type DonationCampaign } from "@/lib/analytics";
 
 interface FaqLink {
   href: string;
@@ -17,8 +18,27 @@ interface Faq {
   links?: FaqLink[];
 }
 
-export default function FaqAccordion({ faqs }: { faqs: Faq[] }) {
+export default function FaqAccordion({
+  faqs,
+  causePage,
+}: {
+  faqs: Faq[];
+  /** When set, every FAQ open fires `faq_expanded` for analytics. */
+  causePage?: DonationCampaign;
+}) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const handleToggle = (index: number) => {
+    const willOpen = openFaq !== index;
+    setOpenFaq(willOpen ? index : null);
+    if (willOpen && causePage) {
+      trackFaqExpanded({
+        causePage,
+        faqIndex: index,
+        faqSlug: faqs[index]?.slug,
+      });
+    }
+  };
 
   // Inbound deep-link from Google Ads sitelinks — see QURBANI_PMAX_AUDIT.md
   // sitelink section. Mount-only read of window.location.hash; if it matches
@@ -39,7 +59,7 @@ export default function FaqAccordion({ faqs }: { faqs: Faq[] }) {
       {faqs.map((faq, index) => (
         <div key={index} id={`faq-${faq.slug}`}>
           <button
-            onClick={() => setOpenFaq(openFaq === index ? null : index)}
+            onClick={() => handleToggle(index)}
             aria-expanded={openFaq === index}
             className="w-full flex items-center justify-between py-5 text-left group"
           >

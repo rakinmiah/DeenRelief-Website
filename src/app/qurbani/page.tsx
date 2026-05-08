@@ -345,7 +345,7 @@ export default function QurbaniPage() {
               </h2>
             </div>
 
-            <FaqAccordion faqs={faqs} />
+            <FaqAccordion faqs={faqs} causePage="qurbani" />
           </div>
         </section>
 
