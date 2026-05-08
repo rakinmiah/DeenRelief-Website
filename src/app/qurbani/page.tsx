@@ -7,6 +7,7 @@ import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+import CausePageAnalytics from "@/components/CausePageAnalytics";
 import LazyVideo from "@/components/LazyVideo";
 import DonationForm from "./DonationForm";
 import FaqAccordion from "./FaqAccordion";
@@ -88,6 +89,7 @@ export default function QurbaniPage() {
     <>
       <BreadcrumbSchema items={[{ name: "Qurbani 2026", href: "/qurbani" }]} />
       <JsonLd data={faqSchema} />
+      <CausePageAnalytics causePage="qurbani" />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -151,7 +153,11 @@ export default function QurbaniPage() {
         {/* Image-less, centered layout (Zakat pattern). The Qurbani product
             picker carries the full visual weight and benefits from the
             extra width. */}
-        <section id="donate-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20">
+        <section
+          id="donate-form"
+          data-track-section="pmax_form"
+          className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20"
+        >
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <blockquote className="text-center mb-8 max-w-lg mx-auto">
               <p className="text-charcoal/40 text-sm italic leading-relaxed font-heading">
@@ -174,7 +180,10 @@ export default function QurbaniPage() {
         <Partners />
 
         {/* ─── 4. What Your Donation Funds ─── */}
-        <section className="py-16 md:py-24 bg-cream">
+        <section
+          data-track-section="pricing"
+          className="py-16 md:py-24 bg-cream"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
               <div>
@@ -270,7 +279,10 @@ export default function QurbaniPage() {
             no-consecutive-cream rule. White preserves alternation; FAQ
             below is also white but uses a different layout, which is
             permitted per the system. */}
-        <section className="py-16 md:py-24 bg-white">
+        <section
+          data-track-section="delivery_assurance"
+          className="py-16 md:py-24 bg-white"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
@@ -319,7 +331,10 @@ export default function QurbaniPage() {
         </section>
 
         {/* ─── 7. FAQ ─── */}
-        <section className="py-16 md:py-24 bg-cream">
+        <section
+          data-track-section="faq"
+          className="py-16 md:py-24 bg-cream"
+        >
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">

@@ -201,10 +201,10 @@ across history):
 
 | Cause page            | Sections                                                                                  |
 |-----------------------|-------------------------------------------------------------------------------------------|
-| `palestine`           | `crisis_context`, `what_you_get`, `faq`                                                   |
-| `qurbani`             | `what_is_qurbani`, `pricing`, `pmax_form`, `faq`                                          |
-| `zakat`               | `who_is_eligible`, `pathways`, `calculator`, `methodology_link`, `faq`                    |
-| `orphan-sponsorship`  | `what_30_covers`, `child_journey`, `religious_framing`, `faq`                             |
+| `palestine`           | `what_you_get`, `crisis_context`, `faq`                                                   |
+| `qurbani`             | `pmax_form`, `pricing`, `delivery_assurance`, `faq`                                       |
+| `zakat`               | `pathways`, `field_evidence`, `calculator`, `faq`                                         |
+| `orphan-sponsorship`  | `religious_framing`, `what_30_covers`, `child_journey`, `faq`                             |
 
 **Fired by:** `useSectionViewTracking(causePage)` in
 `src/lib/analytics-hooks.ts`. Mounted from each cause page.

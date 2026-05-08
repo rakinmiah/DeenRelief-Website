@@ -7,6 +7,7 @@ import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+import CausePageAnalytics from "@/components/CausePageAnalytics";
 import DonationForm from "./DonationForm";
 import FaqAccordion from "./FaqAccordion";
 import MiniDonationPicker from "./MiniDonationPicker";
@@ -86,6 +87,7 @@ export default function OrphanSponsorshipPage() {
     <>
       <BreadcrumbSchema items={[{ name: "Orphan Sponsorship", href: "/orphan-sponsorship" }]} />
       <JsonLd data={faqSchema} />
+      <CausePageAnalytics causePage="orphan-sponsorship" />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -152,7 +154,10 @@ export default function OrphanSponsorshipPage() {
             Ads PMax creative anchored in Sunnah / orphan-care framing. Pure
             typography, no imagery. Arabic text uses the Amiri font scoped to
             this route via layout.tsx. */}
-        <section className="py-16 md:py-20 bg-cream">
+        <section
+          data-track-section="religious_framing"
+          className="py-16 md:py-20 bg-cream"
+        >
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             {/* Block 1 — Quranic verse */}
             <div>
@@ -221,7 +226,10 @@ export default function OrphanSponsorshipPage() {
         <Partners />
 
         {/* ─── 5. What £30 Covers ─── */}
-        <section className="pt-16 md:pt-24 pb-8 md:pb-10 bg-cream">
+        <section
+          data-track-section="what_30_covers"
+          className="pt-16 md:pt-24 pb-8 md:pb-10 bg-cream"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
               {/* Desktop image — left column */}
@@ -299,7 +307,10 @@ export default function OrphanSponsorshipPage() {
         </section>
 
         {/* ─── 6. A Child's Journey ─── */}
-        <section className="py-16 md:py-24 bg-white">
+        <section
+          data-track-section="child_journey"
+          className="py-16 md:py-24 bg-white"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
               {/* Text */}
@@ -408,7 +419,10 @@ export default function OrphanSponsorshipPage() {
         </section>
 
         {/* ─── 8. FAQ ─── */}
-        <section className="py-16 md:py-24 bg-white">
+        <section
+          data-track-section="faq"
+          className="py-16 md:py-24 bg-white"
+        >
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
