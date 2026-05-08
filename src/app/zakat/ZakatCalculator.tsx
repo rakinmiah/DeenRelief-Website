@@ -108,15 +108,13 @@ export default function ZakatCalculator() {
   const [property, setProperty] = useState(initialProperty);
   const [liabilities, setLiabilities] = useState(initialLiabilities);
 
-  // Accordion expansion — Set of currently-open section ids
+  // Accordion expansion — single-open behaviour: opening section X closes
+  // any other open section. Closed sections retain their values + subtotal
+  // (which surfaces in the collapsed header), so donors can review without
+  // re-expanding. Set type is preserved to keep callers ergonomic.
   const [openSections, setOpenSections] = useState<Set<AccordionId>>(new Set());
   const toggleSection = (id: AccordionId) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setOpenSections((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
 
   // ─── Calculation ────────────────────────────────────────────────────────────
@@ -229,7 +227,7 @@ export default function ZakatCalculator() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
         <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
           Zakat Calculator
@@ -319,6 +317,29 @@ export default function ZakatCalculator() {
           )}
         </div>
 
+        {/* ── Running-total preview — appears once any input has a value, so
+              donors can track net wealth + Zakat owed without scrolling to the
+              result card at the bottom of the form. ── */}
+        {calc.hasAnyInput && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-charcoal/[0.03] border border-charcoal/10 text-[13px] text-center">
+            <span className="text-charcoal/55">Net wealth:</span>{" "}
+            <span className="font-semibold text-charcoal tabular-nums">
+              {formatGbp(calc.netWealth)}
+            </span>
+            <span className="text-charcoal/25 mx-2">·</span>
+            {calc.meetsNisab ? (
+              <>
+                <span className="text-charcoal/55">Zakat:</span>{" "}
+                <span className="font-semibold text-green-dark tabular-nums">
+                  {formatGbp(calc.zakat)}
+                </span>
+              </>
+            ) : (
+              <span className="text-charcoal/55">Below nisab — Zakat not due</span>
+            )}
+          </div>
+        )}
+
         {/* ── Asset categories ── */}
         <div className="space-y-3">
           {/* Category 1 — Cash and savings */}
@@ -364,6 +385,7 @@ export default function ZakatCalculator() {
             isOpen={openSections.has("gold")}
             onToggle={() => toggleSection("gold")}
             subtotal={sectionTotals.gold}
+            singleColumnInputs
           >
             <ModeToggle
               mode={gold.mode}
@@ -401,6 +423,7 @@ export default function ZakatCalculator() {
             isOpen={openSections.has("silver")}
             onToggle={() => toggleSection("silver")}
             subtotal={sectionTotals.silver}
+            singleColumnInputs
           >
             <ModeToggle
               mode={silver.mode}
@@ -525,7 +548,7 @@ export default function ZakatCalculator() {
                 setProperty((p) => ({ ...p, landForSale: v }))
               }
             />
-            <p className="text-[12px] text-charcoal/50 leading-[1.6] mt-2">
+            <p className="text-[12px] text-charcoal/50 leading-[1.6] lg:col-span-2 -mt-1">
               Your primary residence is exempt from Zakat regardless of value.
             </p>
           </Section>
@@ -622,6 +645,14 @@ interface SectionProps {
   onToggle: () => void;
   subtotal: number;
   subtotalLabel?: string;
+  /**
+   * Force single-column body layout even on desktop. Used for gold/silver
+   * sections where only one input is rendered at a time (the mode toggle
+   * gates either the weight input or the value input). Default false —
+   * Cash, Investments, Business, Property, Liabilities all use a 2-column
+   * grid at the lg breakpoint to halve their vertical height.
+   */
+  singleColumnInputs?: boolean;
   children: React.ReactNode;
 }
 
@@ -633,10 +664,14 @@ function Section({
   onToggle,
   subtotal,
   subtotalLabel,
+  singleColumnInputs = false,
   children,
 }: SectionProps) {
   const showSubtotal = subtotal > 0;
   const sectionElementId = `zakat-section-${id}`;
+  const bodyLayout = singleColumnInputs
+    ? "space-y-4"
+    : "grid grid-cols-1 lg:grid-cols-2 gap-4";
   return (
     <div className="rounded-xl border border-charcoal/10 overflow-hidden">
       <button
@@ -682,7 +717,7 @@ function Section({
       {isOpen && (
         <div
           id={sectionElementId}
-          className="border-t border-charcoal/8 p-4 space-y-4 bg-charcoal/[0.01]"
+          className={`border-t border-charcoal/8 p-4 bg-charcoal/[0.01] ${bodyLayout}`}
         >
           {children}
         </div>
