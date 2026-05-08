@@ -29,6 +29,11 @@ const faqs = [
       "Yes. If you are a UK taxpayer, we can claim an extra 25% on your sponsorship at no additional cost to you. Your £30 becomes £37.50 every month.",
   },
   {
+    question: "Do you have a 100% donation policy?",
+    answer:
+      "Yes. Your monthly sponsorship is ring-fenced for direct orphan care — education, nutrition, shelter, and healthcare for the children in our Bangladesh programme. Administrative costs are covered separately through Gift Aid recovery and unrestricted donations, so 100% of your sponsorship reaches the orphan care programme.",
+  },
+  {
     question: "How do I know my sponsorship reaches a child?",
     answer:
       "Our trustees oversee every sponsorship. We work with verified local partners in Bangladesh who deliver support directly. Our accounts are publicly audited and filed annually with the Charity Commission.",
