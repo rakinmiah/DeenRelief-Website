@@ -30,6 +30,17 @@ export const CONSENT_VERSION = 1;
 /** Custom DOM event name the Footer link dispatches to open the settings modal. */
 export const CONSENT_OPEN_EVENT = "dr:consent-open";
 
+/**
+ * Custom DOM event name dispatched whenever the donor commits a consent
+ * decision (Accept / Reject / Save preferences). Listeners can react in
+ * real time to load or unload analytics tags — the Microsoft Clarity
+ * loader uses this so consent flips take effect without a page reload.
+ *
+ * The event detail carries the new ConsentState so listeners don't have
+ * to re-read the cookie.
+ */
+export const CONSENT_UPDATE_EVENT = "dr:consent-update";
+
 export interface ConsentState {
   /** Bumped whenever the category layout changes so we can re-ask. */
   version: number;
@@ -138,11 +149,22 @@ export function writeConsentCookie(state: Omit<ConsentState, "timestamp">) {
  * Call gtag('consent', 'update', ...) if gtag is loaded. Safe before gtag
  * exists — the bootstrap script defines gtag at the top of <body>, so by
  * the time any user interaction happens it's guaranteed to be present.
+ *
+ * Also dispatches CONSENT_UPDATE_EVENT so non-gtag listeners (e.g. the
+ * Clarity loader) can react to the new state in the same tick.
  */
 export function applyConsent(state: ConsentState) {
   if (typeof window === "undefined") return;
   const w = window as unknown as { gtag?: (...args: unknown[]) => void };
   if (typeof w.gtag === "function") {
     w.gtag("consent", "update", toGtagSignals(state));
+  }
+  try {
+    window.dispatchEvent(
+      new CustomEvent<ConsentState>(CONSENT_UPDATE_EVENT, { detail: state })
+    );
+  } catch {
+    // Older browsers without CustomEvent — tag listeners simply don't
+    // hot-reload, they pick up the change on the next page navigation.
   }
 }
