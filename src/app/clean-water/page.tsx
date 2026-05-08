@@ -133,8 +133,8 @@ export default function CleanWaterPage() {
               {/* Image */}
               <div className="relative rounded-2xl overflow-hidden aspect-[5/4]">
                 <Image
-                  src="/images/bangladesh-community-children.webp"
-                  alt="Deen Relief workers with a large group of smiling children in a Bangladesh community"
+                  src="/images/bangladesh-housing-centre-group.webp"
+                  alt="Deen Relief team member with an elderly woman and five children at a Bangladesh community housing aid centre"
                   fill
                   className="object-cover object-center"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -180,10 +180,10 @@ export default function CleanWaterPage() {
                 {/* Mobile-only inline image */}
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
-                    src="/images/zakat-bangladesh-family.webp"
-                    alt="A family standing in front of their Deen Relief housing project in Bangladesh"
+                    src="/images/bangladesh-housing-centre-family.webp"
+                    alt="Deen Relief team member with a young boy and his grandmother at the Bangladesh community housing aid centre"
                     fill
-                    className="object-cover object-[center_20%]"
+                    className="object-cover object-[center_25%]"
                     sizes="100vw"
                   />
                   <ProofTag location="Bangladesh" position="bottom-right" />
@@ -215,10 +215,10 @@ export default function CleanWaterPage() {
               {/* Desktop image */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/zakat-bangladesh-family.webp"
-                  alt="A family standing in front of their Deen Relief housing project in Bangladesh"
+                  src="/images/bangladesh-housing-centre-family.webp"
+                  alt="Deen Relief team member with a young boy and his grandmother at the Bangladesh community housing aid centre"
                   fill
-                  className="object-cover object-[center_20%]"
+                  className="object-cover object-[center_25%]"
                   sizes="50vw"
                 />
                 <ProofTag location="Bangladesh" position="bottom-right" />
