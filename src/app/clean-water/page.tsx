@@ -72,10 +72,10 @@ export default function CleanWaterPage() {
         <section className="relative md:min-h-[50vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/bangladesh-community-children.webp"
-              alt="Deen Relief workers with a large group of smiling children in a Bangladesh community"
+              src="/images/bangladesh-classroom-children.webp"
+              alt="A Deen Relief field worker with a large group of children and a major food aid distribution at a Bangladesh community centre"
               fill
-              className="object-cover object-[center_30%]"
+              className="object-cover object-[center_35%]"
               priority
             />
             <div
