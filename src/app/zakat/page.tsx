@@ -71,10 +71,85 @@ const faqSchema = {
   })),
 };
 
+/**
+ * HowTo schema for the Zakat calculator. Declares to search engines + AI
+ * crawlers what the calculator does and the step sequence donors follow.
+ *
+ * Note: Google deprecated HowTo rich-result surfacing in 2023 — this
+ * markup no longer triggers the visual step carousel in standard search.
+ * It IS still indexed for query understanding, ranks in Bing/Yandex, and
+ * is consumed by AI assistants and structured-data classifiers. Cheap to
+ * declare, no UI cost.
+ */
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to calculate your Zakat",
+  description:
+    "Step-by-step Zakat calculation across cash, gold, silver, investments, business assets, property, and deductible liabilities using current nisab thresholds.",
+  totalTime: "PT5M",
+  tool: [
+    {
+      "@type": "HowToTool",
+      name: "Deen Relief Zakat Calculator",
+      url: "https://deenrelief.org/zakat#zakat-form",
+    },
+  ],
+  supply: [
+    {
+      "@type": "HowToSupply",
+      name: "Current GBP values of all your Zakatable wealth and deductible liabilities",
+    },
+  ],
+  step: [
+    {
+      "@type": "HowToStep",
+      name: "Choose your nisab threshold",
+      text: "Compare your wealth against either the silver nisab (612.36g of silver) or the gold nisab (87.48g of gold). The calculator defaults to silver because it is the lower threshold today, meaning more donors qualify to pay Zakat.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Enter your cash and savings",
+      text: "Total across bank accounts, cash held at home, money owed to you that you reasonably expect to be repaid, and foreign currency holdings converted to GBP.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Enter gold and silver holdings",
+      text: "Coins, bars, and jewelry. Enter by weight in grams (live spot price applies) or by current GBP value.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Enter investments",
+      text: "Stocks and shares at current market value, pensions at current value, and cryptocurrency at current GBP value.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Enter business assets",
+      text: "Stock-in-trade (inventory) at current market value, cash held in business accounts, and trade receivables.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Enter property holdings",
+      text: "Cash held from rental income — not the capital value of investment property — and the current market value of land held for sale. Your primary residence is exempt.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Enter deductible liabilities",
+      text: "Immediate debts due, the next single monthly payment on long-term debts (mortgage, car finance, etc.), and tax owed but not yet paid.",
+    },
+    {
+      "@type": "HowToStep",
+      name: "Calculate net Zakatable wealth",
+      text: "The calculator subtracts your liabilities from your total Zakatable assets. If net wealth is below the nisab threshold, no Zakat is due. If at or above the threshold, Zakat is 2.5% of net Zakatable wealth.",
+    },
+  ],
+};
+
 export default function ZakatPage() {
   return (
     <>
       <BreadcrumbSchema items={[{ name: "Pay Zakat", href: "/zakat" }]} />
+      <JsonLd data={howToSchema} />
       <JsonLd data={faqSchema} />
       <Header />
 
