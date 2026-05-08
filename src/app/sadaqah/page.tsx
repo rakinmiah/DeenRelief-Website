@@ -203,6 +203,20 @@ export default function SadaqahPage() {
                 the need is greatest — from emergency relief in Gaza to
                 orphan care in Bangladesh.
               </p>
+
+              {/* Feature image — disability inclusion. Substantiates the
+                  "where the need is greatest" framing with a vulnerable-
+                  community example that no other current page surfaces. */}
+              <div className="mt-10 relative rounded-2xl overflow-hidden aspect-[4/3] sm:aspect-[16/9]">
+                <Image
+                  src="/images/bangladesh-disability-support.webp"
+                  alt="A Deen Relief field worker with three children, two of whom use wheelchairs, at a Bangladesh community centre"
+                  fill
+                  className="object-cover object-center"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 768px"
+                />
+                <ProofTag location="Bangladesh" position="bottom-right" />
+              </div>
             </div>
           </div>
         </section>

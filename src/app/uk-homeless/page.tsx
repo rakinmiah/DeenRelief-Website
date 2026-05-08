@@ -153,10 +153,10 @@ export default function UKHomelessPage() {
                 {/* Mobile-only inline image */}
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
-                    src="/images/brighton-team.webp"
-                    alt="Deen Relief volunteers gathered at Brighton seafront for a community outreach event"
+                    src="/images/brighton-mosque-outreach.webp"
+                    alt="Deen Relief volunteers in hi-vis vests distributing food outside Al-Medinah Mosque, Brighton"
                     fill
-                    className="object-cover object-[center_65%]"
+                    className="object-cover object-center"
                     sizes="100vw"
                   />
                   <ProofTag location="Brighton, UK" position="bottom-right" />
@@ -186,10 +186,10 @@ export default function UKHomelessPage() {
               {/* Desktop image */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/brighton-team.webp"
-                  alt="Deen Relief volunteers gathered at Brighton seafront for a community outreach event"
+                  src="/images/brighton-mosque-outreach.webp"
+                  alt="Deen Relief volunteers in hi-vis vests distributing food outside Al-Medinah Mosque, Brighton"
                   fill
-                  className="object-cover object-[center_65%]"
+                  className="object-cover object-center"
                   sizes="50vw"
                 />
                 <ProofTag location="Brighton, UK" position="bottom-right" />
