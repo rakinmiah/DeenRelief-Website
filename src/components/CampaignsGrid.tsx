@@ -39,10 +39,10 @@ const campaigns: Campaign[] = [
     title: "Refugee Children with Cancer",
     description:
       "At Gulucuk Evi in Adana, we house families and fund treatment for Syrian and Gazan children undergoing cancer care.",
-    image: "/images/cancer-care-visit.webp",
-    imageAlt: "Deen Relief team member visiting a child with cancer",
+    image: "/images/zakat-hero.webp",
+    imageAlt: "Deen Relief team member with three Syrian children supported by the cancer-care programme",
     href: "/cancer-care",
-    location: "Turkey",
+    location: "Syria",
     objectPosition: "center 35%",
   },
   {
