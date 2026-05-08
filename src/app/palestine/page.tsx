@@ -8,6 +8,7 @@ import ProcessSteps from "@/components/ProcessSteps";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+import CausePageAnalytics from "@/components/CausePageAnalytics";
 import DonationForm from "./DonationForm";
 import FaqAccordion from "./FaqAccordion";
 import MiniDonationPicker from "./MiniDonationPicker";
@@ -77,6 +78,7 @@ export default function PalestinePage() {
     <>
       <BreadcrumbSchema items={[{ name: "Palestine Relief", href: "/palestine" }]} />
       <JsonLd data={faqSchema} />
+      <CausePageAnalytics causePage="palestine" />
       <Header />
 
       <main id="main-content" className="flex-1">
@@ -175,7 +177,10 @@ export default function PalestinePage() {
         <Partners />
 
         {/* ─── 4. What Your Donation Funds (image + text) ─── */}
-        <section className="py-16 md:py-24 bg-cream">
+        <section
+          data-track-section="what_you_get"
+          className="py-16 md:py-24 bg-cream"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
               {/* Content */}
@@ -249,7 +254,10 @@ export default function PalestinePage() {
         </section>
 
         {/* ─── 5. Field Evidence ─── */}
-        <section className="py-16 md:py-24 bg-white">
+        <section
+          data-track-section="crisis_context"
+          className="py-16 md:py-24 bg-white"
+        >
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
@@ -408,7 +416,10 @@ export default function PalestinePage() {
         </section>
 
         {/* ─── 7. FAQ ─── */}
-        <section className="py-16 md:py-24 bg-white">
+        <section
+          data-track-section="faq"
+          className="py-16 md:py-24 bg-white"
+        >
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
