@@ -37,6 +37,7 @@ import {
   totalWithGiftAidGbp,
 } from "@/lib/gift-aid";
 import { QURBANI_NAME_MAX_LENGTH, getQurbaniShareCount } from "@/lib/qurbani";
+import { toDonationCampaign, trackDonationFunnelStep } from "@/lib/analytics";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -128,6 +129,16 @@ export default function CheckoutClient({
     if (initialIntentCreated.current) return;
     initialIntentCreated.current = true;
     createIntent(amountGbp);
+    // Funnel entry — fire once per checkout mount alongside intent creation.
+    // Intentionally NOT a GA4 conversion (too high-funnel for Smart Bidding);
+    // engagement-only. See ANALYTICS_EVENTS.md for the fire-point contract.
+    trackDonationFunnelStep({
+      step: "begin_checkout",
+      campaign: toDonationCampaign(initialCampaign),
+      amount: amountGbp,
+      frequency: initialFrequency,
+      ...(pathwaySlug ? { pathway: pathwaySlug } : {}),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -205,6 +216,7 @@ export default function CheckoutClient({
             setupIntentId={setupIntentId}
             customerId={customerId}
             qurbaniProductId={qurbaniProductId}
+            pathwaySlug={pathwaySlug}
           />
         </Elements>
       )}
@@ -298,6 +310,7 @@ function CheckoutForm({
   setupIntentId,
   customerId,
   qurbaniProductId,
+  pathwaySlug,
 }: {
   amountGbp: number;
   campaign: string;
@@ -307,11 +320,18 @@ function CheckoutForm({
   setupIntentId: string | null;
   customerId: string | null;
   qurbaniProductId: string | null;
+  pathwaySlug: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track whether the donor has already triggered payment_method_added so
+  // we fire it exactly once per checkout — Stripe's onChange fires on every
+  // keystroke once complete, and re-fires if the donor edits a digit and
+  // re-completes. Conversion-grade signal; double-firing skews bidding.
+  const paymentMethodAddedFired = useRef(false);
 
   // Donor fields
   const [firstName, setFirstName] = useState("");
@@ -646,7 +666,25 @@ function CheckoutForm({
           Payment
         </legend>
         <div className="p-4 border border-charcoal/10 rounded-xl bg-white">
-          <PaymentElement />
+          <PaymentElement
+            onChange={(event) => {
+              // Stripe fires onChange on every keystroke. We only care about
+              // the false → true completion edge — that's when the donor has
+              // entered valid card details (number + expiry + CVC). Highest-
+              // intent micro-conversion in the funnel; Smart Bidding
+              // signal in GA4. Fire once and never again on this mount.
+              if (event.complete && !paymentMethodAddedFired.current) {
+                paymentMethodAddedFired.current = true;
+                trackDonationFunnelStep({
+                  step: "payment_method_added",
+                  campaign: toDonationCampaign(campaign),
+                  amount: amountGbp,
+                  frequency,
+                  ...(pathwaySlug ? { pathway: pathwaySlug } : {}),
+                });
+              }
+            }}
+          />
         </div>
       </fieldset>
 

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { trackDonationPurchase } from "@/lib/analytics";
+import {
+  toDonationCampaign,
+  trackDonationFunnelStep,
+  trackDonationPurchase,
+} from "@/lib/analytics";
 import { readConsentCookie } from "@/lib/consent";
 
 /**
@@ -121,6 +125,19 @@ export default function TrackConversion({
         hashed_email: hashedEmail,
         pathway: pathway ?? undefined,
         ...(isLtvForwardLoaded ? { single_charge_amount: value } : {}),
+      });
+
+      // Funnel terminator — fires alongside the GA4 purchase macro so the
+      // donation_funnel_step report reads cleanly end-to-end without
+      // joining two separate events. `value` here is the actual charged
+      // amount (not the LTV proxy) because the funnel report is about
+      // donor behaviour, not bid signals.
+      trackDonationFunnelStep({
+        step: "purchase_completed",
+        campaign: toDonationCampaign(campaignSlug),
+        amount: value,
+        frequency,
+        ...(pathway ? { pathway } : {}),
       });
     })();
   }, [
