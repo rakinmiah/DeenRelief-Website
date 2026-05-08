@@ -169,10 +169,10 @@ export default function CancerCarePage() {
             {/* Mobile-only inline image — restores photographic proof after donation panel */}
             <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-8">
               <Image
-                src="/images/cancer-care-visit.webp"
-                alt="Deen Relief team visiting a child undergoing cancer treatment at Gulucuk Evi"
+                src="/images/cancer-gulucuk-evi-group.webp"
+                alt="A large group of children with Deen Relief team members at the entrance of Gülücük Evi, Adana"
                 fill
-                className="object-cover"
+                className="object-cover object-[center_40%]"
                 sizes="100vw"
               />
               <ProofTag location="Adana, Turkey" />
@@ -336,30 +336,30 @@ export default function CancerCarePage() {
             <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/cancer-care-selfie.webp"
-                  alt="Deen Relief worker taking a selfie with a child undergoing cancer treatment in Adana"
+                  src="/images/cancer-gulucuk-evi-girl.webp"
+                  alt="A young girl holding her painting in front of the Gülücük Evi care centre signage in Adana"
                   fill
-                  className="object-cover"
+                  className="object-cover object-center"
                   sizes="(max-width: 640px) 78vw, 33vw"
                 />
                 <ProofTag location="Adana, Turkey" />
               </div>
               <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/cancer-care-family.webp"
-                  alt="Deen Relief worker with a child and his mother at the care centre in Adana"
+                  src="/images/cancer-care-art-activity.webp"
+                  alt="Deen Relief carers leading a balloon and arts activity with children at the care centre"
                   fill
-                  className="object-cover object-[60%_30%]"
+                  className="object-cover object-center"
                   sizes="(max-width: 640px) 78vw, 33vw"
                 />
                 <ProofTag location="Adana, Turkey" position="bottom-right" />
               </div>
               <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
-                  src="/images/cancer-care-housing.webp"
-                  alt="Deen Relief worker sitting with a child in the family housing programme in Adana"
+                  src="/images/cancer-care-shelter-delivery.webp"
+                  alt="A child receiving bedding supplies in his room at the family housing programme in Adana"
                   fill
-                  className="object-cover object-[center_35%]"
+                  className="object-cover object-[center_30%]"
                   sizes="(max-width: 640px) 78vw, 33vw"
                 />
                 <ProofTag location="Adana, Turkey" />
