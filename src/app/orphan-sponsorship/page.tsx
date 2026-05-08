@@ -227,10 +227,10 @@ export default function OrphanSponsorshipPage() {
               {/* Desktop image — left column */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px]">
                 <Image
-                  src="/images/children-smiling-deenrelief.webp"
-                  alt="Three smiling children holding Deen Relief signs in a safe home environment"
+                  src="/images/bangladesh-aid-girl.webp"
+                  alt="A Deen Relief field worker with a young girl and food supplies during aid distribution in rural Bangladesh"
                   fill
-                  className="object-cover object-[center_40%]"
+                  className="object-cover object-[center_35%]"
                   sizes="50vw"
                 />
                 <ProofTag location="Bangladesh" />
@@ -248,10 +248,10 @@ export default function OrphanSponsorshipPage() {
                 {/* Mobile-only inline image */}
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
-                    src="/images/children-smiling-deenrelief.webp"
-                    alt="Three smiling children holding Deen Relief signs in a safe home environment"
+                    src="/images/bangladesh-aid-girl.webp"
+                    alt="A Deen Relief field worker with a young girl and food supplies during aid distribution in rural Bangladesh"
                     fill
-                    className="object-cover object-[center_40%]"
+                    className="object-cover object-[center_35%]"
                     sizes="100vw"
                   />
                   <ProofTag location="Bangladesh" />
@@ -314,10 +314,10 @@ export default function OrphanSponsorshipPage() {
                 {/* Mobile-only inline image */}
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
-                    src="/images/zakat-family-support.webp"
-                    alt="Deen Relief worker with a child and food supplies in Bangladesh"
+                    src="/images/bangladesh-aid-children.webp"
+                    alt="A Deen Relief field worker with two girls and food supplies during aid distribution in rural Bangladesh"
                     fill
-                    className="object-cover object-[center_25%]"
+                    className="object-cover object-[center_35%]"
                     sizes="100vw"
                   />
                   <ProofTag location="Bangladesh" position="bottom-right" />
@@ -346,10 +346,10 @@ export default function OrphanSponsorshipPage() {
               {/* Desktop image */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/zakat-family-support.webp"
-                  alt="Deen Relief worker with a child and food supplies in Bangladesh"
+                  src="/images/bangladesh-aid-children.webp"
+                  alt="A Deen Relief field worker with two girls and food supplies during aid distribution in rural Bangladesh"
                   fill
-                  className="object-cover object-[center_25%]"
+                  className="object-cover object-[center_35%]"
                   sizes="50vw"
                 />
                 <ProofTag location="Bangladesh" position="bottom-right" />
