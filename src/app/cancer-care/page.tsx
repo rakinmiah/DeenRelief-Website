@@ -178,7 +178,12 @@ export default function CancerCarePage() {
               <ProofTag location="Adana, Turkey" />
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Mobile: horizontal scroll-snap carousel (saves ~875px of
+                vertical scroll versus six stacked service cards). Desktop:
+                2-col at sm+, 3-col at lg+ as before. -mx px bleed-to-edge
+                pattern with sm:mx-0 reverting to grid layout on desktop.
+                Same pattern as the /zakat carousels. */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 {
                   title: "Family Housing",
@@ -237,7 +242,7 @@ export default function CancerCarePage() {
               ].map((service) => (
                 <div
                   key={service.title}
-                  className="bg-white border border-charcoal/5 rounded-2xl p-6 text-center"
+                  className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink bg-white border border-charcoal/5 rounded-2xl p-6 text-center"
                 >
                   <div className="w-12 h-12 rounded-xl bg-green/10 text-green flex items-center justify-center mx-auto mb-4">
                     {service.icon}
@@ -325,34 +330,37 @@ export default function CancerCarePage() {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
+            {/* Mobile: horizontal scroll-snap carousel (saves ~700px of
+                vertical scroll versus three stacked aspect-[3/4] images).
+                Desktop: 3-col grid as before. */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
                   src="/images/cancer-care-selfie.webp"
                   alt="Deen Relief worker taking a selfie with a child undergoing cancer treatment in Adana"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 78vw, 33vw"
                 />
                 <ProofTag location="Adana, Turkey" />
               </div>
-              <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
+              <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
                   src="/images/cancer-care-family.webp"
                   alt="Deen Relief worker with a child and his mother at the care centre in Adana"
                   fill
                   className="object-cover object-[60%_30%]"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 78vw, 33vw"
                 />
                 <ProofTag location="Adana, Turkey" position="bottom-right" />
               </div>
-              <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
+              <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
                   src="/images/cancer-care-housing.webp"
                   alt="Deen Relief worker sitting with a child in the family housing programme in Adana"
                   fill
                   className="object-cover object-[center_35%]"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 78vw, 33vw"
                 />
                 <ProofTag location="Adana, Turkey" />
               </div>
