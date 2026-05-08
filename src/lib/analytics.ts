@@ -44,6 +44,13 @@ export interface PurchaseItem {
 
 export interface DonationPurchaseParams {
   transaction_id: string;
+  /**
+   * The conversion value reported to GA4 / Google Ads. For one-time
+   * donations this is the actual charge amount. For recurring donations
+   * (e.g. orphan sponsorship), the caller may forward-load lifetime
+   * value here so Smart Bidding doesn't underbid the campaign — see
+   * `single_charge_amount` for the actual transaction amount in that case.
+   */
   value: number;
   currency: string;
   campaign_slug: string;
@@ -62,6 +69,14 @@ export interface DonationPurchaseParams {
    * for non-Zakat donations or when no pathway was selected.
    */
   pathway?: string;
+  /**
+   * The actual GBP amount charged on this transaction. Diverges from
+   * `value` when the caller forward-loads LTV for a recurring product.
+   * Reported as a top-level event field so financial reporting can
+   * reconcile against Stripe without unpacking the LTV proxy. Omit when
+   * `value` already equals the actual charge (one-time donations).
+   */
+  single_charge_amount?: number;
 }
 
 /**
@@ -91,6 +106,13 @@ export function trackDonationPurchase(p: DonationPurchaseParams): void {
     // GA4 audiences / explorations can segment without unpacking the items
     // array. Omitted entirely when no pathway was selected.
     ...(p.pathway ? { pathway: p.pathway } : {}),
+    // Actual single-transaction charge amount. Set by the caller when
+    // `value` has been forward-loaded with LTV (recurring products) so
+    // financial reporting can reconcile against Stripe. Omitted on
+    // one-time donations where `value` already equals the actual charge.
+    ...(p.single_charge_amount !== undefined
+      ? { single_charge_amount: p.single_charge_amount }
+      : {}),
     // Enhanced Conversions: Google Ads picks this up automatically from the
     // purchase event's user_data block and uses it to match the conversion
     // back to the click even when cookies are unavailable.

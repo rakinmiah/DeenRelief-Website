@@ -5,6 +5,46 @@ import { trackDonationPurchase } from "@/lib/analytics";
 import { readConsentCookie } from "@/lib/consent";
 
 /**
+ * Forward-loaded lifetime-value assumptions for recurring campaigns.
+ *
+ * Smart Bidding (Max Conversion Value) uses the GA4 `purchase.value` to
+ * decide how much to bid for a click. If we report only the first month
+ * (£30 for orphan sponsorship), Google undervalues the campaign by 12-24x
+ * versus its actual donor LTV — and under-spends against competing
+ * campaigns inside the same Ads account.
+ *
+ * Multipliers below are deliberately conservative (24 months, not the
+ * 30-36 month optimistic estimate from comparable UK Muslim charities).
+ * Under-claiming is safer than over-claiming for ad platforms — once
+ * we have real retention data from the donations table, we can revise.
+ *
+ * Add new recurring campaigns here as they launch. Campaigns NOT in this
+ * lookup fall back to the actual charge amount even when frequency is
+ * monthly (silent — never throws, never over-claims for unknown campaigns).
+ */
+const EXPECTED_RETENTION_MONTHS: Record<string, number> = {
+  "orphan-sponsorship": 24,
+};
+
+/**
+ * Returns the value to report to GA4 / Google Ads. For one-time donations
+ * this is the actual charge amount. For monthly donations on a campaign
+ * with a known retention assumption, returns amount × retention months
+ * (forward-loaded LTV). For monthly donations on unknown campaigns, falls
+ * back to the actual charge — safer than guessing.
+ */
+function calculateLtvValue(
+  amountGbp: number,
+  frequency: "one-time" | "monthly",
+  campaignSlug: string
+): number {
+  if (frequency === "one-time") return amountGbp;
+  const retentionMonths = EXPECTED_RETENTION_MONTHS[campaignSlug];
+  if (retentionMonths === undefined) return amountGbp;
+  return amountGbp * retentionMonths;
+}
+
+/**
  * Fires a GA4 `purchase` event on the donor's thank-you page view, exactly
  * once per transaction. React 18 Strict Mode double-mounts in dev, so we
  * key off the transaction_id in a ref to guarantee a single fire.
@@ -61,9 +101,18 @@ export default function TrackConversion({
         hashedEmail = await sha256Hex(email.trim().toLowerCase());
       }
 
+      // For recurring campaigns with a known retention assumption, the
+      // value reported to GA4 is the LTV proxy (e.g. £720 for a 24-month
+      // £30/month orphan sponsorship). The actual charged amount rides
+      // along as `single_charge_amount` so financial reporting can
+      // reconcile against Stripe. One-time donations report the actual
+      // amount in both fields (and `single_charge_amount` is omitted).
+      const ltvValue = calculateLtvValue(value, frequency, campaignSlug);
+      const isLtvForwardLoaded = ltvValue !== value;
+
       trackDonationPurchase({
         transaction_id: transactionId,
-        value,
+        value: ltvValue,
         currency,
         campaign_slug: campaignSlug,
         campaign_label: campaignLabel,
@@ -71,6 +120,7 @@ export default function TrackConversion({
         gift_aid_claimed: giftAidClaimed,
         hashed_email: hashedEmail,
         pathway: pathway ?? undefined,
+        ...(isLtvForwardLoaded ? { single_charge_amount: value } : {}),
       });
     })();
   }, [
