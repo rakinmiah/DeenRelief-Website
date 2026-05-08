@@ -375,3 +375,30 @@ export function trackCausePageSectionView(opts: {
     cause_page: opts.causePage,
   });
 }
+
+/**
+ * Fire an engaged_session event.
+ *
+ * Fired exactly ONCE per session when the donor crosses ALL THREE
+ * engagement thresholds:
+ *   - 60 seconds cumulative on-site (across pages, foreground only)
+ *   - 2 distinct (cause_page, section) tuples viewed
+ *   - 75% scroll depth reached on any single page
+ *
+ * Higher-fidelity than GA4's default 10-second engagement signal —
+ * filters out skim-readers and bot traffic. Used in audiences for
+ * remarketing (donors who genuinely engaged but didn't convert).
+ *
+ * Configured as Engagement event in GA4.
+ */
+export function trackEngagedSession(opts: {
+  cumulativeSeconds: number;
+  sectionsViewed: number;
+  maxScrollPct: number;
+}): void {
+  trackEvent("engaged_session", {
+    cumulative_seconds: opts.cumulativeSeconds,
+    sections_viewed: opts.sectionsViewed,
+    max_scroll_pct: opts.maxScrollPct,
+  });
+}

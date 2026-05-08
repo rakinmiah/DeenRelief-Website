@@ -5,6 +5,7 @@ import AttributionCapture from "@/components/AttributionCapture";
 import ClarityBootstrap from "@/components/ClarityBootstrap";
 import ConsentBanner from "@/components/ConsentBanner";
 import ConsentBootstrap from "@/components/ConsentBootstrap";
+import EngagedSessionTracker from "@/components/EngagedSessionTracker";
 import JsonLd from "@/components/JsonLd";
 import { SOCIAL_LINKS } from "@/lib/social";
 
@@ -207,6 +208,7 @@ export default function RootLayout({
         <JsonLd data={organizationSchema} />
         <JsonLd data={websiteSchema} />
         <AttributionCapture />
+        <EngagedSessionTracker />
         {children}
         <ConsentBanner />
       </body>
