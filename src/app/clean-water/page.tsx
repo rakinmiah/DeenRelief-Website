@@ -242,7 +242,11 @@ export default function CleanWaterPage() {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {/* Mobile: horizontal scroll-snap carousel (saves ~350px of
+                vertical scroll versus three stacked impact cards). Desktop:
+                3-col grid as before, max-w-4xl mx-auto centring preserved
+                via sm: prefixes. */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:max-w-4xl sm:mx-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 {
                   title: "Health",
@@ -277,7 +281,7 @@ export default function CleanWaterPage() {
               ].map((item) => (
                 <div
                   key={item.title}
-                  className="bg-cream border border-charcoal/5 rounded-2xl p-6 text-center"
+                  className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink bg-cream border border-charcoal/5 rounded-2xl p-6 text-center"
                 >
                   <div className="w-12 h-12 rounded-xl bg-green/10 text-green flex items-center justify-center mx-auto mb-4">
                     {item.icon}
