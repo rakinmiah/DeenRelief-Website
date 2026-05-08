@@ -136,7 +136,68 @@ export default function OrphanSponsorshipPage() {
           <ProofTag location="Bangladesh" position="bottom-right" />
         </section>
 
-        {/* ─── 2. What £30 Covers ─── */}
+        {/* ─── 2. Religious framing — Quranic verse + hadith + Sadaqah Jariyah ───
+            Reinforces the religious motivation of donors arriving from Google
+            Ads PMax creative anchored in Sunnah / orphan-care framing. Pure
+            typography, no imagery. Arabic text uses the Amiri font scoped to
+            this route via layout.tsx. */}
+        <section className="py-16 md:py-20 bg-cream">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            {/* Block 1 — Quranic verse */}
+            <div>
+              <p
+                lang="ar"
+                dir="rtl"
+                className="text-[2rem] sm:text-[2.5rem] leading-[1.6] text-charcoal mb-4"
+                style={{ fontFamily: "var(--font-arabic), Georgia, serif" }}
+              >
+                فَأَمَّا الْيَتِيمَ فَلَا تَقْهَرْ
+              </p>
+              <p className="font-heading italic text-[1.0625rem] sm:text-[1.1875rem] text-charcoal/85 leading-[1.5] mb-3">
+                &ldquo;So as for the orphan, do not oppress.&rdquo;
+              </p>
+              <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-charcoal/50">
+                Surah Ad-Duha · Quran 93:9
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="my-12 mx-auto w-12 h-px bg-charcoal/15" />
+
+            {/* Block 2 — Hadith */}
+            <div>
+              <p className="text-[0.9375rem] sm:text-[1rem] text-charcoal/65 mb-3">
+                The Prophet (peace be upon him) said:
+              </p>
+              <blockquote className="font-heading italic text-[1.0625rem] sm:text-[1.1875rem] text-charcoal/85 leading-[1.55] mb-3">
+                &ldquo;I and the one who looks after an orphan will be like
+                this in Paradise&rdquo; — and he held his two fingers
+                together to illustrate.
+              </blockquote>
+              <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-charcoal/50">
+                Sahih al-Bukhari · Hadith 5304
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="my-12 mx-auto w-12 h-px bg-charcoal/15" />
+
+            {/* Block 3 — Sadaqah Jariyah framing */}
+            <div className="text-[0.9375rem] sm:text-[1rem] text-charcoal/75 leading-[1.7] space-y-3">
+              <p>
+                Sponsoring an orphan is Sadaqah Jariyah — your gift continues
+                to reward you as the child grows, learns, and goes on to
+                support others.
+              </p>
+              <p>
+                Orphan care is also eligible for Zakat under the canonical
+                asnaf categories.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 3. What £30 Covers ─── */}
         <section className="pt-16 md:pt-24 pb-8 md:pb-10 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-stretch">
@@ -214,10 +275,10 @@ export default function OrphanSponsorshipPage() {
           </div>
         </section>
 
-        {/* ─── 3. Partners ─── */}
+        {/* ─── 4. Partners ─── */}
         <Partners />
 
-        {/* ─── 4. Donation Panel (centered card) ─── */}
+        {/* ─── 5. Donation Panel (centered card) ─── */}
         <section id="sponsor-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-cream scroll-mt-20">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="border border-charcoal/8 rounded-2xl p-6 sm:p-8 bg-white">
@@ -226,7 +287,7 @@ export default function OrphanSponsorshipPage() {
           </div>
         </section>
 
-        {/* ─── 5. A Child's Journey ─── */}
+        {/* ─── 6. A Child's Journey ─── */}
         <section className="py-16 md:py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
@@ -286,7 +347,7 @@ export default function OrphanSponsorshipPage() {
           </div>
         </section>
 
-        {/* ─── 6. Delivery Assurance ─── */}
+        {/* ─── 7. Delivery Assurance ─── */}
         <section className="py-16 md:py-24 bg-cream">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12">
@@ -335,7 +396,7 @@ export default function OrphanSponsorshipPage() {
           </div>
         </section>
 
-        {/* ─── 7. FAQ ─── */}
+        {/* ─── 8. FAQ ─── */}
         <section className="py-16 md:py-24 bg-white">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
@@ -351,7 +412,7 @@ export default function OrphanSponsorshipPage() {
           </div>
         </section>
 
-        {/* ─── 8. Final CTA — integrated mini donation picker ─── */}
+        {/* ─── 9. Final CTA — integrated mini donation picker ─── */}
         <section className="py-12 md:py-16 bg-green-dark">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-xl sm:text-2xl font-heading font-bold text-white mb-2">

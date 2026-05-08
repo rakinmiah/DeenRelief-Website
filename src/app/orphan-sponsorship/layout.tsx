@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
+import { Amiri } from "next/font/google";
 import JsonLd from "@/components/JsonLd";
 import { buildDonationPageSchema } from "@/lib/donationSchema";
+
+// Arabic font for the religious-framing block (verse + hadith). Scoped to
+// this route segment so the rest of the site doesn't pay the font cost.
+// Amiri is a widely-used Naskh-style face with strong Quranic-text support.
+const amiri = Amiri({
+  subsets: ["arabic"],
+  weight: ["400", "700"],
+  display: "swap",
+  variable: "--font-arabic",
+});
 
 const title = "Sponsor an Orphan in Bangladesh | Deen Relief";
 const description =
@@ -38,9 +49,9 @@ const donationSchema = buildDonationPageSchema({
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <div className={amiri.variable}>
       <JsonLd data={donationSchema} />
       {children}
-    </>
+    </div>
   );
 }
