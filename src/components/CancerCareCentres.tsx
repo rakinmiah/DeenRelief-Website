@@ -108,12 +108,15 @@ export default function CancerCareCentres() {
               </p>
             </div>
 
-            {/* Service rows */}
-            <div className="flex-1 flex flex-col justify-center gap-10">
+            {/* Service rows — 2×2 grid on mobile (halves the right panel's
+                vertical height from ~570px to ~320px). Vertical flex-col on
+                lg+ where the panel matches the image-grid height via the
+                grandparent's grid-cols-2 layout. */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-5 lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:gap-10">
               {services.map((service) => (
                 <div
                   key={service.title}
-                  className="flex gap-4 items-start py-3"
+                  className="flex gap-3 items-start py-1 lg:gap-4 lg:py-3"
                 >
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-light flex items-center justify-center text-green">
                     {service.icon}
