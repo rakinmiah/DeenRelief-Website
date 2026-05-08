@@ -182,7 +182,7 @@ export default function SadaqahPage() {
                     src="/images/bangladesh-disability-support.webp"
                     alt="A Deen Relief field worker with three children, two of whom use wheelchairs, at a Bangladesh community centre"
                     fill
-                    className="object-cover object-center"
+                    className="object-cover object-[center_30%]"
                     sizes="100vw"
                   />
                   <ProofTag location="Bangladesh" position="bottom-right" />
