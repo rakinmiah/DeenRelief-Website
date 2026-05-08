@@ -166,54 +166,68 @@ export default function SadaqahPage() {
         {/* ─── 4. Sadaqah Is More Than Money ─── */}
         <section className="py-16 md:py-24 bg-cream">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto">
-              <div className="text-center mb-10">
+            <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+              {/* Text column */}
+              <div>
                 <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
                   More Than Money
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
                   Sadaqah Is More Than Money
                 </h2>
-                <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+
+                {/* Mobile-only inline image */}
+                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
+                  <Image
+                    src="/images/bangladesh-disability-support.webp"
+                    alt="A Deen Relief field worker with three children, two of whom use wheelchairs, at a Bangladesh community centre"
+                    fill
+                    className="object-cover object-center"
+                    sizes="100vw"
+                  />
+                  <ProofTag location="Bangladesh" position="bottom-right" />
+                </div>
+
+                <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
                   The Prophet (peace be upon him) taught that Sadaqah is not
                   limited to money. A smile, a kind word, helping someone in
                   need, removing harm from a path — all are forms of
                   Sadaqah.
                 </p>
+
+                <div className="space-y-4 mb-6">
+                  {[
+                    "A financial gift — however small — to those in need",
+                    "Ongoing charity (Sadaqah Jariyah) — wells, schools, knowledge that benefits for years",
+                    "Sharing your time — volunteering, helping neighbours, community service",
+                    "A kind word, a smile, or removing harm from someone's path",
+                  ].map((item) => (
+                    <div key={item} className="flex gap-3 items-start">
+                      <svg className="w-5 h-5 text-green flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-charcoal text-base sm:text-[1.0625rem] leading-[1.7]">{item}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+                  Your financial Sadaqah through Deen Relief is directed where
+                  the need is greatest — from emergency relief in Gaza to
+                  orphan care in Bangladesh.
+                </p>
               </div>
 
-              <div className="space-y-5 mb-8">
-                {[
-                  "A financial gift — however small — to those in need",
-                  "Ongoing charity (Sadaqah Jariyah) — wells, schools, knowledge that benefits for years",
-                  "Sharing your time — volunteering, helping neighbours, community service",
-                  "A kind word, a smile, or removing harm from someone's path",
-                ].map((item) => (
-                  <div key={item} className="flex gap-3 items-start">
-                    <svg className="w-5 h-5 text-green flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <p className="text-charcoal text-base sm:text-[1.0625rem] leading-[1.7]">{item}</p>
-                  </div>
-                ))}
-              </div>
-
-              <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] text-center">
-                Your financial Sadaqah through Deen Relief is directed where
-                the need is greatest — from emergency relief in Gaza to
-                orphan care in Bangladesh.
-              </p>
-
-              {/* Feature image — disability inclusion. Substantiates the
-                  "where the need is greatest" framing with a vulnerable-
-                  community example that no other current page surfaces. */}
-              <div className="mt-10 relative rounded-2xl overflow-hidden aspect-[4/3] sm:aspect-[16/9]">
+              {/* Desktop image — aspect-square matches the native 1280×1280
+                  source so no cropping is needed; the disability-inclusion
+                  framing is fully preserved. */}
+              <div className="hidden lg:block relative rounded-2xl overflow-hidden aspect-square">
                 <Image
                   src="/images/bangladesh-disability-support.webp"
                   alt="A Deen Relief field worker with three children, two of whom use wheelchairs, at a Bangladesh community centre"
                   fill
                   className="object-cover object-center"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 768px"
+                  sizes="50vw"
                 />
                 <ProofTag location="Bangladesh" position="bottom-right" />
               </div>
