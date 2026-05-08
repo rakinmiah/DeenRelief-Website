@@ -166,10 +166,10 @@ export default function BuildASchoolPage() {
                 {/* Mobile-only inline image */}
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
-                    src="/images/hero-bangladesh-community.webp"
-                    alt="Deen Relief team with a large group of smiling children in Bangladesh"
+                    src="/images/bangladesh-classroom-children.webp"
+                    alt="A Deen Relief team member with a large group of children in a Bangladeshi classroom"
                     fill
-                    className="object-cover object-center"
+                    className="object-cover object-[center_30%]"
                     sizes="100vw"
                   />
                   <ProofTag location="Bangladesh" position="bottom-right" />
@@ -201,10 +201,10 @@ export default function BuildASchoolPage() {
               {/* Desktop image */}
               <div className="hidden lg:block relative rounded-2xl overflow-hidden aspect-[4/3]">
                 <Image
-                  src="/images/hero-bangladesh-community.webp"
-                  alt="Deen Relief team with a large group of smiling children in Bangladesh"
+                  src="/images/bangladesh-classroom-children.webp"
+                  alt="A Deen Relief team member with a large group of children in a Bangladeshi classroom"
                   fill
-                  className="object-cover object-center"
+                  className="object-cover object-[center_30%]"
                   sizes="50vw"
                 />
                 <ProofTag location="Bangladesh" position="bottom-right" />
