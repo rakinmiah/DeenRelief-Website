@@ -430,7 +430,7 @@ export default function PalestinePage() {
               </h2>
             </div>
 
-            <FaqAccordion faqs={faqs} />
+            <FaqAccordion faqs={faqs} causePage="palestine" />
           </div>
         </section>
 

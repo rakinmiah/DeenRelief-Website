@@ -433,7 +433,7 @@ export default function OrphanSponsorshipPage() {
               </h2>
             </div>
 
-            <FaqAccordion faqs={faqs} />
+            <FaqAccordion faqs={faqs} causePage="orphan-sponsorship" />
           </div>
         </section>
 

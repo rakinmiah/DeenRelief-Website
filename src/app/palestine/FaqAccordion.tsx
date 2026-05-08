@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { trackFaqExpanded, type DonationCampaign } from "@/lib/analytics";
 
 interface FaqLink {
   href: string;
@@ -15,15 +16,31 @@ interface Faq {
   links?: FaqLink[];
 }
 
-export default function FaqAccordion({ faqs }: { faqs: Faq[] }) {
+export default function FaqAccordion({
+  faqs,
+  causePage,
+}: {
+  faqs: Faq[];
+  /** When set, every FAQ open fires `faq_expanded` for analytics. */
+  causePage?: DonationCampaign;
+}) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const handleToggle = (index: number) => {
+    const willOpen = openFaq !== index;
+    setOpenFaq(willOpen ? index : null);
+    // Fire only on the open transition — closing isn't an engagement signal.
+    if (willOpen && causePage) {
+      trackFaqExpanded({ causePage, faqIndex: index });
+    }
+  };
 
   return (
     <div className="divide-y divide-charcoal/5">
       {faqs.map((faq, index) => (
         <div key={index}>
           <button
-            onClick={() => setOpenFaq(openFaq === index ? null : index)}
+            onClick={() => handleToggle(index)}
             aria-expanded={openFaq === index}
             className="w-full flex items-center justify-between py-5 text-left group"
           >
