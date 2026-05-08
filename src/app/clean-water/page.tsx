@@ -75,7 +75,7 @@ export default function CleanWaterPage() {
               src="/images/bangladesh-classroom-children.webp"
               alt="A Deen Relief field worker with a large group of children and a major food aid distribution at a Bangladesh community centre"
               fill
-              className="object-cover object-[center_35%]"
+              className="object-cover object-[center_25%]"
               priority
             />
             <div
