@@ -49,8 +49,8 @@ const campaigns: Campaign[] = [
     title: "Bangladesh Clean Water",
     description:
       "We build tube wells and filtration systems in rural Bangladesh, serving communities with no prior access to safe water.",
-    image: "/images/bangladesh-housing.webp",
-    imageAlt: "A family in front of a Deen Relief housing project in Bangladesh",
+    image: "/images/bangladesh-classroom-children.webp",
+    imageAlt: "A Deen Relief field worker with a large group of children and a major food aid distribution at a Bangladesh community centre",
     href: "/clean-water",
     location: "Bangladesh",
     objectPosition: "center 30%",
