@@ -108,12 +108,15 @@ export default function CancerCareCentres() {
               </p>
             </div>
 
-            {/* Service rows */}
-            <div className="flex-1 flex flex-col justify-center gap-10">
+            {/* Service rows — tighter spacing on mobile (gap-5/py-1) where
+                the panel is below the image grid; restores the airier
+                gap-10/py-3 on lg+ where the panel matches the image-grid
+                height in a side-by-side layout. */}
+            <div className="flex-1 flex flex-col justify-center gap-5 lg:gap-10">
               {services.map((service) => (
                 <div
                   key={service.title}
-                  className="flex gap-4 items-start py-3"
+                  className="flex gap-4 items-start py-1 lg:py-3"
                 >
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-light flex items-center justify-center text-green">
                     {service.icon}
@@ -132,7 +135,7 @@ export default function CancerCareCentres() {
 
             {/* CTA */}
             <div className="pt-4 border-t border-charcoal/5">
-              <Button variant="secondary" href="/cancer-care#donate-form" className="w-full justify-center">
+              <Button variant="secondary" href="/cancer-care#donate-form" className="w-full justify-center text-center">
                 Support Our Cancer Care Centres
               </Button>
             </div>
