@@ -247,7 +247,13 @@ export default function ZakatPage() {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Mobile: horizontal scroll-snap carousel (saves ~400-500px of
+                vertical scroll versus stacked cards). Desktop: 2-col at sm,
+                4-col at lg as before. -mx-4 px-4 lets the carousel bleed to
+                the mobile viewport edges; sm:mx-0 sm:px-0 reverts on desktop.
+                Scrollbar hidden for clean look — donors get the peek of the
+                next card as the "this scrolls" affordance. */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {[
                 {
                   title: "Emergency Relief",
@@ -270,7 +276,7 @@ export default function ZakatPage() {
                   icon: <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" /></svg>,
                 },
               ].map((pathway) => (
-                <div key={pathway.title} className="bg-white border border-charcoal/5 rounded-2xl p-6 text-center">
+                <div key={pathway.title} className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink bg-white border border-charcoal/5 rounded-2xl p-6 text-center">
                   <div className="w-12 h-12 rounded-xl bg-green/10 text-green flex items-center justify-center mx-auto mb-4">
                     {pathway.icon}
                   </div>
@@ -333,17 +339,23 @@ export default function ZakatPage() {
                 countries — from housing in Bangladesh to emergency relief in Gaza.
               </p>
             </div>
-            <div className="grid sm:grid-cols-3 gap-4">
-              <div className="relative rounded-2xl overflow-hidden aspect-[5/6]">
-                <Image src="/images/zakat-bangladesh-family.webp" alt="A family standing in front of their Deen Relief housing project in Bangladesh" fill className="object-cover object-[center_20%]" sizes="(max-width: 640px) 100vw, 33vw" />
+            {/* Mobile: horizontal scroll-snap carousel (saves ~900px of
+                vertical scroll versus three stacked aspect-[5/6] images,
+                roughly 17% of total mobile page length). Desktop: 3-col
+                grid as before. Same -mx px bleed-to-edge pattern as the
+                Pathways carousel above. Scrollbar hidden; the peek of the
+                next image is the "this scrolls" affordance. */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 -mx-4 px-4 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[5/6]">
+                <Image src="/images/zakat-bangladesh-family.webp" alt="A family standing in front of their Deen Relief housing project in Bangladesh" fill className="object-cover object-[center_20%]" sizes="(max-width: 640px) 78vw, 33vw" />
                 <ProofTag location="Bangladesh" />
               </div>
-              <div className="relative rounded-2xl overflow-hidden aspect-[5/6]">
-                <Image src="/images/zakat-family-support.webp" alt="Deen Relief worker with a child and food supplies in Bangladesh" fill className="object-cover object-[center_30%]" sizes="(max-width: 640px) 100vw, 33vw" />
+              <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[5/6]">
+                <Image src="/images/zakat-family-support.webp" alt="Deen Relief worker with a child and food supplies in Bangladesh" fill className="object-cover object-[center_30%]" sizes="(max-width: 640px) 78vw, 33vw" />
                 <ProofTag location="Bangladesh" position="bottom-right" />
               </div>
-              <div className="relative rounded-2xl overflow-hidden aspect-[5/6]">
-                <Image src="/images/cancer-care-housing.webp" alt="Deen Relief worker sitting with a child in the family housing programme in Adana, Turkey" fill className="object-cover object-[center_35%]" sizes="(max-width: 640px) 100vw, 33vw" />
+              <div className="snap-center flex-shrink-0 w-[78%] sm:w-auto sm:flex-shrink relative rounded-2xl overflow-hidden aspect-[5/6]">
+                <Image src="/images/cancer-care-housing.webp" alt="Deen Relief worker sitting with a child in the family housing programme in Adana, Turkey" fill className="object-cover object-[center_35%]" sizes="(max-width: 640px) 78vw, 33vw" />
                 <ProofTag location="Adana, Turkey" />
               </div>
             </div>
