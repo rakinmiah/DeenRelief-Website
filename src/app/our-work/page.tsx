@@ -109,8 +109,8 @@ export default function OurWorkPage() {
         <section className="relative min-h-[45vh] md:min-h-[50vh] flex items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/hero-our-work.webp"
-              alt="Children undergoing cancer treatment at Deen Relief's Gulucuk Evi care centre"
+              src="/images/cancer-gulucuk-evi-group.webp"
+              alt="Deen Relief team with a large group of children at the entrance of the Gülücük Evi care centre in Adana, Turkey"
               fill
               className="object-cover object-[center_40%]"
               priority
