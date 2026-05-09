@@ -214,14 +214,30 @@ across history):
 
 ---
 
-## Microsoft Clarity (session replay)
+## Contentsquare (session replay + heatmaps)
 
-Clarity is loaded conditionally by `src/components/ClarityBootstrap.tsx`
-when `NEXT_PUBLIC_CLARITY_PROJECT_ID` is set AND the donor has granted
-analytics_storage consent. Form fields are masked by default — card
-numbers, names, emails, and addresses are never recorded.
+Contentsquare is loaded conditionally by
+`src/components/ContentsquareBootstrap.tsx` when
+`NEXT_PUBLIC_CONTENTSQUARE_TAG_ID` is set AND the donor has granted
+analytics_storage consent. Sensitive form fields (card number, name,
+email, address) are masked at the workspace level via Contentsquare's
+Auto-Masking config — verify masking selectors in the Contentsquare
+dashboard whenever the donation form template changes.
 
-Clarity is **not** an event source — it operates outside this
+Mid-session consent flips:
+- Grant → inject the tag (once) and push `_uxa.push(["setTrackerOptIn"])`.
+- Revoke → push `_uxa.push(["setTrackerOptOut"])`. Tag stays in memory
+  (no unload API) but tracking ceases immediately.
+
+SPA caveat: internal Next.js `<Link>` navigations are soft client-side
+transitions. Contentsquare's auto pageview detection only fires on full
+page loads, so SPA navs across cause pages don't appear as separate
+sessions. Most cross-cause navigation on this site is server-rendered
+hard nav (Header / footer), so the primary funnel paths are covered.
+For finer SPA attribution, push `_uxa.push(["trackPageview", url])`
+from a `usePathname`-driven effect (separate change).
+
+Contentsquare is **not** an event source — it operates outside this
 catalogue. Mentioned here for completeness because it is bound to the
 same consent gate.
 
@@ -435,7 +451,10 @@ delay after first fire), apply these admin settings:
    provided data → confirm `user_data.sha256_email_address` is the
    matching key. The site already sends this when consent allows.
 
-5. **Microsoft Clarity** — sign up at clarity.microsoft.com, create a
-   project, copy the project ID, set `NEXT_PUBLIC_CLARITY_PROJECT_ID`
-   in the production environment. Until set, the Clarity loader is a
-   no-op.
+5. **Contentsquare** — sign up / log in at contentsquare.com, create a
+   workspace, copy the tag ID from the install snippet (the path
+   segment in `https://t.contentsquare.net/uxa/<TAG_ID>.js`), set
+   `NEXT_PUBLIC_CONTENTSQUARE_TAG_ID` in the production environment.
+   Until set, the Contentsquare loader is a no-op. Verify the
+   workspace's Auto-Masking config covers card / name / email /
+   address selectors before sessions go live.

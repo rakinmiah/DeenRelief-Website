@@ -122,11 +122,14 @@ export default function PrivacyPage() {
                     pages bring donors. IP addresses are anonymised.
                   </li>
                   <li>
-                    <strong>Microsoft Clarity</strong> — records anonymised
-                    session replays and heatmaps so we can see where the
-                    donation form confuses people. Form fields (card number,
-                    name, email, address) are masked by default and never
-                    recorded. We use this purely for usability research.
+                    <strong>Contentsquare</strong> — records anonymised
+                    session replays, heatmaps, and zone-based engagement
+                    metrics so we can see where the donation form confuses
+                    people. Sensitive form fields (card number, name, email,
+                    address) are masked at the workspace level and never
+                    recorded as plain text. Contentsquare is a French
+                    company subject to GDPR, with EU data residency. We use
+                    this purely for usability research.
                   </li>
                 </ul>
                 <p className="text-grey text-base leading-[1.7] mb-3">

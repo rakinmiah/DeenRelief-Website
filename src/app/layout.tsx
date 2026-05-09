@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Source_Serif_4, DM_Sans } from "next/font/google";
 import "./globals.css";
 import AttributionCapture from "@/components/AttributionCapture";
-import ClarityBootstrap from "@/components/ClarityBootstrap";
 import ConsentBanner from "@/components/ConsentBanner";
 import ConsentBootstrap from "@/components/ConsentBootstrap";
+import ContentsquareBootstrap from "@/components/ContentsquareBootstrap";
 import EngagedSessionTracker from "@/components/EngagedSessionTracker";
 import JsonLd from "@/components/JsonLd";
 import { SOCIAL_LINKS } from "@/lib/social";
@@ -204,7 +204,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-body text-charcoal bg-white">
         <ConsentBootstrap />
-        <ClarityBootstrap />
+        <ContentsquareBootstrap />
         <JsonLd data={organizationSchema} />
         <JsonLd data={websiteSchema} />
         <AttributionCapture />
