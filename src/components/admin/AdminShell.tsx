@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 /**
  * Shared admin chrome — header with nav tabs + sign-out.
@@ -32,11 +32,20 @@ export default function AdminShell({
   signedInAs?: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   // The login page renders standalone without the admin chrome —
   // there's no session to sign out of and no nav to traverse.
   if (pathname === "/admin/login") {
     return <>{children}</>;
+  }
+
+  async function handleSignOut() {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } finally {
+      router.push("/admin/login");
+    }
   }
 
   return (
@@ -83,12 +92,13 @@ export default function AdminShell({
               <span className="hidden sm:inline text-sm text-charcoal/60">
                 {signedInAs}
               </span>
-              <Link
-                href="/admin/login"
+              <button
+                type="button"
+                onClick={handleSignOut}
                 className="px-3 py-1.5 rounded-full text-sm font-medium text-charcoal/70 hover:text-charcoal hover:bg-charcoal/5 transition-colors"
               >
                 Sign out
-              </Link>
+              </button>
             </div>
           </div>
           {/* Mobile nav row */}

@@ -44,12 +44,15 @@ export default function AdminLoginPage() {
 
         <div className="mt-6 p-4 bg-amber-light border border-amber/30 rounded-xl text-[12px] text-charcoal/80 leading-relaxed">
           <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-amber-dark mb-1">
-            Pitch preview
+            Setup
           </span>
-          Any credentials let you in. Real version uses Supabase Auth
-          with email + password, scoped to an{" "}
-          <code className="text-[11px]">admin_users</code> allow-list.
-          Sessions expire after 8 hours of inactivity.
+          Auth is HMAC-signed cookie-based via{" "}
+          <code className="text-[11px]">APP_SECRET</code>. Set{" "}
+          <code className="text-[11px]">ADMIN_ALLOWED_EMAILS</code>{" "}
+          (comma-separated list) and{" "}
+          <code className="text-[11px]">ADMIN_LOGIN_PASSPHRASE</code> in
+          Vercel to enable sign-in. Sessions last 8 hours; cookie is
+          HttpOnly + SameSite=Lax + Secure in production.
         </div>
 
         <p className="mt-6 text-center text-[11px] text-charcoal/40">

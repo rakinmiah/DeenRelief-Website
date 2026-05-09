@@ -108,3 +108,88 @@ export function verifyManageToken(token: string): ManageTokenPayload | null {
 
   return payload;
 }
+
+/**
+ * Admin session payload. Distinct from the manage-token payload so a
+ * leaked manage token can't be reused as an admin session and vice
+ * versa — the verifier checks for the `email` field's presence.
+ */
+export interface AdminSessionPayload {
+  /** Email address of the admin (audit-trail purposes). */
+  email: string;
+  /** Unix seconds at which the session expires. 8h default. */
+  exp: number;
+  iat: number;
+}
+
+const DEFAULT_ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
+
+/**
+ * Mint a signed admin session token. Same HMAC-SHA256 + APP_SECRET as
+ * the manage tokens; payload differs. Used as the value of the
+ * `dr_admin_session` cookie set on successful admin login.
+ */
+export function signAdminSession(
+  email: string,
+  ttlSeconds: number = DEFAULT_ADMIN_TTL_SECONDS
+): string {
+  const now = Math.floor(Date.now() / 1000);
+  const payload: AdminSessionPayload = {
+    email: email.toLowerCase().trim(),
+    exp: now + ttlSeconds,
+    iat: now,
+  };
+  const payloadB64 = b64urlEncode(JSON.stringify(payload));
+  const signature = createHmac("sha256", getSecret())
+    .update(payloadB64)
+    .digest();
+  return `${payloadB64}.${b64urlEncode(signature)}`;
+}
+
+/**
+ * Verify + decode an admin session token. Returns the payload if valid,
+ * null on any failure (bad signature, expired, malformed, missing env).
+ *
+ * Constant-time signature comparison via timingSafeEqual prevents
+ * incremental brute-forcing of forged signatures.
+ */
+export function verifyAdminSession(
+  token: string
+): AdminSessionPayload | null {
+  if (typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payloadB64, sigB64] = parts;
+  if (!payloadB64 || !sigB64) return null;
+
+  let expected: Buffer;
+  try {
+    expected = createHmac("sha256", getSecret()).update(payloadB64).digest();
+  } catch {
+    return null;
+  }
+
+  const received = b64urlDecode(sigB64);
+  if (received.length !== expected.length) return null;
+  if (!timingSafeEqual(received, expected)) return null;
+
+  let payload: AdminSessionPayload;
+  try {
+    payload = JSON.parse(b64urlDecode(payloadB64).toString("utf8"));
+  } catch {
+    return null;
+  }
+
+  if (
+    typeof payload.email !== "string" ||
+    !payload.email.includes("@") ||
+    typeof payload.exp !== "number"
+  ) {
+    return null;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp < now) return null;
+
+  return payload;
+}
