@@ -84,35 +84,25 @@ export default function AdminBazaarOrdersPage() {
   const pendingCount = MOCK_ORDERS.filter((o) => o.status === "paid").length;
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="bg-white border-b border-charcoal/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
-          <div>
-            <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-0.5">
-              Bazaar Admin
-            </span>
-            <h1 className="text-charcoal font-heading font-semibold text-xl">
-              Orders
-            </h1>
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-charcoal/5 transition-colors"
-            >
-              Export CSV for Click &amp; Drop
-            </button>
-            <Link
-              href="/bazaar"
-              className="px-4 py-2 rounded-full text-charcoal/70 hover:text-charcoal text-sm font-medium transition-colors"
-            >
-              ← Public site
-            </Link>
-          </div>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Page header — admin chrome (header nav, sign-out) is provided
+          by the shared AdminShell in /admin/layout.tsx. */}
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
+            Bazaar
+          </span>
+          <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
+            Orders
+          </h1>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <button
+          type="button"
+          className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-charcoal/5 transition-colors"
+        >
+          Export CSV for Click &amp; Drop
+        </button>
+      </div>
         {/* Stats strip */}
         <div className="grid sm:grid-cols-4 gap-4 mb-8">
           {[
@@ -226,7 +216,6 @@ export default function AdminBazaarOrdersPage() {
           (one row per pending order with destination address, weight, and
           service tier).
         </div>
-      </main>
-    </div>
+    </main>
   );
 }

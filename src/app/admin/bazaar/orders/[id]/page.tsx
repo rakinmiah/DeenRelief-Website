@@ -50,27 +50,25 @@ export default async function AdminBazaarOrderDetailPage({
   const total = subtotal + shipping;
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="bg-white border-b border-charcoal/10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between">
-          <div>
-            <Link
-              href="/admin/bazaar/orders"
-              className="text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors"
-            >
-              ← All orders
-            </Link>
-            <h1 className="text-charcoal font-heading font-semibold text-xl mt-1 font-mono">
-              {id}
-            </h1>
-          </div>
-          <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border bg-amber-light text-amber-dark border-amber/30">
-            Awaiting fulfilment
-          </span>
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Page header — admin chrome (header nav, sign-out) is provided
+          by the shared AdminShell in /admin/layout.tsx. */}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link
+            href="/admin/bazaar/orders"
+            className="text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors"
+          >
+            ← All orders
+          </Link>
+          <h1 className="text-charcoal font-heading font-semibold text-xl sm:text-2xl mt-1 font-mono">
+            {id}
+          </h1>
         </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border bg-amber-light text-amber-dark border-amber/30">
+          Awaiting fulfilment
+        </span>
+      </div>
         <div className="grid lg:grid-cols-[1fr_320px] gap-6">
           {/* Main column — line items, address */}
           <div className="space-y-5">
@@ -230,8 +228,7 @@ export default async function AdminBazaarOrderDetailPage({
               />
             </section>
           </aside>
-        </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
