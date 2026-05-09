@@ -73,20 +73,12 @@ export default function LoginFormClient() {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label
-            htmlFor="passphrase"
-            className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60"
-          >
-            Passphrase
-          </label>
-          <a
-            href="mailto:tech@deenrelief.org?subject=Admin%20passphrase%20reset"
-            className="text-[11px] text-charcoal/50 hover:text-charcoal/80 underline transition-colors"
-          >
-            Forgot?
-          </a>
-        </div>
+        <label
+          htmlFor="passphrase"
+          className="block text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5"
+        >
+          Passphrase
+        </label>
         <input
           id="passphrase"
           type="password"

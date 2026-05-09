@@ -54,16 +54,6 @@ export default function AdminLoginPage() {
           Vercel to enable sign-in. Sessions last 8 hours; cookie is
           HttpOnly + SameSite=Lax + Secure in production.
         </div>
-
-        <p className="mt-6 text-center text-[11px] text-charcoal/40">
-          Trouble signing in?{" "}
-          <a
-            href="mailto:tech@deenrelief.org"
-            className="underline hover:text-charcoal/60"
-          >
-            tech@deenrelief.org
-          </a>
-        </p>
       </div>
     </div>
   );
