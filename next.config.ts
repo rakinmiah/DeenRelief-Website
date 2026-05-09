@@ -59,9 +59,11 @@ const nextConfig: NextConfig = {
       { source: "/help-us-to-build-a-school-in-rural-bangladesh", destination: "/build-a-school", permanent: true },
       { source: "/current-campaigns", destination: "/our-work", permanent: true },
       { source: "/past-campaigns", destination: "/our-work", permanent: true },
+      { source: "/campaigns", destination: "/our-work", permanent: true },
       { source: "/compaigns", destination: "/our-work", permanent: true }, // typo in WP
       { source: "/stories", destination: "/blog", permanent: true },
       { source: "/privacy-policy", destination: "/privacy", permanent: true },
+      { source: "/trusteereports", destination: "/about", permanent: true },
 
       // ─── WooCommerce / GiveWP donor area (no equivalent — back to home) ─
       { source: "/my-account", destination: "/", permanent: true },
@@ -74,6 +76,15 @@ const nextConfig: NextConfig = {
 
       // ─── Old standalone city page (pre-prayer-times-uk taxonomy) ───────
       { source: "/southampton", destination: "/prayer-times/southampton", permanent: true },
+
+      // ─── Old /muslim-prayer-times/* URL family (pre-WP taxonomy rename) ─
+      // Surfaced in GA4 tag-coverage report on 2026-05-09 — Google still
+      // had these crawled from the SiteGround era. Specific city slugs
+      // first so they win over the catch-all, then the bare index, then
+      // the wildcard for any city slug we haven't explicitly mapped.
+      { source: "/muslim-prayer-times/aylesbury", destination: "/prayer-times/aylesbury", permanent: true },
+      { source: "/muslim-prayer-times", destination: "/prayer-times", permanent: true },
+      { source: "/muslim-prayer-times/:slug*", destination: "/prayer-times", permanent: true },
 
       // ─── Prayer times — city pages (suffix pattern) ────────────────────
       { source: "/prayer-times-uk/cardiff-prayer-times", destination: "/prayer-times/cardiff", permanent: true },
@@ -133,6 +144,7 @@ const nextConfig: NextConfig = {
       { source: "/donations/aid-for-homeless-community-uk-2", destination: "/uk-homeless", permanent: true },
       { source: "/donations/bangladesh-orphan-sponsorship", destination: "/orphan-sponsorship", permanent: true },
       { source: "/donations/save-refugee-children-with-cancer", destination: "/cancer-care", permanent: true },
+      { source: "/donations/save-syrias-cancer-children", destination: "/cancer-care", permanent: true },
       { source: "/donations/zakaat-2", destination: "/zakat", permanent: true },
       { source: "/donations/emergency-appeal-for-bangladesh-flood-victims-act-now-to-save-lives", destination: "/our-work", permanent: true },
       { source: "/donations/bangladesh-housing-aid-project", destination: "/our-work", permanent: true },
