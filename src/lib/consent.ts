@@ -33,8 +33,8 @@ export const CONSENT_OPEN_EVENT = "dr:consent-open";
 /**
  * Custom DOM event name dispatched whenever the donor commits a consent
  * decision (Accept / Reject / Save preferences). Listeners can react in
- * real time to load or unload analytics tags — the Microsoft Clarity
- * loader uses this so consent flips take effect without a page reload.
+ * real time to load or unload analytics tags — the Contentsquare loader
+ * uses this so consent flips take effect without a page reload.
  *
  * The event detail carries the new ConsentState so listeners don't have
  * to re-read the cookie.
@@ -151,7 +151,7 @@ export function writeConsentCookie(state: Omit<ConsentState, "timestamp">) {
  * the time any user interaction happens it's guaranteed to be present.
  *
  * Also dispatches CONSENT_UPDATE_EVENT so non-gtag listeners (e.g. the
- * Clarity loader) can react to the new state in the same tick.
+ * Contentsquare loader) can react to the new state in the same tick.
  */
 export function applyConsent(state: ConsentState) {
   if (typeof window === "undefined") return;
