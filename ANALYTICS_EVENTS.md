@@ -105,6 +105,47 @@ called from `src/app/donate/thank-you/TrackConversion.tsx`.
 **GA4 admin:** mark as a Conversion (default for `purchase`). Use as the
 primary Smart Bidding signal.
 
+**Enhanced Conversions for Web — hashing contract:**
+
+The `user_data.sha256_email_address` field is produced by
+`hashEmailForEnhancedConversions()` in `src/lib/analytics.ts`. The
+function follows Google's published normalisation spec:
+
+1. Trim leading/trailing whitespace.
+2. Lowercase the entire string.
+3. SHA-256 the UTF-8 bytes.
+4. Hex-encode (lowercase, 64 chars).
+
+Defensive guarantees the call site relies on:
+
+- **Empty / nullish input → `undefined`.** No empty-string fingerprint
+  is ever sent to Google. (Without this guard, SubtleCrypto would
+  return the SHA-256 of `""` — `e3b0c44...` — which Google Ads would
+  treat as a real identifier and pollute attribution.)
+- **Already-hashed input → returned as-is.** A lowercase 64-char hex
+  string is treated as already hashed (real emails contain `@` and so
+  cannot match) and not re-hashed. Prevents double-hashing if some
+  upstream caller hands the function pre-hashed data.
+- **Never throws.** Any SubtleCrypto failure (unavailable, exception)
+  returns `undefined`; the caller drops the user_data block from the
+  purchase event but the base conversion still records.
+
+**Consent boundary (Consent Mode v2):**
+
+The hash is computed and attached *only* when `ad_user_data === true`
+in the donor's consent state. The "Advertising" category in the
+banner toggles `ad_storage`, `ad_user_data`, and `ad_personalization`
+together (see `categoriesToState()` in `src/lib/consent.ts`). A donor
+who accepts Analytics but declines Advertising still triggers the
+base `purchase` event for measurement; only the user_data block is
+omitted.
+
+| State | analytics_storage | ad_user_data | purchase fires? | user_data attached? |
+|---|---|---|---|---|
+| Accept all | granted | granted | yes | yes |
+| Analytics only | granted | denied | yes | no |
+| Reject all | denied | denied | no | n/a |
+
 ---
 
 ### `donation_funnel_step` (custom)

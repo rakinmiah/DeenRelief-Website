@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import {
+  hashEmailForEnhancedConversions,
   toDonationCampaign,
   trackDonationFunnelStep,
   trackDonationPurchase,
@@ -97,13 +98,15 @@ export default function TrackConversion({
 
     (async () => {
       // Only hash + pass user_data when the donor explicitly granted
-      // ad_user_data. Without consent the base event still fires.
+      // ad_user_data. Without consent the base event still fires; we
+      // simply omit the user_data block so Google Ads records the
+      // conversion without EC matching. The hash utility handles
+      // normalisation, empty/null, and the never-throws guarantee.
       const consent = readConsentCookie();
       const canUseEnhancedConversions = consent?.ad_user_data === true;
-      let hashedEmail: string | undefined;
-      if (canUseEnhancedConversions && email) {
-        hashedEmail = await sha256Hex(email.trim().toLowerCase());
-      }
+      const hashedEmail = canUseEnhancedConversions
+        ? await hashEmailForEnhancedConversions(email)
+        : undefined;
 
       // For recurring campaigns with a known retention assumption, the
       // value reported to GA4 is the LTV proxy (e.g. £720 for a 24-month
@@ -153,17 +156,4 @@ export default function TrackConversion({
   ]);
 
   return null;
-}
-
-/** Hex-encoded SHA-256. Returns undefined if SubtleCrypto is unavailable. */
-async function sha256Hex(input: string): Promise<string | undefined> {
-  try {
-    const buf = new TextEncoder().encode(input);
-    const digest = await crypto.subtle.digest("SHA-256", buf);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  } catch {
-    return undefined;
-  }
 }

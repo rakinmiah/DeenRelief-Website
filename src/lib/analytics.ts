@@ -119,6 +119,61 @@ export interface DonationPurchaseParams {
 }
 
 /**
+ * Hash an email for Enhanced Conversions for Web (Google Ads).
+ *
+ * Normalisation matches Google's published spec exactly:
+ *   1. Trim leading/trailing whitespace.
+ *   2. Lowercase the entire string.
+ *   3. SHA-256 the bytes of the resulting UTF-8 string.
+ *   4. Hex-encode (lowercase, 64 chars).
+ *
+ * Privacy property: the plaintext email never leaves the browser. Only
+ * the hex digest is attached to the GA4 purchase event's `user_data`
+ * block, which Google Ads then uses to match the conversion against
+ * signed-in Google identities for cross-device / cross-session lift.
+ *
+ * Behaviour contract — the call site must NOT need a try/catch:
+ *   - Empty / whitespace-only / nullish input → `undefined`. (We never
+ *     hash an empty string. Without this guard, SubtleCrypto happily
+ *     returns the SHA-256 of "" — a fingerprint of "no email" — which
+ *     Google Ads would treat as a real user_data identifier.)
+ *   - Already-hashed-looking input (lowercase 64-char hex) → returned
+ *     as-is. Defensive: if some upstream caller hands us a value that
+ *     was already hashed (e.g. by a server-side step that pre-hashes
+ *     for storage), double-hashing would silently destroy attribution.
+ *     Real emails contain `@` and so cannot match this pattern.
+ *   - SubtleCrypto unavailable / any thrown error → `undefined`. The
+ *     caller drops the user_data field from the purchase event; the
+ *     base conversion still records, just without EC lift.
+ *
+ * Async because SubtleCrypto.digest returns a Promise.
+ */
+export async function hashEmailForEnhancedConversions(
+  rawEmail: string | null | undefined
+): Promise<string | undefined> {
+  if (!rawEmail) return undefined;
+  const normalised = rawEmail.trim().toLowerCase();
+  if (!normalised) return undefined;
+
+  // Idempotency guard. /^[0-9a-f]{64}$/ never matches a real email
+  // (every email contains "@") so this only fires on already-hashed
+  // input. Cheaper than re-hashing and prevents double-hash bugs.
+  if (/^[0-9a-f]{64}$/.test(normalised)) return normalised;
+
+  try {
+    const subtle = globalThis.crypto?.subtle;
+    if (!subtle) return undefined;
+    const buf = new TextEncoder().encode(normalised);
+    const digest = await subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Fire a GA4-standard `purchase` event for a completed donation. Uses one
  * `item` representing the campaign so Google Ads can segment by campaign.
  * For monthly donations, `value` is the first-month amount — LTV logic
