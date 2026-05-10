@@ -86,6 +86,17 @@ export default function ContentsquareBootstrap() {
   useEffect(() => {
     if (!tagId) return;
 
+    // Trustees signing into /admin/* should never have their session
+    // recorded by Contentsquare. We bail out of injection entirely on
+    // initial admin loads — companion AdminAnalyticsExclusion handles
+    // client-side route changes via setTrackerOptOut.
+    if (
+      typeof location !== "undefined" &&
+      location.pathname.startsWith("/admin")
+    ) {
+      return;
+    }
+
     type UxaWindow = Window & { _uxa?: unknown[] };
     const w = window as UxaWindow;
     // Initialise the queue stub if it doesn't exist yet — Contentsquare's
