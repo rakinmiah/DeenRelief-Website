@@ -186,6 +186,11 @@ export async function POST(request: Request) {
 
   // Cross-check against Stripe — the PI or SI must exist and match campaign
   let amountPence: number;
+  // Stripe's authoritative livemode flag, lifted off the same retrieve()
+  // call we use to cross-check the campaign. Stored on the donations row
+  // so the admin can filter test-mode rows without round-tripping Stripe
+  // at query time.
+  let livemode: boolean;
   try {
     if (frequency === "one-time") {
       const pi = await stripe.paymentIntents.retrieve(paymentIntentId!);
@@ -193,6 +198,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Campaign mismatch." }, { status: 400 });
       }
       amountPence = pi.amount;
+      livemode = pi.livemode;
     } else {
       const si = await stripe.setupIntents.retrieve(setupIntentId!);
       if (si.metadata?.campaign !== campaign) {
@@ -213,6 +219,7 @@ export async function POST(request: Request) {
         );
       }
       amountPence = parsed;
+      livemode = si.livemode;
     }
   } catch (err) {
     console.error("[confirm] Intent retrieve failed:", err);
@@ -347,6 +354,11 @@ export async function POST(request: Request) {
     frequency,
     gift_aid_claimed: giftAidEnabled,
     status: "pending",
+    // Stripe's authoritative livemode flag captured from the
+    // PaymentIntent / SetupIntent retrieve above. Admin queries filter
+    // on this so test-mode donations stay out of trustee-facing reports
+    // and the HMRC Gift Aid export.
+    livemode,
     gclid: attribution?.gclid ?? null,
     gbraid: attribution?.gbraid ?? null,
     wbraid: attribution?.wbraid ?? null,

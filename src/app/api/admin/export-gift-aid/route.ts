@@ -126,6 +126,11 @@ export async function GET(request: Request) {
     )
     .eq("gift_aid_claimed", true)
     .eq("status", "succeeded")
+    // Defence-in-depth: a test-mode donation must NEVER end up on an
+    // HMRC Gift Aid reclaim. The admin pages already filter this via
+    // fetchAdminDonations, but the export route is a separate code path
+    // that runs outside the page query — so it filters here too.
+    .eq("livemode", true)
     .gte("completed_at", `${from}T00:00:00Z`)
     .lte("completed_at", `${to}T23:59:59Z`)
     .order("completed_at", { ascending: true });

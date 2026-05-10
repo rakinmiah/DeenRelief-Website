@@ -206,6 +206,12 @@ function shapeRow(raw: RawDonationRow): AdminDonationRow {
  * Fetch the most-recent N donations for the admin list view.
  * Sorted by created_at desc so newest donations appear first.
  *
+ * Always filters `livemode = true` — test-mode donations from Stripe
+ * sandbox stay out of the trustee-facing admin entirely. The livemode
+ * column is written from the authoritative `pi.livemode`/`si.livemode`
+ * value Stripe returns when the donation is confirmed, never inferred
+ * from API key prefix.
+ *
  * Production: at low volume (~thousands of donations) we just SELECT
  * 200 latest rows. Once the table grows, switch to keyset pagination.
  */
@@ -226,6 +232,7 @@ export async function fetchAdminDonations(
               stripe_customer_id),
        gift_aid_declaration:gift_aid_declarations(revoked_at)`
     )
+    .eq("livemode", true)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -260,6 +267,7 @@ export async function fetchAdminDonationById(
        gift_aid_declaration:gift_aid_declarations(revoked_at)`
     )
     .eq("id", id)
+    .eq("livemode", true)
     .maybeSingle();
 
   if (error) {
@@ -290,6 +298,7 @@ export async function computeDonationStats(): Promise<AdminDonationStats> {
       "amount_pence, gift_aid_claimed, gift_aid_declaration:gift_aid_declarations(revoked_at)"
     )
     .eq("status", "succeeded")
+    .eq("livemode", true)
     .gte("completed_at", last30d);
 
   if (recentErr) {
@@ -318,7 +327,8 @@ export async function computeDonationStats(): Promise<AdminDonationStats> {
     .from("donations")
     .select("amount_pence, stripe_subscription_id")
     .not("stripe_subscription_id", "is", null)
-    .eq("status", "succeeded");
+    .eq("status", "succeeded")
+    .eq("livemode", true);
 
   if (recurringErr) {
     console.error("[admin-donations] computeDonationStats recurring failed:", recurringErr);
