@@ -27,6 +27,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { fromPence } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -194,6 +195,22 @@ export async function GET(request: Request) {
 
   const csv = lines.join("\n") + "\n";
   const filename = `gift-aid-schedule-${from}-to-${to}.csv`;
+
+  // Audit log AFTER the CSV is built — most legally-loaded action in
+  // the admin (PII export for HMRC reclaim). Captures who downloaded
+  // what range so a regulator audit can reconstruct exactly when each
+  // claim's schedule was generated.
+  await logAdminAction({
+    action: "view_gift_aid_csv",
+    userEmail: auth.email,
+    request,
+    metadata: {
+      from,
+      to,
+      rowCount: lines.length - 1, // -1 for header
+      filename,
+    },
+  });
 
   return new Response(csv, {
     status: 200,

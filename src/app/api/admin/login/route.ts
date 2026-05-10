@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { signAdminSession } from "@/lib/signed-token";
+import {
+  clientIpFromRequest,
+  countRecentLoginFailures,
+  logAdminAction,
+  LOGIN_RATE_LIMIT_MAX_FAILURES,
+  LOGIN_RATE_LIMIT_WINDOW_MINUTES,
+} from "@/lib/admin-audit";
 
 /**
  * POST /api/admin/login
@@ -43,6 +50,32 @@ function secureCompare(a: string, b: string): boolean {
 }
 
 export async function POST(request: Request) {
+  const ip = clientIpFromRequest(request);
+
+  // Rate limit BEFORE parsing the body — even malformed requests count
+  // as load and we want to throttle them. Read sign_in_failed events
+  // from this IP in the last 15 minutes; reject with 429 if at limit.
+  const recentFailures = await countRecentLoginFailures(ip);
+  if (recentFailures >= LOGIN_RATE_LIMIT_MAX_FAILURES) {
+    await logAdminAction({
+      action: "sign_in_rate_limited",
+      userEmail: null,
+      request,
+      metadata: { recentFailures, ip },
+    });
+    return NextResponse.json(
+      {
+        error: `Too many failed attempts. Try again in ${LOGIN_RATE_LIMIT_WINDOW_MINUTES} minutes.`,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(LOGIN_RATE_LIMIT_WINDOW_MINUTES * 60),
+        },
+      }
+    );
+  }
+
   let body: { email?: string; passphrase?: string };
   try {
     body = await request.json();
@@ -86,6 +119,19 @@ export async function POST(request: Request) {
   const passphraseMatch = secureCompare(passphrase, expectedPassphrase);
 
   if (!emailMatch || !passphraseMatch) {
+    // Audit log the failure. The next-attempts-until-rate-limit count
+    // helps trustees diagnose "I keep getting locked out" issues.
+    await logAdminAction({
+      action: "sign_in_failed",
+      userEmail: emailMatch ? email : null,
+      request,
+      metadata: {
+        // Record which side failed (timing-safe to log AFTER the fact)
+        // for forensic purposes. Never returned to the client.
+        emailKnown: emailMatch,
+        passphraseMatched: passphraseMatch,
+      },
+    });
     return NextResponse.json(
       { error: "Invalid credentials." },
       { status: 401 }
@@ -115,6 +161,13 @@ export async function POST(request: Request) {
   ]
     .filter(Boolean)
     .join("; ");
+
+  // Audit log the successful sign-in.
+  await logAdminAction({
+    action: "sign_in",
+    userEmail: email,
+    request,
+  });
 
   return new NextResponse(JSON.stringify({ ok: true, email }), {
     status: 200,

@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/admin/recurring", label: "Recurring" },
   { href: "/admin/bazaar/orders", label: "Bazaar Orders" },
   { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/audit-log", label: "Audit log" },
 ];
 
 export default function AdminShell({

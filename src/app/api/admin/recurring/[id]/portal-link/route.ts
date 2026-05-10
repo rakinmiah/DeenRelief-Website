@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { signManageToken } from "@/lib/signed-token";
 
@@ -70,6 +71,14 @@ export async function POST(
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://deenrelief.org";
   const url = `${origin}/manage?token=${encodeURIComponent(token)}`;
+
+  await logAdminAction({
+    action: "send_portal_link",
+    userEmail: auth.email,
+    targetId: id,
+    request,
+    metadata: { stripeCustomerId: row.stripe_customer_id },
+  });
 
   return NextResponse.json({ ok: true, url });
 }

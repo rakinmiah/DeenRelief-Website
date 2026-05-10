@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 
@@ -101,6 +102,17 @@ export async function POST(
       { status: 502 }
     );
   }
+
+  await logAdminAction({
+    action: "cancel_subscription",
+    userEmail: auth.email,
+    targetId: id,
+    request,
+    metadata: {
+      stripeSubscriptionId: subId,
+      cancelAtPeriodEnd: true,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

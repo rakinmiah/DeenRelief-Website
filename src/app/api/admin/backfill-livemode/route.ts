@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,18 @@ export async function POST(request: Request) {
       failures.push({ id: row.id as string, reason: msg });
     }
   }
+
+  await logAdminAction({
+    action: "backfill_livemode",
+    userEmail: auth.email,
+    request,
+    metadata: {
+      processed: rows.length,
+      updated,
+      skipped,
+      failureCount: failures.length,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

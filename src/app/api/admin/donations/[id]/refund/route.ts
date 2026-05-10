@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 
@@ -100,6 +101,20 @@ export async function POST(
         refunded_via: "admin-dashboard",
         refunded_at: new Date().toISOString(),
         donation_id: donation.id as string,
+      },
+    });
+
+    // Audit log AFTER Stripe succeeds — we don't want to record a
+    // refund that didn't happen.
+    await logAdminAction({
+      action: "refund_donation",
+      userEmail: auth.email,
+      targetId: donation.id as string,
+      request,
+      metadata: {
+        amountPence: donation.amount_pence,
+        stripeRefundId: refund.id,
+        stripePaymentIntentId: donation.stripe_payment_intent_id,
       },
     });
 

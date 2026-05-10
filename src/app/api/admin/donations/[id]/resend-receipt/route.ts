@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendDonationReceipt } from "@/lib/donation-receipt";
 
@@ -103,6 +104,14 @@ export async function POST(
       { status: 502 }
     );
   }
+
+  await logAdminAction({
+    action: "resend_receipt",
+    userEmail: auth.email,
+    targetId: donation.id as string,
+    request,
+    metadata: { sentTo: donor.email },
+  });
 
   return NextResponse.json({
     ok: true,
