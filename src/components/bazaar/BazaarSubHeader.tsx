@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useBazaarCart } from "./BazaarCartProvider";
+import CartButtonWithPreview from "./CartButtonWithPreview";
 
 /**
  * A slim sub-navigation specific to /bazaar/* routes. Sits below the
@@ -16,7 +16,6 @@ import { useBazaarCart } from "./BazaarCartProvider";
  */
 export default function BazaarSubHeader() {
   const pathname = usePathname();
-  const { itemCount } = useBazaarCart();
 
   const links = [
     { href: "/bazaar", label: "Shop" },
@@ -52,32 +51,7 @@ export default function BazaarSubHeader() {
               );
             })}
           </div>
-          <Link
-            href="/bazaar/cart"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-charcoal/80 hover:bg-charcoal/5 transition-colors"
-            aria-label={`Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}`}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.25 3h1.386a1.125 1.125 0 0 1 1.097.852l.481 1.927M7.5 14.25a3 3 0 0 0-3 3h15.75M7.5 14.25h11.25l1.45-7.25H5.214M7.5 14.25 5.214 7"
-              />
-            </svg>
-            <span>Cart</span>
-            {itemCount > 0 && (
-              <span className="bg-amber text-charcoal text-[11px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                {itemCount}
-              </span>
-            )}
-          </Link>
+          <CartButtonWithPreview />
         </div>
       </div>
     </nav>
