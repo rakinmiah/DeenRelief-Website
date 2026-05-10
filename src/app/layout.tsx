@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Source_Serif_4, DM_Sans } from "next/font/google";
 import "./globals.css";
+import AdminAnalyticsExclusion from "@/components/AdminAnalyticsExclusion";
 import AttributionCapture from "@/components/AttributionCapture";
 import ConsentBanner from "@/components/ConsentBanner";
 import ConsentBootstrap from "@/components/ConsentBootstrap";
@@ -205,6 +206,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-body text-charcoal bg-white">
         <ConsentBootstrap />
         <ContentsquareBootstrap />
+        <AdminAnalyticsExclusion />
         <JsonLd data={organizationSchema} />
         <JsonLd data={websiteSchema} />
         <AttributionCapture />

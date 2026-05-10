@@ -27,6 +27,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdminAuth } from "@/lib/admin-auth";
+import { logAdminAction } from "@/lib/admin-audit";
 import { fromPence } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,22 @@ function taxYearStart(date: Date): Date {
 
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Format a YYYY-MM-DD ISO date string as DD/MM/YY for HMRC's Charities
+ * Online schedule spreadsheet. HMRC's import tool tolerates ISO too,
+ * but the documented template uses DD/MM/YY and trustees scanning the
+ * CSV in Excel expect UK format. Don't change without re-checking
+ * HMRC's current schedule template.
+ */
+function toHmrcDate(isoDate: string): string {
+  // isoDate is a YYYY-MM-DD slice, no time component. Strict regex
+  // guard so a malformed input passes through unchanged rather than
+  // silently emitting nonsense like "date/a/no".
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
+  const [yyyy, mm, dd] = isoDate.split("-");
+  return `${dd}/${mm}/${yyyy.slice(2)}`;
 }
 
 interface DonationExportRow {
@@ -110,6 +127,11 @@ export async function GET(request: Request) {
     )
     .eq("gift_aid_claimed", true)
     .eq("status", "succeeded")
+    // Defence-in-depth: a test-mode donation must NEVER end up on an
+    // HMRC Gift Aid reclaim. The admin pages already filter this via
+    // fetchAdminDonations, but the export route is a separate code path
+    // that runs outside the page query — so it filters here too.
+    .eq("livemode", true)
     .gte("completed_at", `${from}T00:00:00Z`)
     .lte("completed_at", `${to}T23:59:59Z`)
     .order("completed_at", { ascending: true });
@@ -154,7 +176,7 @@ export async function GET(request: Request) {
     if (!row.donors) continue;
     if (!row.completed_at) continue;
 
-    const donationDate = row.completed_at.slice(0, 10); // YYYY-MM-DD
+    const donationDate = toHmrcDate(row.completed_at.slice(0, 10));
     const amount = fromPence(row.amount_pence).toFixed(2);
     lines.push(
       [
@@ -173,6 +195,22 @@ export async function GET(request: Request) {
 
   const csv = lines.join("\n") + "\n";
   const filename = `gift-aid-schedule-${from}-to-${to}.csv`;
+
+  // Audit log AFTER the CSV is built — most legally-loaded action in
+  // the admin (PII export for HMRC reclaim). Captures who downloaded
+  // what range so a regulator audit can reconstruct exactly when each
+  // claim's schedule was generated.
+  await logAdminAction({
+    action: "view_gift_aid_csv",
+    userEmail: auth.email,
+    request,
+    metadata: {
+      from,
+      to,
+      rowCount: lines.length - 1, // -1 for header
+      filename,
+    },
+  });
 
   return new Response(csv, {
     status: 200,

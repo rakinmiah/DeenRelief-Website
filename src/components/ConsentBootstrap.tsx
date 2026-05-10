@@ -72,6 +72,17 @@ export default function ConsentBootstrap() {
           />
           <Script id="gtag-init" strategy="afterInteractive">
             {`
+              // Trustees signing into /admin/* should NEVER pollute the
+              // donor analytics dataset. We set Google's official opt-out
+              // flag (ga-disable-G-XXX) BEFORE config() fires, so the
+              // automatic page_view is suppressed on admin pages even on
+              // first load. The companion AdminAnalyticsExclusion client
+              // component handles client-side Link navigations between
+              // public and admin (the disable flag stays accurate).
+              if (typeof location !== 'undefined' &&
+                  location.pathname.indexOf('/admin') === 0) {
+                window['ga-disable-${measurementId}'] = true;
+              }
               gtag('js', new Date());
               gtag('config', '${measurementId}', { anonymize_ip: true });
             `}
