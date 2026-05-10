@@ -10,6 +10,7 @@ import {
   type DonationFilters,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import { CAMPAIGNS } from "@/lib/campaigns";
 import DonationsFilters from "./DonationsFilters";
 
 export const metadata: Metadata = {
@@ -115,17 +116,17 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
     computeDonationStats(filters),
   ]);
 
-  // Build the campaigns list for the filter dropdown — derived from
-  // donations that exist (so trustees only see campaigns that have
-  // received donations). Fetch a separate unfiltered list for the
-  // dropdown so the campaign filter doesn't disappear after applying
-  // it.
-  const allCampaignsRows = await fetchAdminDonations({}, 500);
-  const availableCampaigns = Array.from(
-    new Map(
-      allCampaignsRows.map((r) => [r.campaign, { slug: r.campaign, label: r.campaignLabel }])
-    ).values()
-  ).sort((a, b) => a.label.localeCompare(b.label));
+  // Campaign list for the filter dropdown — derived from the
+  // CAMPAIGNS registry in lib/campaigns.ts (the source of truth used
+  // by the donate flow). We previously fetched 500 unfiltered
+  // donation rows to extract distinct campaigns — that added a fourth
+  // Supabase round-trip on every page load purely for the dropdown.
+  // Hardcoded list is correct (these ARE all the campaigns the donate
+  // flow accepts), faster, and removes one full DB query per render.
+  const availableCampaigns = Object.entries(CAMPAIGNS)
+    .filter(([slug]) => slug !== "general") // 'general' is fallback, not a public campaign
+    .map(([slug, label]) => ({ slug, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

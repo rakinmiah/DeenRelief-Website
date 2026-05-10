@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//region-comment": "Pinned to London so Vercel functions are co-located with our Supabase EU-West-1 (Ireland) project. Without this, functions default to iad1 (US East) and every Supabase query crosses the Atlantic — adds ~80-100ms per query, ~600-800ms total on the admin pages that run 3-4 queries per request.",
+  "regions": ["lhr1"],
   "crons": [
     {
       "path": "/api/cron/swiftaid-submit",
