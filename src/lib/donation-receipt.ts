@@ -13,10 +13,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Resend } from "resend";
+import { renderToBuffer } from "@react-pdf/renderer";
 import { getCampaignReceiptMessage } from "@/lib/campaigns";
 import { CHARITY_NAME, CHARITY_NUMBER, totalWithGiftAidGbp } from "@/lib/gift-aid";
 import { fromPence } from "@/lib/stripe";
 import { signManageToken } from "@/lib/signed-token";
+import { DonationReceiptPDF } from "@/lib/donation-receipt-pdf";
 
 /**
  * The email logo is attached inline (via `cid:logo`) rather than linked
@@ -74,6 +76,82 @@ export interface DonationReceiptInput {
    */
   pathwaySlug?: string;
   pathwayLabel?: string;
+  /**
+   * Donation row UUID. Used to derive the human-readable receipt number
+   * (DR-DON-XXXXXXXX) for the PDF attachment. When omitted, the email
+   * still sends but the PDF is skipped — the HTML body is enough on
+   * its own. Same convention as the admin /admin/donations/[id] view.
+   */
+  donationId?: string;
+  /**
+   * Donor address — included in the PDF receipt so it qualifies as a
+   * valid Gift Aid record (HMRC requires donor name + address +
+   * postcode). When any field is missing the PDF gracefully omits the
+   * Address row; the email still sends.
+   */
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+}
+
+/**
+ * Derive the human-readable receipt number from a donation row UUID.
+ * Mirrors the admin convention so a donor's emailed receipt and the
+ * trustee's admin view show the same reference. ("DR-DON-" + last 8
+ * hex chars of the UUID, uppercased.)
+ */
+function receiptNumberFromDonationId(donationId: string): string {
+  const tail = donationId.replace(/-/g, "").slice(-8).toUpperCase();
+  return `DR-DON-${tail}`;
+}
+
+/**
+ * Render the PDF receipt to a Buffer for email attachment. Returns null
+ * on any failure — the email still sends without the attachment, since
+ * the HTML body is a complete receipt on its own.
+ *
+ * Why we generate per-send rather than caching: PDFs vary per donation
+ * (donor name, amount, campaign, etc.), so caching has no value. The
+ * @react-pdf/renderer call is fast (~50ms per single-page A4).
+ */
+async function buildReceiptPdfBuffer(
+  input: DonationReceiptInput,
+  logoBuffer: Buffer | null
+): Promise<Buffer | null> {
+  if (!input.donationId) return null;
+  try {
+    const logoDataUrl = logoBuffer
+      ? `data:image/png;base64,${logoBuffer.toString("base64")}`
+      : null;
+    return await renderToBuffer(
+      DonationReceiptPDF({
+        receiptNumber: receiptNumberFromDonationId(input.donationId),
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.toEmail,
+        addressLine1: input.addressLine1 ?? null,
+        addressLine2: input.addressLine2 ?? null,
+        city: input.city ?? null,
+        postcode: input.postcode ?? null,
+        amountPence: input.amountPence,
+        campaignLabel: input.campaignLabel,
+        frequency: input.frequency,
+        giftAidClaimed: input.giftAidClaimed,
+        // sendDonationReceipt is only called from the success webhook,
+        // so the PDF is always for a succeeded donation. Refunds are
+        // a separate code path that doesn't email — admins generate
+        // refund-watermarked PDFs from /admin/donations/[id].
+        status: "succeeded",
+        completedAt: input.completedAt,
+        paymentIntentId: input.paymentIntentId,
+        logoDataUrl,
+      })
+    );
+  } catch (err) {
+    console.error("[donation-receipt] PDF build failed:", err);
+    return null;
+  }
 }
 
 /** Send the receipt. Returns true on success, false on any error. */
@@ -90,26 +168,47 @@ export async function sendDonationReceipt(
     const resend = new Resend(key);
     const { subject, html, text } = buildReceiptEmail(input);
     const logoBuffer = await loadLogoBuffer();
+    const pdfBuffer = await buildReceiptPdfBuffer(input, logoBuffer);
 
-    console.log("[donation-receipt] Sending to", input.toEmail);
+    // Build the attachments list: logo (inline, referenced via cid:logo
+    // in the HTML body) + PDF receipt (regular file attachment, downloads
+    // / saves to the donor's mail client). Both optional — email still
+    // sends if either fails to build.
+    const attachments: {
+      filename: string;
+      content: Buffer;
+      contentType: string;
+      contentId?: string;
+    }[] = [];
+    if (logoBuffer) {
+      attachments.push({
+        filename: "logo.png",
+        content: logoBuffer,
+        contentType: "image/png",
+        contentId: LOGO_CID,
+      });
+    }
+    if (pdfBuffer && input.donationId) {
+      const receiptNum = receiptNumberFromDonationId(input.donationId);
+      attachments.push({
+        filename: `receipt-${receiptNum}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      });
+    }
+
+    console.log(
+      "[donation-receipt] Sending to",
+      input.toEmail,
+      pdfBuffer ? "with PDF receipt" : "without PDF receipt"
+    );
     const result = await resend.emails.send({
       from: `${CHARITY_NAME} <noreply@deenrelief.org>`,
       to: input.toEmail,
       subject,
       html,
       text,
-      ...(logoBuffer
-        ? {
-            attachments: [
-              {
-                filename: "logo.png",
-                content: logoBuffer,
-                contentType: "image/png",
-                contentId: LOGO_CID,
-              },
-            ],
-          }
-        : {}),
+      ...(attachments.length > 0 ? { attachments } : {}),
     });
 
     if (result.error) {

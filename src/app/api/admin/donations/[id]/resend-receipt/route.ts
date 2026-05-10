@@ -37,14 +37,18 @@ export async function POST(
   const supabase = getSupabaseAdmin();
 
   // Pull the donation + joined donor in one query — avoids a second
-  // round-trip and keeps the auth check tight.
+  // round-trip and keeps the auth check tight. Donor address fields
+  // included so the resent email's PDF attachment can populate the
+  // address block (HMRC requires donor name + postcode for valid Gift
+  // Aid records).
   const { data: donation, error } = await supabase
     .from("donations")
     .select(
       `id, amount_pence, campaign, campaign_label, frequency,
        gift_aid_claimed, completed_at, livemode, status,
        stripe_payment_intent_id, stripe_customer_id,
-       donors(email, first_name, last_name)`
+       donors(email, first_name, last_name,
+              address_line1, address_line2, city, postcode)`
     )
     .eq("id", id)
     .maybeSingle();
@@ -93,6 +97,14 @@ export async function POST(
     completedAt: new Date(donation.completed_at as string),
     stripeCustomerId:
       (donation.stripe_customer_id as string | null) ?? undefined,
+    // PDF receipt fields — same shape as the webhook caller. Resent
+    // emails include the same PDF attachment the donor would have
+    // received originally.
+    donationId: donation.id as string,
+    addressLine1: donor.address_line1 ?? null,
+    addressLine2: donor.address_line2 ?? null,
+    city: donor.city ?? null,
+    postcode: donor.postcode ?? null,
   });
 
   if (!ok) {

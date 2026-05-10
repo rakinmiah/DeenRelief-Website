@@ -750,6 +750,14 @@ async function dispatchReceipt(
         qurbaniNames,
         pathwaySlug: pathwaySlug ?? undefined,
         pathwayLabel: pathwayLabel ?? undefined,
+        // PDF receipt fields — donation id drives the receipt number
+        // (DR-DON-XXXXXXXX), address fields appear on the Donor block
+        // of the PDF when present.
+        donationId: donation.id,
+        addressLine1: donor.address_line1,
+        addressLine2: donor.address_line2,
+        city: donor.city,
+        postcode: donor.postcode,
       }),
       sendDonationStaffNotification({
         firstName: donor.first_name,
