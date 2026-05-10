@@ -500,6 +500,49 @@ export async function fetchGiftAidEligible(
   return rows;
 }
 
+/**
+ * Failed donations — list of one-time donations whose Stripe charge
+ * declined. Trustees use this to follow up with donors whose payment
+ * didn't go through (most common cause: declined card, insufficient
+ * funds, expired card).
+ *
+ * Filtered to livemode=true so test failures stay out. Sorted newest
+ * first so trustees see the most recent failures at the top.
+ *
+ * Note: this is *one-time* failures only. Recurring subscription
+ * failures show up as past_due in /admin/recurring and are surfaced
+ * separately via fetchPastDueRecurring().
+ */
+export async function fetchFailedDonations(
+  limit = 50
+): Promise<AdminDonationRow[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("donations")
+    .select(
+      `id, amount_pence, currency, status, frequency, campaign,
+       campaign_label, gift_aid_claimed, completed_at, created_at,
+       stripe_payment_intent_id, stripe_setup_intent_id,
+       stripe_customer_id, stripe_subscription_id,
+       gclid, utm_source, utm_medium, utm_campaign,
+       donors(id, email, full_name, first_name, last_name,
+              address_line1, address_line2, city, postcode, phone,
+              stripe_customer_id),
+       gift_aid_declaration:gift_aid_declarations(revoked_at)`
+    )
+    .eq("status", "failed")
+    .eq("livemode", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[admin-donations] fetchFailedDonations failed:", error);
+    return [];
+  }
+
+  return (data ?? []).map((r) => shapeRow(r as unknown as RawDonationRow));
+}
+
 /** UK-format an ISO date for display (DD/MM/YYYY HH:MM). */
 export function formatAdminDate(iso: string): string {
   const d = new Date(iso);

@@ -123,13 +123,22 @@ export default function DonationActionsClient({
         >
           {busy === "resend" ? "Sending…" : "Resend receipt email"}
         </button>
-        <button
-          type="button"
-          disabled
-          className="w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-        >
-          Download PDF receipt
-        </button>
+        {(status === "succeeded" || status === "refunded") ? (
+          <a
+            href={`/api/admin/donations/${internalId}/receipt-pdf`}
+            className="block w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors text-left"
+          >
+            Download PDF receipt
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
+          >
+            Download PDF receipt
+          </button>
+        )}
         {canRefund && (
           <button
             type="button"

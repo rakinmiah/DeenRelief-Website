@@ -105,10 +105,16 @@ export default async function AdminReportsPage() {
           </button>
         </div>
 
-        <div className="bg-white border border-charcoal/10 rounded-2xl p-5">
+        <Link
+          href="/admin/reports/failed-payments"
+          className="group bg-white border border-charcoal/10 rounded-2xl p-5 hover:border-charcoal/30 hover:shadow-sm transition-all"
+        >
           <div className="flex items-start justify-between mb-3">
             <span className="block text-[11px] font-bold tracking-[0.1em] uppercase text-amber-dark">
               Operations
+            </span>
+            <span className="text-charcoal/40 group-hover:text-charcoal transition-colors">
+              →
             </span>
           </div>
           <h2 className="text-charcoal font-heading font-semibold text-lg mb-1">
@@ -118,14 +124,7 @@ export default async function AdminReportsPage() {
             Recent failed charges that may need follow-up. For recurring,
             past_due subscriptions are flagged for re-engagement emails.
           </p>
-          <button
-            type="button"
-            disabled
-            className="mt-4 px-3 py-1.5 rounded-full text-xs font-medium bg-charcoal/8 text-charcoal/50 cursor-not-allowed"
-          >
-            View failed payments
-          </button>
-        </div>
+        </Link>
 
         <div className="bg-white border border-charcoal/10 rounded-2xl p-5">
           <div className="flex items-start justify-between mb-3">
