@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-session";
 import {
   PLACEHOLDER_DONATIONS,
   donationStats,
@@ -11,6 +12,8 @@ export const metadata: Metadata = {
   title: "Reports | Deen Relief Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 /**
  * Reports landing.
@@ -26,7 +29,8 @@ export const metadata: Metadata = {
  * the right filters baked in. Production version: each report's CSV
  * export goes through /api/admin/reports/<name>/export.
  */
-export default function AdminReportsPage() {
+export default async function AdminReportsPage() {
+  await requireAdminSession();
   const stats = donationStats();
 
   // Compute per-campaign breakdown from placeholder data.

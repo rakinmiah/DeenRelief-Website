@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-session";
 import {
   PLACEHOLDER_DONATIONS,
   formatAdminDateOnly,
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
   title: "Gift Aid claim export | Deen Relief Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 /**
  * Gift Aid claim export.
@@ -35,7 +38,8 @@ export const metadata: Metadata = {
  * The mockup shows the table preview + the metadata about what the
  * CSV will contain when downloaded.
  */
-export default function AdminGiftAidExportPage() {
+export default async function AdminGiftAidExportPage() {
+  await requireAdminSession();
   // UK tax year runs 6 April → 5 April. Show all eligible donations for
   // the current tax year (using the placeholder data's date range).
   const giftAidEligible = PLACEHOLDER_DONATIONS.filter(

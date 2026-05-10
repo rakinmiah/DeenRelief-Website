@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireAdminSession } from "@/lib/admin-session";
 import {
-  findDonationById,
+  fetchAdminDonationById,
   formatAdminDate,
-  type DonationStatus,
-} from "@/lib/admin-placeholder";
+  type AdminDonationStatus,
+} from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
 
 export const metadata: Metadata = {
@@ -13,53 +14,48 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const dynamic = "force-dynamic";
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const STATUS_STYLES: Record<DonationStatus, string> = {
-  paid: "bg-green/10 text-green-dark border-green/30",
+const STATUS_STYLES: Record<AdminDonationStatus, string> = {
+  succeeded: "bg-green/10 text-green-dark border-green/30",
   pending: "bg-amber-light text-amber-dark border-amber/30",
   failed: "bg-red-50 text-red-700 border-red-200",
   refunded: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
+const STATUS_LABEL: Record<AdminDonationStatus, string> = {
+  succeeded: "paid",
+  pending: "pending",
+  failed: "failed",
+  refunded: "refunded",
+};
+
 /**
- * Donation detail page.
+ * Donation detail — fully wired to real Supabase data.
  *
- * Designed so a trustee or staff member can answer, in 30 seconds,
- * every question they're likely to be asked about a single donation:
- *   - Did it actually go through? (Status badge + Stripe payment intent)
- *   - Who donated? (Donor card, links to donor history)
- *   - Where did it go? (Campaign + pathway)
- *   - Did the donor claim Gift Aid? (Declaration block with version
- *     and acceptance timestamp)
- *   - How does this map to Stripe? (Payment intent ID, customer ID,
- *     "Open in Stripe" link)
- *   - If recurring, where does it sit in the subscription history?
- *     (Linked subscription card)
- *
- * Action panel:
- *   - Refund — for one-time donations within Stripe's refund window.
- *   - Resend receipt — re-trigger the Resend email.
- *   - Open in Stripe — deep link to the Stripe dashboard.
- *
- * Internal notes — free-text per donation, audit-trailed.
+ * If a trustee opens a URL with an unknown id (e.g. a stale link), we
+ * 404 rather than render an empty shell.
  */
-export default async function AdminDonationDetailPage({
-  params,
-}: RouteParams) {
+export default async function AdminDonationDetailPage({ params }: RouteParams) {
+  await requireAdminSession();
   const { id } = await params;
-  const donation = findDonationById(id);
+  const donation = await fetchAdminDonationById(id);
   if (!donation) notFound();
 
   const totalWithGiftAid =
     donation.amountPence + donation.giftAidReclaimablePence;
   const isMonthly = donation.frequency === "monthly";
+  const stripeRef =
+    donation.stripePaymentIntent ??
+    donation.stripeSetupIntent ??
+    null;
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Page header */}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link
@@ -75,7 +71,7 @@ export default async function AdminDonationDetailPage({
         <span
           className={`inline-block px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[donation.status]}`}
         >
-          {donation.status}
+          {STATUS_LABEL[donation.status]}
         </span>
       </div>
 
@@ -97,7 +93,7 @@ export default async function AdminDonationDetailPage({
                   {formatPence(donation.amountPence)}
                 </dd>
               </div>
-              {donation.giftAidClaimed && (
+              {donation.giftAidClaimed && !donation.giftAidDeclarationRevoked && (
                 <div className="flex justify-between">
                   <dt className="text-charcoal/70">
                     Gift Aid (reclaimable from HMRC)
@@ -128,12 +124,6 @@ export default async function AdminDonationDetailPage({
                 <dt className="text-charcoal/60">Campaign</dt>
                 <dd className="text-charcoal">{donation.campaignLabel}</dd>
               </div>
-              {donation.pathway && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">Zakat pathway</dt>
-                  <dd className="text-charcoal italic">{donation.pathway}</dd>
-                </div>
-              )}
               <div className="grid grid-cols-[140px_1fr] gap-3">
                 <dt className="text-charcoal/60">Frequency</dt>
                 <dd className="text-charcoal">
@@ -143,7 +133,15 @@ export default async function AdminDonationDetailPage({
               <div className="grid grid-cols-[140px_1fr] gap-3">
                 <dt className="text-charcoal/60">Charged at</dt>
                 <dd className="text-charcoal">
-                  {formatAdminDate(donation.chargedAt)}
+                  {donation.chargedAt
+                    ? formatAdminDate(donation.chargedAt)
+                    : "—"}
+                </dd>
+              </div>
+              <div className="grid grid-cols-[140px_1fr] gap-3">
+                <dt className="text-charcoal/60">Created at</dt>
+                <dd className="text-charcoal">
+                  {formatAdminDate(donation.createdAt)}
                 </dd>
               </div>
             </dl>
@@ -172,14 +170,48 @@ export default async function AdminDonationDetailPage({
                   </a>
                 </dd>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Stripe customer</dt>
-                <dd>
-                  <span className="font-mono text-[11px] text-charcoal/70">
-                    {donation.stripeCustomerId}
-                  </span>
-                </dd>
-              </div>
+              {donation.donorPhone && (
+                <div className="grid grid-cols-[140px_1fr] gap-3">
+                  <dt className="text-charcoal/60">Phone</dt>
+                  <dd className="text-charcoal">{donation.donorPhone}</dd>
+                </div>
+              )}
+              {donation.donorAddressLine1 && (
+                <div className="grid grid-cols-[140px_1fr] gap-3">
+                  <dt className="text-charcoal/60">Address</dt>
+                  <dd className="text-charcoal not-italic leading-relaxed">
+                    {donation.donorAddressLine1}
+                    {donation.donorAddressLine2 && (
+                      <>
+                        <br />
+                        {donation.donorAddressLine2}
+                      </>
+                    )}
+                    {donation.donorCity && (
+                      <>
+                        <br />
+                        {donation.donorCity}
+                      </>
+                    )}
+                    {donation.donorPostcode && (
+                      <>
+                        {donation.donorCity ? ", " : <br />}
+                        {donation.donorPostcode}
+                      </>
+                    )}
+                  </dd>
+                </div>
+              )}
+              {donation.donorStripeCustomerId && (
+                <div className="grid grid-cols-[140px_1fr] gap-3">
+                  <dt className="text-charcoal/60">Stripe customer</dt>
+                  <dd>
+                    <span className="font-mono text-[11px] text-charcoal/70">
+                      {donation.donorStripeCustomerId}
+                    </span>
+                  </dd>
+                </div>
+              )}
             </dl>
           </section>
 
@@ -188,7 +220,7 @@ export default async function AdminDonationDetailPage({
             <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
               Gift Aid declaration
             </h2>
-            {donation.giftAidClaimed ? (
+            {donation.giftAidClaimed && !donation.giftAidDeclarationRevoked ? (
               <>
                 <div className="mb-4 inline-flex items-center gap-1.5 text-green-dark text-sm font-medium">
                   <svg
@@ -215,11 +247,15 @@ export default async function AdminDonationDetailPage({
                   4 years to Deen Relief.&rdquo;
                 </blockquote>
                 <p className="mt-3 text-[11px] text-charcoal/50">
-                  Declaration version 2 · accepted{" "}
-                  {formatAdminDate(donation.chargedAt)} ·
-                  reclaimable {formatPence(donation.giftAidReclaimablePence)}
+                  Reclaimable: {formatPence(donation.giftAidReclaimablePence)}
                 </p>
               </>
+            ) : donation.giftAidClaimed && donation.giftAidDeclarationRevoked ? (
+              <p className="text-sm text-amber-dark">
+                Donor originally claimed Gift Aid but has since revoked
+                the declaration. This donation is no longer eligible for
+                HMRC reclaim.
+              </p>
             ) : (
               <p className="text-sm text-charcoal/60">
                 Donor declined Gift Aid (or didn&apos;t confirm UK
@@ -234,12 +270,26 @@ export default async function AdminDonationDetailPage({
               Stripe reference
             </h2>
             <dl className="space-y-2 text-sm">
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Payment intent</dt>
-                <dd className="font-mono text-[11px] text-charcoal/70 break-all">
-                  {donation.stripePaymentIntent}
-                </dd>
-              </div>
+              {stripeRef && (
+                <div className="grid grid-cols-[140px_1fr] gap-3">
+                  <dt className="text-charcoal/60">
+                    {donation.stripePaymentIntent
+                      ? "Payment intent"
+                      : "Setup intent"}
+                  </dt>
+                  <dd className="font-mono text-[11px] text-charcoal/70 break-all">
+                    {stripeRef}
+                  </dd>
+                </div>
+              )}
+              {donation.stripeCustomerId && (
+                <div className="grid grid-cols-[140px_1fr] gap-3">
+                  <dt className="text-charcoal/60">Customer</dt>
+                  <dd className="font-mono text-[11px] text-charcoal/70 break-all">
+                    {donation.stripeCustomerId}
+                  </dd>
+                </div>
+              )}
               {donation.stripeSubscriptionId && (
                 <div className="grid grid-cols-[140px_1fr] gap-3">
                   <dt className="text-charcoal/60">Subscription</dt>
@@ -254,16 +304,57 @@ export default async function AdminDonationDetailPage({
                 </div>
               )}
             </dl>
-            <a
-              href="#"
-              className="inline-flex items-center gap-1 mt-4 text-sm text-charcoal/70 hover:text-charcoal transition-colors"
-            >
-              Open in Stripe dashboard ↗
-            </a>
+            {stripeRef && (
+              <a
+                href={`https://dashboard.stripe.com/payments/${stripeRef}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-4 text-sm text-charcoal/70 hover:text-charcoal transition-colors"
+              >
+                Open in Stripe dashboard ↗
+              </a>
+            )}
           </section>
+
+          {/* Attribution (where did this donor come from) */}
+          {(donation.gclid || donation.utmSource || donation.utmCampaign) && (
+            <section className="bg-white border border-charcoal/10 rounded-2xl p-5 sm:p-6">
+              <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
+                Attribution
+              </h2>
+              <dl className="space-y-2 text-sm">
+                {donation.gclid && (
+                  <div className="grid grid-cols-[140px_1fr] gap-3">
+                    <dt className="text-charcoal/60">Google click ID</dt>
+                    <dd className="font-mono text-[11px] text-charcoal/70 break-all">
+                      {donation.gclid}
+                    </dd>
+                  </div>
+                )}
+                {donation.utmSource && (
+                  <div className="grid grid-cols-[140px_1fr] gap-3">
+                    <dt className="text-charcoal/60">UTM source</dt>
+                    <dd className="text-charcoal">{donation.utmSource}</dd>
+                  </div>
+                )}
+                {donation.utmMedium && (
+                  <div className="grid grid-cols-[140px_1fr] gap-3">
+                    <dt className="text-charcoal/60">UTM medium</dt>
+                    <dd className="text-charcoal">{donation.utmMedium}</dd>
+                  </div>
+                )}
+                {donation.utmCampaign && (
+                  <div className="grid grid-cols-[140px_1fr] gap-3">
+                    <dt className="text-charcoal/60">UTM campaign</dt>
+                    <dd className="text-charcoal">{donation.utmCampaign}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
         </div>
 
-        {/* Side panel — actions */}
+        {/* Side panel — actions (still placeholder; wired in Phase 2) */}
         <aside className="space-y-4">
           <section className="bg-charcoal text-white rounded-2xl p-5">
             <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-white/60 mb-3">
@@ -284,7 +375,7 @@ export default async function AdminDonationDetailPage({
               >
                 Download PDF receipt
               </button>
-              {donation.status === "paid" && (
+              {donation.status === "succeeded" && (
                 <button
                   type="button"
                   disabled
@@ -295,65 +386,10 @@ export default async function AdminDonationDetailPage({
               )}
             </div>
             <p className="mt-4 text-[10px] text-white/40 leading-relaxed">
-              Disabled in pitch preview. Real version: Resend triggers
-              the receipt template, refund posts to Stripe and writes a
-              row to the audit log.
+              Action buttons coming in Phase 2 — Resend will trigger the
+              receipt template, refund will post to Stripe and audit-log
+              the action.
             </p>
-          </section>
-
-          {/* Internal notes */}
-          <section className="bg-white border border-charcoal/10 rounded-2xl p-5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
-              Internal notes
-            </h2>
-            <textarea
-              rows={5}
-              disabled
-              placeholder="Anything the team should know about this donation…"
-              className="w-full px-3 py-2 rounded-lg bg-cream border border-charcoal/10 text-sm text-charcoal placeholder:text-charcoal/30 disabled:cursor-not-allowed"
-            />
-            <p className="mt-2 text-[11px] text-charcoal/40">
-              Notes are stamped with the staff member&apos;s name and
-              timestamp on save.
-            </p>
-          </section>
-
-          {/* Audit timeline */}
-          <section className="bg-white border border-charcoal/10 rounded-2xl p-5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
-              History
-            </h2>
-            <ol className="space-y-3 text-[12px]">
-              <li className="flex gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green mt-1.5 flex-shrink-0" />
-                <div>
-                  <p className="text-charcoal">Payment received</p>
-                  <p className="text-charcoal/50">
-                    {formatAdminDate(donation.chargedAt)}
-                  </p>
-                </div>
-              </li>
-              <li className="flex gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-charcoal/30 mt-1.5 flex-shrink-0" />
-                <div>
-                  <p className="text-charcoal/70">Receipt emailed</p>
-                  <p className="text-charcoal/50">
-                    {formatAdminDate(donation.chargedAt)}
-                  </p>
-                </div>
-              </li>
-              {donation.giftAidClaimed && (
-                <li className="flex gap-2.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-charcoal/30 mt-1.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-charcoal/70">
-                      Gift Aid declaration recorded
-                    </p>
-                    <p className="text-charcoal/50">v2 · accepted</p>
-                  </div>
-                </li>
-              )}
-            </ol>
           </section>
         </aside>
       </div>

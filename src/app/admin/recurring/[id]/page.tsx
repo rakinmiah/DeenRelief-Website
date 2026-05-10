@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireAdminSession } from "@/lib/admin-session";
 import {
   findRecurringById,
   formatAdminDate,
@@ -12,6 +13,8 @@ export const metadata: Metadata = {
   title: "Recurring donation | Deen Relief Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -26,6 +29,7 @@ const STATUS_STYLES = {
 export default async function AdminRecurringDetailPage({
   params,
 }: RouteParams) {
+  await requireAdminSession();
   const { id } = await params;
   const sub = findRecurringById(id);
   if (!sub) notFound();

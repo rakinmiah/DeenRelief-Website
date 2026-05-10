@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-session";
 
 export const metadata: Metadata = {
   title: "Orders | Bazaar Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 /**
  * Admin fulfillment dashboard.
@@ -80,7 +83,8 @@ function formatPence(pence: number): string {
   }).format(pence / 100);
 }
 
-export default function AdminBazaarOrdersPage() {
+export default async function AdminBazaarOrdersPage() {
+  await requireAdminSession();
   const pendingCount = MOCK_ORDERS.filter((o) => o.status === "paid").length;
 
   return (

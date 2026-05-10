@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-session";
 import { PLACEHOLDER_PRODUCTS } from "@/lib/bazaar-placeholder";
 
 export const metadata: Metadata = {
   title: "Order detail | Bazaar Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -29,6 +32,7 @@ function formatPence(pence: number): string {
 export default async function AdminBazaarOrderDetailPage({
   params,
 }: RouteParams) {
+  await requireAdminSession();
   const { id } = await params;
 
   // Mock order — first 3 products as line items.

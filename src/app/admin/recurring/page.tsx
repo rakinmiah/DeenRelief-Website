@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-session";
 import {
   PLACEHOLDER_RECURRING,
   formatAdminDateOnly,
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
   title: "Recurring donations | Deen Relief Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 const STATUS_STYLES = {
   active: "bg-green/10 text-green-dark border-green/30",
@@ -39,7 +42,8 @@ const CARD_BRAND_LABEL = {
  *   - See how much committed monthly revenue exists
  *   - Spot subscriptions that have failed payment retries (past_due)
  */
-export default function AdminRecurringPage() {
+export default async function AdminRecurringPage() {
+  await requireAdminSession();
   const active = PLACEHOLDER_RECURRING.filter((r) => r.status === "active");
   const cancelled = PLACEHOLDER_RECURRING.filter(
     (r) => r.status === "cancelled"
