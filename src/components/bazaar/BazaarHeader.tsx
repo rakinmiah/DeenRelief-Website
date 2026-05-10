@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import CartButtonWithPreview from "./CartButtonWithPreview";
@@ -71,28 +72,27 @@ export default function BazaarHeader() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top row — identity (left) + commerce CTAs (right) */}
         <div className="flex items-center justify-between h-[60px] md:h-[64px]">
-          {/* Left cluster: backlink + Bazaar wordmark */}
-          <div className="flex items-center gap-4 sm:gap-5">
-            <Link
-              href="/"
-              className="text-[11px] font-medium text-charcoal/50 hover:text-charcoal transition-colors hidden sm:inline whitespace-nowrap"
-              aria-label="Back to Deen Relief charity site"
-            >
-              ← Deen Relief
-            </Link>
-            <Link
-              href="/bazaar"
-              className="block leading-tight"
-              aria-label="Deen Relief Bazaar — home"
-            >
-              <span className="block text-[10px] font-bold tracking-[0.2em] uppercase text-amber-dark sm:hidden">
-                Deen Relief
-              </span>
-              <span className="block text-charcoal font-heading font-semibold text-base sm:text-lg">
-                Bazaar
-              </span>
-            </Link>
-          </div>
+          {/* Left cluster: Deen Relief logo (links back to charity home) */}
+          {/* Replaces the previous text wordmark + "← Deen Relief"
+              backlink — the logo IS the Deen Relief brand mark, no
+              need for separate text. Clicking it goes to / (main
+              charity site) which is the conventional logo behaviour.
+              Customers stay oriented within the bazaar via the URL
+              + the Shop / Our Makers / Our Promise nav. */}
+          <Link
+            href="/"
+            className="block"
+            aria-label="Deen Relief — back to charity home"
+          >
+            <Image
+              src="/images/logo.webp"
+              alt="Deen Relief"
+              width={191}
+              height={32}
+              className="w-auto h-7 sm:h-8"
+              priority
+            />
+          </Link>
 
           {/* Center: shop nav (desktop only — moves to second row on mobile) */}
           <nav
