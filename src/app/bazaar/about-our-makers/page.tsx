@@ -143,7 +143,7 @@ export default function AboutOurMakersPage() {
             Ready to support our makers?
           </h2>
           <p className="text-white/70 text-base mb-7">
-            Eight pieces in the collection, restocked slowly when each one
+            Six pieces in the collection, restocked slowly when each one
             sells out.
           </p>
           <Link

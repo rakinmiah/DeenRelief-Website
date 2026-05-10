@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  *      reverse) before the donor sees a single product.
  *   2. The Promise — three-up trust strip: who made it, where it came
  *      from, what happens to the profit.
- *   3. Catalog — 8 products in a 3-up grid (2-up on tablet, 1-up on
+ *   3. Catalog — 6 products in a 3-up grid (2-up on tablet, 1-up on
  *      mobile). Story-led copy under each: maker's name, region.
  *
  * The order matters. We don't show products first and contextualise
@@ -51,7 +51,7 @@ export default function BazaarPage() {
             <span className="italic font-medium">with dignity.</span>
           </h1>
           <p className="text-grey text-base sm:text-lg leading-[1.7] max-w-2xl mx-auto mb-8">
-            Eight pieces, made by people we work with directly in Sylhet
+            Six pieces, made by people we work with directly in Sylhet
             and Adana. Every purchase pays the maker fairly &mdash; and
             the profits beyond that fund our charity work in the same
             communities.
@@ -128,7 +128,7 @@ export default function BazaarPage() {
               The collection
             </h2>
             <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-              Eight pieces, restocked slowly. When something sells out,
+              Six pieces, restocked slowly. When something sells out,
               we wait until the makers have made the next batch — we
               don&apos;t outsource demand spikes to anonymous factories.
             </p>
