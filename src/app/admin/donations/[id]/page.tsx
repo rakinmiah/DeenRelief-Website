@@ -8,6 +8,7 @@ import {
   type AdminDonationStatus,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import DonationActionsClient from "./DonationActionsClient";
 
 export const metadata: Metadata = {
   title: "Donation detail | Deen Relief Admin",
@@ -354,43 +355,13 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
           )}
         </div>
 
-        {/* Side panel — actions (still placeholder; wired in Phase 2) */}
+        {/* Side panel — actions wired to real Stripe + Resend endpoints */}
         <aside className="space-y-4">
-          <section className="bg-charcoal text-white rounded-2xl p-5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-white/60 mb-3">
-              Actions
-            </h2>
-            <div className="space-y-2">
-              <button
-                type="button"
-                disabled
-                className="w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-              >
-                Resend receipt email
-              </button>
-              <button
-                type="button"
-                disabled
-                className="w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-              >
-                Download PDF receipt
-              </button>
-              {donation.status === "succeeded" && (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full px-4 py-2.5 rounded-full bg-red-500/20 text-red-200 text-sm font-medium hover:bg-red-500/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-                >
-                  Issue refund…
-                </button>
-              )}
-            </div>
-            <p className="mt-4 text-[10px] text-white/40 leading-relaxed">
-              Action buttons coming in Phase 2 — Resend will trigger the
-              receipt template, refund will post to Stripe and audit-log
-              the action.
-            </p>
-          </section>
+          <DonationActionsClient
+            internalId={donation.id}
+            status={donation.status}
+            frequency={donation.frequency}
+          />
         </aside>
       </div>
     </main>

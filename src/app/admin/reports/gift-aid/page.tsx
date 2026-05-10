@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-session";
 import {
-  PLACEHOLDER_DONATIONS,
+  fetchGiftAidEligible,
   formatAdminDateOnly,
-} from "@/lib/admin-placeholder";
+} from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
 
 export const metadata: Metadata = {
@@ -15,42 +15,41 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * Gift Aid claim export.
+ * Gift Aid claim export — wired to real Supabase data.
  *
- * The most legally-loaded export in the admin. Trustees claim the 25%
- * Gift Aid uplift from HMRC's Charities Online portal by uploading an
- * R68 schedule (XLSX or CSV) listing every eligible donation in the
- * tax year. HMRC's required columns:
- *   - Title
- *   - First name
- *   - Last name
- *   - House name or number
- *   - Postcode
- *   - Aggregated donations (Y/N)
- *   - Sponsored event (Y/N)
- *   - Donation date (YYYY-MM-DD)
- *   - Amount (£)
+ * The download button still hits /api/admin/export-gift-aid which has
+ * always queried real data. The on-page preview now uses the same
+ * underlying query (fetchGiftAidEligible) so the trustee sees exactly
+ * what will land in the CSV before they click Download.
  *
- * Production version queries Supabase, joins donor address records,
- * filters to only donations with a confirmed Gift Aid declaration in
- * the chosen tax year, and streams the CSV in HMRC's exact column order.
- *
- * The mockup shows the table preview + the metadata about what the
- * CSV will contain when downloaded.
+ * Defaults to the current UK tax year (6 April → 5 April). The two
+ * date inputs let trustees override for specific quarters if they
+ * want to file claims more frequently.
  */
 export default async function AdminGiftAidExportPage() {
   await requireAdminSession();
-  // UK tax year runs 6 April → 5 April. Show all eligible donations for
-  // the current tax year (using the placeholder data's date range).
-  const giftAidEligible = PLACEHOLDER_DONATIONS.filter(
-    (d) => d.giftAidClaimed && d.status === "paid"
-  );
 
-  const totalDonatedPence = giftAidEligible.reduce(
+  // Compute the current UK tax-year window for display + the export
+  // URL. Server-side so the trustee sees the resolved range.
+  const now = new Date();
+  const taxYearStart = (() => {
+    const y = now.getFullYear();
+    const aprilSix = new Date(Date.UTC(y, 3, 6));
+    return now < aprilSix ? new Date(Date.UTC(y - 1, 3, 6)) : aprilSix;
+  })();
+  const taxYearEnd = new Date(taxYearStart);
+  taxYearEnd.setUTCFullYear(taxYearStart.getUTCFullYear() + 1);
+  taxYearEnd.setUTCDate(taxYearStart.getUTCDate() - 1);
+
+  const fromIso = taxYearStart.toISOString().slice(0, 10);
+  const toIso = taxYearEnd.toISOString().slice(0, 10);
+
+  const eligible = await fetchGiftAidEligible(fromIso, toIso);
+  const totalDonatedPence = eligible.reduce(
     (s, d) => s + d.amountPence,
     0
   );
-  const totalReclaimablePence = giftAidEligible.reduce(
+  const totalReclaimablePence = eligible.reduce(
     (s, d) => s + d.giftAidReclaimablePence,
     0
   );
@@ -92,7 +91,7 @@ export default async function AdminGiftAidExportPage() {
             Eligible donations
           </p>
           <p className="text-3xl font-heading font-bold text-charcoal">
-            {giftAidEligible.length}
+            {eligible.length}
           </p>
           <p className="text-[12px] text-charcoal/50 mt-0.5">
             with Gift Aid declaration
@@ -125,7 +124,7 @@ export default async function AdminGiftAidExportPage() {
       {/* Filter + download */}
       <section className="bg-white border border-charcoal/10 rounded-2xl p-5 sm:p-6 mb-6">
         <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-4">
-          Tax year filter
+          Tax year
         </h2>
         <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
           <div>
@@ -134,8 +133,9 @@ export default async function AdminGiftAidExportPage() {
             </label>
             <input
               type="date"
-              defaultValue="2026-04-06"
+              defaultValue={fromIso}
               className="w-full px-3 py-2 rounded-lg bg-cream border border-charcoal/10 text-sm text-charcoal"
+              readOnly
             />
           </div>
           <div>
@@ -144,12 +144,13 @@ export default async function AdminGiftAidExportPage() {
             </label>
             <input
               type="date"
-              defaultValue="2027-04-05"
+              defaultValue={toIso}
               className="w-full px-3 py-2 rounded-lg bg-cream border border-charcoal/10 text-sm text-charcoal"
+              readOnly
             />
           </div>
           <a
-            href="/api/admin/export-gift-aid?from=2026-04-06&to=2027-04-05"
+            href={`/api/admin/export-gift-aid?from=${fromIso}&to=${toIso}`}
             className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/90 transition-colors whitespace-nowrap text-center"
           >
             Download HMRC CSV
@@ -157,102 +158,97 @@ export default async function AdminGiftAidExportPage() {
         </div>
         <p className="mt-3 text-[11px] text-charcoal/50 leading-relaxed">
           Defaults to the current UK tax year (6 April → 5 April).
-          Download is in HMRC R68 schedule format with the columns
-          HMRC requires: Title · First name · Last name · House
-          name/number · Postcode · Aggregated donations (Y/N) ·
-          Sponsored event (Y/N) · Donation date · Amount.
+          Download is in HMRC R68 schedule format with these columns:
+          Title · First name · Last name · House name/number · Postcode
+          · Aggregated donations (Y/N) · Sponsored event (Y/N) ·
+          Donation date · Amount.
         </p>
         <p className="mt-2 text-[11px] text-green-dark leading-relaxed">
-          ✓ Real export endpoint wired at{" "}
-          <code className="bg-cream px-1 rounded">
-            /api/admin/export-gift-aid
-          </code>
-          — already produces HMRC-format CSV from the donations data.
+          ✓ Live data — both this preview and the CSV download query
+          your live donations (livemode=true, status=succeeded, with
+          confirmed Gift Aid declaration).
         </p>
       </section>
 
       {/* Eligible donations preview table */}
       <section>
         <h2 className="text-charcoal font-heading font-semibold text-lg mb-3">
-          Preview ({giftAidEligible.length} eligible)
+          Preview ({eligible.length} eligible)
         </h2>
         <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-cream border-b border-charcoal/10">
-                <tr className="text-left">
-                  {[
-                    "Donor",
-                    "Date",
-                    "Amount",
-                    "Gift Aid (25%)",
-                    "Receipt",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-charcoal/8">
-                {giftAidEligible.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="hover:bg-cream/50 transition-colors"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="text-charcoal font-medium text-sm">
-                        {d.donorName}
-                      </div>
-                      <div className="text-charcoal/50 text-xs">
-                        {d.donorEmail}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
-                      {formatAdminDateOnly(d.chargedAt)}
-                    </td>
-                    <td className="px-5 py-3 text-charcoal font-medium whitespace-nowrap">
-                      {formatPence(d.amountPence)}
-                    </td>
-                    <td className="px-5 py-3 text-green-dark font-medium whitespace-nowrap">
-                      +{formatPence(d.giftAidReclaimablePence)}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-[11px] text-charcoal/60">
-                      {d.receiptNumber}
-                    </td>
+          {eligible.length === 0 ? (
+            <div className="p-8 text-center text-charcoal/50 text-sm">
+              No Gift-Aid-eligible donations in this tax year yet. Eligible
+              donations from confirmed UK taxpayers appear here as soon as
+              they&apos;re received.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-cream border-b border-charcoal/10">
+                  <tr className="text-left">
+                    {[
+                      "Donor",
+                      "Date",
+                      "Amount",
+                      "Gift Aid (25%)",
+                      "Receipt",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-                <tr className="bg-cream/60 font-semibold">
-                  <td colSpan={2} className="px-5 py-3 text-charcoal">
-                    Total reclaimable
-                  </td>
-                  <td className="px-5 py-3 text-charcoal">
-                    {formatPence(totalDonatedPence)}
-                  </td>
-                  <td className="px-5 py-3 text-green-dark">
-                    +{formatPence(totalReclaimablePence)}
-                  </td>
-                  <td />
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-charcoal/8">
+                  {eligible.map((d) => (
+                    <tr
+                      key={d.donationId}
+                      className="hover:bg-cream/50 transition-colors"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="text-charcoal font-medium text-sm">
+                          {d.donorName}
+                        </div>
+                        <div className="text-charcoal/50 text-xs">
+                          {d.donorEmail}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
+                        {formatAdminDateOnly(d.chargedAt)}
+                      </td>
+                      <td className="px-5 py-3 text-charcoal font-medium whitespace-nowrap">
+                        {formatPence(d.amountPence)}
+                      </td>
+                      <td className="px-5 py-3 text-green-dark font-medium whitespace-nowrap">
+                        +{formatPence(d.giftAidReclaimablePence)}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-[11px] text-charcoal/60">
+                        {d.receiptNumber}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-cream/60 font-semibold">
+                    <td colSpan={2} className="px-5 py-3 text-charcoal">
+                      Total reclaimable
+                    </td>
+                    <td className="px-5 py-3 text-charcoal">
+                      {formatPence(totalDonatedPence)}
+                    </td>
+                    <td className="px-5 py-3 text-green-dark">
+                      +{formatPence(totalReclaimablePence)}
+                    </td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </section>
-
-      <div className="mt-8 p-5 bg-amber-light border border-amber/30 rounded-2xl text-sm text-charcoal/80 leading-relaxed">
-        <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-amber-dark mb-1">
-          Pitch preview
-        </span>
-        Mockup data, no real donations. The download button is disabled
-        in pitch mode. Production: server-rendered, joins donor address
-        records, streams CSV in HMRC R68 column order, stamps the
-        download with trustee name + timestamp + filter range to the
-        audit log so the same export can be re-run later for verification.
-      </div>
     </main>
   );
 }

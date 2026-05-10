@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-session";
 import {
-  PLACEHOLDER_DONATIONS,
-  donationStats,
-  type CampaignSlug,
-} from "@/lib/admin-placeholder";
+  computeDonationStats,
+  fetchCampaignBreakdown,
+} from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
 
 export const metadata: Metadata = {
@@ -16,41 +15,25 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * Reports landing.
+ * Reports landing — wired to real Supabase aggregations.
  *
- * What lives here: pre-built reports that trustees ask for repeatedly:
- *   - Gift Aid claim — most-frequent + highest-stakes; HMRC reclaim
- *     workflow. Has its own dedicated route with an HMRC-format export.
- *   - Annual report (current FY) — running totals by month + by campaign
- *   - By-campaign breakdown — for trustee meetings, social media reports
- *   - Failed payments — for follow-up + write-off decisions
+ * The Gift Aid card surfaces the live reclaimable figure (last-30-day
+ * window, livemode-only) so trustees can eyeball whether it's worth
+ * filing a claim now or waiting for the next quarter to accumulate
+ * enough volume.
  *
- * Each report is a saved "view" of the underlying donations data with
- * the right filters baked in. Production version: each report's CSV
- * export goes through /api/admin/reports/<name>/export.
+ * The per-campaign breakdown table runs a single Supabase aggregation
+ * over the same 30-day window, grouped by campaign slug. Filtered to
+ * status='succeeded' AND livemode=true so test-mode donations are
+ * permanently invisible to trustees.
  */
 export default async function AdminReportsPage() {
   await requireAdminSession();
-  const stats = donationStats();
 
-  // Compute per-campaign breakdown from placeholder data.
-  const byCampaign: Record<string, { count: number; totalPence: number }> = {};
-  for (const d of PLACEHOLDER_DONATIONS.filter((d) => d.status === "paid")) {
-    const key = d.campaignSlug as CampaignSlug;
-    if (!byCampaign[key]) byCampaign[key] = { count: 0, totalPence: 0 };
-    byCampaign[key].count += 1;
-    byCampaign[key].totalPence += d.amountPence;
-  }
-  const campaignRows = Object.entries(byCampaign)
-    .map(([slug, v]) => ({
-      slug,
-      label:
-        PLACEHOLDER_DONATIONS.find((d) => d.campaignSlug === slug)
-          ?.campaignLabel ?? slug,
-      count: v.count,
-      totalPence: v.totalPence,
-    }))
-    .sort((a, b) => b.totalPence - a.totalPence);
+  const [stats, campaignRows] = await Promise.all([
+    computeDonationStats(),
+    fetchCampaignBreakdown(30),
+  ]);
 
   const grandTotal = campaignRows.reduce((s, r) => s + r.totalPence, 0);
 
@@ -174,83 +157,78 @@ export default async function AdminReportsPage() {
           By campaign · last 30 days
         </h2>
         <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-cream border-b border-charcoal/10">
-              <tr className="text-left">
-                <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                  Campaign
-                </th>
-                <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                  Donations
-                </th>
-                <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                  Total raised
-                </th>
-                <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                  Share
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-charcoal/8">
-              {campaignRows.map((row) => {
-                const sharePct = grandTotal === 0 ? 0 : (row.totalPence / grandTotal) * 100;
-                return (
-                  <tr
-                    key={row.slug}
-                    className="hover:bg-cream/50 transition-colors"
-                  >
-                    <td className="px-5 py-4 text-charcoal font-medium">
-                      {row.label}
-                    </td>
-                    <td className="px-5 py-4 text-charcoal/70">
-                      {row.count}
-                    </td>
-                    <td className="px-5 py-4 text-charcoal font-medium">
-                      {formatPence(row.totalPence)}
-                    </td>
-                    <td className="px-5 py-4 w-48">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-charcoal/8 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-amber rounded-full"
-                            style={{ width: `${sharePct}%` }}
-                          />
+          {campaignRows.length === 0 ? (
+            <div className="p-8 text-center text-charcoal/50 text-sm">
+              No live donations in the last 30 days. New donations will
+              appear here within seconds of being received.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-cream border-b border-charcoal/10">
+                <tr className="text-left">
+                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
+                    Campaign
+                  </th>
+                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
+                    Donations
+                  </th>
+                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
+                    Total raised
+                  </th>
+                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
+                    Share
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-charcoal/8">
+                {campaignRows.map((row) => {
+                  const sharePct =
+                    grandTotal === 0 ? 0 : (row.totalPence / grandTotal) * 100;
+                  return (
+                    <tr
+                      key={row.campaign}
+                      className="hover:bg-cream/50 transition-colors"
+                    >
+                      <td className="px-5 py-4 text-charcoal font-medium">
+                        {row.campaignLabel}
+                      </td>
+                      <td className="px-5 py-4 text-charcoal/70">{row.count}</td>
+                      <td className="px-5 py-4 text-charcoal font-medium">
+                        {formatPence(row.totalPence)}
+                      </td>
+                      <td className="px-5 py-4 w-48">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-charcoal/8 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-amber rounded-full"
+                              style={{ width: `${sharePct}%` }}
+                            />
+                          </div>
+                          <span className="text-[12px] text-charcoal/60 tabular-nums w-10 text-right">
+                            {sharePct.toFixed(0)}%
+                          </span>
                         </div>
-                        <span className="text-[12px] text-charcoal/60 tabular-nums w-10 text-right">
-                          {sharePct.toFixed(0)}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              <tr className="bg-cream/50 font-semibold">
-                <td className="px-5 py-3 text-charcoal">Total</td>
-                <td className="px-5 py-3 text-charcoal/70">
-                  {campaignRows.reduce((s, r) => s + r.count, 0)}
-                </td>
-                <td className="px-5 py-3 text-charcoal">
-                  {formatPence(grandTotal)}
-                </td>
-                <td className="px-5 py-3 text-charcoal/40 text-[12px]">
-                  100%
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-cream/50 font-semibold">
+                  <td className="px-5 py-3 text-charcoal">Total</td>
+                  <td className="px-5 py-3 text-charcoal/70">
+                    {campaignRows.reduce((s, r) => s + r.count, 0)}
+                  </td>
+                  <td className="px-5 py-3 text-charcoal">
+                    {formatPence(grandTotal)}
+                  </td>
+                  <td className="px-5 py-3 text-charcoal/40 text-[12px]">
+                    100%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
-
-      <div className="p-5 bg-amber-light border border-amber/30 rounded-2xl text-sm text-charcoal/80 leading-relaxed">
-        <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-amber-dark mb-1">
-          Pitch preview
-        </span>
-        Production: each report is a server-rendered SQL view over the
-        donations table. CSVs are streamed (not buffered) so a tax-year
-        Gift Aid export with thousands of rows downloads instantly.
-        Generated reports are stamped with the trustee&apos;s name +
-        timestamp for the audit trail.
-      </div>
     </main>
   );
 }

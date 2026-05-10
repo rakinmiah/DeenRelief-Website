@@ -357,6 +357,149 @@ export async function computeDonationStats(): Promise<AdminDonationStats> {
   };
 }
 
+/**
+ * Per-campaign breakdown over a rolling window. Used by the reports
+ * landing page to show "where did the money go in the last 30 days".
+ *
+ * Returns one row per campaign that received at least one succeeded
+ * live-mode donation, sorted by total raised DESC. Empty array when no
+ * donations match.
+ */
+export interface CampaignBreakdownRow {
+  campaign: string;
+  campaignLabel: string;
+  count: number;
+  totalPence: number;
+}
+
+export async function fetchCampaignBreakdown(
+  windowDays = 30
+): Promise<CampaignBreakdownRow[]> {
+  const supabase = getSupabaseAdmin();
+  const cutoff = new Date(
+    Date.now() - windowDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from("donations")
+    .select("campaign, campaign_label, amount_pence")
+    .eq("status", "succeeded")
+    .eq("livemode", true)
+    .gte("completed_at", cutoff);
+
+  if (error) {
+    console.error("[admin-donations] fetchCampaignBreakdown failed:", error);
+    return [];
+  }
+
+  const byCampaign = new Map<string, CampaignBreakdownRow>();
+  for (const row of data ?? []) {
+    const slug = row.campaign as string;
+    const existing = byCampaign.get(slug);
+    if (existing) {
+      existing.count += 1;
+      existing.totalPence += row.amount_pence as number;
+    } else {
+      byCampaign.set(slug, {
+        campaign: slug,
+        campaignLabel: row.campaign_label as string,
+        count: 1,
+        totalPence: row.amount_pence as number,
+      });
+    }
+  }
+
+  return Array.from(byCampaign.values()).sort(
+    (a, b) => b.totalPence - a.totalPence
+  );
+}
+
+/**
+ * Gift Aid eligible donations preview — same query as the export route,
+ * but exposed for the /admin/reports/gift-aid preview table. Default
+ * window matches the UK tax year (6 April → 5 April). Production
+ * version of the export route handles the actual CSV download with
+ * matching column shape.
+ */
+export interface GiftAidEligibleRow {
+  donationId: string;
+  receiptNumber: string;
+  donorName: string;
+  donorEmail: string;
+  chargedAt: string;
+  amountPence: number;
+  giftAidReclaimablePence: number;
+}
+
+interface RawGiftAidRow {
+  id: string;
+  amount_pence: number;
+  completed_at: string;
+  donors: unknown;
+  gift_aid_declaration: unknown;
+}
+
+export async function fetchGiftAidEligible(
+  fromIso?: string,
+  toIso?: string
+): Promise<GiftAidEligibleRow[]> {
+  const supabase = getSupabaseAdmin();
+
+  // Default to current UK tax year (6 April → 5 April).
+  const now = new Date();
+  const taxYearStart = (() => {
+    const y = now.getFullYear();
+    const aprilSix = new Date(Date.UTC(y, 3, 6));
+    return now < aprilSix ? new Date(Date.UTC(y - 1, 3, 6)) : aprilSix;
+  })();
+  const taxYearEnd = new Date(taxYearStart);
+  taxYearEnd.setUTCFullYear(taxYearStart.getUTCFullYear() + 1);
+  taxYearEnd.setUTCDate(taxYearStart.getUTCDate() - 1);
+
+  const from = fromIso ?? taxYearStart.toISOString().slice(0, 10);
+  const to = toIso ?? taxYearEnd.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("donations")
+    .select(
+      `id, amount_pence, completed_at,
+       donors(email, full_name, first_name, last_name),
+       gift_aid_declaration:gift_aid_declarations(revoked_at)`
+    )
+    .eq("gift_aid_claimed", true)
+    .eq("status", "succeeded")
+    .eq("livemode", true)
+    .gte("completed_at", `${from}T00:00:00Z`)
+    .lte("completed_at", `${to}T23:59:59Z`)
+    .order("completed_at", { ascending: false });
+
+  if (error) {
+    console.error("[admin-donations] fetchGiftAidEligible failed:", error);
+    return [];
+  }
+
+  const rows: GiftAidEligibleRow[] = [];
+  for (const raw of (data ?? []) as unknown as RawGiftAidRow[]) {
+    const decl = singleJoin<RawGiftAidDeclaration>(raw.gift_aid_declaration);
+    if (decl?.revoked_at) continue; // declaration revoked — skip
+    const donor = singleJoin<RawDonor>(raw.donors);
+    const donorName =
+      donor?.full_name ??
+      [donor?.first_name, donor?.last_name].filter(Boolean).join(" ").trim() ??
+      "Anonymous";
+    rows.push({
+      donationId: raw.id,
+      receiptNumber: receiptNumberFor(raw.id),
+      donorName: donorName || "Anonymous",
+      donorEmail: donor?.email ?? "",
+      chargedAt: raw.completed_at,
+      amountPence: raw.amount_pence,
+      giftAidReclaimablePence: Math.round(raw.amount_pence * 0.25),
+    });
+  }
+  return rows;
+}
+
 /** UK-format an ISO date for display (DD/MM/YYYY HH:MM). */
 export function formatAdminDate(iso: string): string {
   const d = new Date(iso);
