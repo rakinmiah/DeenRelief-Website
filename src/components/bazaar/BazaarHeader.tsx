@@ -68,7 +68,7 @@ export default function BazaarHeader() {
   const donateHref = deriveDonateHref(pathname);
 
   return (
-    <header className="sticky top-0 z-40 bg-cream border-b border-charcoal/8 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 bg-white border-b border-charcoal/8 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top row — identity (left) + commerce CTAs (right) */}
         <div className="flex items-center justify-between h-[60px] md:h-[64px]">
