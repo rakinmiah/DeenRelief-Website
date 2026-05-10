@@ -162,7 +162,8 @@ export default async function AdminReportsPage() {
               appear here within seconds of being received.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-cream border-b border-charcoal/10">
                 <tr className="text-left">
                   <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
@@ -225,6 +226,7 @@ export default async function AdminReportsPage() {
                 </tr>
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </section>
