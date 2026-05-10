@@ -91,9 +91,20 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
   // Read current filter state out of search params.
   const from = params.get("from") ?? "";
   const to = params.get("to") ?? "";
-  const status = (params.get("status") ?? "")
+
+  // Status: when no URL param, default to ["succeeded"] (matches the
+  // server-side parseFilters default). Stored separately so we can
+  // distinguish "explicitly set" (rawStatus) from "effective state"
+  // (status, used for chip active checks):
+  //   - Active filter chip bar uses rawStatus — only shows pills when
+  //     the user has explicitly applied a non-default status filter
+  //   - Filters popover chip active states use status — shows "Paid"
+  //     as visually active even in default state, so the user can
+  //     see it's the active filter without having to deduce it
+  const rawStatus = (params.get("status") ?? "")
     .split(",")
     .filter(Boolean);
+  const status = rawStatus.length > 0 ? rawStatus : ["succeeded"];
   const campaign = (params.get("campaign") ?? "")
     .split(",")
     .filter(Boolean);
@@ -185,8 +196,11 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
 
   // ── Render ─────────────────────────────────────────────────────────
 
+  // Use rawStatus (the explicit URL value) for the "filters active"
+  // count, NOT the effective status. The default succeeded-only filter
+  // shouldn't count as an "applied" filter — it's the baseline.
   const dimensionFilterCount =
-    status.length +
+    rawStatus.length +
     campaign.length +
     (frequency ? 1 : 0) +
     (giftAid ? 1 : 0);
@@ -402,7 +416,7 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
         <ActiveFilterChips
           from={from}
           to={to}
-          status={status}
+          status={rawStatus}
           campaign={campaign}
           campaignLabels={Object.fromEntries(
             availableCampaigns.map((c) => [c.slug, c.label])
@@ -414,7 +428,7 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
             if (key === "from" || key === "to") {
               updateParam(key, null);
             } else if (key === "status" && value) {
-              const next = status.filter((s) => s !== value);
+              const next = rawStatus.filter((s) => s !== value);
               updateParam("status", next.length > 0 ? next.join(",") : null);
             } else if (key === "campaign" && value) {
               const next = campaign.filter((c) => c !== value);

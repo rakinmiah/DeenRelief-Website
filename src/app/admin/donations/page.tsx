@@ -52,16 +52,37 @@ interface RouteParams {
  * Parse the URL search params into a typed DonationFilters object.
  * Whitespace / unknown values are silently dropped — we never want
  * a malformed URL to crash the page.
+ *
+ * Status default: when no `status` URL param is present, defaults to
+ * showing ONLY succeeded donations. This is the most common mental
+ * model for "what donations did we receive" — failed / pending /
+ * refunded are operational exception states surfaced via /admin/
+ * reports/failed-payments and explicit filter chips. To see all four
+ * statuses, the trustee opens the Filters popover and ticks the
+ * additional chips.
  */
 function parseFilters(
   raw: Awaited<RouteParams["searchParams"]>
 ): DonationFilters {
-  const status = (raw.status ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is AdminDonationStatus =>
-      ["succeeded", "pending", "failed", "refunded"].includes(s)
-    );
+  // `raw.status === undefined` → URL had no status param → default
+  //   filter is [succeeded] only.
+  // `raw.status === ""` → user explicitly cleared (e.g. via "Clear
+  //   all" link). Treated identically to the default — without an
+  //   explicit non-empty list, the page shows succeeded-only.
+  // `raw.status === "succeeded,failed,..."` → use the listed values.
+  const statusParam = raw.status;
+  let status: AdminDonationStatus[];
+  if (typeof statusParam === "string" && statusParam.trim() !== "") {
+    status = statusParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s): s is AdminDonationStatus =>
+        ["succeeded", "pending", "failed", "refunded"].includes(s)
+      );
+    if (status.length === 0) status = ["succeeded"];
+  } else {
+    status = ["succeeded"];
+  }
   const campaign = (raw.campaign ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -80,7 +101,10 @@ function parseFilters(
   return {
     from: raw.from && /^\d{4}-\d{2}-\d{2}$/.test(raw.from) ? raw.from : undefined,
     to: raw.to && /^\d{4}-\d{2}-\d{2}$/.test(raw.to) ? raw.to : undefined,
-    status: status.length > 0 ? status : undefined,
+    // status is always non-empty now (defaults to ["succeeded"]) — see
+    // status default logic above. Page table + stats + CSV export all
+    // honour this filter.
+    status,
     campaign: campaign.length > 0 ? campaign : undefined,
     frequency,
     giftAidClaimed,
