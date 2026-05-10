@@ -73,49 +73,6 @@ export default function BazaarPage() {
         </div>
       </section>
 
-      {/* ─── The Promise ─── */}
-      {/* Mirrors the structure of the "Trusted Zakat Charity" assurance
-          strip on /zakat: centered text intro followed by the shared
-          ProcessSteps component, which scroll-couples the L→R track fill
-          and the per-node fade as the row crosses the viewport. */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="inline-block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
-              Our Commitments
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-              Three promises behind every piece
-            </h2>
-            <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-              When you buy from the Bazaar, here&apos;s what you&apos;re
-              paying for &mdash; and what we promise our makers.
-            </p>
-          </div>
-
-          <ProcessSteps
-            steps={[
-              {
-                n: "01",
-                title: "Made by named people",
-                body: "Every product carries a tag with the maker's name and where they live. No anonymous factories, no opaque supply chains — just real people, doing skilled work.",
-              },
-              {
-                n: "02",
-                title: "Fair pay, paid up front",
-                body: "Makers are paid for each piece at three to four times the regional commercial rate. We pay before the inventory ships, not after it sells.",
-              },
-              {
-                n: "03",
-                title: "Profit funds our charity work",
-                body: "What's left after maker pay, materials, freight and fulfilment is gift-aided into Deen Relief's charity programmes — orphan sponsorship, cancer care, emergency relief.",
-              },
-            ]}
-            className="max-w-4xl mx-auto"
-          />
-        </div>
-      </section>
-
       {/* ─── Featured maker preview (tease the story page) ─── */}
       <section className="py-14 md:py-20 bg-cream">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -181,6 +138,50 @@ export default function BazaarPage() {
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ─── The Promise ─── */}
+      {/* Moved below the catalog so the page leads with product +
+          maker story (the moat) and uses the commitments strip as the
+          closing reassurance before the trust bar. Same structure as
+          /zakat's "Trusted Zakat Charity" strip — centered intro
+          followed by the shared ProcessSteps animation. */}
+      <section className="py-16 md:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="inline-block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
+              Our Commitments
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
+              Three promises behind every piece
+            </h2>
+            <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+              When you buy from the Bazaar, here&apos;s what you&apos;re
+              paying for &mdash; and what we promise our makers.
+            </p>
+          </div>
+
+          <ProcessSteps
+            steps={[
+              {
+                n: "01",
+                title: "Made by named people",
+                body: "Every product carries a tag with the maker's name and where they live. No anonymous factories, no opaque supply chains — just real people, doing skilled work.",
+              },
+              {
+                n: "02",
+                title: "Fair pay, paid up front",
+                body: "Makers are paid for each piece at three to four times the regional commercial rate. We pay before the inventory ships, not after it sells.",
+              },
+              {
+                n: "03",
+                title: "Profit funds our charity work",
+                body: "What's left after maker pay, materials, freight and fulfilment is gift-aided into Deen Relief's charity programmes — orphan sponsorship, cancer care, emergency relief.",
+              },
+            ]}
+            className="max-w-4xl mx-auto"
+          />
         </div>
       </section>
 
