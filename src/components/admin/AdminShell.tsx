@@ -27,7 +27,7 @@ const NAV_ITEMS = [
 
 export default function AdminShell({
   children,
-  signedInAs = "trustee@deenrelief.org",
+  signedInAs = "info@deenrelief.org",
 }: {
   children: React.ReactNode;
   signedInAs?: string;

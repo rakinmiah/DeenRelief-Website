@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import AdminShell from "@/components/admin/AdminShell";
+import { getAdminSession } from "@/lib/admin-session";
 
 /**
  * Admin layout — wraps every /admin/* page with the shared chrome AND
@@ -75,10 +76,18 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AdminShell>{children}</AdminShell>;
+  // Read the session so AdminShell can display the actual signed-in
+  // email next to "Sign out" rather than a hardcoded placeholder.
+  // getAdminSession returns null on /admin/login (no cookie yet) —
+  // AdminShell falls back to its default in that case, but the login
+  // page bypasses the chrome anyway so the fallback never renders.
+  const session = await getAdminSession();
+  return (
+    <AdminShell signedInAs={session?.email}>{children}</AdminShell>
+  );
 }
