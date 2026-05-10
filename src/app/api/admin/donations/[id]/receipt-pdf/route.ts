@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { requireAdminAuth } from "@/lib/admin-auth";
 import { logAdminAction } from "@/lib/admin-audit";
@@ -5,6 +7,28 @@ import { fetchAdminDonationById } from "@/lib/admin-donations";
 import { DonationReceiptPDF } from "@/lib/donation-receipt-pdf";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Lazy-load the charity logo from /public/images/logo.png and cache
+ * the data URL per-process. The PDF component embeds the image
+ * inline (no remote fetch on render). If the file is missing or
+ * can't be read, returns null and the component falls back to a text
+ * wordmark — receipt still renders, just without the logo.
+ */
+let cachedLogoDataUrl: string | null | undefined;
+async function loadLogoDataUrl(): Promise<string | null> {
+  if (cachedLogoDataUrl !== undefined) return cachedLogoDataUrl;
+  try {
+    const p = path.join(process.cwd(), "public", "images", "logo.png");
+    const buf = await readFile(p);
+    cachedLogoDataUrl = `data:image/png;base64,${buf.toString("base64")}`;
+    return cachedLogoDataUrl;
+  } catch (err) {
+    console.warn("[receipt-pdf] Could not load logo, falling back to text wordmark:", err);
+    cachedLogoDataUrl = null;
+    return null;
+  }
+}
 
 /**
  * GET /api/admin/donations/[id]/receipt-pdf
@@ -71,10 +95,11 @@ export async function GET(
     );
   }
 
-  // Render the PDF to a buffer. The component needs to be invoked as
-  // an element (createElement), not as JSX in a non-tsx file — but
-  // since we're in .ts here, we use the tsx wrapper that exports the
-  // component and renderToBuffer accepts the React element.
+  // Render the PDF to a buffer. Logo is loaded once per process and
+  // cached as a data URL — no remote fetch on render, no file I/O
+  // after the first request.
+  const logoDataUrl = await loadLogoDataUrl();
+
   const buffer = await renderToBuffer(
     DonationReceiptPDF({
       receiptNumber: donation.receiptNumber,
@@ -93,6 +118,7 @@ export async function GET(
       status: donation.status === "refunded" ? "refunded" : "succeeded",
       completedAt: new Date(donation.chargedAt),
       paymentIntentId: donation.stripePaymentIntent,
+      logoDataUrl,
     })
   );
 

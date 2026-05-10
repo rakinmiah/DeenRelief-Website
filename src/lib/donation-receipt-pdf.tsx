@@ -23,6 +23,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
 } from "@react-pdf/renderer";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
@@ -51,6 +52,13 @@ export interface DonationReceiptPdfInput {
   status: "succeeded" | "refunded";
   completedAt: Date;
   paymentIntentId: string | null;
+  /**
+   * Logo image as a data URL (e.g. "data:image/png;base64,..."). Set
+   * server-side by reading public/images/logo.png. When null we fall
+   * back to a text wordmark so the receipt still renders if the logo
+   * file is missing.
+   */
+  logoDataUrl: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -69,36 +77,50 @@ const COLORS = {
   textFaint: "#9B9BA0",
 };
 
+// Note: we deliberately do NOT set a page-level `lineHeight` here.
+// @react-pdf/renderer multiplies fontSize × lineHeight to compute line
+// height — applying `lineHeight: 1.5` at the page level made the 32pt
+// amount text use a 48pt line, overlapping the 10pt label below it.
+// Each style sets its own lineHeight explicitly, tuned to its fontSize.
+
 const styles = StyleSheet.create({
   page: {
-    padding: 48,
+    paddingTop: 56,
+    paddingBottom: 80, // room for fixed footer
+    paddingHorizontal: 56,
     backgroundColor: "#FFFFFF",
     fontFamily: "Helvetica",
     fontSize: 10,
     color: COLORS.charcoal,
-    lineHeight: 1.5,
   },
   // ─── Header ─────────────────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 32,
-    paddingBottom: 16,
+    marginBottom: 36,
+    paddingBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
+  },
+  brandLogo: {
+    width: 140,
+    height: 36,
+    objectFit: "contain",
   },
   brand: {
     fontSize: 18,
     fontFamily: "Helvetica-Bold",
     color: COLORS.charcoal,
     marginBottom: 4,
+    lineHeight: 1.2,
   },
   brandTagline: {
-    fontSize: 9,
+    fontSize: 8,
     color: COLORS.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",
+    lineHeight: 1.4,
   },
   receiptMeta: { textAlign: "right" },
   receiptKicker: {
@@ -107,12 +129,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: "uppercase",
     fontFamily: "Helvetica-Bold",
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 1.3,
   },
   receiptNumber: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: COLORS.charcoal,
+    lineHeight: 1.3,
+  },
+  receiptDate: {
+    fontSize: 9,
+    color: COLORS.textMuted,
+    marginTop: 6,
+    lineHeight: 1.4,
   },
   // ─── Refund banner ──────────────────────────────────────────────────────
   refundBanner: {
@@ -120,66 +150,81 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FCA5A5",
     borderRadius: 4,
-    padding: 12,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 24,
   },
   refundBannerText: {
     fontSize: 10,
     color: "#991B1B",
     fontFamily: "Helvetica-Bold",
+    lineHeight: 1.5,
   },
   // ─── Title ──────────────────────────────────────────────────────────────
   title: {
     fontSize: 22,
     fontFamily: "Helvetica-Bold",
     color: COLORS.charcoal,
-    marginBottom: 6,
+    marginBottom: 8,
+    lineHeight: 1.25,
   },
   subtitle: {
     fontSize: 11,
     color: COLORS.textMuted,
-    marginBottom: 28,
+    marginBottom: 32,
+    lineHeight: 1.5,
   },
   // ─── Section ────────────────────────────────────────────────────────────
-  section: { marginBottom: 22 },
+  section: { marginBottom: 28 },
   sectionLabel: {
     fontSize: 8,
     color: COLORS.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",
     fontFamily: "Helvetica-Bold",
-    marginBottom: 8,
+    marginBottom: 10,
+    lineHeight: 1.3,
   },
   // ─── Amount block ───────────────────────────────────────────────────────
   amountBlock: {
     backgroundColor: COLORS.cream,
-    padding: 20,
+    padding: 24,
     borderRadius: 6,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   amountValue: {
     fontSize: 32,
     fontFamily: "Helvetica-Bold",
     color: COLORS.charcoal,
-    marginBottom: 4,
+    marginBottom: 10,
+    lineHeight: 1.15, // tight — the big number doesn't need much above/below
   },
   amountLabel: {
     fontSize: 10,
     color: COLORS.textMuted,
+    lineHeight: 1.5,
+  },
+  amountGiftAidLine: {
+    fontSize: 10,
+    color: COLORS.greenDark,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    lineHeight: 1.5,
   },
   // ─── KV rows ────────────────────────────────────────────────────────────
   kvRow: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
   },
-  kvKey: { width: 120, color: COLORS.textMuted, fontSize: 10 },
-  kvValue: { flex: 1, color: COLORS.charcoal, fontSize: 10 },
+  kvKey: { width: 110, color: COLORS.textMuted, fontSize: 10, lineHeight: 1.4 },
+  kvValue: { flex: 1, color: COLORS.charcoal, fontSize: 10, lineHeight: 1.4 },
   // ─── Gift Aid block ─────────────────────────────────────────────────────
   giftAidBlock: {
     backgroundColor: COLORS.cream,
-    padding: 14,
+    padding: 16,
     borderRadius: 6,
     marginTop: 4,
   },
@@ -187,20 +232,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Helvetica-Bold",
     color: COLORS.greenDark,
-    marginBottom: 8,
+    marginBottom: 10,
+    lineHeight: 1.4,
   },
   giftAidDeclaration: {
     fontSize: 9,
     fontStyle: "italic",
     color: COLORS.textMuted,
-    lineHeight: 1.5,
+    lineHeight: 1.55,
   },
   // ─── Footer ─────────────────────────────────────────────────────────────
   footer: {
     position: "absolute",
-    bottom: 32,
-    left: 48,
-    right: 48,
+    bottom: 36,
+    left: 56,
+    right: 56,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
@@ -209,7 +255,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: COLORS.textFaint,
     textAlign: "center",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
 });
 
@@ -251,16 +297,27 @@ export function DonationReceiptPDF(input: DonationReceiptPdfInput) {
       subject={`Receipt for ${formatGbp(input.amountPence)} donation to ${input.campaignLabel}`}
     >
       <Page size="A4" style={styles.page}>
-        {/* Header */}
+        {/* Header — logo on left (text fallback if logo file missing),
+            receipt metadata on right. `fixed` so it appears at the top
+            of every page if the receipt ever spans multiple pages. */}
         <View style={styles.header} fixed>
           <View>
-            <Text style={styles.brand}>{CHARITY_NAME}</Text>
-            <Text style={styles.brandTagline}>UK Islamic Charity</Text>
+            {input.logoDataUrl ? (
+              // jsx-a11y treats this as an HTML img — it's @react-pdf's
+              // Image component for PDF rendering, no alt-text concept.
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <Image src={input.logoDataUrl} style={styles.brandLogo} />
+            ) : (
+              <>
+                <Text style={styles.brand}>{CHARITY_NAME}</Text>
+                <Text style={styles.brandTagline}>UK Islamic Charity</Text>
+              </>
+            )}
           </View>
           <View style={styles.receiptMeta}>
             <Text style={styles.receiptKicker}>Donation Receipt</Text>
             <Text style={styles.receiptNumber}>{input.receiptNumber}</Text>
-            <Text style={[styles.brandTagline, { marginTop: 4 }]}>
+            <Text style={styles.receiptDate}>
               {formatDate(input.completedAt)}
             </Text>
           </View>
@@ -296,11 +353,21 @@ export function DonationReceiptPDF(input: DonationReceiptPdfInput) {
             {input.frequency === "monthly" ? " · monthly recurring" : ""}
           </Text>
           {input.giftAidClaimed && (
-            <Text style={[styles.amountLabel, { marginTop: 6, color: COLORS.greenDark }]}>
-              + {formatGbp(giftAidUplift)} reclaimable from HMRC via Gift Aid
-              {"\n"}
-              Total to charity: {formatGbp(totalToCharity)}
-            </Text>
+            <View style={styles.amountGiftAidLine}>
+              <Text style={{ color: COLORS.greenDark, lineHeight: 1.5 }}>
+                + {formatGbp(giftAidUplift)} reclaimable from HMRC via Gift Aid
+              </Text>
+              <Text
+                style={{
+                  color: COLORS.charcoal,
+                  fontFamily: "Helvetica-Bold",
+                  marginTop: 4,
+                  lineHeight: 1.5,
+                }}
+              >
+                Total to charity: {formatGbp(totalToCharity)}
+              </Text>
+            </View>
           )}
         </View>
 
