@@ -3,11 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
 import {
-  findRecurringById,
+  cardBrandLabel,
+  fetchAdminRecurringById,
+  type AdminRecurringStatus,
+} from "@/lib/admin-recurring";
+import {
   formatAdminDate,
   formatAdminDateOnly,
-} from "@/lib/admin-placeholder";
+} from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import RecurringActionsClient from "./RecurringActionsClient";
 
 export const metadata: Metadata = {
   title: "Recurring donation | Deen Relief Admin",
@@ -20,21 +25,38 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<AdminRecurringStatus, string> = {
   active: "bg-green/10 text-green-dark border-green/30",
+  trialing: "bg-green/10 text-green-dark border-green/30",
   past_due: "bg-amber-light text-amber-dark border-amber/30",
-  cancelled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  incomplete: "bg-amber-light text-amber-dark border-amber/30",
+  unpaid: "bg-red-50 text-red-700 border-red-200",
+  paused: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  incomplete_expired: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  canceled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
-export default async function AdminRecurringDetailPage({
-  params,
-}: RouteParams) {
+const STATUS_LABEL: Record<AdminRecurringStatus, string> = {
+  active: "active",
+  trialing: "trialing",
+  past_due: "past due",
+  incomplete: "incomplete",
+  unpaid: "unpaid",
+  paused: "paused",
+  incomplete_expired: "expired",
+  canceled: "cancelled",
+};
+
+export default async function AdminRecurringDetailPage({ params }: RouteParams) {
   await requireAdminSession();
   const { id } = await params;
-  const sub = findRecurringById(id);
+  const sub = await fetchAdminRecurringById(id);
   if (!sub) notFound();
 
-  const isActive = sub.status === "active";
+  const isActive =
+    sub.status === "active" ||
+    sub.status === "trialing" ||
+    sub.status === "past_due";
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -59,13 +81,12 @@ export default async function AdminRecurringDetailPage({
         <span
           className={`inline-block px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[sub.status]}`}
         >
-          {sub.status}
+          {STATUS_LABEL[sub.status]}
         </span>
       </div>
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         <div className="space-y-5">
-          {/* Money headline */}
           <section className="bg-white border border-charcoal/10 rounded-2xl p-5 sm:p-6">
             <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
               Recurring details
@@ -101,11 +122,11 @@ export default async function AdminRecurringDetailPage({
                   {formatAdminDate(sub.startedAt)}
                 </dd>
               </div>
-              {sub.cancelledAt && (
+              {sub.canceledAt && (
                 <div className="grid grid-cols-[140px_1fr] gap-3">
                   <dt className="text-charcoal/60">Cancelled</dt>
                   <dd className="text-charcoal">
-                    {formatAdminDate(sub.cancelledAt)}
+                    {formatAdminDate(sub.canceledAt)}
                   </dd>
                 </div>
               )}
@@ -120,14 +141,14 @@ export default async function AdminRecurringDetailPage({
               <div className="grid grid-cols-[140px_1fr] gap-3">
                 <dt className="text-charcoal/60">Card</dt>
                 <dd className="text-charcoal">
-                  {sub.cardBrand.charAt(0).toUpperCase() + sub.cardBrand.slice(1)}{" "}
-                  ending ····{sub.cardLast4}
+                  {sub.cardLast4
+                    ? `${cardBrandLabel(sub.cardBrand)} ending ····${sub.cardLast4}`
+                    : "—"}
                 </dd>
               </div>
             </dl>
           </section>
 
-          {/* Donor */}
           <section className="bg-white border border-charcoal/10 rounded-2xl p-5 sm:p-6">
             <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
               Donor
@@ -142,55 +163,13 @@ export default async function AdminRecurringDetailPage({
           </section>
         </div>
 
-        {/* Side panel — actions */}
-        <aside className="space-y-4">
-          <section className="bg-charcoal text-white rounded-2xl p-5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-white/60 mb-3">
-              Actions
-            </h2>
-            <div className="space-y-2">
-              <button
-                type="button"
-                disabled
-                className="w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-              >
-                Send Stripe portal link
-              </button>
-              <button
-                type="button"
-                disabled
-                className="w-full px-4 py-2.5 rounded-full bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-              >
-                View past charges
-              </button>
-              {isActive && (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full px-4 py-2.5 rounded-full bg-red-500/20 text-red-200 text-sm font-medium hover:bg-red-500/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-left"
-                >
-                  Cancel subscription…
-                </button>
-              )}
-            </div>
-            <p className="mt-4 text-[10px] text-white/40 leading-relaxed">
-              Disabled in pitch preview. Cancel: posts to Stripe, syncs
-              status, fires a cancellation-confirmation email via Resend
-              with a re-subscribe link.
-            </p>
-          </section>
-
-          <section className="bg-white border border-charcoal/10 rounded-2xl p-5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
-              Internal notes
-            </h2>
-            <textarea
-              rows={4}
-              disabled
-              placeholder="e.g. donor called to pause for 3 months due to redundancy…"
-              className="w-full px-3 py-2 rounded-lg bg-cream border border-charcoal/10 text-sm text-charcoal placeholder:text-charcoal/30 disabled:cursor-not-allowed"
-            />
-          </section>
+        <aside>
+          <RecurringActionsClient
+            internalId={sub.id}
+            stripeSubscriptionId={sub.stripeSubscriptionId}
+            stripeCustomerId={sub.stripeCustomerId}
+            isActive={isActive}
+          />
         </aside>
       </div>
     </main>
