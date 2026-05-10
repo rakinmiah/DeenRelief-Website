@@ -36,6 +36,36 @@ export type AdminDonationStatus =
 export type AdminDonationFrequency = "one-time" | "monthly";
 
 /**
+ * Filter parameters for the donations admin. All fields optional —
+ * empty / null / undefined means "no filter on this dimension".
+ *
+ * Date semantics:
+ *   - `from` is INCLUSIVE start of day (00:00:00Z)
+ *   - `to` is INCLUSIVE end of day (23:59:59Z)
+ *   - We filter on `created_at` rather than `completed_at` so pending
+ *     and failed rows still appear in date-range queries (a donation
+ *     that failed today should show in "today's donations" even if
+ *     completed_at is null).
+ *
+ * URL search-param encoding:
+ *   from=YYYY-MM-DD&to=YYYY-MM-DD
+ *   status=succeeded,failed   (comma-separated)
+ *   campaign=palestine,zakat
+ *   frequency=monthly         (single value or omitted)
+ *   giftAid=true              (true / false / omitted)
+ *   q=aisha                   (donor name/email search)
+ */
+export interface DonationFilters {
+  from?: string;
+  to?: string;
+  status?: AdminDonationStatus[];
+  campaign?: string[];
+  frequency?: AdminDonationFrequency;
+  giftAidClaimed?: boolean;
+  q?: string;
+}
+
+/**
  * Display shape — derived from the joined donations + donors row, with
  * fields normalised so the admin UI doesn't have to know about
  * PostgREST relationship cardinality quirks.
@@ -203,23 +233,29 @@ function shapeRow(raw: RawDonationRow): AdminDonationRow {
 }
 
 /**
- * Fetch the most-recent N donations for the admin list view.
- * Sorted by created_at desc so newest donations appear first.
+ * Fetch the most-recent N donations for the admin list view, with
+ * optional filtering. Sorted by created_at desc so newest first.
  *
  * Always filters `livemode = true` — test-mode donations from Stripe
- * sandbox stay out of the trustee-facing admin entirely. The livemode
- * column is written from the authoritative `pi.livemode`/`si.livemode`
- * value Stripe returns when the donation is confirmed, never inferred
- * from API key prefix.
+ * sandbox stay out of the trustee-facing admin entirely.
  *
- * Production: at low volume (~thousands of donations) we just SELECT
- * 200 latest rows. Once the table grows, switch to keyset pagination.
+ * Filtering strategy:
+ *   - Date / status / campaign / frequency / giftAid filters apply at
+ *     the Supabase query level (server-side, filtered count).
+ *   - Donor name/email search (`q`) applies as a post-filter in JS
+ *     because PostgREST OR across joined columns is awkward and the
+ *     row volume is small (~200). The JS filter is case-insensitive
+ *     substring match on full_name + email.
+ *
+ * Production: at low volume (~thousands of donations) we SELECT 200
+ * latest rows. Once the table grows, switch to keyset pagination.
  */
 export async function fetchAdminDonations(
+  filters: DonationFilters = {},
   limit = 200
 ): Promise<AdminDonationRow[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  let query = supabase
     .from("donations")
     .select(
       `id, amount_pence, currency, status, frequency, campaign,
@@ -232,7 +268,24 @@ export async function fetchAdminDonations(
               stripe_customer_id),
        gift_aid_declaration:gift_aid_declarations(revoked_at)`
     )
-    .eq("livemode", true)
+    .eq("livemode", true);
+
+  if (filters.from) query = query.gte("created_at", `${filters.from}T00:00:00Z`);
+  if (filters.to) query = query.lte("created_at", `${filters.to}T23:59:59Z`);
+  if (filters.status && filters.status.length > 0) {
+    query = query.in("status", filters.status);
+  }
+  if (filters.campaign && filters.campaign.length > 0) {
+    query = query.in("campaign", filters.campaign);
+  }
+  if (filters.frequency) {
+    query = query.eq("frequency", filters.frequency);
+  }
+  if (typeof filters.giftAidClaimed === "boolean") {
+    query = query.eq("gift_aid_claimed", filters.giftAidClaimed);
+  }
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -241,7 +294,22 @@ export async function fetchAdminDonations(
     return [];
   }
 
-  return (data ?? []).map((r) => shapeRow(r as unknown as RawDonationRow));
+  let rows = (data ?? []).map((r) => shapeRow(r as unknown as RawDonationRow));
+
+  // Donor search post-filter — case-insensitive substring on
+  // donor_name + donor_email. We do this in JS rather than via
+  // PostgREST OR across the joined donors table because the row
+  // volume is small and the OR syntax across joins is brittle.
+  if (filters.q && filters.q.trim()) {
+    const q = filters.q.trim().toLowerCase();
+    rows = rows.filter(
+      (r) =>
+        r.donorName.toLowerCase().includes(q) ||
+        r.donorEmail.toLowerCase().includes(q)
+    );
+  }
+
+  return rows;
 }
 
 /**
@@ -279,27 +347,60 @@ export async function fetchAdminDonationById(
 }
 
 /**
- * Aggregate stats for the donations dashboard header. All windowed to
- * the last 30 days for "recent operational" KPIs; recurring is
- * point-in-time (active right now).
+ * Aggregate stats for the donations dashboard header. By default
+ * windowed to the last 30 days; when filters are passed, the date /
+ * status / campaign / frequency / giftAid filters apply to the
+ * aggregate so the strip and the table tell the same story.
  *
- * Each branch is a separate query — Postgres SUM/COUNT fast enough at
- * any sane charity scale. If row counts ever exceed ~1M, switch to a
- * materialized view refreshed nightly.
+ * Donor search (`q`) does NOT affect the strip — that's a table-level
+ * filter only.
+ *
+ * Recurring stats are point-in-time (active right now) regardless of
+ * date filter — that question's always "how many sponsors do we have
+ * today", not "how many in the filter window".
  */
-export async function computeDonationStats(): Promise<AdminDonationStats> {
+export async function computeDonationStats(
+  filters: DonationFilters = {}
+): Promise<AdminDonationStats> {
   const supabase = getSupabaseAdmin();
   const last30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Last-30d succeeded donations.
-  const { data: recentRows, error: recentErr } = await supabase
+  // Build the date window. If the filters supply explicit from/to we
+  // honour them; otherwise default to last-30-days for the legacy
+  // "recent operational" view.
+  const fromIso = filters.from
+    ? `${filters.from}T00:00:00Z`
+    : last30d;
+  const toIso = filters.to ? `${filters.to}T23:59:59Z` : null;
+
+  let recentQuery = supabase
     .from("donations")
     .select(
       "amount_pence, gift_aid_claimed, gift_aid_declaration:gift_aid_declarations(revoked_at)"
     )
-    .eq("status", "succeeded")
     .eq("livemode", true)
-    .gte("completed_at", last30d);
+    .gte("created_at", fromIso);
+
+  if (toIso) recentQuery = recentQuery.lte("created_at", toIso);
+
+  // Status: respect the filter if explicit; otherwise default to
+  // status='succeeded' (the standard "money received" definition).
+  if (filters.status && filters.status.length > 0) {
+    recentQuery = recentQuery.in("status", filters.status);
+  } else {
+    recentQuery = recentQuery.eq("status", "succeeded");
+  }
+  if (filters.campaign && filters.campaign.length > 0) {
+    recentQuery = recentQuery.in("campaign", filters.campaign);
+  }
+  if (filters.frequency) {
+    recentQuery = recentQuery.eq("frequency", filters.frequency);
+  }
+  if (typeof filters.giftAidClaimed === "boolean") {
+    recentQuery = recentQuery.eq("gift_aid_claimed", filters.giftAidClaimed);
+  }
+
+  const { data: recentRows, error: recentErr } = await recentQuery;
 
   if (recentErr) {
     console.error("[admin-donations] computeDonationStats recent failed:", recentErr);

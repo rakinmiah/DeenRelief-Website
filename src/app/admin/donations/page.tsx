@@ -6,8 +6,11 @@ import {
   fetchAdminDonations,
   formatAdminDate,
   type AdminDonationStatus,
+  type AdminDonationFrequency,
+  type DonationFilters,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import DonationsFilters from "./DonationsFilters";
 
 export const metadata: Metadata = {
   title: "Donations | Deen Relief Admin",
@@ -32,27 +35,97 @@ const STATUS_LABEL: Record<AdminDonationStatus, string> = {
   refunded: "refunded",
 };
 
+interface RouteParams {
+  searchParams: Promise<{
+    from?: string;
+    to?: string;
+    status?: string;
+    campaign?: string;
+    frequency?: string;
+    giftAid?: string;
+    q?: string;
+  }>;
+}
+
 /**
- * Donations admin — primary daily surface, now wired to real Supabase.
+ * Parse the URL search params into a typed DonationFilters object.
+ * Whitespace / unknown values are silently dropped — we never want
+ * a malformed URL to crash the page.
+ */
+function parseFilters(
+  raw: Awaited<RouteParams["searchParams"]>
+): DonationFilters {
+  const status = (raw.status ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is AdminDonationStatus =>
+      ["succeeded", "pending", "failed", "refunded"].includes(s)
+    );
+  const campaign = (raw.campaign ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const frequency: AdminDonationFrequency | undefined =
+    raw.frequency === "one-time" || raw.frequency === "monthly"
+      ? raw.frequency
+      : undefined;
+  const giftAidClaimed: boolean | undefined =
+    raw.giftAid === "true"
+      ? true
+      : raw.giftAid === "false"
+      ? false
+      : undefined;
+
+  return {
+    from: raw.from && /^\d{4}-\d{2}-\d{2}$/.test(raw.from) ? raw.from : undefined,
+    to: raw.to && /^\d{4}-\d{2}-\d{2}$/.test(raw.to) ? raw.to : undefined,
+    status: status.length > 0 ? status : undefined,
+    campaign: campaign.length > 0 ? campaign : undefined,
+    frequency,
+    giftAidClaimed,
+    q: raw.q?.trim() || undefined,
+  };
+}
+
+/**
+ * Donations admin — primary daily surface.
  *
  * Auth gate: requireAdminSession() at the top redirects unauthenticated
  * users to /admin/login before any donor data is queried.
  *
- * Data: pulls the most recent 200 donations + computed stats. Stats
- * are scoped to last-30d for "recent operational" view, recurring is
- * point-in-time current.
+ * Filters: parsed from URL search params and passed to both the row
+ * fetch and the stats aggregation, so the strip and the table tell
+ * the same story.
  *
- * Empty state: when no donations exist (fresh deploy, no charity data
- * yet) the table renders with a friendly empty-state row instead of a
- * blank tbody.
+ * Data: most-recent 200 donations matching the filters + computed
+ * stats over the same window. Donor search filters the rows but not
+ * the stats (intentional — search is a table-level concern).
+ *
+ * Empty state: when no donations match, the table renders a friendly
+ * empty-state row.
  */
-export default async function AdminDonationsPage() {
+export default async function AdminDonationsPage({ searchParams }: RouteParams) {
   await requireAdminSession();
 
+  const rawParams = await searchParams;
+  const filters = parseFilters(rawParams);
+
   const [donations, stats] = await Promise.all([
-    fetchAdminDonations(200),
-    computeDonationStats(),
+    fetchAdminDonations(filters, 200),
+    computeDonationStats(filters),
   ]);
+
+  // Build the campaigns list for the filter dropdown — derived from
+  // donations that exist (so trustees only see campaigns that have
+  // received donations). Fetch a separate unfiltered list for the
+  // dropdown so the campaign filter doesn't disappear after applying
+  // it.
+  const allCampaignsRows = await fetchAdminDonations({}, 500);
+  const availableCampaigns = Array.from(
+    new Map(
+      allCampaignsRows.map((r) => [r.campaign, { slug: r.campaign, label: r.campaignLabel }])
+    ).values()
+  ).sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -121,6 +194,9 @@ export default async function AdminDonationsPage() {
           </div>
         ))}
       </div>
+
+      {/* Filters bar — date range, dimensions popover, donor search */}
+      <DonationsFilters availableCampaigns={availableCampaigns} />
 
       {/* Donations table */}
       <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
