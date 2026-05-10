@@ -116,6 +116,25 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
     computeDonationStats(filters),
   ]);
 
+  // Build the Export-CSV URL with the same filter params the page is
+  // applying — what the trustee sees in the table is what they'll
+  // download. Encoded server-side (no JS round-trip needed).
+  const exportSearchParams = new URLSearchParams();
+  if (filters.from) exportSearchParams.set("from", filters.from);
+  if (filters.to) exportSearchParams.set("to", filters.to);
+  if (filters.status && filters.status.length > 0)
+    exportSearchParams.set("status", filters.status.join(","));
+  if (filters.campaign && filters.campaign.length > 0)
+    exportSearchParams.set("campaign", filters.campaign.join(","));
+  if (filters.frequency)
+    exportSearchParams.set("frequency", filters.frequency);
+  if (typeof filters.giftAidClaimed === "boolean")
+    exportSearchParams.set("giftAid", String(filters.giftAidClaimed));
+  if (filters.q) exportSearchParams.set("q", filters.q);
+  const exportCsvHref = `/api/admin/export-donations${
+    exportSearchParams.toString() ? `?${exportSearchParams.toString()}` : ""
+  }`;
+
   // Campaign list for the filter dropdown — derived from the
   // CAMPAIGNS registry in lib/campaigns.ts (the source of truth used
   // by the donate flow). We previously fetched 500 unfiltered
@@ -141,12 +160,12 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+          <a
+            href={exportCsvHref}
             className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-charcoal/5 transition-colors"
           >
             Export CSV
-          </button>
+          </a>
           <Link
             href="/admin/reports/gift-aid"
             className="px-4 py-2 rounded-full bg-charcoal text-white text-sm font-medium hover:bg-charcoal/90 transition-colors"
