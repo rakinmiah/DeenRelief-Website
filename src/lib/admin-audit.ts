@@ -29,6 +29,7 @@ export type AdminAction =
   | "resend_receipt"
   | "cancel_subscription"
   | "send_portal_link"
+  | "send_donation_message"
   | "backfill_livemode";
 
 interface LogAdminActionOpts {

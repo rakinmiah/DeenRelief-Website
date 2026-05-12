@@ -25,6 +25,7 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   resend_receipt: "Receipt resent",
   cancel_subscription: "Subscription cancelled",
   send_portal_link: "Portal link generated",
+  send_donation_message: "Donor email sent",
   backfill_livemode: "Livemode backfill",
 };
 
@@ -39,6 +40,7 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   resend_receipt: "bg-green/10 text-green-dark border-green/30",
   cancel_subscription: "bg-amber-light text-amber-dark border-amber/30",
   send_portal_link: "bg-green/10 text-green-dark border-green/30",
+  send_donation_message: "bg-green/10 text-green-dark border-green/30",
   backfill_livemode: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
