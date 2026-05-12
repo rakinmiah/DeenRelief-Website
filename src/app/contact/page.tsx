@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Header from "@/components/Header";
 import ProofTag from "@/components/ProofTag";
@@ -9,6 +9,92 @@ import Footer from "@/components/Footer";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 import JsonLd from "@/components/JsonLd";
 import { SOCIAL_LINKS } from "@/lib/social";
+
+/**
+ * Local draft persistence for the contact form.
+ *
+ * A visitor who half-fills the form, clicks off to read a
+ * programmes page, then returns shouldn't lose what they typed.
+ * Every change writes a JSON blob to localStorage; mount reads
+ * it back if the blob is younger than the TTL.
+ *
+ * 24-hour TTL: long enough to cover the "I'll finish this
+ * tonight" case, short enough that a forgotten draft from last
+ * month doesn't suddenly resurrect on a fresh visit.
+ *
+ * Cleared on successful submit so the next visit starts fresh.
+ * All storage access is try/catch wrapped — disabled / full /
+ * private-mode storage just means no draft feature, the form
+ * still works.
+ */
+const CONTACT_DRAFT_KEY = "deenrelief_contact_draft_v1";
+const CONTACT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface ContactDraft {
+  savedAt: number;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+function loadContactDraft(): ContactDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CONTACT_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ContactDraft>;
+    if (
+      typeof parsed.savedAt !== "number" ||
+      Date.now() - parsed.savedAt > CONTACT_DRAFT_TTL_MS
+    ) {
+      window.localStorage.removeItem(CONTACT_DRAFT_KEY);
+      return null;
+    }
+    return {
+      savedAt: parsed.savedAt,
+      name: parsed.name ?? "",
+      email: parsed.email ?? "",
+      subject: parsed.subject ?? "",
+      message: parsed.message ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isContactDraftMeaningful(
+  d: Omit<ContactDraft, "savedAt">
+): boolean {
+  return Boolean(
+    d.name.trim() || d.email.trim() || d.subject.trim() || d.message.trim()
+  );
+}
+
+function saveContactDraft(d: Omit<ContactDraft, "savedAt">): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!isContactDraftMeaningful(d)) {
+      window.localStorage.removeItem(CONTACT_DRAFT_KEY);
+      return;
+    }
+    window.localStorage.setItem(
+      CONTACT_DRAFT_KEY,
+      JSON.stringify({ ...d, savedAt: Date.now() })
+    );
+  } catch {
+    // Quota exceeded / disabled storage — silently degrade.
+  }
+}
+
+function clearContactDraft(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(CONTACT_DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 const localBusinessSchema = [
   {
@@ -63,6 +149,40 @@ export default function ContactPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
 
+  // `hydrated` gates the save effect — without it, the first
+  // render's empty state would overwrite the stored draft
+  // before the restore-from-storage effect runs.
+  const [hydrated, setHydrated] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Mount: restore draft if present and fresh.
+  useEffect(() => {
+    const draft = loadContactDraft();
+    if (draft) {
+      setName(draft.name);
+      setEmail(draft.email);
+      setSubject(draft.subject);
+      setMessage(draft.message);
+      if (isContactDraftMeaningful(draft)) setDraftRestored(true);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist on every change once hydrated.
+  useEffect(() => {
+    if (!hydrated) return;
+    saveContactDraft({ name, email, subject, message });
+  }, [hydrated, name, email, subject, message]);
+
+  function handleDiscardDraft() {
+    clearContactDraft();
+    setName("");
+    setEmail("");
+    setSubject("");
+    setMessage("");
+    setDraftRestored(false);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) return;
@@ -74,11 +194,14 @@ export default function ContactPage() {
         body: JSON.stringify({ name, email, subject, message }),
       });
       if (!res.ok) throw new Error();
+      // Success — wipe the draft so the next visit starts fresh.
+      clearContactDraft();
       setFormState("submitted");
       setName("");
       setEmail("");
       setSubject("");
       setMessage("");
+      setDraftRestored(false);
     } catch {
       setFormState("error");
     }
@@ -246,6 +369,38 @@ export default function ContactPage() {
 
               {/* Right: Contact Form */}
               <div>
+                {/* Draft-restored notice. Shows only when an actual
+                    draft was rehydrated from localStorage so first-
+                    time visitors see no extra chrome. The "Start
+                    over" link wipes storage and clears the fields. */}
+                {draftRestored && formState !== "submitted" && (
+                  <div className="mb-3 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-green/8 border border-green/25 text-[13px] text-green-dark">
+                    <span className="inline-flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="m4.5 12.75 6 6 9-13.5"
+                        />
+                      </svg>
+                      We picked up where you left off.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDiscardDraft}
+                      className="text-charcoal/55 hover:text-charcoal font-semibold underline decoration-charcoal/20 hover:decoration-charcoal/50 transition-colors"
+                    >
+                      Start over
+                    </button>
+                  </div>
+                )}
                 <div className="bg-cream rounded-2xl p-6 sm:p-8">
                   {formState === "submitted" ? (
                     <div className="text-center py-10">
@@ -356,6 +511,19 @@ export default function ContactPage() {
                           </span>
                         ) : "Send Message"}
                       </button>
+
+                      {/* Subtle hint that a draft is being kept. Only
+                          surfaces once the user has typed something
+                          AND there's no draft-restored banner already
+                          telling them — keeps the chrome quiet for
+                          first-time empty visits. */}
+                      {hydrated &&
+                        !draftRestored &&
+                        isContactDraftMeaningful({ name, email, subject, message }) && (
+                          <p className="text-[11px] text-charcoal/35 text-center -mt-1">
+                            Saved locally so you can leave and come back.
+                          </p>
+                        )}
                     </form>
                   )}
                 </div>
