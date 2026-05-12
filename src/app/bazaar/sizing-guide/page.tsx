@@ -142,7 +142,7 @@ export default async function SizingGuidePage({
           </p>
           <div className="mt-8 text-center">
             <Link
-              href="/bazaar"
+              href="/bazaar#catalog"
               className="inline-flex items-center justify-center gap-2 text-charcoal font-semibold hover:text-green transition-colors"
             >
               Browse the collection

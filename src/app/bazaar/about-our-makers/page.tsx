@@ -179,7 +179,7 @@ export default async function AboutOurMakersPage() {
           </div>
 
           <Link
-            href="/bazaar"
+            href="/bazaar#catalog"
             className="inline-flex items-center justify-center px-7 py-3.5 rounded-full bg-amber text-charcoal font-semibold hover:bg-amber-dark hover:text-white transition-colors shadow-sm"
           >
             Browse the collection

@@ -155,7 +155,9 @@ function EmptyPreview() {
         maker fairly.
       </p>
       <Link
-        href="/bazaar"
+        // Match the empty-cart page and the header Shop link —
+        // anchor straight to the catalog grid, not the hero.
+        href="/bazaar#catalog"
         className="inline-block w-full px-4 py-2 rounded-full bg-charcoal text-white text-sm font-medium hover:bg-charcoal/90 transition-colors"
       >
         Browse the collection

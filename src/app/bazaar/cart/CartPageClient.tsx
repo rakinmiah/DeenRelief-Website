@@ -117,7 +117,11 @@ export default function CartPageClient() {
           by hand, in small batches, by people we work with directly.
         </p>
         <Link
-          href="/bazaar"
+          // Anchor to the catalog grid (#catalog has scroll-mt-32
+          // on /bazaar so the heading clears the sticky header).
+          // From an empty cart the buyer's intent is products,
+          // not the brand hero.
+          href="/bazaar#catalog"
           className="inline-block px-7 py-3.5 rounded-full bg-charcoal text-white font-semibold hover:bg-charcoal/90 transition-colors shadow-sm"
         >
           Browse the collection
