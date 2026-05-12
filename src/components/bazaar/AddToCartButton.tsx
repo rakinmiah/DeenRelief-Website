@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Product } from "@/lib/bazaar-types";
+import type { Product, ProductVariant } from "@/lib/bazaar-types";
 import { useBazaarCart } from "./BazaarCartProvider";
+import { trackBazaarAddToCart } from "@/lib/analytics";
+import { fromPence } from "@/lib/stripe";
 
 /**
  * The add-to-cart control on the product detail page.
@@ -36,14 +38,66 @@ export default function AddToCartButton({ product }: { product: Product }) {
     : product.stockCount;
   const isSoldOut = effectiveStock === 0;
 
+  /**
+   * Fire the GA4 `add_to_cart` event for the line being added.
+   * Consent-gated (the underlying trackEvent no-ops without
+   * analytics_storage). Shared between the "Add to cart" and "Buy now"
+   * paths so the conversion funnel reads the same shape either way.
+   */
+  function fireAddToCartAnalytics(variant: ProductVariant | undefined) {
+    const unitPricePence = variant?.pricePence ?? product.pricePence;
+    const variantLabel = variant
+      ? [variant.size, variant.colour].filter(Boolean).join(" · ")
+      : undefined;
+    trackBazaarAddToCart({
+      item: {
+        item_id: product.id,
+        item_name: product.name,
+        item_category: "Bazaar",
+        ...(product.maker?.name ? { item_brand: product.maker.name } : {}),
+        ...(variantLabel ? { item_variant: variantLabel } : {}),
+        price: fromPence(unitPricePence),
+        quantity,
+      },
+    });
+  }
+
+  /**
+   * Compose the snapshot args needed by addItem. The cart provider
+   * no longer queries the catalog itself, so we pass the display
+   * info captured from `product` here at add-to-cart time.
+   */
+  function buildAddInput() {
+    const unitPricePence = selectedVariant?.pricePence ?? product.pricePence;
+    const variantLabel = selectedVariant
+      ? [selectedVariant.size, selectedVariant.colour].filter(Boolean).join(" · ") ||
+        undefined
+      : undefined;
+    return {
+      productId: product.id,
+      variantId: hasVariants ? selectedVariantId : undefined,
+      quantity,
+      unitPricePence,
+      productName: product.name,
+      productSlug: product.slug,
+      ...(variantLabel ? { variantLabel } : {}),
+      makerName: product.maker.name,
+      ...(product.primaryImage
+        ? { productImage: product.primaryImage }
+        : {}),
+    };
+  }
+
   function handleAdd() {
-    addItem(product.id, hasVariants ? selectedVariantId : undefined, quantity);
+    addItem(buildAddInput());
+    fireAddToCartAnalytics(selectedVariant);
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 2200);
   }
 
   function handleAddAndCheckout() {
-    addItem(product.id, hasVariants ? selectedVariantId : undefined, quantity);
+    addItem(buildAddInput());
+    fireAddToCartAnalytics(selectedVariant);
     router.push("/bazaar/cart");
   }
 
@@ -144,11 +198,32 @@ export default function AddToCartButton({ product }: { product: Product }) {
         </button>
       </div>
 
-      {/* Stock indicator under the CTAs */}
-      {!isSoldOut && effectiveStock <= product.lowStockThreshold && (
+      {/* Stock indicator under the CTAs — always visible. The
+          number is variant-aware (effectiveStock = selected variant
+          stock when applicable, parent stock otherwise) so switching
+          sizes flips the line live. */}
+      {isSoldOut ? (
+        <p className="text-sm text-charcoal/60 font-medium">
+          Sold out — we&apos;ll restock when the maker has made the
+          next batch. Email us to be notified.
+        </p>
+      ) : effectiveStock <= product.lowStockThreshold ? (
+        // Explicit {" "} expressions around the variable so the
+        // space never gets collapsed in render. (Implicit JSX
+        // spaces around expressions normally render fine, but
+        // were observed dropping in this exact spot — defensive
+        // belt-and-braces here costs nothing.)
         <p className="text-sm text-amber-dark font-medium">
-          Only {effectiveStock} left in stock — these are made by hand and
-          we restock slowly.
+          Only{" "}{effectiveStock}{" "}left in stock &mdash; these are made by
+          hand and we restock slowly.
+        </p>
+      ) : (
+        <p className="text-sm text-charcoal/70">
+          <span className="font-semibold text-charcoal">
+            {effectiveStock}{" "}in stock
+          </span>{" "}
+          &mdash; hand-made in small batches by{" "}
+          {product.maker.name}.
         </p>
       )}
     </div>

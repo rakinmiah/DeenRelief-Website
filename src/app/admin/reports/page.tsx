@@ -55,6 +55,30 @@ export default async function AdminReportsPage() {
       {/* Quick reports grid */}
       <div className="grid sm:grid-cols-2 gap-4 mb-10">
         <Link
+          href="/admin/reports/reconciliation"
+          className="group bg-white border border-charcoal/10 rounded-2xl p-5 hover:border-charcoal/30 hover:shadow-sm transition-all sm:col-span-2"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <span className="block text-[11px] font-bold tracking-[0.1em] uppercase text-amber-dark">
+              Accountant export
+            </span>
+            <span className="text-charcoal/40 group-hover:text-charcoal transition-colors">
+              →
+            </span>
+          </div>
+          <h2 className="text-charcoal font-heading font-semibold text-lg mb-1">
+            Reconciliation &mdash; donations + bazaar
+          </h2>
+          <p className="text-grey text-sm leading-relaxed">
+            Combined view of donation income and bazaar trading income
+            with a Type column, side-by-side stat tiles, and a CSV export
+            that drops straight into the accountant&apos;s ledger. The
+            deliverable agreed when we chose to trade through the charity
+            Stripe account under HMRC&apos;s small-trading exemption.
+          </p>
+        </Link>
+
+        <Link
           href="/admin/reports/gift-aid"
           className="group bg-white border border-charcoal/10 rounded-2xl p-5 hover:border-charcoal/30 hover:shadow-sm transition-all"
         >

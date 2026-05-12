@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useBazaarCart } from "./BazaarCartProvider";
-import { findProductById } from "@/lib/bazaar-placeholder";
 import { formatPence } from "@/lib/bazaar-format";
 import BazaarPlaceholderImage from "./BazaarPlaceholderImage";
 
@@ -189,32 +188,31 @@ function PopulatedPreview({
       {/* Items list — scrollable when many items */}
       <ul className="max-h-72 overflow-y-auto divide-y divide-charcoal/8">
         {items.map((item) => {
-          const product = findProductById(item.productId);
-          if (!product) return null;
-          const variant = product.variants.find((v) => v.id === item.variantId);
-          const variantLabel = variant
-            ? variant.size ?? variant.colour ?? null
-            : null;
+          // The cart line now carries display snapshots set at
+          // add-to-cart time — no catalog query needed here.
+          const variantLabel = item.variantLabelSnapshot ?? null;
           const lineTotal = item.unitPricePenceSnapshot * item.quantity;
           const key = `${item.productId}::${item.variantId ?? ""}`;
           return (
             <li key={key} className="px-5 py-3 flex gap-3">
               <Link
-                href={`/bazaar/${product.slug}`}
+                href={`/bazaar/${item.productSlugSnapshot}`}
                 className="block w-12 h-15 flex-shrink-0 rounded-lg overflow-hidden bg-cream"
                 style={{ height: "60px" }}
               >
                 <BazaarPlaceholderImage
-                  label={product.name}
+                  label={item.productNameSnapshot}
                   variant="product"
+                  src={item.productImageSnapshot}
+                  sizes="48px"
                 />
               </Link>
               <div className="flex-1 min-w-0">
                 <Link
-                  href={`/bazaar/${product.slug}`}
+                  href={`/bazaar/${item.productSlugSnapshot}`}
                   className="text-charcoal font-medium text-sm leading-tight block truncate hover:text-green transition-colors"
                 >
-                  {product.name}
+                  {item.productNameSnapshot}
                 </Link>
                 <div className="text-charcoal/50 text-[11px] mt-0.5 truncate">
                   {variantLabel ? `${variantLabel} · ` : ""}

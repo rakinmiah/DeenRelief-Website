@@ -4,7 +4,25 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import CartButtonWithPreview from "./CartButtonWithPreview";
-import { findProductBySlug } from "@/lib/bazaar-placeholder";
+/**
+ * Slug → maker country map for the contextual Donate routing.
+ *
+ * Kept inline (rather than fetched from the DB) because BazaarHeader
+ * is a client component that needs synchronous access on every
+ * pathname change. The map updates when new products launch — a
+ * known-drift trade for keeping the header simple.
+ *
+ * Future cleanup: have the product page server-side embed a meta
+ * tag with the country, and read it client-side here.
+ */
+const PRODUCT_SLUG_TO_COUNTRY: Record<string, "Bangladesh" | "Turkey" | "Pakistan"> = {
+  "the-sylhet-abaya": "Bangladesh",
+  "the-anatolia-thobe": "Turkey",
+  "the-dhaka-prayer-mat": "Bangladesh",
+  "the-silk-hijab": "Bangladesh",
+  "the-adana-tasbih": "Turkey",
+  "the-embroidered-quran-cover": "Bangladesh",
+};
 
 /**
  * Single combined header for /bazaar/* routes.
@@ -35,10 +53,52 @@ import { findProductBySlug } from "@/lib/bazaar-placeholder";
  */
 
 const NAV_LINKS = [
-  { href: "/bazaar", label: "Shop" },
+  // Home points back at the main Deen Relief site root — useful
+  // for shoppers who arrived directly into /bazaar (e.g. via a
+  // social link) and want to discover the charity context.
+  { href: "/", label: "Home" },
+  // Shop deep-links to the catalog grid (#catalog has scroll-mt-32
+  // to compensate for the sticky header). From any other page the
+  // anchor causes Next.js to scroll into view automatically after
+  // navigation; from /bazaar itself it's an in-page scroll.
+  // Visitors arriving via the Shop nav always land directly on the
+  // products rather than the hero — the hero is for first-touch
+  // discovery, the nav is for buyers who already know they want
+  // to browse.
+  { href: "/bazaar#catalog", label: "Shop" },
   { href: "/bazaar/about-our-makers", label: "Our Makers" },
   { href: "/bazaar/our-promise", label: "Our Promise" },
+  // Bazaar gets its own contact surface (order number field,
+  // buyer-shaped reasons, deflects to returns/shipping/sizing).
+  // The main /contact remains for charity-programme questions.
+  { href: "/bazaar/contact", label: "Contact" },
 ];
+
+/**
+ * Whether a nav link should render in its active style for the
+ * current pathname.
+ *
+ * Two links need exact-match treatment:
+ *   - `/`         — otherwise startsWith("/") matches every page
+ *   - `/bazaar`   — otherwise it lights up on /bazaar/[slug],
+ *                   /bazaar/cart, etc, when "Shop" is the more
+ *                   general intent than the landing surface
+ *
+ * Every other link (Makers, Promise, Contact) uses startsWith so
+ * nested routes (e.g. /contact/thank-you) still light up the
+ * parent.
+ */
+function isLinkActive(linkHref: string, pathname: string): boolean {
+  // Strip any #hash / ?query from the link so anchors like
+  // "/bazaar#catalog" still light up "Shop" when the pathname is
+  // plain "/bazaar". usePathname() never includes the hash, so
+  // the comparison happens on path-only.
+  const linkPath = linkHref.split("#")[0].split("?")[0];
+  if (linkPath === "/" || linkPath === "/bazaar") {
+    return pathname === linkPath;
+  }
+  return pathname.startsWith(linkPath);
+}
 
 /**
  * Derive the Donate href from the current pathname. Pure function —
@@ -49,9 +109,8 @@ const NAV_LINKS = [
 function deriveDonateHref(pathname: string): string {
   const productMatch = pathname.match(/^\/bazaar\/([^/]+)$/);
   if (!productMatch) return "/#donate";
-  const product = findProductBySlug(productMatch[1]);
-  if (!product) return "/#donate";
-  switch (product.maker.country) {
+  const country = PRODUCT_SLUG_TO_COUNTRY[productMatch[1]];
+  switch (country) {
     case "Bangladesh":
       return "/orphan-sponsorship";
     case "Turkey":
@@ -100,10 +159,7 @@ export default function BazaarHeader() {
             aria-label="Shop sections"
           >
             {NAV_LINKS.map((link) => {
-              const isActive =
-                link.href === "/bazaar"
-                  ? pathname === "/bazaar"
-                  : pathname.startsWith(link.href);
+              const isActive = isLinkActive(link.href, pathname);
               return (
                 <Link
                   key={link.href}
@@ -138,10 +194,7 @@ export default function BazaarHeader() {
           aria-label="Shop sections (mobile)"
         >
           {NAV_LINKS.map((link) => {
-            const isActive =
-              link.href === "/bazaar"
-                ? pathname === "/bazaar"
-                : pathname.startsWith(link.href);
+            const isActive = isLinkActive(link.href, pathname);
             return (
               <Link
                 key={link.href}

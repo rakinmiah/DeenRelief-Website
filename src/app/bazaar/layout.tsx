@@ -1,6 +1,27 @@
+import type { Metadata } from "next";
 import Footer from "@/components/Footer";
 import { BazaarCartProvider } from "@/components/bazaar/BazaarCartProvider";
 import BazaarHeader from "@/components/bazaar/BazaarHeader";
+
+/**
+ * Pre-launch crawler suppression for the entire /bazaar/* tree.
+ *
+ * This is the belt-and-braces companion to "URL obscurity" — the client
+ * has decided not to ship a kill switch (no env-flag gate) on the basis
+ * that nobody can find the bazaar pages unless they're shared the link
+ * directly. That's correct, but search engines DO crawl every link they
+ * find anywhere on the wider web, so any internal share, dev preview, or
+ * accidental inbound link could leak the not-yet-real catalog into the
+ * index before stock and policy copy are finalised.
+ *
+ * Setting `robots: noindex, nofollow` at the layout level cascades to
+ * every child segment that doesn't explicitly override it (none do today).
+ * Once we go live we delete this block — at that point we WANT the shop
+ * pages indexed.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 /**
  * Layout for /bazaar/* — wraps every shop page with:

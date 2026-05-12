@@ -1,4 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
+import BackToContactLink from "@/components/bazaar/BackToContactLink";
+import BazaarFaqSection from "@/components/bazaar/BazaarFaqSection";
+import BazaarPageOutro from "@/components/bazaar/BazaarPageOutro";
+import { BAZAAR_SHIPPING_FAQS } from "@/lib/bazaar-faqs";
 
 export const metadata: Metadata = {
   title: "Shipping | Deen Relief Bazaar",
@@ -8,7 +14,14 @@ export const metadata: Metadata = {
 
 export default function ShippingPolicyPage() {
   return (
+    <>
     <article className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+      {/* Renders only when the visitor came via the /bazaar/contact
+          deflect card (which appends ?from=contact). For direct
+          visitors this is a no-op. */}
+      <Suspense fallback={null}>
+        <BackToContactLink />
+      </Suspense>
       <span className="inline-block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
         Shipping
       </span>
@@ -58,13 +71,20 @@ export default function ShippingPolicyPage() {
         <p>
           If your parcel hasn&apos;t arrived after <strong>10 working
           days</strong>, email us at{" "}
-          <a href="mailto:hello@deenrelief.org" className="text-green underline">
-            hello@deenrelief.org
+          <a
+            href={`mailto:${BAZAAR_SUPPORT_EMAIL}`}
+            className="text-green underline"
+          >
+            {BAZAAR_SUPPORT_EMAIL}
           </a>{" "}
           with your order number. We&apos;ll either resend or refund &mdash;
           whichever you prefer.
         </p>
       </div>
     </article>
+
+    <BazaarFaqSection faqs={BAZAAR_SHIPPING_FAQS} page="shipping" />
+    <BazaarPageOutro />
+    </>
   );
 }

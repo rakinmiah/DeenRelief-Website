@@ -1,6 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-session";
+import {
+  countAdminBazaarOrdersByStatus,
+  fetchAdminBazaarOrders,
+  type AdminBazaarOrderFilters,
+  type BazaarOrderRow,
+} from "@/lib/bazaar-db";
+import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
+import {
+  BAZAAR_SERVICE_SHORT_LABEL,
+  deriveServiceFromShippingPence,
+  formatPence,
+} from "@/lib/bazaar-format";
+import { formatAdminDate } from "@/lib/admin-donations";
+import BazaarOrdersFilters from "./BazaarOrdersFilters";
 
 export const metadata: Metadata = {
   title: "Orders | Bazaar Admin",
@@ -9,88 +23,106 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-/**
- * Admin fulfillment dashboard.
- *
- * Auth: in production this is gated behind Supabase Auth + an
- * `is_admin = true` claim. For the mockup it's an open route —
- * but unindexed via robots metadata so it doesn't leak via search.
- *
- * Workflow this dashboard supports:
- *   1. Daily/weekly: open this page, see new "paid" orders
- *   2. Click into each order to see line items + shipping address
- *   3. Pack the order, drop the maker tag in
- *   4. Generate a Royal Mail Tracked 48 label via Click & Drop
- *      (manual; export the orders as CSV and bulk-upload to Click & Drop)
- *   5. Click "Mark as shipped" with the tracking number → triggers
- *      the shipping confirmation email to the customer
- *   6. (Optional) Click "Refund" on cancelled / returned orders
- *
- * The mockup populates with three illustrative orders so the client
- * can see the UI. Real implementation reads from Supabase.
- */
-
-const MOCK_ORDERS = [
-  {
-    id: "DR-BZR-A4F2K9X1",
-    placedAt: "2026-05-09 14:23",
-    customer: "Aisha Hussain",
-    email: "aisha.h@example.co.uk",
-    itemCount: 2,
-    totalPence: 11800,
-    status: "paid" as const,
-  },
-  {
-    id: "DR-BZR-B8N3M7L2",
-    placedAt: "2026-05-09 11:08",
-    customer: "Yusuf Rahman",
-    email: "yusuf.rahman@example.com",
-    itemCount: 1,
-    totalPence: 6900,
-    status: "paid" as const,
-  },
-  {
-    id: "DR-BZR-C2P9Q4R7",
-    placedAt: "2026-05-08 18:42",
-    customer: "Khadija Ali",
-    email: "k.ali@example.co.uk",
-    itemCount: 3,
-    totalPence: 14500,
-    status: "fulfilled" as const,
-  },
-  {
-    id: "DR-BZR-D5T1U6V8",
-    placedAt: "2026-05-07 09:15",
-    customer: "Mehmet Kaya",
-    email: "mkaya@example.com",
-    itemCount: 1,
-    totalPence: 4500,
-    status: "delivered" as const,
-  },
+const VALID_STATUSES: BazaarOrderRow["status"][] = [
+  "pending_payment",
+  "paid",
+  "fulfilled",
+  "delivered",
+  "refunded",
+  "cancelled",
 ];
 
-const STATUS_STYLES: Record<string, string> = {
-  paid: "bg-amber-light text-amber-dark border-amber/30",
-  fulfilled: "bg-blue-50 text-blue-800 border-blue-200",
-  delivered: "bg-green/10 text-green-dark border-green/30",
-  refunded: "bg-grey/10 text-grey border-grey/30",
-};
+/**
+ * Parse the URL search params into an AdminBazaarOrderFilters shape.
+ * Defensive: any unrecognised status string is dropped silently
+ * rather than erroring, so a bookmark with old filter values keeps
+ * working as the status enum evolves.
+ */
+function parseFilters(
+  raw: Record<string, string | string[] | undefined>
+): AdminBazaarOrderFilters {
+  const statusParam = Array.isArray(raw.status) ? raw.status[0] : raw.status;
+  const fromParam = Array.isArray(raw.from) ? raw.from[0] : raw.from;
+  const toParam = Array.isArray(raw.to) ? raw.to[0] : raw.to;
+  const qParam = Array.isArray(raw.q) ? raw.q[0] : raw.q;
 
-function formatPence(pence: number): string {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(pence / 100);
+  const statuses = (statusParam ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is BazaarOrderRow["status"] =>
+      (VALID_STATUSES as string[]).includes(s)
+    );
+
+  return {
+    status: statuses.length > 0 ? statuses : undefined,
+    from: fromParam && /^\d{4}-\d{2}-\d{2}$/.test(fromParam) ? fromParam : undefined,
+    to: toParam && /^\d{4}-\d{2}-\d{2}$/.test(toParam) ? toParam : undefined,
+    q: qParam?.trim() || undefined,
+  };
 }
 
-export default async function AdminBazaarOrdersPage() {
+/**
+ * Admin bazaar orders list.
+ *
+ * Stats strip is a 4-tile navigation aid: each tile is a clickable
+ * link that filters the table below to that subset. Counts come
+ * from a separate count-by-status query so the tile values are
+ * always the full inbox totals, not the current filtered view.
+ *
+ * Filter sidebar (BazaarOrdersFilters) drives the table via URL
+ * params — status multi-select, date range, customer search. Active
+ * filters show as a small chip bar above the table with a Clear
+ * link so the user always knows which subset they're looking at.
+ *
+ * Service column displays the Royal Mail tier the customer chose
+ * at Stripe Checkout (derived from the order's shipping_pence,
+ * which Stripe sets to the chosen rate's amount). Lets the
+ * fulfiller pick the right label without opening the detail page.
+ */
+export default async function AdminBazaarOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdminSession();
-  const pendingCount = MOCK_ORDERS.filter((o) => o.status === "paid").length;
+  const params = await searchParams;
+  const filters = parseFilters(params);
+
+  // Two parallel queries: counts-by-status (always unfiltered, drives
+  // the stat tiles) and the filtered list (drives the table).
+  const [counts, rows] = await Promise.all([
+    countAdminBazaarOrdersByStatus(),
+    fetchAdminBazaarOrders({ filters }),
+  ]);
+
+  const awaitingCount = counts.paid ?? 0;
+  const inTransitCount = counts.fulfilled ?? 0;
+  const deliveredCount = counts.delivered ?? 0;
+  const refundedCount = counts.refunded ?? 0;
+
+  // Stat tile config — each click sets ONLY the status filter so
+  // the trustee can drill in fresh from any other filter state.
+  const tiles: {
+    label: string;
+    value: number;
+    status: BazaarOrderRow["status"];
+    accent?: boolean;
+  }[] = [
+    { label: "Awaiting fulfilment", value: awaitingCount, status: "paid", accent: true },
+    { label: "Shipped, in transit", value: inTransitCount, status: "fulfilled" },
+    { label: "Delivered", value: deliveredCount, status: "delivered" },
+    { label: "Refunds", value: refundedCount, status: "refunded" },
+  ];
+
+  const hasActiveFilters =
+    (filters.status && filters.status.length > 0) ||
+    filters.from ||
+    filters.to ||
+    filters.q;
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Page header — admin chrome (header nav, sign-out) is provided
-          by the shared AdminShell in /admin/layout.tsx. */}
+      {/* Page header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
           <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
@@ -99,127 +131,237 @@ export default async function AdminBazaarOrdersPage() {
           <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
             Orders
           </h1>
+          <p className="text-grey text-sm mt-2 max-w-2xl">
+            Tap a tile to jump straight to that subset. Newest first.
+          </p>
         </div>
-        <button
-          type="button"
-          className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-charcoal/5 transition-colors"
+        <a
+          href="/api/admin/bazaar/export-click-and-drop"
+          title="Download a Royal Mail Click & Drop CSV of every order currently awaiting fulfilment."
+          className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-cream transition-colors whitespace-nowrap"
         >
-          Export CSV for Click &amp; Drop
-        </button>
+          Export Click &amp; Drop CSV
+        </a>
       </div>
-        {/* Stats strip */}
-        <div className="grid sm:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Awaiting fulfilment", value: pendingCount, accent: true },
-            {
-              label: "Shipped, in transit",
-              value: MOCK_ORDERS.filter((o) => o.status === "fulfilled").length,
-            },
-            {
-              label: "Delivered (last 7d)",
-              value: MOCK_ORDERS.filter((o) => o.status === "delivered").length,
-            },
-            { label: "Refunds (last 7d)", value: 0 },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className={`bg-white border rounded-2xl p-5 ${s.accent ? "border-amber/40" : "border-charcoal/10"}`}
+
+      {/* Stats strip — each tile is clickable */}
+      <div className="grid sm:grid-cols-4 gap-4 mb-8">
+        {tiles.map((tile) => {
+          const isActive =
+            filters.status?.length === 1 && filters.status[0] === tile.status;
+          return (
+            <Link
+              key={tile.status}
+              href={`/admin/bazaar/orders?status=${tile.status}`}
+              className={`bg-white border rounded-2xl p-5 transition-all hover:shadow-md hover:-translate-y-0.5 ${
+                isActive
+                  ? "border-charcoal/40 shadow-md"
+                  : tile.accent
+                    ? "border-amber/40"
+                    : "border-charcoal/10"
+              }`}
             >
               <p className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1">
-                {s.label}
+                {tile.label}
               </p>
               <p className="text-3xl font-heading font-bold text-charcoal">
-                {s.value}
+                {tile.value}
               </p>
-            </div>
-          ))}
-        </div>
+              {isActive && (
+                <p className="text-[10px] text-charcoal/50 mt-1.5 uppercase tracking-[0.1em] font-bold">
+                  ← Showing
+                </p>
+              )}
+            </Link>
+          );
+        })}
+      </div>
 
-        {/* Order table */}
-        <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
+      {/* Filter form */}
+      <BazaarOrdersFilters />
+
+      {/* Active filter chips */}
+      {hasActiveFilters && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-charcoal/60 font-medium">Filtering by:</span>
+          {filters.status?.map((s) => (
+            <span
+              key={s}
+              className="inline-block px-2.5 py-1 rounded-full bg-charcoal/8 text-charcoal border border-charcoal/15"
+            >
+              {STATUS_LABEL[s]}
+            </span>
+          ))}
+          {filters.from && (
+            <span className="inline-block px-2.5 py-1 rounded-full bg-charcoal/8 text-charcoal border border-charcoal/15">
+              from {filters.from}
+            </span>
+          )}
+          {filters.to && (
+            <span className="inline-block px-2.5 py-1 rounded-full bg-charcoal/8 text-charcoal border border-charcoal/15">
+              to {filters.to}
+            </span>
+          )}
+          {filters.q && (
+            <span className="inline-block px-2.5 py-1 rounded-full bg-charcoal/8 text-charcoal border border-charcoal/15">
+              &ldquo;{filters.q}&rdquo;
+            </span>
+          )}
+          <Link
+            href="/admin/bazaar/orders"
+            className="text-green underline ml-1 hover:text-green-dark"
+          >
+            Clear all
+          </Link>
+        </div>
+      )}
+
+      {/* Order table */}
+      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
+        {rows.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-charcoal/60 text-sm">
+              {hasActiveFilters
+                ? "No orders match these filters."
+                : "No orders yet. The first checkout will appear here."}
+            </p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[860px]">
               <thead className="bg-cream border-b border-charcoal/10">
                 <tr className="text-left">
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                    Order
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                    Placed
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                    Customer
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                    Items
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                    Total
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]">
-                    Status
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px]" />
+                  {[
+                    "Order",
+                    "Placed",
+                    "Customer",
+                    "Items",
+                    "Total",
+                    "Service",
+                    "Status",
+                    "",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-charcoal/8">
-                {MOCK_ORDERS.map((order) => (
-                  <tr key={order.id} className="hover:bg-cream/50 transition-colors">
-                    <td className="px-5 py-4">
-                      <span className="font-mono text-xs text-charcoal">
-                        {order.id}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-charcoal/70">
-                      {order.placedAt}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="text-charcoal font-medium">
-                        {order.customer}
-                      </div>
-                      <div className="text-charcoal/50 text-xs">
-                        {order.email}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-charcoal/70">
-                      {order.itemCount}
-                    </td>
-                    <td className="px-5 py-4 text-charcoal font-medium">
-                      {formatPence(order.totalPence)}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[order.status]}`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Link
-                        href={`/admin/bazaar/orders/${order.id}`}
-                        className="text-green text-sm font-medium hover:underline"
-                      >
-                        Open →
-                      </Link>
-                    </td>
-                  </tr>
+                {rows.map(({ order, itemCount }) => (
+                  <BazaarOrderRowView
+                    key={order.id}
+                    order={order}
+                    itemCount={itemCount}
+                  />
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Pitch-mode banner */}
-        <div className="mt-8 p-5 bg-amber-light border border-amber/30 rounded-2xl text-sm text-charcoal/80 leading-relaxed">
-          <span className="block text-[10px] font-bold uppercase tracking-[0.15em] text-amber-dark mb-1">
-            Pitch preview
-          </span>
-          Mockup data, no real orders. Real implementation reads from
-          Supabase, gates behind admin auth, and the &quot;Export CSV&quot;
-          button generates a Royal Mail Click &amp; Drop import file
-          (one row per pending order with destination address, weight, and
-          service tier).
-        </div>
+      {rows.length > 0 && (
+        <p className="mt-4 text-[11px] text-charcoal/40">
+          Showing {rows.length} order{rows.length === 1 ? "" : "s"}
+          {hasActiveFilters ? " matching the current filter" : ""}.
+          {process.env.NODE_ENV !== "production" &&
+            " Test-mode orders are included in development."}
+        </p>
+      )}
     </main>
+  );
+}
+
+const STATUS_STYLES: Record<BazaarOrderRow["status"], string> = {
+  pending_payment: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  paid: "bg-amber-light text-amber-dark border-amber/30",
+  fulfilled: "bg-blue-50 text-blue-800 border-blue-200",
+  delivered: "bg-green/10 text-green-dark border-green/30",
+  refunded: "bg-red-50 text-red-700 border-red-200",
+  cancelled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+};
+
+const STATUS_LABEL: Record<BazaarOrderRow["status"], string> = {
+  pending_payment: "Pending",
+  paid: "Paid",
+  fulfilled: "Shipped",
+  delivered: "Delivered",
+  refunded: "Refunded",
+  cancelled: "Cancelled",
+};
+
+function BazaarOrderRowView({
+  order,
+  itemCount,
+}: {
+  order: BazaarOrderRow;
+  itemCount: number;
+}) {
+  const customerName = order.shippingAddress?.name ?? "—";
+  const chosenService = deriveServiceFromShippingPence(order.shippingPence);
+  return (
+    <tr className="hover:bg-cream/50 transition-colors">
+      <td className="px-5 py-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-xs text-charcoal">
+            {bazaarReceiptNumber(order.id)}
+          </span>
+          {!order.livemode && (
+            <span
+              title="Stripe test-mode order — created by a developer, no real money moved"
+              className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-[0.1em] bg-amber-dark/15 text-amber-dark border border-amber-dark/30"
+            >
+              Test
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-5 py-4 text-charcoal/70 whitespace-nowrap">
+        {formatAdminDate(order.createdAt)}
+      </td>
+      <td className="px-5 py-4">
+        <div className="text-charcoal font-medium">{customerName}</div>
+        <div className="text-charcoal/50 text-xs break-all">
+          {order.contactEmail || "—"}
+        </div>
+      </td>
+      <td className="px-5 py-4 text-charcoal/70">{itemCount}</td>
+      <td className="px-5 py-4 text-charcoal font-medium whitespace-nowrap">
+        {formatPence(order.totalPence)}
+      </td>
+      <td className="px-5 py-4 whitespace-nowrap">
+        {chosenService ? (
+          <span className="text-charcoal/80 text-[12px]">
+            {BAZAAR_SERVICE_SHORT_LABEL[chosenService]}
+            {order.shippingPence === 0 && (
+              <span className="block text-[10px] text-green-dark font-semibold">
+                Free
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="text-charcoal/40 text-[12px]">—</span>
+        )}
+      </td>
+      <td className="px-5 py-4">
+        <span
+          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[order.status]}`}
+        >
+          {STATUS_LABEL[order.status]}
+        </span>
+      </td>
+      <td className="px-5 py-4 text-right whitespace-nowrap">
+        <Link
+          href={`/admin/bazaar/orders/${order.id}`}
+          className="text-green text-sm font-medium hover:underline"
+        >
+          Open →
+        </Link>
+      </td>
+    </tr>
   );
 }

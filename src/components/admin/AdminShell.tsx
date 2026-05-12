@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import AdminNotificationBell from "./AdminNotificationBell";
 
 /**
  * Shared admin chrome — header with nav tabs + sign-out.
@@ -21,6 +22,8 @@ const NAV_ITEMS = [
   { href: "/admin/donations", label: "Donations" },
   { href: "/admin/recurring", label: "Recurring" },
   { href: "/admin/bazaar/orders", label: "Bazaar Orders" },
+  { href: "/admin/bazaar/inquiries", label: "Bazaar Inquiries" },
+  { href: "/admin/bazaar/catalog", label: "Bazaar Catalog" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/audit-log", label: "Audit log" },
 ];
@@ -89,7 +92,8 @@ export default function AdminShell({
                 })}
               </nav>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AdminNotificationBell />
               <span className="hidden sm:inline text-sm text-charcoal/60">
                 {signedInAs}
               </span>

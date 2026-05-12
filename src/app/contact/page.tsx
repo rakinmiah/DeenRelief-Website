@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import Header from "@/components/Header";
 import ProofTag from "@/components/ProofTag";
 import Newsletter from "@/components/Newsletter";
@@ -369,6 +370,22 @@ export default function ContactPage() {
 
               {/* Right: Contact Form */}
               <div>
+                {/* Soft redirect for bazaar customers who landed here
+                    by accident. Same inbox underneath, but the bazaar
+                    form has an order-number field + reason-shaped
+                    subject line that makes triage faster. */}
+                <Link
+                  href="/bazaar/contact"
+                  className="block mb-4 px-4 py-3 rounded-xl border border-amber/40 bg-amber-light/50 hover:bg-amber-light text-charcoal text-sm transition-colors"
+                >
+                  <span className="font-semibold">
+                    Shopping with the Bazaar?
+                  </span>{" "}
+                  <span className="text-charcoal/75">
+                    Use our shop contact form &mdash; it has an
+                    order-number field so we can help faster. →
+                  </span>
+                </Link>
                 {/* Draft-restored notice. Shows only when an actual
                     draft was rehydrated from localStorage so first-
                     time visitors see no extra chrome. The "Start

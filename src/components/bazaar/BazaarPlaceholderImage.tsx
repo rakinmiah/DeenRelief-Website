@@ -1,28 +1,61 @@
 /**
- * Renders a tasteful coloured-gradient placeholder card for product/maker
- * imagery during the pitch phase. Designed to match the brand palette
- * (cream, charcoal, green) so the mockup looks intentional rather than
- * "image missing".
+ * Image renderer for product / maker imagery across the bazaar.
  *
- * Real photoshoot output replaces this entirely — when the imagery lands
- * in /public/images/bazaar/, just drop the real <Image> in place of this
- * component on each surface.
+ * Currently runs in placeholder-only mode: every render returns
+ * the brand-tinted gradient placeholder regardless of any `src`
+ * passed in. This was deliberately re-enabled because the catalog
+ * is mid-migration — products have `primary_image` and
+ * `gallery_images` URLs set, but the linked Supabase Storage
+ * objects aren't reachable, so the real <Image> path was rendering
+ * broken-image icons everywhere on the storefront. Showing the
+ * pre-upload placeholder is materially less embarrassing than a
+ * broken-image glyph while we sort out the storage URLs.
+ *
+ * The `src`, `sizes`, and `priority` props are still accepted so
+ * call sites don't need editing — they're just ignored for now.
+ * To re-enable real images, restore the `if (src) { return
+ * <Image…/> }` branch and re-add the `import Image from
+ * "next/image"` at the top.
  */
 
 interface BazaarPlaceholderImageProps {
   label: string;
-  /** "product" | "maker" — shifts the gradient and label style. */
+  /** "product" | "maker" — placeholder gradient + caption. */
   variant?: "product" | "maker";
   className?: string;
   rounded?: boolean;
+  /** Real image URL (Supabase Storage WebP). Currently ignored
+   *  while the placeholder-only mode is active — kept on the
+   *  interface so call sites don't need editing. */
+  src?: string | null;
+  /** Hint to Next.js's image optimiser. Currently ignored. */
+  sizes?: string;
+  /** Priority hint for above-the-fold hero images. Currently
+   *  ignored. */
+  priority?: boolean;
 }
+
+const DEFAULT_SIZES =
+  "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw";
 
 export default function BazaarPlaceholderImage({
   label,
   variant = "product",
   className = "",
   rounded = false,
+  // src, sizes, priority intentionally destructured-then-discarded
+  // (eslint-disable below) so calling components don't break when
+  // they pass these props. See the file header for why we're in
+  // placeholder-only mode.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  src: _src,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  sizes: _sizes = DEFAULT_SIZES,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  priority: _priority = false,
 }: BazaarPlaceholderImageProps) {
+  // Placeholder-only mode: render the gradient + label regardless
+  // of whether a src was supplied. See file header for context.
   const gradients = {
     product: "from-cream via-amber-light/40 to-cream",
     maker: "from-green-dark/15 via-amber-light/30 to-green-dark/10",
@@ -36,7 +69,6 @@ export default function BazaarPlaceholderImage({
       role="img"
       aria-label={`Placeholder image for ${label}`}
     >
-      {/* subtle pattern */}
       <div
         className="absolute inset-0 opacity-[0.04]"
         style={{
@@ -53,7 +85,7 @@ export default function BazaarPlaceholderImage({
           {label}
         </span>
         <span className="block mt-2 text-[10px] uppercase tracking-[0.15em] text-charcoal/30">
-          imagery to come from photoshoot
+          image will appear after upload
         </span>
       </div>
     </div>

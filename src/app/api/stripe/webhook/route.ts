@@ -27,10 +27,30 @@
 
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { fromPence, stripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendDonationReceipt } from "@/lib/donation-receipt";
 import { sendDonationStaffNotification } from "@/lib/donation-staff-notification";
+import {
+  fetchOrderByStripeSession,
+  findDonorIdByEmail,
+  markOrderPaid,
+  markOrderRefunded,
+} from "@/lib/bazaar-db";
+import {
+  decrementStockForOrderItems,
+  restoreStockForOrderItems,
+} from "@/lib/bazaar-catalog";
+import {
+  bazaarReceiptNumber,
+  sendBazaarOrderConfirmation,
+} from "@/lib/bazaar-order-email";
+import { enqueueNotification } from "@/lib/admin-notifications";
+import {
+  BAZAAR_STRIPE_METADATA_KEY,
+  BAZAAR_STRIPE_METADATA_VALUE,
+} from "@/lib/bazaar-config";
+import type { ShippingAddress } from "@/lib/bazaar-types";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +99,16 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed":
+        // Currently only bazaar uses Checkout Sessions; donations
+        // flow through PaymentIntent / SetupIntent. The bazaar
+        // handler is gated on metadata.source == "bazaar" anyway,
+        // so a future donation Checkout Session integration would
+        // simply add a second branch here.
+        await handleBazaarCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session
+        );
+        break;
       case "payment_intent.succeeded":
         await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
         break;
@@ -248,11 +278,297 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     ? charge.payment_intent
     : charge.payment_intent.id;
 
+  // Route by the metadata Stripe carries from PaymentIntent through
+  // to the Charge: bazaar PIs set metadata.source = "bazaar" (via
+  // payment_intent_data.metadata in the checkout session create call).
+  // Donations have no `source` key. If the source IS "bazaar" we
+  // ONLY touch bazaar_orders; never write to donations for the same
+  // PI even if some stale donation row shared the id (it can't, but
+  // belt-and-braces against future schema changes).
+  const isBazaar =
+    charge.metadata?.[BAZAAR_STRIPE_METADATA_KEY] ===
+    BAZAAR_STRIPE_METADATA_VALUE;
+  if (isBazaar) {
+    // Find the order's items BEFORE flipping status so the restore
+    // call has the full picture. (If we flipped first, a separate
+    // query would still work — but a single read + write keeps the
+    // window between read and stock-restore as small as possible.)
+    const supabase = getSupabaseAdmin();
+    const { data: orderRow } = await supabase
+      .from("bazaar_orders")
+      .select("id, status")
+      .eq("stripe_payment_intent", piId)
+      .maybeSingle<{ id: string; status: string }>();
+
+    await markOrderRefunded(piId);
+
+    if (orderRow && orderRow.status !== "refunded") {
+      // Only restore stock once — if the row was already refunded
+      // (admin-initiated refund + this is the echoing webhook),
+      // skip to avoid double-restoring.
+      const { data: itemRows } = await supabase
+        .from("bazaar_order_items")
+        .select(
+          "id, order_id, product_id, variant_id, product_name_snapshot, variant_snapshot, maker_name_snapshot, unit_price_pence_snapshot, quantity"
+        )
+        .eq("order_id", orderRow.id)
+        .returns<
+          {
+            id: string;
+            order_id: string;
+            product_id: string | null;
+            variant_id: string | null;
+            product_name_snapshot: string;
+            variant_snapshot: string | null;
+            maker_name_snapshot: string;
+            unit_price_pence_snapshot: number;
+            quantity: number;
+          }[]
+        >();
+
+      if (itemRows) {
+        await restoreStockForOrderItems(
+          itemRows.map((r) => ({
+            id: r.id,
+            orderId: r.order_id,
+            productId: r.product_id,
+            variantId: r.variant_id,
+            productNameSnapshot: r.product_name_snapshot,
+            variantSnapshot: r.variant_snapshot,
+            makerNameSnapshot: r.maker_name_snapshot,
+            unitPricePenceSnapshot: r.unit_price_pence_snapshot,
+            quantity: r.quantity,
+          }))
+        );
+      }
+    }
+    return;
+  }
+
   const supabase = getSupabaseAdmin();
   await supabase
     .from("donations")
     .update({ status: "refunded" })
     .eq("stripe_payment_intent_id", piId);
+}
+
+/**
+ * checkout.session.completed for a bazaar order.
+ *
+ * Stripe fires this when the customer has finished the hosted
+ * checkout (whether they paid or not — payment_status tells us
+ * which). We only act on session.payment_status === "paid"; the
+ * "unpaid" path on async payment methods (BACS) isn't surfaced for
+ * bazaar (cards only at launch), so the unpaid branch is mostly
+ * defensive.
+ *
+ * What we do, in order:
+ *   1. Re-confirm the event belongs to us via metadata.source.
+ *      Anyone else who happens to send Checkout Sessions through
+ *      this Stripe account (e.g. a future product line) won't
+ *      collide.
+ *   2. Pull the order_id out of metadata — that's the
+ *      bazaar_orders.id we wrote at session-creation time.
+ *   3. Reach into session.shipping_details and session.customer_details
+ *      for the real address + email Stripe collected.
+ *   4. Try to link the order to an existing donor row by email.
+ *   5. Call markOrderPaid() which updates the row in place. Stops
+ *      idempotently on a second delivery.
+ *   6. (Phase 4) Send the order confirmation email. For Phase 2
+ *      we log a TODO and rely on Stripe's own receipt.
+ */
+async function handleBazaarCheckoutCompleted(
+  session: Stripe.Checkout.Session
+) {
+  if (
+    session.metadata?.[BAZAAR_STRIPE_METADATA_KEY] !==
+    BAZAAR_STRIPE_METADATA_VALUE
+  ) {
+    console.log(
+      `[webhook] checkout.session.completed ${session.id} missing bazaar metadata — skipping.`
+    );
+    return;
+  }
+
+  if (session.payment_status !== "paid") {
+    console.log(
+      `[webhook] bazaar session ${session.id} payment_status=${session.payment_status} — skipping promotion.`
+    );
+    return;
+  }
+
+  const orderId = session.metadata?.order_id;
+  if (!orderId) {
+    console.error(
+      `[webhook] bazaar session ${session.id} has no order_id metadata — cannot promote.`
+    );
+    return;
+  }
+
+  // Email: Stripe puts the form-entered email on customer_details.email.
+  // We lowercase to match donors.email's UNIQUE-but-not-citext column.
+  const contactEmail =
+    session.customer_details?.email?.toLowerCase().trim() ?? "";
+
+  // Address — Stripe Checkout collected this via
+  // shipping_address_collection. In dahlia the address lives under
+  // collected_information.shipping_details (the top-level
+  // session.shipping_details on older API versions is gone).
+  // Normalise into our ShippingAddress shape (line2 optional,
+  // country pinned to "GB" — the session restricted
+  // allowed_countries so anything else is anomalous).
+  const shippingDetails = session.collected_information?.shipping_details;
+  const stripeAddress = shippingDetails?.address;
+  if (!stripeAddress) {
+    console.error(
+      `[webhook] bazaar session ${session.id} missing shipping_details.address — order remains pending.`
+    );
+    return;
+  }
+  const shippingAddress: ShippingAddress = {
+    name: shippingDetails?.name ?? session.customer_details?.name ?? "",
+    line1: stripeAddress.line1 ?? "",
+    ...(stripeAddress.line2 ? { line2: stripeAddress.line2 } : {}),
+    city: stripeAddress.city ?? "",
+    postcode: stripeAddress.postal_code ?? "",
+    country: "GB",
+  };
+
+  // The actual chosen shipping rate may differ from what we
+  // provisionally wrote at session-creation time (customer picked
+  // Tracked 24 upgrade). session.shipping_cost is the source of truth.
+  const actualShippingPence = session.shipping_cost?.amount_total ?? 0;
+  const actualTotalPence = session.amount_total ?? 0;
+
+  // Extract the PaymentIntent id (Stripe may give us a string ref or
+  // an expanded object — handle both).
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+
+  // Best-effort donor link: if this email matches an existing donor
+  // row, we attach donor_id so reports can join across donation +
+  // bazaar history for the same person.
+  const donorId = contactEmail
+    ? await findDonorIdByEmail(contactEmail)
+    : null;
+
+  const updated = await markOrderPaid({
+    orderId,
+    contactEmail,
+    shippingAddress,
+    stripeSessionId: session.id,
+    stripePaymentIntent: paymentIntentId,
+    actualShippingPence,
+    actualTotalPence,
+    donorIdIfMatched: donorId,
+  });
+
+  if (!updated) {
+    // Either the order_id pointed at a row that no longer exists or
+    // it was already promoted (idempotent re-delivery). Both are
+    // benign — log and move on. We deliberately do NOT re-send the
+    // confirmation email on a re-delivery, even though we could: the
+    // customer already got it, and a duplicate email looks like a
+    // scam to the suspicious eye.
+    console.log(
+      `[webhook] bazaar order ${orderId} for session ${session.id} not in pending_payment state — likely a re-delivery.`
+    );
+    return;
+  }
+
+  console.log(
+    `[webhook] bazaar order ${orderId} promoted to paid (session ${session.id}, PI ${paymentIntentId}).`
+  );
+
+  // Refetch the order + items in one round-trip. We use this for
+  // both stock decrement and the customer email so they see the
+  // same authoritative data.
+  let detail: Awaited<ReturnType<typeof fetchOrderByStripeSession>>;
+  try {
+    detail = await fetchOrderByStripeSession(session.id);
+  } catch (err) {
+    console.error(
+      `[webhook] bazaar order ${orderId} refetch failed — stock + email skipped:`,
+      err
+    );
+    return;
+  }
+
+  if (!detail) {
+    console.warn(
+      `[webhook] bazaar order ${orderId} not found on refetch — stock + email skipped.`
+    );
+    return;
+  }
+
+  // Stock decrement runs BEFORE the email so an outright failure
+  // surfaces in logs before we tell the customer "your order is
+  // confirmed." The helper swallows per-item failures and only
+  // logs — a missed decrement is recoverable manually (admin
+  // adjusts via the catalog UI) but blocking the email would
+  // surface as a missing-receipt support ticket which is worse.
+  try {
+    await decrementStockForOrderItems(detail.items);
+  } catch (err) {
+    console.error(
+      `[webhook] stock decrement failed for order ${orderId} — admin should reconcile manually:`,
+      err
+    );
+  }
+
+  // Admin notifications — fire-and-forget, no error path. Two
+  // rows go in:
+  //   1) Immediate "new order" notification visible in the bell
+  //      right away.
+  //   2) Scheduled "still unfulfilled after 24h" reminder. The
+  //      reminder is invisible until scheduled_for elapses; the
+  //      mark-shipped route cancels it if the order is shipped
+  //      before then.
+  const receiptNum = bazaarReceiptNumber(detail.order.id);
+  const totalGbp = fromPence(detail.order.totalPence).toFixed(2);
+  const itemCount = detail.items.reduce((s, i) => s + i.quantity, 0);
+  const adminUrl = `/admin/bazaar/orders/${detail.order.id}`;
+  const customerName = detail.order.shippingAddress?.name || "Customer";
+
+  await enqueueNotification({
+    type: "bazaar_order_placed",
+    severity: "info",
+    title: `New order — ${receiptNum} (£${totalGbp})`,
+    body: `${customerName} just placed an order for ${itemCount} item${itemCount === 1 ? "" : "s"}. Time to fulfil.`,
+    targetUrl: adminUrl,
+    targetId: detail.order.id,
+  });
+
+  const REMINDER_DELAY_HOURS = 24;
+  const reminderAt = new Date(
+    Date.now() + REMINDER_DELAY_HOURS * 60 * 60 * 1000
+  );
+  await enqueueNotification({
+    type: "bazaar_order_unfulfilled_reminder",
+    severity: "warning",
+    title: `Still to ship — ${receiptNum}`,
+    body: `Order from ${customerName} (£${totalGbp}, ${itemCount} item${itemCount === 1 ? "" : "s"}) is 24 hours old and not yet marked shipped. Open to fulfil.`,
+    targetUrl: adminUrl,
+    targetId: detail.order.id,
+    scheduledFor: reminderAt,
+  });
+
+  // Send the order confirmation email. Same reasoning as above —
+  // sendBazaarOrderConfirmation already catches its own errors and
+  // returns false, but we belt-and-braces around the fetch too.
+  try {
+    await sendBazaarOrderConfirmation({
+      order: detail.order,
+      items: detail.items,
+    });
+  } catch (err) {
+    console.error(
+      `[webhook] bazaar order confirmation email send failed for ${orderId}:`,
+      err
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

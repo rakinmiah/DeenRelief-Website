@@ -1,4 +1,13 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import {
+  BAZAAR_RETURNS_ADDRESS,
+  BAZAAR_SUPPORT_EMAIL,
+} from "@/lib/bazaar-config";
+import BackToContactLink from "@/components/bazaar/BackToContactLink";
+import BazaarFaqSection from "@/components/bazaar/BazaarFaqSection";
+import BazaarPageOutro from "@/components/bazaar/BazaarPageOutro";
+import { BAZAAR_RETURNS_FAQS } from "@/lib/bazaar-faqs";
 
 export const metadata: Metadata = {
   title: "Returns | Deen Relief Bazaar",
@@ -8,7 +17,14 @@ export const metadata: Metadata = {
 
 export default function ReturnsPolicyPage() {
   return (
+    <>
     <article className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+      {/* Renders only when the visitor came via the /bazaar/contact
+          deflect card (which appends ?from=contact). For direct
+          visitors this is a no-op. */}
+      <Suspense fallback={null}>
+        <BackToContactLink />
+      </Suspense>
       <span className="inline-block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
         Returns
       </span>
@@ -45,14 +61,24 @@ export default function ReturnsPolicyPage() {
         <ol>
           <li>
             Email{" "}
-            <a href="mailto:hello@deenrelief.org" className="text-green underline">
-              hello@deenrelief.org
+            <a
+              href={`mailto:${BAZAAR_SUPPORT_EMAIL}`}
+              className="text-green underline"
+            >
+              {BAZAAR_SUPPORT_EMAIL}
             </a>{" "}
             with your order number and the item(s) you&apos;re returning.
           </li>
           <li>
-            We&apos;ll reply within one working day with the return
-            address and (if applicable) a prepaid label.
+            We&apos;ll reply within one working day with confirmation and
+            (if applicable) a prepaid label. The return address is:
+            <address className="not-italic mt-2 mb-3 p-3 bg-cream rounded-lg text-charcoal text-sm leading-[1.6]">
+              {BAZAAR_RETURNS_ADDRESS.lines.map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </address>
           </li>
           <li>
             Pack the item back in its original wrapping or any clean,
@@ -78,7 +104,14 @@ export default function ReturnsPolicyPage() {
           You&apos;re still covered by the UK Consumer Rights Act. If
           something fails within the first 6 months and isn&apos;t the
           result of normal wear, we&apos;ll repair, replace, or refund.
-          Email us with photos.
+          Email{" "}
+          <a
+            href={`mailto:${BAZAAR_SUPPORT_EMAIL}`}
+            className="text-green underline"
+          >
+            {BAZAAR_SUPPORT_EMAIL}
+          </a>{" "}
+          with photos.
         </p>
 
         <h2>The why behind the policy</h2>
@@ -90,5 +123,9 @@ export default function ReturnsPolicyPage() {
         </p>
       </div>
     </article>
+
+    <BazaarFaqSection faqs={BAZAAR_RETURNS_FAQS} page="returns" />
+    <BazaarPageOutro />
+    </>
   );
 }

@@ -1,38 +1,78 @@
 import { NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 import {
-  findProductById,
+  attachStripeSessionId,
+  createPendingOrder,
+  type PendingOrderItem,
+} from "@/lib/bazaar-db";
+import {
+  fetchProductsByIds,
   resolveUnitPricePence,
-} from "@/lib/bazaar-placeholder";
+} from "@/lib/bazaar-catalog";
+import {
+  BAZAAR_STRIPE_METADATA_KEY,
+  BAZAAR_STRIPE_METADATA_VALUE,
+} from "@/lib/bazaar-config";
 import type { CartLineItem } from "@/lib/bazaar-types";
+import type { Product } from "@/lib/bazaar-types";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Shipping rates exposed at Stripe Checkout. Mirrors the prose on
+ * /bazaar/shipping. The customer picks one of the two; what they pick
+ * is reflected back in the checkout.session.completed webhook payload
+ * and the bazaar_orders.shipping_pence column gets overwritten with
+ * the actual chosen amount.
+ *
+ * Free over the £75 threshold: implemented by suppressing the
+ * standard rate and exposing only a £0 rate when the cart subtotal
+ * crosses the line. Stripe doesn't support conditional shipping rates
+ * natively, so we build the list at session-creation time.
+ */
 const FREE_SHIPPING_THRESHOLD_PENCE = 7500;
-const STANDARD_SHIPPING_PENCE = 399;
+const TRACKED_48_PENCE = 399;
+const TRACKED_24_UPGRADE_PENCE = 499;
 
 /**
  * POST /api/bazaar/checkout
  *
- * Creates a Stripe Checkout Session for the cart and returns the hosted
- * checkout URL. The browser then 303-redirects to Stripe.
+ * The end-to-end path:
+ *   1. Browser POSTs the localStorage cart as { items: CartLineItem[] }.
+ *   2. We validate every line against the live catalog — refuse on
+ *      missing/inactive products (410), insufficient stock (409),
+ *      or unit-price drift since add-to-cart (409, per Phase 2
+ *      decision: surprise charges generate chargebacks).
+ *   3. We write a pending bazaar_orders row + bazaar_order_items rows
+ *      to Supabase, capturing the cart's intent under one order_id.
+ *   4. We create a Stripe Checkout Session with:
+ *      - line_items built from the validated cart
+ *      - shipping_options for Tracked 48 (default) and Tracked 24
+ *        (upgrade), with the £75-free threshold collapsing them to
+ *        a single £0 rate
+ *      - shipping_address_collection: GB only
+ *      - metadata.source = "bazaar" — the SEPARATION pivot. The
+ *        existing /api/stripe/webhook reads this to route the event
+ *        to the bazaar handler instead of the donation handler.
+ *        Donations never set this key.
+ *      - metadata.order_id = the bazaar_orders.id we just wrote, so
+ *        the webhook can promote THIS exact row.
+ *      - success_url with {CHECKOUT_SESSION_ID} substitution so the
+ *        order confirmation page can look up the order by session id.
+ *      - cancel_url back to the cart so the customer doesn't lose
+ *        their place.
+ *   5. We return the Stripe-hosted session URL; the cart client
+ *      does window.location.href = url.
  *
- * Mockup mode (current): returns a placeholder URL pointing at the
- * order-preview page so the client can walk through the post-purchase
- * UX in the pitch. No real charge.
- *
- * Production mode (post-launch): swap the body of this handler for the
- * commented-out Stripe call. The Stripe account, secret key, and
- * success/cancel URLs are the only env-side configuration changes
- * needed — the request and response shapes are identical.
- *
- * Inventory protection (production):
- *   - Server-side validates each line item's stock against the live
- *     Supabase row (NOT the client-side snapshot).
- *   - Server-side recomputes the unit price from Supabase to prevent
- *     a client tampering with the cart and paying less.
- *   - Reserves stock by decrementing on session creation with a 30-min
- *     timeout (release if not paid). Webhook flips reservation to
- *     committed on payment_intent.succeeded.
+ * If the order row writes but the Stripe call fails (network,
+ * rate-limit, key rotation), the pending row is harmless — it will
+ * never receive a checkout.session.completed event because no Stripe
+ * session was ever created. A daily cleanup script could prune rows
+ * older than a few hours in pending_payment status. Not built yet —
+ * for current volume the cruft is invisible.
  */
 export async function POST(req: Request) {
+  // ─── Parse & validate request body ─────────────────────────────
   let body: { items?: CartLineItem[] };
   try {
     body = await req.json();
@@ -45,77 +85,243 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
-  // Reconcile against current placeholder catalog. In production this
-  // becomes a Supabase query; the rest of the validation is the same.
+  // ─── Reconcile against catalog ────────────────────────────────
+  //
+  // Bulk-fetch every distinct product referenced in the cart in
+  // ONE round-trip rather than one query per line. Then for every
+  // line: (a) does the product still exist and is it active,
+  // (b) is the stock count high enough, (c) does the snapshot
+  // price still match the current catalog price.
+  const distinctProductIds = [...new Set(items.map((i) => i.productId))];
+  let catalogProducts: Product[];
+  try {
+    catalogProducts = await fetchProductsByIds(distinctProductIds);
+  } catch (err) {
+    console.error("[bazaar/checkout] catalog fetch failed:", err);
+    return NextResponse.json(
+      { error: "Could not start checkout. Please try again in a moment." },
+      { status: 500 }
+    );
+  }
+  const productById = new Map(catalogProducts.map((p) => [p.id, p]));
+
   let subtotalPence = 0;
+  const pendingItems: PendingOrderItem[] = [];
   for (const item of items) {
-    const product = findProductById(item.productId);
+    const product = productById.get(item.productId);
     if (!product || !product.isActive) {
       return NextResponse.json(
-        { error: `Product no longer available` },
+        { error: "One of your items is no longer available." },
         { status: 410 }
       );
     }
-    const unitPrice = resolveUnitPricePence(product, item.variantId);
-    subtotalPence += unitPrice * item.quantity;
 
-    // Stock check
-    const variant = product.variants.find((v) => v.id === item.variantId);
-    const availableStock = variant
-      ? variant.stockCount
-      : product.stockCount;
-    if (item.quantity > availableStock) {
+    const variant = item.variantId
+      ? product.variants.find((v) => v.id === item.variantId)
+      : undefined;
+    if (item.variantId && !variant) {
+      return NextResponse.json(
+        { error: `The variant you chose for ${product.name} is no longer available.` },
+        { status: 410 }
+      );
+    }
+
+    const currentUnitPrice = resolveUnitPricePence(product, item.variantId);
+    if (currentUnitPrice !== item.unitPricePenceSnapshot) {
       return NextResponse.json(
         {
-          error: `Only ${availableStock} of "${product.name}" available`,
+          error: `The price of "${product.name}" has changed since you added it. Please review your cart and try again.`,
         },
         { status: 409 }
       );
     }
+
+    const availableStock = variant ? variant.stockCount : product.stockCount;
+    if (item.quantity > availableStock) {
+      return NextResponse.json(
+        {
+          error: `Only ${availableStock} of "${product.name}" available.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    subtotalPence += currentUnitPrice * item.quantity;
+
+    // Collect the enriched line for createPendingOrder. We're past
+    // the validation gate so every field here is from the live
+    // catalog and safe to persist as the order's snapshot.
+    const variantLabel = variant
+      ? [variant.size, variant.colour].filter(Boolean).join(" · ") || undefined
+      : undefined;
+    pendingItems.push({
+      productId: product.id,
+      ...(item.variantId ? { variantId: item.variantId } : {}),
+      quantity: item.quantity,
+      unitPricePence: currentUnitPrice,
+      productName: product.name,
+      ...(variantLabel ? { variantLabel } : {}),
+      makerName: product.maker.name,
+    });
   }
 
-  const shippingPence =
-    subtotalPence >= FREE_SHIPPING_THRESHOLD_PENCE
-      ? 0
-      : STANDARD_SHIPPING_PENCE;
-  const totalPence = subtotalPence + shippingPence;
-
-  // ─────────────────────────────────────────────────────────────────
-  // PRODUCTION: replace mock URL with real Stripe Checkout Session.
+  // ─── Compute shipping at session-creation time ────────────────
   //
-  // import Stripe from "stripe";
-  // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY_BAZAAR!);
-  // const session = await stripe.checkout.sessions.create({
-  //   mode: "payment",
-  //   line_items: items.map((i) => {
-  //     const p = findProductById(i.productId)!;
-  //     return {
-  //       price_data: {
-  //         currency: "gbp",
-  //         product_data: { name: p.name, metadata: { sku: p.sku } },
-  //         unit_amount: resolveUnitPricePence(p, i.variantId),
-  //       },
-  //       quantity: i.quantity,
-  //     };
-  //   }),
-  //   shipping_options: [
-  //     { shipping_rate_data: { type: "fixed_amount",
-  //       fixed_amount: { amount: shippingPence, currency: "gbp" },
-  //       display_name: "Royal Mail Tracked 48",
-  //       delivery_estimate: { minimum: { unit: "business_day", value: 2 },
-  //                            maximum: { unit: "business_day", value: 4 } } } }
-  //   ],
-  //   shipping_address_collection: { allowed_countries: ["GB"] },
-  //   success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/bazaar/order/{CHECKOUT_SESSION_ID}`,
-  //   cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/bazaar/cart`,
-  //   metadata: { source: "bazaar", item_count: String(items.length) },
-  // });
-  // return NextResponse.json({ url: session.url });
-  // ─────────────────────────────────────────────────────────────────
+  // Provisional figure for the bazaar_orders row. The customer may
+  // pick the Tracked 24 upgrade at the Stripe checkout page; the
+  // webhook overwrites this column with the actual chosen rate.
+  const qualifiesFreeShipping = subtotalPence >= FREE_SHIPPING_THRESHOLD_PENCE;
+  const provisionalShippingPence = qualifiesFreeShipping ? 0 : TRACKED_48_PENCE;
+  const provisionalTotalPence = subtotalPence + provisionalShippingPence;
 
-  // Mockup: redirect to the post-purchase preview page so the client
-  // can see the full post-checkout UX without a real Stripe account.
-  return NextResponse.json({
-    url: `/bazaar/order/preview?total=${totalPence}&items=${items.length}`,
+  // ─── Insert pending order row ─────────────────────────────────
+  let orderId: string;
+  const livemode = (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live_");
+  try {
+    orderId = await createPendingOrder({
+      items: pendingItems,
+      subtotalPence,
+      shippingPence: provisionalShippingPence,
+      totalPence: provisionalTotalPence,
+      livemode,
+    });
+  } catch (err) {
+    console.error("[bazaar/checkout] createPendingOrder failed:", err);
+    return NextResponse.json(
+      { error: "Could not start checkout. Please try again in a moment." },
+      { status: 500 }
+    );
+  }
+
+  // ─── Create Stripe Checkout Session ────────────────────────────
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ??
+    "https://deenrelief.org"; // last-resort fallback so misconfig doesn't 500
+
+  // Build line items from the validated cart. TypeScript infers the
+  // shape against stripe.checkout.sessions.create's parameter type at
+  // the call site below — we don't pin it explicitly because the
+  // dahlia SDK's Checkout namespace export shape moves between minor
+  // versions, and inference keeps this routine version-resilient.
+  const lineItems = items.map((i) => {
+    // We've already verified every cart line above, so productById
+    // is guaranteed to have an entry here. The non-null assertion
+    // is safe.
+    const product = productById.get(i.productId)!;
+    const variant = i.variantId
+      ? product.variants.find((v) => v.id === i.variantId)
+      : undefined;
+    const variantLabel = variant
+      ? [variant.size, variant.colour].filter(Boolean).join(" · ")
+      : "";
+    return {
+      price_data: {
+        currency: "gbp",
+        product_data: {
+          name: variantLabel ? `${product.name} (${variantLabel})` : product.name,
+          // SKU on the line shows in Stripe Dashboard's line-item
+          // detail and on the receipt Stripe emails, which makes
+          // accountant reconciliation cleaner.
+          metadata: { sku: variant?.sku ?? product.sku },
+        },
+        unit_amount: resolveUnitPricePence(product, i.variantId),
+      },
+      quantity: i.quantity,
+    };
   });
+
+  // Shipping options. Above the free-shipping threshold we surface
+  // ONE free rate so the customer doesn't see a £3.99 line they
+  // could have avoided. Below it we surface the standard Tracked 48
+  // and an upgrade to Tracked 24.
+  // The type/unit fields need to be literal strings ("fixed_amount",
+  // "business_day") to satisfy the Stripe SDK's ShippingOption shape.
+  // We use a small helper to build each rate so the casts are
+  // localised rather than scattered.
+  type BizDayUnit = "business_day";
+  function rate(
+    amount: number,
+    displayName: string,
+    minDays: number,
+    maxDays: number
+  ) {
+    return {
+      shipping_rate_data: {
+        type: "fixed_amount" as const,
+        fixed_amount: { amount, currency: "gbp" },
+        display_name: displayName,
+        delivery_estimate: {
+          minimum: { unit: "business_day" as BizDayUnit, value: minDays },
+          maximum: { unit: "business_day" as BizDayUnit, value: maxDays },
+        },
+      },
+    };
+  }
+
+  const shippingOptions = qualifiesFreeShipping
+    ? [rate(0, "Free UK delivery — Royal Mail Tracked 48", 2, 4)]
+    : [
+        rate(TRACKED_48_PENCE, "Royal Mail Tracked 48", 2, 4),
+        rate(TRACKED_24_UPGRADE_PENCE, "Royal Mail Tracked 24", 1, 2),
+      ];
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: lineItems,
+      shipping_options: shippingOptions,
+      shipping_address_collection: { allowed_countries: ["GB"] },
+      // Phone optional — we want it for delivery comms but won't
+      // make it mandatory. Stripe's billing_address_collection
+      // defaults to auto which is fine for GB.
+      phone_number_collection: { enabled: true },
+      success_url: `${baseUrl}/bazaar/order/{CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/bazaar/cart`,
+      metadata: {
+        [BAZAAR_STRIPE_METADATA_KEY]: BAZAAR_STRIPE_METADATA_VALUE,
+        order_id: orderId,
+        item_count: String(items.reduce((s, i) => s + i.quantity, 0)),
+      },
+      payment_intent_data: {
+        // Mirror the same metadata onto the underlying PaymentIntent
+        // so a Stripe Dashboard search by PI also surfaces the
+        // bazaar tag, and so charge.refunded events (which carry the
+        // PI ref) can be routed without joining back to the session.
+        metadata: {
+          [BAZAAR_STRIPE_METADATA_KEY]: BAZAAR_STRIPE_METADATA_VALUE,
+          order_id: orderId,
+        },
+      },
+    });
+
+    if (!session.url) {
+      throw new Error("Stripe returned a session with no url");
+    }
+
+    // Stamp the session id onto the pending order so the confirmation
+    // page can find it by URL segment alone, even before the
+    // checkout.session.completed webhook lands. If this fails we
+    // still return the Stripe URL — the customer's payment flow
+    // shouldn't be blocked by our own bookkeeping; the webhook can
+    // patch the row when it arrives.
+    try {
+      await attachStripeSessionId({
+        orderId,
+        stripeSessionId: session.id,
+      });
+    } catch (err) {
+      console.error("[bazaar/checkout] attachStripeSessionId failed:", err);
+    }
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    console.error("[bazaar/checkout] Stripe session create failed:", err);
+    // The pending bazaar_orders row will be pruned by the future
+    // cleanup job. Leaving it doesn't affect reporting because all
+    // money / reconciliation queries filter on status = 'paid'.
+    return NextResponse.json(
+      { error: "Could not start checkout. Please try again in a moment." },
+      { status: 500 }
+    );
+  }
 }

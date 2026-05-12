@@ -20,8 +20,35 @@ const securityHeaders = [
   { key: "X-XSS-Protection", value: "1; mode=block" },
 ];
 
+// Pull the Supabase project ref out of the configured Supabase
+// URL so the Next.js Image optimiser can fetch from the
+// bazaar-products storage bucket. Falls back to a permissive
+// "any *.supabase.co" pattern when the env isn't set at build
+// time (e.g. on a fresh clone before .env.local exists).
+const supabaseHost = (() => {
+  try {
+    const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!raw) return "*.supabase.co";
+    return new URL(raw).hostname;
+  } catch {
+    return "*.supabase.co";
+  }
+})();
+
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "md", "mdx"],
+  images: {
+    // Authorises Next.js's Image component to fetch + optimise
+    // remote images from Supabase Storage. The bucket is public
+    // so signed URLs aren't needed.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: supabaseHost,
+        pathname: "/storage/v1/object/public/bazaar-products/**",
+      },
+    ],
+  },
   async headers() {
     return [
       {

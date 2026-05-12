@@ -90,6 +90,26 @@ export interface CartLineItem {
   /** Snapshot of unit price at add-to-cart time — protects against price
    *  changes mid-session. Reconciled against current price at checkout. */
   unitPricePenceSnapshot: number;
+  /**
+   * Display snapshots captured at add-to-cart time. With the catalog
+   * now in Supabase rather than the placeholder file, the cart page
+   * can't synchronously look up product info — so we snapshot what
+   * we need for rendering into the cart row itself. These are
+   * DISPLAY-ONLY; the checkout API re-fetches the current
+   * authoritative product + price from the DB before charging.
+   */
+  productNameSnapshot: string;
+  /** Slug for the "view product" link from the cart line. */
+  productSlugSnapshot: string;
+  /** "Size: Medium" / "Cream" / similar — pre-formatted for display. */
+  variantLabelSnapshot?: string;
+  /** Maker first-name-plus-initial for the "Made by X" line in cart. */
+  makerNameSnapshot: string;
+  /** Primary product image URL captured at add-to-cart time so the
+   *  cart thumbnail renders without re-querying the catalog.
+   *  Optional — legacy carts in localStorage from before this field
+   *  existed render the placeholder instead. */
+  productImageSnapshot?: string;
 }
 
 export type OrderStatus =

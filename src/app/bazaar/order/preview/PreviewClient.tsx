@@ -98,7 +98,10 @@ export default function PreviewClient() {
 
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <Link
-          href="/bazaar"
+          // Matches the real order-confirmation page — deep-link
+          // to the catalog grid so the customer lands on
+          // products, not the hero.
+          href="/bazaar#catalog"
           className="px-7 py-3.5 rounded-full bg-charcoal text-white font-semibold hover:bg-charcoal/90 transition-colors shadow-sm"
         >
           Continue shopping

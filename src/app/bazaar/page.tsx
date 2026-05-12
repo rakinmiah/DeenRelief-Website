@@ -3,13 +3,21 @@ import Link from "next/link";
 import ProductCard from "@/components/bazaar/ProductCard";
 import BazaarPlaceholderImage from "@/components/bazaar/BazaarPlaceholderImage";
 import ProcessSteps from "@/components/ProcessSteps";
-import { PLACEHOLDER_PRODUCTS } from "@/lib/bazaar-placeholder";
+import BazaarFaqSection from "@/components/bazaar/BazaarFaqSection";
+import BazaarPageOutro from "@/components/bazaar/BazaarPageOutro";
+import { fetchActiveProducts } from "@/lib/bazaar-catalog";
+import { BAZAAR_LANDING_FAQS } from "@/lib/bazaar-faqs";
 
 export const metadata: Metadata = {
   title: "Deen Relief Bazaar — Goods made by hand, with dignity",
   description:
     "A small collection of Islamic clothing and goods, hand-made by people in Bangladesh and Turkey we work with directly. Every purchase pays the maker fairly and funds our charity work.",
 };
+
+// Catalog is dynamic — admin edits should reflect immediately. We
+// trade a tiny bit of SSR speed for an always-fresh public catalog.
+// A 60-second `revalidate` could be added later if traffic warrants.
+export const dynamic = "force-dynamic";
 
 /**
  * Bazaar catalog landing.
@@ -26,7 +34,8 @@ export const metadata: Metadata = {
  * after — the context IS the product. A donor-customer who buys without
  * understanding the supply chain isn't paying premium for premium's sake.
  */
-export default function BazaarPage() {
+export default async function BazaarPage() {
+  const products = await fetchActiveProducts();
   return (
     <>
       {/* ─── Hero ─── */}
@@ -59,7 +68,7 @@ export default function BazaarPage() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <a
               href="#catalog"
-              className="px-7 py-3.5 rounded-full bg-charcoal text-white font-semibold hover:bg-charcoal/90 transition-colors shadow-sm"
+              className="px-7 py-3.5 rounded-full bg-amber text-charcoal font-semibold hover:bg-amber-dark hover:text-white transition-colors shadow-sm"
             >
               Shop the collection
             </a>
@@ -74,7 +83,7 @@ export default function BazaarPage() {
       </section>
 
       {/* ─── Featured maker preview (tease the story page) ─── */}
-      <section className="py-14 md:py-20 bg-cream">
+      <section className="py-14 md:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-8 md:gap-14 items-center">
             <div className="relative aspect-[4/5] md:aspect-[5/6] rounded-2xl overflow-hidden">
@@ -121,7 +130,7 @@ export default function BazaarPage() {
       </section>
 
       {/* ─── Catalog grid ─── */}
-      <section id="catalog" className="py-16 md:py-24 bg-white scroll-mt-32">
+      <section id="catalog" className="py-16 md:py-24 bg-cream scroll-mt-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
@@ -134,7 +143,7 @@ export default function BazaarPage() {
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {PLACEHOLDER_PRODUCTS.map((product) => (
+            {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
@@ -185,20 +194,12 @@ export default function BazaarPage() {
         </div>
       </section>
 
-      {/* ─── Closing trust bar ─── */}
-      <section className="py-7 md:py-8 bg-green-dark">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-white/65 text-[12px] font-medium">
-            <span>Free UK delivery over £75</span>
-            <span className="text-white/20">|</span>
-            <span>14-day returns</span>
-            <span className="text-white/20">|</span>
-            <span>Profits gift-aided to Deen Relief</span>
-            <span className="text-white/20">|</span>
-            <span>Charity No. 1158608</span>
-          </div>
-        </div>
-      </section>
+      <BazaarFaqSection
+        faqs={BAZAAR_LANDING_FAQS}
+        page="landing"
+        heading="Questions about the Bazaar"
+      />
+      <BazaarPageOutro />
     </>
   );
 }

@@ -25,12 +25,36 @@ export type AdminAction =
   | "sign_out"
   | "view_gift_aid_csv"
   | "view_donations_csv"
+  | "view_reconciliation_csv"
   | "refund_donation"
   | "resend_receipt"
   | "cancel_subscription"
   | "send_portal_link"
   | "send_donation_message"
-  | "backfill_livemode";
+  | "backfill_livemode"
+  | "mark_bazaar_order_shipped"
+  | "update_bazaar_order_notes"
+  | "resend_bazaar_shipping_email"
+  | "mark_bazaar_order_delivered"
+  | "refund_bazaar_order"
+  | "view_click_and_drop_csv"
+  | "create_bazaar_maker"
+  | "update_bazaar_maker"
+  | "create_bazaar_product"
+  | "update_bazaar_product"
+  | "create_bazaar_variant"
+  | "update_bazaar_variant"
+  | "delete_bazaar_variant"
+  | "adjust_bazaar_stock"
+  | "upload_bazaar_image"
+  | "ai_analyze_bazaar_image"
+  | "delete_bazaar_product"
+  | "delete_bazaar_maker"
+  // Bazaar inquiries (customer support inbox).
+  | "send_bazaar_inquiry_reply"
+  | "update_bazaar_inquiry_status"
+  | "log_manual_inquiry_message"
+  | "send_bazaar_order_message";
 
 interface LogAdminActionOpts {
   action: AdminAction;

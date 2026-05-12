@@ -24,8 +24,10 @@ export default function MakerBlock({ maker }: { maker: Maker }) {
           <BazaarPlaceholderImage
             label={maker.name}
             variant="maker"
+            src={maker.photoUrl}
+            sizes="(min-width: 768px) 50vw, 100vw"
           />
-          <span className="absolute bottom-4 left-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/85 bg-charcoal/70 backdrop-blur-sm px-3 py-1.5 rounded-full">
+          <span className="absolute bottom-4 left-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-charcoal bg-amber px-3 py-1.5 rounded-full shadow-sm">
             {maker.region}, {maker.country}
           </span>
         </div>

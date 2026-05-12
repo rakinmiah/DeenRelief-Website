@@ -8,7 +8,8 @@ import {
   useBazaarCart,
 } from "@/components/bazaar/BazaarCartProvider";
 import BazaarPlaceholderImage from "@/components/bazaar/BazaarPlaceholderImage";
-import { findProductById } from "@/lib/bazaar-placeholder";
+import { trackBazaarBeginCheckout } from "@/lib/analytics";
+import { fromPence } from "@/lib/stripe";
 
 const FREE_SHIPPING_THRESHOLD_PENCE = 7500;
 const STANDARD_SHIPPING_PENCE = 399;
@@ -53,6 +54,28 @@ export default function CartPageClient() {
   async function handleCheckout() {
     setIsCheckingOut(true);
     setCheckoutError(null);
+
+    // Fire GA4 `begin_checkout` before the Stripe redirect.
+    // High-intent Smart Bidding signal — donors who reach this
+    // point are materially more likely to complete than those who
+    // bounce from the cart. Consent-gated via trackEvent.
+    trackBazaarBeginCheckout({
+      value: fromPence(totalPence),
+      items: items.map((item) => ({
+        item_id: item.productId,
+        item_name: item.productNameSnapshot,
+        item_category: "Bazaar",
+        ...(item.makerNameSnapshot
+          ? { item_brand: item.makerNameSnapshot }
+          : {}),
+        ...(item.variantLabelSnapshot
+          ? { item_variant: item.variantLabelSnapshot }
+          : {}),
+        price: fromPence(item.unitPricePenceSnapshot),
+        quantity: item.quantity,
+      })),
+    });
+
     try {
       const res = await fetch("/api/bazaar/checkout", {
         method: "POST",
@@ -117,14 +140,10 @@ export default function CartPageClient() {
         {/* Line items */}
         <div className="space-y-5">
           {items.map((item) => {
-            const product = findProductById(item.productId);
-            if (!product) return null;
-            const variant = product.variants.find(
-              (v) => v.id === item.variantId
-            );
-            const variantLabel = variant
-              ? variant.size ?? variant.colour ?? variant.sku
-              : null;
+            // Display info comes from the snapshot stored on each
+            // cart line at add-to-cart time — no synchronous catalog
+            // lookup needed now that the catalog is in Supabase.
+            const variantLabel = item.variantLabelSnapshot ?? null;
             const lineTotal = item.unitPricePenceSnapshot * item.quantity;
             return (
               <div
@@ -133,22 +152,24 @@ export default function CartPageClient() {
               >
                 <div className="relative w-24 sm:w-32 aspect-[4/5] flex-shrink-0 rounded-xl overflow-hidden bg-cream">
                   <BazaarPlaceholderImage
-                    label={product.name}
+                    label={item.productNameSnapshot}
                     variant="product"
+                    src={item.productImageSnapshot}
+                    sizes="128px"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <Link
-                        href={`/bazaar/${product.slug}`}
+                        href={`/bazaar/${item.productSlugSnapshot}`}
                         className="font-heading font-semibold text-base sm:text-lg text-charcoal hover:text-green transition-colors leading-tight block truncate"
                       >
-                        {product.name}
+                        {item.productNameSnapshot}
                       </Link>
                       <p className="text-grey text-xs sm:text-sm mt-1">
                         {variantLabel ? `${variantLabel} · ` : ""}Made by{" "}
-                        {product.maker.name}
+                        {item.makerNameSnapshot}
                       </p>
                     </div>
                     <span className="text-charcoal font-heading font-semibold text-base flex-shrink-0">
@@ -297,7 +318,12 @@ export default function CartPageClient() {
 
           <button
             type="button"
-            onClick={() => router.push("/bazaar")}
+            // Anchors directly to the catalog grid (#catalog has
+            // scroll-mt-32 on /bazaar to clear the sticky header)
+            // so the buyer lands on the products rather than the
+            // hero — they were already mid-purchase, so the brand
+            // hero is the wrong moment to re-orient them.
+            onClick={() => router.push("/bazaar#catalog")}
             className="w-full mt-4 text-charcoal/70 hover:text-charcoal text-sm font-medium transition-colors"
           >
             ← Continue shopping

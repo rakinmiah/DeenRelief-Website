@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BazaarPlaceholderImage from "@/components/bazaar/BazaarPlaceholderImage";
-import { PLACEHOLDER_PRODUCTS } from "@/lib/bazaar-placeholder";
+import BazaarFaqSection from "@/components/bazaar/BazaarFaqSection";
+import BazaarPageOutro from "@/components/bazaar/BazaarPageOutro";
+import { fetchActiveMakers } from "@/lib/bazaar-catalog";
+import { BAZAAR_MAKERS_FAQS } from "@/lib/bazaar-faqs";
 
 export const metadata: Metadata = {
   title: "Our Makers | Deen Relief Bazaar",
   description:
     "Meet the people who make every piece of Deen Relief Bazaar — by hand, in Sylhet, Adana, and Dhaka. Their names. Their stories. Their workshops.",
 };
+
+export const dynamic = "force-dynamic";
 
 /**
  * The brand-story page. Distinct from the product pages because it tells
@@ -22,11 +27,10 @@ export const metadata: Metadata = {
  *   4. The work — how products are made (process photo essay).
  *   5. CTA — back to the catalog.
  */
-export default function AboutOurMakersPage() {
-  // Deduplicate makers by name (some makers contribute to multiple SKUs).
-  const uniqueMakers = Array.from(
-    new Map(PLACEHOLDER_PRODUCTS.map((p) => [p.maker.name, p.maker])).values()
-  );
+export default async function AboutOurMakersPage() {
+  // Already deduped at the DB level — one row per maker. Sorted
+  // country → region so the page reads geographically.
+  const uniqueMakers = await fetchActiveMakers();
 
   return (
     <>
@@ -48,23 +52,32 @@ export default function AboutOurMakersPage() {
       </section>
 
       {/* ─── Maker profiles ─── */}
-      <section className="py-12 md:py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16 md:space-y-24">
-          {uniqueMakers.map((maker, i) => {
-            const isEven = i % 2 === 0;
-            return (
-              <article
-                key={maker.name}
-                className="grid md:grid-cols-2 gap-8 md:gap-14 items-center"
-              >
+      {/* Each profile is its own <section> so the page background
+          can alternate band-by-band. The hero is cream, so the
+          first maker reads as white, the next as cream, etc — the
+          whole page now alternates strictly per section. The image
+          / text column flip every other maker stays orthogonal to
+          the background flip so the visual rhythm doesn't compound. */}
+      {uniqueMakers.map((maker, i) => {
+        const imageRightSide = i % 2 === 0; // image on left for evens
+        const bgClass = i % 2 === 0 ? "bg-white" : "bg-cream";
+        return (
+          <section
+            key={maker.name}
+            className={`${bgClass} py-12 md:py-16`}
+          >
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+              <article className="grid md:grid-cols-2 gap-8 md:gap-14 items-center">
                 <div
-                  className={`relative aspect-[4/5] rounded-2xl overflow-hidden ${!isEven ? "md:order-2" : ""}`}
+                  className={`relative aspect-[4/5] rounded-2xl overflow-hidden ${!imageRightSide ? "md:order-2" : ""}`}
                 >
                   <BazaarPlaceholderImage
                     label={maker.name}
                     variant="maker"
+                    src={maker.photoUrl}
+                    sizes="(min-width: 768px) 50vw, 100vw"
                   />
-                  <span className="absolute bottom-4 left-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/85 bg-charcoal/70 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <span className="absolute bottom-4 left-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-charcoal bg-amber px-3 py-1.5 rounded-full shadow-sm">
                     {maker.region}, {maker.country}
                   </span>
                 </div>
@@ -72,9 +85,28 @@ export default function AboutOurMakersPage() {
                   <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
                     {maker.region}, {maker.country}
                   </span>
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-charcoal leading-tight mb-5">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-charcoal leading-tight mb-4">
                     {maker.name}
                   </h2>
+                  {/* Fact-row chips. The same three claims appear
+                      under every maker by design — repetition turns
+                      an abstract policy ("we pay above wholesale,
+                      up-front, with named attribution") into a
+                      visible promise that's reinforced once per
+                      person. Quiet styling so they read as facts
+                      sitting next to the prose, not as a CTA
+                      competing with it. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-5">
+                    <span className="inline-flex items-center text-[11px] font-semibold text-charcoal/70 bg-charcoal/[0.06] px-2.5 py-1 rounded-full whitespace-nowrap">
+                      Paid 3&ndash;4&times; regional wholesale
+                    </span>
+                    <span className="inline-flex items-center text-[11px] font-semibold text-charcoal/70 bg-charcoal/[0.06] px-2.5 py-1 rounded-full whitespace-nowrap">
+                      Paid up front, not on sale
+                    </span>
+                    <span className="inline-flex items-center text-[11px] font-semibold text-charcoal/70 bg-charcoal/[0.06] px-2.5 py-1 rounded-full whitespace-nowrap">
+                      Named on the parcel tag
+                    </span>
+                  </div>
                   <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-5">
                     {maker.story}
                   </p>
@@ -85,75 +117,78 @@ export default function AboutOurMakersPage() {
                   )}
                 </div>
               </article>
-            );
-          })}
-        </div>
-      </section>
+            </div>
+          </section>
+        );
+      })}
 
-      {/* ─── The economic case ─── */}
-      <section className="py-14 md:py-20 bg-cream">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <span className="inline-block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
-            What changes
+      {/* The standalone "What changes" stat section was removed —
+          its three relevant proof points (paid above wholesale,
+          paid up-front, named on tag) now sit as chips inside
+          each maker block, where they're tied to a specific
+          person rather than floating as abstract policy. */}
+
+      {/* ─── CTA ─── */}
+      {/* Recap-style CTA: the page just walked the reader through
+          named people in specific places, then asked them to act.
+          A generic "Browse the collection" button squanders that.
+          We surface the makers again as small portrait thumbs
+          above the button so the action carries the faces with
+          it — the reader clicks "browse" remembering Khadija and
+          Tahir, not an anonymous catalog. The thumbs are visual
+          memory aids, not nav (no per-maker links since we don't
+          have catalog-by-maker filtering yet). */}
+      <section className="py-14 md:py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-3">
+            Their work, in your hands
           </span>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-charcoal leading-tight mb-7 max-w-2xl">
-            What fair pay actually looks like
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-charcoal leading-tight mb-3 max-w-2xl mx-auto">
+            Meet them again on the products they made.
           </h2>
-          <div className="grid sm:grid-cols-2 gap-6 md:gap-10">
-            {[
-              {
-                stat: "3-4×",
-                label: "Above commercial rates",
-                body: "Every piece is paid at three to four times what the same work earns through commercial wholesalers in the region.",
-              },
-              {
-                stat: "Up front",
-                label: "Paid before the inventory ships",
-                body: "Makers receive payment when production is complete, not when the products sell. We absorb the cash-flow risk, not them.",
-              },
-              {
-                stat: "100%",
-                label: "Profit gift-aided to the charity",
-                body: "Whatever's left after maker pay, materials, freight, fulfilment and Stripe fees flows to Deen Relief's programme work.",
-              },
-              {
-                stat: "Named",
-                label: "On every parcel tag",
-                body: "Each product carries a tag with the maker's first name and region. No anonymous attribution.",
-              },
-            ].map((item) => (
-              <div key={item.label} className="bg-white rounded-2xl p-6 md:p-7">
-                <p className="text-3xl md:text-4xl font-heading font-bold text-charcoal mb-2">
-                  {item.stat}
-                </p>
-                <p className="text-charcoal text-sm font-semibold mb-2">
-                  {item.label}
-                </p>
-                <p className="text-grey text-sm leading-[1.7]">{item.body}</p>
+          <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] max-w-xl mx-auto mb-9">
+            Every piece in the Bazaar names its maker and where it
+            was made. Shop with the person, not just the product.
+          </p>
+
+          {/* Portrait recap row. Circles instead of the editorial
+              4:5 used above so the thumbs read clearly as identity
+              chips, not miniature versions of the maker blocks. */}
+          <div className="flex justify-center flex-wrap gap-5 sm:gap-7 mb-10">
+            {uniqueMakers.map((maker) => (
+              <div
+                key={`recap-${maker.name}`}
+                className="flex flex-col items-center text-center w-[72px] sm:w-[84px]"
+              >
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden mb-2 ring-1 ring-charcoal/10">
+                  <BazaarPlaceholderImage
+                    label={maker.name}
+                    variant="maker"
+                    src={maker.photoUrl}
+                    sizes="64px"
+                  />
+                </div>
+                <span className="block text-[12px] font-semibold text-charcoal leading-tight">
+                  {maker.name.split(" ")[0]}
+                </span>
+                <span className="block text-[10px] text-charcoal/50 leading-tight mt-0.5">
+                  {maker.country}
+                </span>
               </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* ─── CTA ─── */}
-      <section className="py-12 md:py-16 bg-green-dark">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white mb-4">
-            Ready to support our makers?
-          </h2>
-          <p className="text-white/70 text-base mb-7">
-            Six pieces in the collection, restocked slowly when each one
-            sells out.
-          </p>
           <Link
             href="/bazaar"
-            className="inline-block px-7 py-3.5 rounded-full bg-amber text-charcoal font-semibold hover:bg-amber-dark transition-colors shadow-sm"
+            className="inline-flex items-center justify-center px-7 py-3.5 rounded-full bg-amber text-charcoal font-semibold hover:bg-amber-dark hover:text-white transition-colors shadow-sm"
           >
             Browse the collection
           </Link>
         </div>
       </section>
+
+      <BazaarFaqSection faqs={BAZAAR_MAKERS_FAQS} page="makers" />
+      <BazaarPageOutro />
     </>
   );
 }

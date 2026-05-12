@@ -216,6 +216,176 @@ export function trackDonationPurchase(p: DonationPurchaseParams): void {
   });
 }
 
+// ─── Bazaar (trading) event wrappers ──────────────────────────────
+//
+// Same `purchase` event name as donations — GA4 ecommerce reports
+// aggregate revenue across both sources naturally. The discriminator
+// is the `affiliation` parameter:
+//
+//   "Deen Relief"         → donation (charitable income)
+//   "Deen Relief Bazaar"  → bazaar order (trading income, Path A
+//                            small-trading exemption)
+//
+// Mirrors the Stripe metadata convention (source: "bazaar") and the
+// reconciliation Type column. A GA4 explorer filtered on
+// affiliation = "Deen Relief Bazaar" reads as the trading-income
+// view that pairs with the reconciliation report.
+//
+// Contentsquare integration: we ALSO push a `bazaar_purchase` event
+// onto the _uxa queue so the same purchase appears in CS's funnel
+// and event-occurrence reports without forcing the analyst to set
+// up a separate dataLayer mapping. CS's auto-recorded session
+// already includes the navigation to /bazaar/order/[id]; this event
+// makes the revenue attribution explicit.
+
+/** A single line item in a bazaar order, in the GA4 ecommerce shape. */
+export interface BazaarPurchaseItem {
+  /** Stable id — product UUID once the catalog is in the DB, or the
+   *  SKU snapshot as a fallback. Whatever survives a rename. */
+  item_id: string;
+  item_name: string;
+  /** Always "Bazaar" — lets explorers segment by item_category to
+   *  separate from donation purchases (which use the campaign name
+   *  in their items[]). */
+  item_category: string;
+  /** Maker name. Surfaced as the GA4 "brand" facet so per-maker
+   *  revenue rolls up in the ecommerce report. */
+  item_brand?: string;
+  /** Size / colour snapshot — "Medium · Cream". */
+  item_variant?: string;
+  /** Unit price in GBP. */
+  price: number;
+  quantity: number;
+}
+
+export interface BazaarPurchaseParams {
+  transaction_id: string;
+  /** Total paid in GBP (subtotal + shipping). */
+  value: number;
+  currency: string;
+  /** Shipping cost in GBP. GA4's standard `shipping` ecommerce parameter. */
+  shipping?: number;
+  items: BazaarPurchaseItem[];
+  /** Hashed customer email for Enhanced Conversions. Same shape as the
+   *  donation flow — sha256 of lowercased/trimmed email. Pass undefined
+   *  when the donor declined ad_user_data consent. */
+  hashed_email?: string;
+}
+
+/**
+ * Fire the GA4 `purchase` event for a completed bazaar order.
+ *
+ * Called from the order confirmation page (/bazaar/order/[sessionId])
+ * on mount, once. Stripe's success_url redirects the customer to that
+ * page only after payment completes, so the firing point matches the
+ * real conversion moment.
+ */
+export function trackBazaarPurchase(p: BazaarPurchaseParams): void {
+  trackEvent("purchase", {
+    transaction_id: p.transaction_id,
+    value: p.value,
+    currency: p.currency,
+    affiliation: "Deen Relief Bazaar",
+    ...(p.shipping !== undefined ? { shipping: p.shipping } : {}),
+    items: p.items,
+    ...(p.hashed_email
+      ? { user_data: { sha256_email_address: p.hashed_email } }
+      : {}),
+  });
+
+  // Mirror to Contentsquare. Same consent gate (trackEvent already
+  // no-ops without analytics_storage), and the _uxa queue is no-op-
+  // safe before the CS script loads.
+  if (typeof window !== "undefined") {
+    const w = window as unknown as { _uxa?: unknown[] };
+    if (w._uxa) {
+      w._uxa.push([
+        "trackEvent",
+        "bazaar_purchase",
+        {
+          transaction_id: p.transaction_id,
+          value: p.value,
+          currency: p.currency,
+          item_count: p.items.reduce((s, i) => s + i.quantity, 0),
+        },
+      ]);
+    }
+  }
+}
+
+/**
+ * Fire the GA4 `add_to_cart` event when a customer clicks
+ * "Add to cart" on a product page. Smart Bidding signal — donors
+ * who add are materially more likely to convert than those who don't.
+ */
+export function trackBazaarAddToCart(opts: {
+  item: BazaarPurchaseItem;
+}): void {
+  trackEvent("add_to_cart", {
+    currency: "GBP",
+    value: opts.item.price * opts.item.quantity,
+    items: [opts.item],
+  });
+}
+
+/**
+ * Fire the GA4 `begin_checkout` event when the customer clicks
+ * "Checkout securely" on /bazaar/cart. Fires before the Stripe
+ * Checkout redirect. High-intent funnel signal.
+ */
+export function trackBazaarBeginCheckout(opts: {
+  value: number;
+  items: BazaarPurchaseItem[];
+}): void {
+  trackEvent("begin_checkout", {
+    currency: "GBP",
+    value: opts.value,
+    items: opts.items,
+  });
+}
+
+/**
+ * Fire the GA4 `view_item` event when a product detail page loads.
+ * Powers GA4's "Most-viewed products" report and feeds the recommended-
+ * audiences for remarketing.
+ */
+export function trackBazaarViewItem(opts: { item: BazaarPurchaseItem }): void {
+  trackEvent("view_item", {
+    currency: "GBP",
+    value: opts.item.price,
+    items: [opts.item],
+  });
+}
+
+/**
+ * Fire when a customer expands a FAQ on any bazaar page.
+ *
+ * Same event name as the donation `faq_expanded` so GA4
+ * explorations naturally aggregate. The `surface` parameter
+ * distinguishes bazaar engagement from cause-page engagement
+ * when an analyst wants to segment.
+ */
+export function trackBazaarFaqExpanded(opts: {
+  page:
+    | "landing"
+    | "product"
+    | "makers"
+    | "promise"
+    | "returns"
+    | "shipping"
+    | "sizing"
+    | "contact";
+  faqId: string;
+  faqIndex: number;
+}): void {
+  trackEvent("faq_expanded", {
+    surface: "bazaar",
+    page: opts.page,
+    faq_slug: opts.faqId,
+    faq_index: opts.faqIndex,
+  });
+}
+
 // ─── Custom event wrappers ────────────────────────────────────────────────────
 //
 // Each wrapper enforces the parameter schema documented in

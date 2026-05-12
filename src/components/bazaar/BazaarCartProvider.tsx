@@ -10,10 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import type { CartLineItem } from "@/lib/bazaar-types";
-import {
-  findProductById,
-  resolveUnitPricePence,
-} from "@/lib/bazaar-placeholder";
 
 /**
  * Cart state for the Bazaar.
@@ -32,9 +28,26 @@ import {
 
 const DR_BAZAAR_CART_KEY = "dr_bazaar_cart_v1";
 
+/**
+ * Snapshot fields the caller passes to addItem. These are
+ * captured into the cart line at add time so the cart can render
+ * itself without re-querying the catalog.
+ */
+export interface CartAddInput {
+  productId: string;
+  variantId?: string;
+  quantity?: number;
+  unitPricePence: number;
+  productName: string;
+  productSlug: string;
+  variantLabel?: string;
+  makerName: string;
+  productImage?: string;
+}
+
 interface CartContextValue {
   items: CartLineItem[];
-  addItem: (productId: string, variantId?: string, quantity?: number) => void;
+  addItem: (input: CartAddInput) => void;
   removeItem: (productId: string, variantId?: string) => void;
   updateQuantity: (productId: string, variantId: string | undefined, quantity: number) => void;
   clearCart: () => void;
@@ -85,36 +98,40 @@ export function BazaarCartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isHydrated]);
 
-  const addItem = useCallback(
-    (productId: string, variantId?: string, quantity: number = 1) => {
-      setItems((current) => {
-        const product = findProductById(productId);
-        if (!product) return current;
-        const unitPrice = resolveUnitPricePence(product, variantId);
-
-        const existing = current.find(
-          (i) => i.productId === productId && i.variantId === variantId
+  const addItem = useCallback((input: CartAddInput) => {
+    const quantity = input.quantity ?? 1;
+    setItems((current) => {
+      const existing = current.find(
+        (i) =>
+          i.productId === input.productId && i.variantId === input.variantId
+      );
+      if (existing) {
+        return current.map((i) =>
+          lineKey(i) === lineKey(existing)
+            ? { ...i, quantity: i.quantity + quantity }
+            : i
         );
-        if (existing) {
-          return current.map((i) =>
-            lineKey(i) === lineKey(existing)
-              ? { ...i, quantity: i.quantity + quantity }
-              : i
-          );
-        }
-        return [
-          ...current,
-          {
-            productId,
-            variantId,
-            quantity,
-            unitPricePenceSnapshot: unitPrice,
-          },
-        ];
-      });
-    },
-    []
-  );
+      }
+      return [
+        ...current,
+        {
+          productId: input.productId,
+          variantId: input.variantId,
+          quantity,
+          unitPricePenceSnapshot: input.unitPricePence,
+          productNameSnapshot: input.productName,
+          productSlugSnapshot: input.productSlug,
+          ...(input.variantLabel
+            ? { variantLabelSnapshot: input.variantLabel }
+            : {}),
+          makerNameSnapshot: input.makerName,
+          ...(input.productImage
+            ? { productImageSnapshot: input.productImage }
+            : {}),
+        },
+      ];
+    });
+  }, []);
 
   const removeItem = useCallback((productId: string, variantId?: string) => {
     setItems((current) =>
