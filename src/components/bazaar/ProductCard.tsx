@@ -27,7 +27,14 @@ export default function ProductCard({ product }: { product: Product }) {
       className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
     >
       {/* Image */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-cream">
+      {/* Square on mobile, 4:5 portrait on tablet+. The taller
+          portrait crop fills narrower desktop columns nicely and
+          gives each card visual presence in the row, but on mobile
+          full-width 4:5 makes the catalog ~5 viewport-heights tall
+          to scroll through six pieces. Square crop shaves ~100px
+          per card (≈1 full viewport saved across the six) without
+          compromising image impact at full mobile width. */}
+      <div className="relative aspect-square sm:aspect-[4/5] overflow-hidden bg-cream">
         <BazaarPlaceholderImage
           label={product.name}
           variant="product"
