@@ -124,10 +124,20 @@ export default function CartButtonWithPreview() {
       </Link>
 
       {isOpen && isHydrated && (
+        // `hidden md:block` hides the popover entirely on mobile.
+        // The 320px-wide popover anchored to the cart button (which
+        // sits on the right of the header) overflows the left edge
+        // of a phone viewport — clipping the line items.
+        //
+        // The design always intended mobile to be "tap → navigate
+        // to /bazaar/cart" not "tap → open popover", but iOS Safari
+        // fires mouseenter on tap so the state opens regardless;
+        // hiding via CSS keeps the link click pristine and the
+        // popover off-screen-only on touch breakpoints.
         <div
           role="dialog"
           aria-label="Cart preview"
-          className="absolute right-0 top-full mt-2 w-80 bg-white border border-charcoal/10 rounded-2xl shadow-lg overflow-hidden z-50"
+          className="hidden md:block absolute right-0 top-full mt-2 w-80 bg-white border border-charcoal/10 rounded-2xl shadow-lg overflow-hidden z-50"
         >
           {items.length === 0 ? (
             <EmptyPreview />
