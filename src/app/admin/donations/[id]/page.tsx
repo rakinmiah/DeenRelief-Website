@@ -8,7 +8,12 @@ import {
   type AdminDonationStatus,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import {
+  fetchDonationMessages,
+  type DonationMessageRow,
+} from "@/lib/donation-messages";
 import DonationActionsClient from "./DonationActionsClient";
+import DonationMessageClient from "./DonationMessageClient";
 
 export const metadata: Metadata = {
   title: "Donation detail | Deen Relief Admin",
@@ -46,6 +51,12 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
   const { id } = await params;
   const donation = await fetchAdminDonationById(id);
   if (!donation) notFound();
+
+  // History of admin-initiated emails sent in connection with this
+  // donation. Empty array when none — the UI renders the composer
+  // either way and only shows the history list when something's
+  // been sent.
+  const messageHistory = await fetchDonationMessages(donation.id);
 
   const totalWithGiftAid =
     donation.amountPence + donation.giftAidReclaimablePence;
@@ -361,9 +372,107 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
             internalId={donation.id}
             status={donation.status}
             frequency={donation.frequency}
+            amountFormatted={formatPence(donation.amountPence)}
+            donorEmail={donation.donorEmail}
+            giftAidClaimed={
+              donation.giftAidClaimed &&
+              !donation.giftAidDeclarationRevoked
+            }
           />
         </aside>
       </div>
+
+      {/* Send-email composer + history. Sits below the main two-
+          column layout so it's a deliberate scroll-to-find — most
+          interactions with a donation don't involve sending a
+          custom email, but when they do the trustee gets a full
+          composer + an audit trail of every prior send on this
+          donation. */}
+      <section className="mt-10 pt-8 border-t border-charcoal/10">
+        <div className="mb-4">
+          <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-green-dark mb-1">
+            Donor communication
+          </span>
+          <h2 className="text-charcoal font-heading font-semibold text-lg">
+            Send an email to {donation.donorFirstName || "the donor"}
+          </h2>
+          <p className="text-charcoal/60 text-sm mt-1">
+            For one-off notes — refund explanations, programme
+            updates, thank-yous for major gifts. Every send is logged
+            below.
+          </p>
+        </div>
+
+        <div className="bg-white border border-charcoal/10 rounded-2xl p-5">
+          {donation.donorEmail ? (
+            <DonationMessageClient
+              donationId={donation.id}
+              donorEmail={donation.donorEmail}
+            />
+          ) : (
+            <p className="text-sm text-charcoal/60">
+              No donor email on file — can&apos;t send. Resending the
+              receipt would require backfilling the email first.
+            </p>
+          )}
+        </div>
+
+        {messageHistory.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
+              History · {messageHistory.length} sent
+            </h3>
+            <ol className="space-y-3">
+              {messageHistory.map((m) => (
+                <MessageHistoryItem key={m.id} message={m} />
+              ))}
+            </ol>
+          </div>
+        )}
+      </section>
     </main>
+  );
+}
+
+function MessageHistoryItem({ message }: { message: DonationMessageRow }) {
+  const failed = !message.resendMessageId;
+  return (
+    <li
+      className={`rounded-2xl border p-4 ${
+        failed
+          ? "bg-red-50/30 border-red-200/60"
+          : "bg-white border-charcoal/10"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <p className="text-charcoal font-medium text-sm truncate">
+            {message.subject}
+          </p>
+          <p className="text-[11px] text-charcoal/50 mt-0.5">
+            From{" "}
+            <span className="font-mono">{message.authorEmail}</span> · to{" "}
+            <span className="font-mono">{message.toEmail}</span>
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <p className="text-[11px] text-charcoal/40 whitespace-nowrap">
+            {formatAdminDate(message.createdAt)}
+          </p>
+          {failed ? (
+            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border bg-red-50 text-red-700 border-red-200">
+              Send failed
+            </span>
+          ) : (
+            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border bg-green/10 text-green-dark border-green/30">
+              Sent
+            </span>
+          )}
+        </div>
+      </div>
+      <p className="text-charcoal/80 text-sm leading-[1.65] whitespace-pre-line">
+        {message.body}
+      </p>
+    </li>
   );
 }
