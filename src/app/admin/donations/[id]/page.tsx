@@ -372,12 +372,6 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
             internalId={donation.id}
             status={donation.status}
             frequency={donation.frequency}
-            amountFormatted={formatPence(donation.amountPence)}
-            donorEmail={donation.donorEmail}
-            giftAidClaimed={
-              donation.giftAidClaimed &&
-              !donation.giftAidDeclarationRevoked
-            }
           />
         </aside>
       </div>
