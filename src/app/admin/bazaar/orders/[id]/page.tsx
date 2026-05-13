@@ -24,6 +24,7 @@ import OrderMessageClient from "./OrderMessageClient";
 import PackingSlipPrintButton from "./PackingSlipPrintButton";
 import PushToClickAndDropClient from "./PushToClickAndDropClient";
 import DeleteOrderClient from "./DeleteOrderClient";
+import MobileActionPanel from "@/components/admin/MobileActionPanel";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 
 export const metadata: Metadata = {
@@ -402,8 +403,25 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
           )}
         </div>
 
-        {/* Side panel — summary + action */}
-        <aside className="space-y-4">
+        {/* Side panel — summary + action.
+            Wrapped in MobileActionPanel so the entire sidebar is
+            reachable from a sticky "Actions" bar on phones (otherwise
+            it'd sit hundreds of pixels below the order details and
+            require a full scroll to mark-shipped or refund). */}
+        <aside>
+        <MobileActionPanel
+          actionLabel="Actions"
+          sheetTitle={`${receiptNum} — actions`}
+          inlineSummary={
+            <>
+              <span className="font-semibold text-charcoal">
+                {formatPence(order.totalPence)}
+              </span>{" "}
+              · {STATUS_LABEL[order.status]}
+            </>
+          }
+        >
+          <div className="space-y-4">
           <section className="bg-white border border-charcoal/10 rounded-2xl p-5">
             <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
               Order summary
@@ -517,6 +535,8 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
               {order.status === "cancelled" && <>This order was cancelled.</>}
             </section>
           )}
+          </div>
+        </MobileActionPanel>
         </aside>
       </div>
 

@@ -15,6 +15,7 @@ import {
 import DonationActionsClient from "./DonationActionsClient";
 import DonationMessageClient from "./DonationMessageClient";
 import DeleteDonationClient from "./DeleteDonationClient";
+import MobileActionPanel from "@/components/admin/MobileActionPanel";
 
 export const metadata: Metadata = {
   title: "Donation detail | Deen Relief Admin",
@@ -133,26 +134,26 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
               Allocation
             </h2>
             <dl className="space-y-2.5 text-sm">
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Campaign</dt>
+              <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Campaign</dt>
                 <dd className="text-charcoal">{donation.campaignLabel}</dd>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Frequency</dt>
+              <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Frequency</dt>
                 <dd className="text-charcoal">
                   {isMonthly ? "Monthly recurring" : "One-time"}
                 </dd>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Charged at</dt>
+              <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Charged at</dt>
                 <dd className="text-charcoal">
                   {donation.chargedAt
                     ? formatAdminDate(donation.chargedAt)
                     : "—"}
                 </dd>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Created at</dt>
+              <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Created at</dt>
                 <dd className="text-charcoal">
                   {formatAdminDate(donation.createdAt)}
                 </dd>
@@ -166,14 +167,14 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
               Donor
             </h2>
             <dl className="space-y-2.5 text-sm">
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Name</dt>
+              <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Name</dt>
                 <dd className="text-charcoal font-medium">
                   {donation.donorName}
                 </dd>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
-                <dt className="text-charcoal/60">Email</dt>
+              <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Email</dt>
                 <dd className="text-charcoal">
                   <a
                     href={`mailto:${donation.donorEmail}`}
@@ -184,14 +185,14 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
                 </dd>
               </div>
               {donation.donorPhone && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">Phone</dt>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Phone</dt>
                   <dd className="text-charcoal">{donation.donorPhone}</dd>
                 </div>
               )}
               {donation.donorAddressLine1 && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">Address</dt>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Address</dt>
                   <dd className="text-charcoal not-italic leading-relaxed">
                     {donation.donorAddressLine1}
                     {donation.donorAddressLine2 && (
@@ -216,8 +217,8 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
                 </div>
               )}
               {donation.donorStripeCustomerId && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">Stripe customer</dt>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Stripe customer</dt>
                   <dd>
                     <span className="font-mono text-[11px] text-charcoal/70">
                       {donation.donorStripeCustomerId}
@@ -284,8 +285,8 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
             </h2>
             <dl className="space-y-2 text-sm">
               {stripeRef && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">
                     {donation.stripePaymentIntent
                       ? "Payment intent"
                       : "Setup intent"}
@@ -296,16 +297,16 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
                 </div>
               )}
               {donation.stripeCustomerId && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">Customer</dt>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Customer</dt>
                   <dd className="font-mono text-[11px] text-charcoal/70 break-all">
                     {donation.stripeCustomerId}
                   </dd>
                 </div>
               )}
               {donation.stripeSubscriptionId && (
-                <div className="grid grid-cols-[140px_1fr] gap-3">
-                  <dt className="text-charcoal/60">Subscription</dt>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Subscription</dt>
                   <dd>
                     <Link
                       href={`/admin/recurring`}
@@ -337,28 +338,28 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
               </h2>
               <dl className="space-y-2 text-sm">
                 {donation.gclid && (
-                  <div className="grid grid-cols-[140px_1fr] gap-3">
-                    <dt className="text-charcoal/60">Google click ID</dt>
+                  <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                    <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Google click ID</dt>
                     <dd className="font-mono text-[11px] text-charcoal/70 break-all">
                       {donation.gclid}
                     </dd>
                   </div>
                 )}
                 {donation.utmSource && (
-                  <div className="grid grid-cols-[140px_1fr] gap-3">
-                    <dt className="text-charcoal/60">UTM source</dt>
+                  <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                    <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">UTM source</dt>
                     <dd className="text-charcoal">{donation.utmSource}</dd>
                   </div>
                 )}
                 {donation.utmMedium && (
-                  <div className="grid grid-cols-[140px_1fr] gap-3">
-                    <dt className="text-charcoal/60">UTM medium</dt>
+                  <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                    <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">UTM medium</dt>
                     <dd className="text-charcoal">{donation.utmMedium}</dd>
                   </div>
                 )}
                 {donation.utmCampaign && (
-                  <div className="grid grid-cols-[140px_1fr] gap-3">
-                    <dt className="text-charcoal/60">UTM campaign</dt>
+                  <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                    <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">UTM campaign</dt>
                     <dd className="text-charcoal">{donation.utmCampaign}</dd>
                   </div>
                 )}
@@ -367,19 +368,38 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
           )}
         </div>
 
-        {/* Side panel — actions wired to real Stripe + Resend endpoints */}
-        <aside className="space-y-4">
-          <DonationActionsClient
-            internalId={donation.id}
-            status={donation.status}
-            frequency={donation.frequency}
-            amountFormatted={formatPence(donation.amountPence)}
-            donorEmail={donation.donorEmail}
-            giftAidClaimed={
-              donation.giftAidClaimed &&
-              !donation.giftAidDeclarationRevoked
+        {/* Side panel — actions wired to real Stripe + Resend endpoints.
+            Wrapped in MobileActionPanel so trustees on phones can pop
+            the action sheet from a sticky bottom bar — without it,
+            the actions card sits below all the info sections and
+            requires a long scroll to reach. */}
+        <aside>
+          <MobileActionPanel
+            actionLabel="Actions"
+            sheetTitle={`${donation.receiptNumber} — actions`}
+            inlineSummary={
+              <>
+                <span className="font-semibold text-charcoal">
+                  {formatPence(donation.amountPence)}
+                </span>{" "}
+                · {STATUS_LABEL[donation.status]}
+              </>
             }
-          />
+          >
+            <div className="space-y-4">
+              <DonationActionsClient
+                internalId={donation.id}
+                status={donation.status}
+                frequency={donation.frequency}
+                amountFormatted={formatPence(donation.amountPence)}
+                donorEmail={donation.donorEmail}
+                giftAidClaimed={
+                  donation.giftAidClaimed &&
+                  !donation.giftAidDeclarationRevoked
+                }
+              />
+            </div>
+          </MobileActionPanel>
         </aside>
       </div>
 

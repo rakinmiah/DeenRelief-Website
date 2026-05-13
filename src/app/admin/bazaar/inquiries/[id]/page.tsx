@@ -10,6 +10,7 @@ import {
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import { formatAdminDate } from "@/lib/admin-donations";
 import InquiryReplyClient from "./InquiryReplyClient";
+import MobileActionPanel from "@/components/admin/MobileActionPanel";
 
 export const metadata: Metadata = {
   title: "Inquiry | Bazaar Admin",
@@ -123,12 +124,28 @@ export default async function AdminInquiryDetailPage({
           )}
         </section>
 
-        {/* Side panel — reply form + workflow */}
+        {/* Side panel — reply form + workflow.
+            Wrapped in MobileActionPanel so the trustee can pop the
+            reply composer from a sticky bottom "Reply" bar after
+            scanning the conversation thread on a phone. */}
         <aside>
-          <InquiryReplyClient
-            inquiryId={inquiry.id}
-            currentStatus={inquiry.status}
-          />
+          <MobileActionPanel
+            actionLabel="Reply"
+            sheetTitle="Reply to inquiry"
+            inlineSummary={
+              <>
+                <span className="font-semibold text-charcoal truncate">
+                  {inquiry.customerName}
+                </span>{" "}
+                · {inquiry.status}
+              </>
+            }
+          >
+            <InquiryReplyClient
+              inquiryId={inquiry.id}
+              currentStatus={inquiry.status}
+            />
+          </MobileActionPanel>
         </aside>
       </div>
     </main>
