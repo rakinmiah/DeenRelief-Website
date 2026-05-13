@@ -32,12 +32,15 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendDonationReceipt } from "@/lib/donation-receipt";
 import { sendDonationStaffNotification } from "@/lib/donation-staff-notification";
 import {
+  fetchAdminBazaarOrderById,
   fetchOrderByStripeSession,
   findDonorIdByEmail,
   markOrderPaid,
   markOrderRefunded,
 } from "@/lib/bazaar-db";
+import { sendCartAbandonmentEmail } from "@/lib/bazaar-cart-abandonment-email";
 import {
+  clearStockHold,
   decrementStockForOrderItems,
   restoreStockForOrderItems,
 } from "@/lib/bazaar-catalog";
@@ -106,6 +109,18 @@ export async function POST(request: Request) {
         // so a future donation Checkout Session integration would
         // simply add a second branch here.
         await handleBazaarCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session
+        );
+        break;
+      case "checkout.session.expired":
+        // Stripe fires this when a Checkout Session reaches its
+        // 24h expiry without completion. For bazaar sessions where
+        // the customer entered an email mid-checkout, we send a
+        // cart-abandonment recovery email. Idempotency is enforced
+        // by the unique (order_id, kind) constraint on
+        // bazaar_abandonment_emails — Stripe retries won't double-
+        // send.
+        await handleBazaarCheckoutExpired(
           event.data.object as Stripe.Checkout.Session
         );
         break;
@@ -503,19 +518,36 @@ async function handleBazaarCheckoutCompleted(
     return;
   }
 
-  // Stock decrement runs BEFORE the email so an outright failure
-  // surfaces in logs before we tell the customer "your order is
-  // confirmed." The helper swallows per-item failures and only
-  // logs — a missed decrement is recoverable manually (admin
-  // adjusts via the catalog UI) but blocking the email would
-  // surface as a missing-receipt support ticket which is worse.
-  try {
-    await decrementStockForOrderItems(detail.items);
-  } catch (err) {
-    console.error(
-      `[webhook] stock decrement failed for order ${orderId} — admin should reconcile manually:`,
-      err
-    );
+  // Stock handling depends on whether the order had a pre-payment
+  // hold active when this webhook fires (migration 014):
+  //
+  //   - If `stockHeldUntil` is non-null at webhook time, the
+  //     /api/bazaar/checkout route already debited stock at the
+  //     hold step. We just clear the hold marker so the cleanup
+  //     job doesn't restock the items.
+  //
+  //   - If `stockHeldUntil` is null, either (a) the order was
+  //     placed before migration 014 shipped, or (b) the
+  //     opportunistic cleanup already restocked + flipped status
+  //     to 'abandoned' before the customer's payment landed. In
+  //     both cases stock needs to be debited NOW; the existing
+  //     decrement helper does that.
+  //
+  // Either path: stock ends up debited exactly once, and the
+  // failure of either side just leaves an admin-reconcilable
+  // counter (worse than missing-receipt support, hence we don't
+  // block the email path on stock errors).
+  if (detail.order.stockHeldUntil) {
+    await clearStockHold(orderId);
+  } else {
+    try {
+      await decrementStockForOrderItems(detail.items);
+    } catch (err) {
+      console.error(
+        `[webhook] stock decrement failed for order ${orderId} — admin should reconcile manually:`,
+        err
+      );
+    }
   }
 
   // Admin notifications — fire-and-forget, no error path. Two
@@ -581,6 +613,129 @@ async function handleBazaarCheckoutCompleted(
   } catch (err) {
     console.error(
       `[webhook] bazaar order confirmation email send failed for ${orderId}:`,
+      err
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bazaar cart-abandonment recovery
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fired by Stripe when a bazaar Checkout Session reaches its 24h
+ * expiry without completion. If the customer entered their email
+ * during checkout (Stripe captures it on keystroke), we send a
+ * recovery email with the cart contents + a "pick up where you
+ * left off" CTA.
+ *
+ * Dedup: bazaar_abandonment_emails has UNIQUE (order_id, kind),
+ * so Stripe webhook replays can't double-send. The insert before
+ * the email send means we own the slot first; if the email send
+ * itself fails, the next replay won't retry because the row
+ * already exists (acceptable trade-off — failed sends show up in
+ * the resend dashboard for diagnostics, not silently lost).
+ */
+async function handleBazaarCheckoutExpired(
+  session: Stripe.Checkout.Session
+) {
+  if (
+    session.metadata?.[BAZAAR_STRIPE_METADATA_KEY] !==
+    BAZAAR_STRIPE_METADATA_VALUE
+  ) {
+    return; // Not a bazaar session — ignore.
+  }
+
+  const orderId = session.metadata?.order_id;
+  if (!orderId) {
+    console.warn(
+      `[webhook] expired session ${session.id} has no order_id metadata — can't send abandonment email.`
+    );
+    return;
+  }
+
+  // Email is captured by Stripe Checkout the moment the customer
+  // types it; expired sessions surface it on customer_details.
+  const recoveryEmail =
+    session.customer_details?.email ?? session.customer_email ?? null;
+  if (!recoveryEmail) {
+    console.log(
+      `[webhook] expired session ${session.id} has no captured email — nothing to recover to.`
+    );
+    return;
+  }
+
+  const detail = await fetchAdminBazaarOrderById(orderId);
+  if (!detail) {
+    console.warn(
+      `[webhook] expired session order ${orderId} not found — skipping abandonment.`
+    );
+    return;
+  }
+
+  // If the customer did pay (rare race where completed lands after
+  // expired in same window), don't send the abandonment.
+  if (
+    detail.order.status === "paid" ||
+    detail.order.status === "fulfilled" ||
+    detail.order.status === "delivered"
+  ) {
+    return;
+  }
+
+  const supabase = getSupabaseAdmin();
+  // Try to grab the dedup slot first. The UNIQUE constraint makes
+  // this idempotent under Stripe webhook replays.
+  const { error: dedupErr } = await supabase
+    .from("bazaar_abandonment_emails")
+    .insert({
+      order_id: orderId,
+      kind: "cart_abandonment",
+      recipient_email: recoveryEmail,
+      expired_reason: session.status ?? null,
+    });
+  if (dedupErr) {
+    // 23505 = unique constraint violation — already sent, fine.
+    if ((dedupErr as { code?: string }).code === "23505") {
+      console.log(
+        `[webhook] abandonment email already sent for order ${orderId} — skipping replay.`
+      );
+      return;
+    }
+    console.error(
+      `[webhook] abandonment dedup insert failed for ${orderId}:`,
+      dedupErr
+    );
+    return;
+  }
+
+  const customerName =
+    session.customer_details?.name ?? detail.order.shippingAddress?.name ?? null;
+
+  try {
+    const result = await sendCartAbandonmentEmail({
+      orderId,
+      toEmail: recoveryEmail,
+      toName: customerName,
+      items: detail.items,
+    });
+    if (result.error) {
+      console.error(
+        `[webhook] abandonment email send failed for ${orderId}: ${result.error}`
+      );
+      return;
+    }
+    // Backfill Resend message id for delivery tracing.
+    if (result.messageId) {
+      await supabase
+        .from("bazaar_abandonment_emails")
+        .update({ resend_message_id: result.messageId })
+        .eq("order_id", orderId)
+        .eq("kind", "cart_abandonment");
+    }
+  } catch (err) {
+    console.error(
+      `[webhook] abandonment email threw for ${orderId}:`,
       err
     );
   }

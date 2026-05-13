@@ -39,7 +39,12 @@ export interface BazaarOrderRow {
     | "fulfilled"
     | "delivered"
     | "refunded"
-    | "cancelled";
+    | "cancelled"
+    // 'abandoned' = customer started checkout, stock was held,
+    // but the Stripe payment never completed and the hold
+    // expired. Cleanup restocked the items and flipped the
+    // status. See migration 014.
+    | "abandoned";
   subtotalPence: number;
   shippingPence: number;
   totalPence: number;
@@ -52,6 +57,14 @@ export interface BazaarOrderRow {
   trackingNumber: string | null;
   royalMailService: "tracked-48" | "tracked-24" | "special-delivery" | null;
   internalNotes: string | null;
+  /**
+   * Set when stock was reserved for this order at checkout time.
+   * Non-null means: stock has been decremented and is being held
+   * pending payment. The Stripe webhook reads this — if set when
+   * the webhook fires, skip the decrement (already debited) and
+   * clear the hold. See migration 014.
+   */
+  stockHeldUntil: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -787,7 +800,7 @@ export async function findDonorIdByEmail(
 // GenericStringError type. Update both locations if the row shape
 // changes.
 const BAZAAR_ORDER_COLUMNS =
-  "id, contact_email, donor_id, status, subtotal_pence, shipping_pence, total_pence, currency, shipping_address, stripe_session_id, stripe_payment_intent, livemode, fulfilled_at, tracking_number, royal_mail_service, internal_notes, created_at, updated_at";
+  "id, contact_email, donor_id, status, subtotal_pence, shipping_pence, total_pence, currency, shipping_address, stripe_session_id, stripe_payment_intent, livemode, fulfilled_at, tracking_number, royal_mail_service, internal_notes, stock_held_until, created_at, updated_at";
 
 const BAZAAR_ORDER_ITEM_COLUMNS =
   "id, order_id, product_id, variant_id, product_name_snapshot, variant_snapshot, maker_name_snapshot, unit_price_pence_snapshot, quantity";
@@ -809,6 +822,7 @@ type RawBazaarOrderRow = {
   tracking_number: string | null;
   royal_mail_service: BazaarOrderRow["royalMailService"];
   internal_notes: string | null;
+  stock_held_until: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -835,6 +849,7 @@ function mapOrderRow(r: RawBazaarOrderRow): BazaarOrderRow {
     trackingNumber: r.tracking_number,
     royalMailService: r.royal_mail_service,
     internalNotes: r.internal_notes,
+    stockHeldUntil: r.stock_held_until,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

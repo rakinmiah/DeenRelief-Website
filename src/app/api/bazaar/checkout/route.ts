@@ -7,6 +7,8 @@ import {
 } from "@/lib/bazaar-db";
 import {
   fetchProductsByIds,
+  holdStockForOrder,
+  releaseExpiredStockHolds,
   resolveUnitPricePence,
 } from "@/lib/bazaar-catalog";
 import {
@@ -84,6 +86,15 @@ export async function POST(req: Request) {
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
+
+  // ─── Opportunistic cleanup of expired stock holds ──────────────
+  // Releases any abandoned pre-checkout reservations from earlier
+  // sessions before we validate stock for this new attempt. The
+  // function is race-safe (FOR UPDATE SKIP LOCKED) so it never
+  // blocks behind an in-flight webhook on the same row. Fire-and-
+  // forget: a no-op cleanup means stale holds linger a few more
+  // seconds, not operationally critical.
+  await releaseExpiredStockHolds();
 
   // ─── Reconcile against catalog ────────────────────────────────
   //
@@ -190,6 +201,43 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Could not start checkout. Please try again in a moment." },
       { status: 500 }
+    );
+  }
+
+  // ─── Reserve stock atomically (15-minute hold) ────────────────
+  //
+  // The pre-payment race window: between the catalog-side stock
+  // check above and Stripe completing the customer's payment,
+  // another customer could buy the same last-in-stock piece. The
+  // atomic Postgres function below decrements each item's
+  // stock_count with a `WHERE stock_count >= quantity` guard and
+  // raises if any line falls short — so simultaneous checkouts
+  // are serialised and at most one customer wins.
+  //
+  // The webhook (checkout.session.completed) does NOT re-decrement
+  // when stock_held_until was set — it just clears the hold and
+  // marks paid. Stock is debited exactly once.
+  //
+  // If the customer abandons (closes the Stripe tab, etc.), the
+  // opportunistic cleanup above (releaseExpiredStockHolds) on the
+  // NEXT customer's checkout will restock and mark the order
+  // 'abandoned'.
+  try {
+    await holdStockForOrder(orderId, 15);
+  } catch (err) {
+    // The Postgres function raises 'insufficient_stock' when any
+    // line can't be reserved. The catalog-side check above caught
+    // most cases; this catches the actual race.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[bazaar/checkout] hold failed:", message);
+    const isStockProblem = message.includes("insufficient_stock");
+    return NextResponse.json(
+      {
+        error: isStockProblem
+          ? "One of your items just sold out — your cart needs a refresh."
+          : "Could not start checkout. Please try again in a moment.",
+      },
+      { status: isStockProblem ? 409 : 500 }
     );
   }
 

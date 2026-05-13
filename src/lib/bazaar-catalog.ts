@@ -161,6 +161,16 @@ const MAKER_COLUMNS =
  * grid, encouraging makers to ship fresh batches.
  */
 export async function fetchActiveProducts(): Promise<Product[]> {
+  // Opportunistic cleanup: release any expired stock holds before
+  // we read stock counts. Stock decremented at hold time would
+  // otherwise show "Sold out" on the public catalog for an
+  // abandoned-but-not-yet-cleaned-up order. The function is
+  // service-role only, so we call it via the admin client and let
+  // the rest of this function continue with the anon read. Fire-
+  // and-forget — a cleanup failure isn't fatal to the catalog
+  // render; stale counts self-heal on the next page load.
+  void releaseExpiredStockHolds();
+
   const { data: products, error } = await supabaseAnon
     .from("bazaar_products")
     .select(PRODUCT_COLUMNS)
@@ -1116,6 +1126,83 @@ export async function decrementStockForOrderItems(
         err
       );
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Stock holds at checkout — migration 014 hooks
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Atomically decrement stock for every line item of a pending
+ * order and stamp `stock_held_until = now() + holdMinutes`. Calls
+ * the Postgres function bazaar_hold_stock_for_order — see
+ * migration 014 for the per-row WHERE-guarded decrement logic
+ * that makes this race-safe.
+ *
+ * Throws `insufficient_stock` (with the offending id in the
+ * message) when any line can't be reserved — the caller (the
+ * /api/bazaar/checkout route) translates that to a 409 response.
+ */
+export async function holdStockForOrder(
+  orderId: string,
+  holdMinutes = 15
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.rpc("bazaar_hold_stock_for_order", {
+    p_order_id: orderId,
+    p_hold_minutes: holdMinutes,
+  });
+  if (error) {
+    // Postgres surfaces RAISE EXCEPTION messages on error.message —
+    // we rethrow with a stable prefix so the caller can detect the
+    // "insufficient_stock" case for a clean 409 response.
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Clear the stock_held_until column on an order — called by the
+ * Stripe webhook after marking the order paid (the hold is no
+ * longer needed, the customer paid in time).
+ *
+ * Stock itself stays decremented; this only releases the hold
+ * marker so release_expired_stock_holds() doesn't pick the row up.
+ */
+export async function clearStockHold(orderId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("bazaar_orders")
+    .update({ stock_held_until: null })
+    .eq("id", orderId);
+  if (error) {
+    console.error("[clearStockHold] failed:", error);
+  }
+}
+
+/**
+ * Opportunistic cleanup: find pending_payment orders whose hold
+ * has expired, restock their items, mark them as abandoned.
+ *
+ * Called from /api/bazaar/checkout and fetchActiveProducts so it
+ * runs naturally at every customer interaction without needing a
+ * cron. Returns the count of orders released for logging.
+ *
+ * Fire-and-forget: a failure here just means abandoned stock
+ * lingers a few more seconds — not operationally critical.
+ */
+export async function releaseExpiredStockHolds(): Promise<number> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.rpc("release_expired_stock_holds");
+    if (error) {
+      console.error("[releaseExpiredStockHolds] rpc failed:", error);
+      return 0;
+    }
+    return typeof data === "number" ? data : 0;
+  } catch (err) {
+    console.error("[releaseExpiredStockHolds] threw:", err);
+    return 0;
   }
 }
 

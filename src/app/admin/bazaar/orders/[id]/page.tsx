@@ -43,6 +43,7 @@ const STATUS_BADGE: Record<BazaarOrderRow["status"], string> = {
   delivered: "bg-green/10 text-green-dark border-green/30",
   refunded: "bg-red-50 text-red-700 border-red-200",
   cancelled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  abandoned: "bg-charcoal/8 text-charcoal/40 border-charcoal/10",
 };
 
 const STATUS_LABEL: Record<BazaarOrderRow["status"], string> = {
@@ -52,6 +53,7 @@ const STATUS_LABEL: Record<BazaarOrderRow["status"], string> = {
   delivered: "Delivered",
   refunded: "Refunded",
   cancelled: "Cancelled",
+  abandoned: "Abandoned",
 };
 
 // SERVICE_LABEL moved to bazaar-format.ts as BAZAAR_SERVICE_FULL_LABEL.

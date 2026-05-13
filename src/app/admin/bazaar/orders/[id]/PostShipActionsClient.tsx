@@ -31,7 +31,8 @@ type OrderStatus =
   | "fulfilled"
   | "delivered"
   | "refunded"
-  | "cancelled";
+  | "cancelled"
+  | "abandoned";
 
 export default function PostShipActionsClient({
   orderId,
