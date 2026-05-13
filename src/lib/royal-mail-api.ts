@@ -70,6 +70,39 @@ function getApiKey(): string | null {
   return key && key.trim().length > 0 ? key.trim() : null;
 }
 
+/**
+ * Test mode toggle.
+ *
+ * Royal Mail Click & Drop doesn't expose a "test mode" switch in
+ * the dashboard UI — per their docs, it's configured via the API
+ * itself. The exact mechanism is one of:
+ *
+ *   (a) An account-level config call (POST to a configuration
+ *       endpoint) that flips the whole account into test mode.
+ *
+ *   (b) A per-request flag on each order body (e.g.
+ *       `testOrder: true`) so test and live orders coexist.
+ *
+ *   (c) Key-determined — the API key itself is either a sandbox
+ *       or production key, and test mode is implicit.
+ *
+ * Until we confirm which mechanism Royal Mail uses for THIS
+ * account, the env var below sits as a stub. When test mode is
+ * enabled (env = "true"), we currently include a `isTest: true`
+ * field in the order body — option (b). If the docs say
+ * otherwise, the body builder in buildOrderPushBody is where to
+ * change the mechanism.
+ *
+ * Safety: when test mode is "true" we ALSO refuse to push if
+ * we're running with what looks like a production key — without
+ * the exact pattern of test vs prod keys we can't validate, but
+ * a defensive `console.warn` at least flags suspicious combos.
+ */
+function isTestMode(): boolean {
+  const v = (process.env.ROYAL_MAIL_API_TEST_MODE ?? "").trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes";
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Public surface
 // ─────────────────────────────────────────────────────────────────
@@ -347,6 +380,18 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
         // Pre-select the service. The trustee can override via C&D
         // shipping rules; this is just a hint.
         shippingServiceId: serviceCode,
+
+        // Per-request test flag — option (b) from the isTestMode()
+        // doc comment. Royal Mail's API may also accept this as a
+        // top-level body field rather than per-order; if so, move
+        // this out of the items[] envelope to the wrapping object
+        // below.
+        //
+        // VERIFY: exact field name. Royal Mail's docs have used
+        // `testOrder`, `isTest`, `sandbox`, and `mode` across
+        // different revisions. Once you've shared the docs page
+        // I can pin this to the correct name.
+        ...(isTestMode() ? { testOrder: true } : {}),
       },
     ],
   };
