@@ -235,7 +235,56 @@ export default async function AdminBazaarOrdersPage({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile card list (<md). Each row becomes a tap-target
+              card with the order's most important signal — total +
+              status — surfaced above receipt#/customer/service. The
+              desktop table below stays unchanged. */}
+          <ul className="md:hidden divide-y divide-charcoal/8">
+            {rows.map(({ order, itemCount }) => {
+              const chosenService = deriveServiceFromShippingPence(order.shippingPence);
+              const receiptNum = bazaarReceiptNumber(order.id);
+              return (
+                <li key={order.id}>
+                  <Link
+                    href={`/admin/bazaar/orders/${order.id}`}
+                    className="block px-4 py-4 active:bg-cream/40 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <p className="font-mono text-[11px] text-charcoal/60">
+                        {receiptNum}
+                      </p>
+                      <p className="text-charcoal font-heading font-semibold text-base whitespace-nowrap">
+                        {formatPence(order.totalPence)}
+                      </p>
+                    </div>
+                    <p className="text-charcoal text-sm font-medium truncate">
+                      {order.shippingAddress?.name ?? order.contactEmail ?? "—"}
+                    </p>
+                    <p className="text-charcoal/50 text-[12px] mt-0.5">
+                      {formatAdminDate(order.createdAt)} · {itemCount}{" "}
+                      {itemCount === 1 ? "item" : "items"}
+                      {chosenService && (
+                        <>
+                          {" · "}
+                          {BAZAAR_SERVICE_SHORT_LABEL[chosenService]}
+                        </>
+                      )}
+                    </p>
+                    <div className="mt-2">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border ${STATUS_STYLES[order.status]}`}
+                      >
+                        {STATUS_LABEL[order.status]}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm min-w-[860px]">
               <thead className="bg-cream border-b border-charcoal/10">
                 <tr className="text-left">
@@ -269,6 +318,7 @@ export default async function AdminBazaarOrdersPage({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

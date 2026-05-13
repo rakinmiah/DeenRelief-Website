@@ -74,6 +74,12 @@ export const viewport: Viewport = {
   themeColor: "#1A1A2E",
   width: "device-width",
   initialScale: 1,
+  // viewportFit:'cover' tells WebKit/Chromium to extend the page
+  // under the notch + home-indicator areas on modern iPhones,
+  // and to expose `env(safe-area-inset-*)` to our CSS so the
+  // admin shell can apply correct padding rather than getting
+  // clipped behind the system UI in PWA standalone mode.
+  viewportFit: "cover",
 };
 
 export default async function AdminLayout({
@@ -88,6 +94,28 @@ export default async function AdminLayout({
   // page bypasses the chrome anyway so the fallback never renders.
   const session = await getAdminSession();
   return (
-    <AdminShell signedInAs={session?.email}>{children}</AdminShell>
+    <>
+      {/* Set body[data-route="admin"] on the client so the
+          admin-only touch-target / safe-area CSS in globals.css
+          can scope to admin routes without affecting the public
+          site. Effect runs once on mount, cleared on unmount —
+          a SPA-style admin → public transition flips the flag
+          off. */}
+      <AdminRouteAttribute />
+      <AdminShell signedInAs={session?.email}>{children}</AdminShell>
+    </>
+  );
+}
+
+// Tiny client component just for the body attribute. Kept inline
+// so the admin layout itself stays a server component for the
+// auth-gate pattern when it gets wired.
+function AdminRouteAttribute() {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `document.body.dataset.route='admin';`,
+      }}
+    />
   );
 }

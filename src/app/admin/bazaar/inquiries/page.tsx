@@ -75,7 +75,51 @@ export default async function AdminInquiriesListPage({
               : "No inquiries yet. New customer messages will land here."}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile card list (<md). One card per inquiry — subject
+              up top, customer + last activity below, status pill on
+              the right. Compact enough that 5–6 fit above the fold
+              on a typical phone. */}
+          <ul className="md:hidden divide-y divide-charcoal/8">
+            {inquiries.map((inq) => {
+              const receipt = inq.orderId ? bazaarReceiptNumber(inq.orderId) : null;
+              return (
+                <li key={inq.id}>
+                  <Link
+                    href={`/admin/bazaar/inquiries/${inq.id}`}
+                    className="block px-4 py-4 active:bg-cream/40 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <p className="text-charcoal font-semibold text-[14px] truncate">
+                        {inq.subject}
+                      </p>
+                      <StatusBadge status={inq.status} />
+                    </div>
+                    <p className="text-charcoal/70 text-[12px] truncate">
+                      {inq.customerName}{" "}
+                      <span className="text-charcoal/40">·</span>{" "}
+                      <span className="text-charcoal/50">
+                        {inq.customerEmail}
+                      </span>
+                    </p>
+                    <p className="text-charcoal/50 text-[11px] mt-1 flex items-center gap-2 flex-wrap">
+                      <span>{formatAdminDate(inq.lastMessageAt)}</span>
+                      {receipt && (
+                        <>
+                          <span className="text-charcoal/30">·</span>
+                          <span className="font-mono text-green-dark">
+                            {receipt}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm min-w-[900px]">
               <thead className="bg-cream border-b border-charcoal/10">
                 <tr className="text-left">
@@ -104,6 +148,7 @@ export default async function AdminInquiriesListPage({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
