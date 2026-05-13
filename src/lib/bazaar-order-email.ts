@@ -127,6 +127,12 @@ export async function sendBazaarOrderConfirmation(
     const result = await resend.emails.send({
       from: `Deen Relief Bazaar <${BAZAAR_FROM_EMAIL}>`,
       to: input.order.contactEmail,
+      // BCC the shared inbox so trustees get a real-time
+      // Gmail-side audit trail of every order — they can glance
+      // at info@'s inbox to see the day's queue without opening
+      // the admin. The bell + DR Admin order list remain the
+      // primary surface; Gmail BCC is the backup.
+      bcc: BAZAAR_SUPPORT_EMAIL,
       subject,
       html,
       text,

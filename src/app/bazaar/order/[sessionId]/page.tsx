@@ -7,6 +7,7 @@ import { formatPence } from "@/lib/bazaar-format";
 import { fromPence } from "@/lib/stripe";
 import ClearCartOnMount from "@/components/bazaar/ClearCartOnMount";
 import BazaarPurchaseAnalytics from "@/components/bazaar/BazaarPurchaseAnalytics";
+import RequestReturnClient from "./RequestReturnClient";
 import type { BazaarPurchaseItem } from "@/lib/analytics";
 
 export const metadata: Metadata = {
@@ -261,6 +262,15 @@ export default async function BazaarOrderConfirmationPage({
         >
           See our charity work
         </Link>
+      </div>
+
+      {/* Soft return-request affordance. Most customers never
+          need this; it stays collapsed to a small underlined
+          link by default. Expanding opens a reason dropdown +
+          optional note. Submission threads into the standard
+          bazaar inquiries inbox with the order pre-linked. */}
+      <div className="mt-10 max-w-md mx-auto">
+        <RequestReturnClient sessionId={sessionId} />
       </div>
     </div>
   );

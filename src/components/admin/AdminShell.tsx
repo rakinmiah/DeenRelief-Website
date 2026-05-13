@@ -53,8 +53,11 @@ export default function AdminShell({
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      <header className="bg-white border-b border-charcoal/10 sticky top-0 z-30">
+    <div className="min-h-screen bg-cream flex flex-col print:bg-white print:min-h-0">
+      {/* print:hidden hides the admin nav so printing a page
+          (e.g. /admin/bazaar/orders/[id] for a packing slip)
+          captures just the page content, not the chrome. */}
+      <header className="bg-white border-b border-charcoal/10 sticky top-0 z-30 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">

@@ -21,6 +21,8 @@ import {
 import MarkShippedClient from "./MarkShippedClient";
 import PostShipActionsClient from "./PostShipActionsClient";
 import OrderMessageClient from "./OrderMessageClient";
+import PackingSlipPrintButton from "./PackingSlipPrintButton";
+import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 
 export const metadata: Metadata = {
   title: "Order detail | Bazaar Admin",
@@ -97,7 +99,130 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
   );
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:max-w-none print:p-0">
+      {/* ─── Print-only packing slip ────────────────────────────
+          Hidden by default (`hidden`), block-displayed on print
+          (`print:block`). Browser Cmd+P captures the rendered
+          page; combined with `print:hidden` on the admin chrome
+          below, only this slip prints. Sized to comfortably fit
+          on a single A4 page with margins. */}
+      <section
+        className="hidden print:block print:p-10 print:text-black"
+        aria-hidden="true"
+      >
+        <div className="flex items-start justify-between mb-8 pb-4 border-b-2 border-black">
+          <div>
+            <p className="text-xs uppercase tracking-[0.15em] font-bold text-black/60 mb-1">
+              Packing slip
+            </p>
+            <p className="text-2xl font-bold font-mono">{receiptNum}</p>
+            <p className="text-xs text-black/60 mt-1">
+              Order placed {formatAdminDate(order.createdAt)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-base font-semibold">{CHARITY_NAME} Bazaar</p>
+            <p className="text-[11px] text-black/60">
+              Registered charity in England &amp; Wales, No. {CHARITY_NUMBER}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 mb-8">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-black/60 mb-2">
+              Ship to
+            </p>
+            <p className="font-semibold text-base">
+              {order.shippingAddress?.name ?? customerName}
+            </p>
+            {order.shippingAddress && (
+              <div className="text-sm leading-[1.5] mt-1">
+                <p>{order.shippingAddress.line1}</p>
+                {order.shippingAddress.line2 && (
+                  <p>{order.shippingAddress.line2}</p>
+                )}
+                <p>{order.shippingAddress.city}</p>
+                <p className="font-mono">{order.shippingAddress.postcode}</p>
+                <p>United Kingdom</p>
+              </div>
+            )}
+            <p className="text-[11px] text-black/60 mt-2 font-mono">
+              {order.contactEmail}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-black/60 mb-2">
+              Service
+            </p>
+            <p className="text-base font-semibold">
+              {customerChosenService
+                ? BAZAAR_SERVICE_FULL_LABEL[customerChosenService]
+                : "Royal Mail"}
+            </p>
+            <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-black/60 mt-5 mb-2">
+              Items
+            </p>
+            <p className="text-base font-semibold">
+              {items.reduce((sum, it) => sum + it.quantity, 0)} piece
+              {items.reduce((sum, it) => sum + it.quantity, 0) === 1 ? "" : "s"}
+            </p>
+          </div>
+        </div>
+
+        <table className="w-full text-sm border-t border-b border-black/30">
+          <thead>
+            <tr className="text-left">
+              <th className="py-2 text-[10px] uppercase tracking-[0.15em] font-bold text-black/60">
+                Product
+              </th>
+              <th className="py-2 text-[10px] uppercase tracking-[0.15em] font-bold text-black/60">
+                Variant
+              </th>
+              <th className="py-2 text-[10px] uppercase tracking-[0.15em] font-bold text-black/60">
+                Maker
+              </th>
+              <th className="py-2 text-[10px] uppercase tracking-[0.15em] font-bold text-black/60 text-right">
+                Qty
+              </th>
+            </tr>
+          </thead>
+          <tbody className="border-t border-black/15">
+            {items.map((it) => (
+              <tr key={it.id} className="align-top">
+                <td className="py-2.5 pr-3">
+                  <div className="font-medium">{it.productNameSnapshot}</div>
+                </td>
+                <td className="py-2.5 pr-3 text-black/70">
+                  {it.variantSnapshot ?? "—"}
+                </td>
+                <td className="py-2.5 pr-3 text-black/70">
+                  {it.makerNameSnapshot}
+                </td>
+                <td className="py-2.5 text-right font-semibold">
+                  {it.quantity}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="mt-8 pt-4 border-t border-black/15 text-[11px] text-black/60 leading-[1.5]">
+          <p>
+            Thank you for shopping the {CHARITY_NAME} Bazaar — every
+            piece in this parcel was made by hand and the maker has
+            already been paid for their work.
+          </p>
+          <p className="mt-2">
+            Not quite right? 14 days from delivery to return. Email
+            info@deenrelief.org or use the contact form at
+            deenrelief.org/bazaar/contact.
+          </p>
+        </div>
+      </section>
+
+      {/* ─── Screen-only admin view ──────────────────────────── */}
+      <div className="print:hidden">
       {/* Page header */}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -114,11 +239,14 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
             DB id: {order.id}
           </p>
         </div>
-        <span
-          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_BADGE[order.status]}`}
-        >
-          {STATUS_LABEL[order.status]}
-        </span>
+        <div className="flex items-center gap-2">
+          <PackingSlipPrintButton />
+          <span
+            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_BADGE[order.status]}`}
+          >
+            {STATUS_LABEL[order.status]}
+          </span>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
@@ -467,6 +595,8 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
           </div>
         )}
       </section>
+      </div>
+      {/* ─── End screen-only admin view ─── */}
     </main>
   );
 }
