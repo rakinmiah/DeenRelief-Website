@@ -323,20 +323,20 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
   const sender = getSenderDetails();
   const address = order.shippingAddress!;
 
-  // Service codes — pre-select the service the customer paid for
-  // at Stripe Checkout. The trustee can override via C&D shipping
-  // rules; this is a hint, not a binding choice.
-  //
-  // The defaults below match common Royal Mail service codes but
-  // your C&D account may use different ones. Check C&D →
-  // Settings → Services for the exact codes for your contract and
-  // override via env vars.
-  const serviceCode =
+  // Service code from env. The trustee can override via C&D shipping
+  // rules at their end; this is a hint, not a binding choice. If
+  // the env var is unset, contains a placeholder (angle brackets),
+  // or has whitespace, we omit `postageDetails` entirely and let
+  // the C&D account's default shipping rules pick the service.
+  const rawServiceCode =
     order.royalMailService === "tracked-24"
-      ? process.env.ROYAL_MAIL_SERVICE_CODE_TRACKED_24 ?? "TPS24"
+      ? process.env.ROYAL_MAIL_SERVICE_CODE_TRACKED_24
       : order.royalMailService === "special-delivery"
-        ? process.env.ROYAL_MAIL_SERVICE_CODE_SPECIAL ?? "SDN"
-        : process.env.ROYAL_MAIL_SERVICE_CODE_TRACKED_48 ?? "TPN";
+        ? process.env.ROYAL_MAIL_SERVICE_CODE_SPECIAL
+        : process.env.ROYAL_MAIL_SERVICE_CODE_TRACKED_48;
+  const serviceCode = isValidServiceCode(rawServiceCode)
+    ? rawServiceCode!.trim()
+    : null;
 
   // Package format. UK-domestic single-piece clothing/textiles
   // typically fit in 'smallParcel'. Override per-environment if
@@ -422,10 +422,14 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
           },
         ],
 
-        // Service code lives in postageDetails, not top level.
-        postageDetails: {
-          serviceCode,
-        },
+        // Service code lives in postageDetails per spec. Omit the
+        // whole postageDetails block if no valid service code is
+        // configured — C&D's account-level rules then pick the
+        // service. This is the desired default behaviour for the
+        // free Order API; the env var is just a hint to override.
+        ...(serviceCode
+          ? { postageDetails: { serviceCode } }
+          : {}),
       },
     ],
   };
@@ -434,6 +438,22 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
 // ─────────────────────────────────────────────────────────────────
 // Response parsing — best-effort, tolerant of doc drift
 // ─────────────────────────────────────────────────────────────────
+
+/**
+ * Reject obviously-placeholder service codes (angle brackets,
+ * whitespace inside, empty) so a stale or copy-pasted env var
+ * doesn't get sent to Royal Mail and trigger an opaque 401.
+ * Real Royal Mail service codes are short alphanumeric strings
+ * (e.g. TPN, TPS24, SDN, TOLP48).
+ */
+function isValidServiceCode(raw: unknown): boolean {
+  if (typeof raw !== "string") return false;
+  const v = raw.trim();
+  if (v.length === 0) return false;
+  if (v.includes("<") || v.includes(">")) return false;
+  if (/\s/.test(v)) return false;
+  return true;
+}
 
 /**
  * Extract the order id from a `CreateOrdersResponse` body.
