@@ -185,6 +185,12 @@ function PopulatedPreview({
   subtotalPence: number;
   itemCount: number;
 }) {
+  // Pull the mutation handlers from the cart context so the
+  // popover can adjust quantities + remove lines without
+  // round-tripping to /bazaar/cart. updateQuantity(qty: 0)
+  // already drops the line, but a dedicated × button is clearer.
+  const { updateQuantity, removeItem } = useBazaarCart();
+
   return (
     <>
       {/* Header */}
@@ -198,7 +204,7 @@ function PopulatedPreview({
       </div>
 
       {/* Items list — scrollable when many items */}
-      <ul className="max-h-72 overflow-y-auto divide-y divide-charcoal/8">
+      <ul className="max-h-80 overflow-y-auto divide-y divide-charcoal/8">
         {items.map((item) => {
           // The cart line now carries display snapshots set at
           // add-to-cart time — no catalog query needed here.
@@ -220,18 +226,82 @@ function PopulatedPreview({
                 />
               </Link>
               <div className="flex-1 min-w-0">
-                <Link
-                  href={`/bazaar/${item.productSlugSnapshot}`}
-                  className="text-charcoal font-medium text-sm leading-tight block truncate hover:text-green transition-colors"
-                >
-                  {item.productNameSnapshot}
-                </Link>
-                <div className="text-charcoal/50 text-[11px] mt-0.5 truncate">
-                  {variantLabel ? `${variantLabel} · ` : ""}
-                  Qty {item.quantity}
+                <div className="flex items-start justify-between gap-2">
+                  <Link
+                    href={`/bazaar/${item.productSlugSnapshot}`}
+                    className="text-charcoal font-medium text-sm leading-tight block truncate hover:text-green transition-colors"
+                  >
+                    {item.productNameSnapshot}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      removeItem(item.productId, item.variantId)
+                    }
+                    aria-label={`Remove ${item.productNameSnapshot} from cart`}
+                    className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-charcoal/40 hover:text-red-700 hover:bg-red-50 transition-colors"
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18 18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
                 </div>
-                <div className="text-charcoal text-sm font-medium mt-1">
-                  {formatPence(lineTotal)}
+                {variantLabel && (
+                  <div className="text-charcoal/50 text-[11px] mt-0.5 truncate">
+                    {variantLabel}
+                  </div>
+                )}
+                {/* Qty controls + line total. Stepper sits inline so
+                    the customer can adjust without leaving the
+                    hover popover. */}
+                <div className="flex items-center justify-between mt-2 gap-2">
+                  <div className="inline-flex items-center bg-white border border-charcoal/15 rounded-full h-7">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateQuantity(
+                          item.productId,
+                          item.variantId,
+                          item.quantity - 1
+                        )
+                      }
+                      aria-label={`Decrease quantity of ${item.productNameSnapshot}`}
+                      className="w-7 h-7 flex items-center justify-center text-charcoal/70 hover:text-charcoal hover:bg-charcoal/5 rounded-l-full transition-colors"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center text-[12px] text-charcoal font-medium">
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateQuantity(
+                          item.productId,
+                          item.variantId,
+                          item.quantity + 1
+                        )
+                      }
+                      aria-label={`Increase quantity of ${item.productNameSnapshot}`}
+                      className="w-7 h-7 flex items-center justify-center text-charcoal/70 hover:text-charcoal hover:bg-charcoal/5 rounded-r-full transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="text-charcoal text-sm font-medium">
+                    {formatPence(lineTotal)}
+                  </span>
                 </div>
               </div>
             </li>

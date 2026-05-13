@@ -26,8 +26,8 @@ export function formatPence(pence: number): string {
  * configured by us and won't drift mid-session, so a direct map
  * is robust enough.
  *
- * Keep the amounts in sync with TRACKED_48_PENCE /
- * TRACKED_24_UPGRADE_PENCE in the checkout route.
+ * Keep the amounts in sync with the constants in
+ * /api/bazaar/checkout/route.ts.
  *
  * Returns null for any amount that doesn't match a known rate —
  * the caller decides how to display the unknown case (typically
@@ -39,7 +39,11 @@ export type BazaarShippingService =
   | "special-delivery";
 
 const TRACKED_48_PENCE = 399;
-const TRACKED_24_UPGRADE_PENCE = 499;
+const TRACKED_24_PENCE = 499;
+// When the order qualifies for free shipping, Tracked 24 is
+// offered at the upgrade differential (~£1) rather than the full
+// £4.99 — so a £1 shipping amount also indicates Tracked 24.
+const TRACKED_24_FREE_SHIP_UPGRADE_PENCE = TRACKED_24_PENCE - TRACKED_48_PENCE;
 
 export function deriveServiceFromShippingPence(
   shippingPence: number
@@ -48,7 +52,8 @@ export function deriveServiceFromShippingPence(
   // zero charge to the customer.
   if (shippingPence === 0) return "tracked-48";
   if (shippingPence === TRACKED_48_PENCE) return "tracked-48";
-  if (shippingPence === TRACKED_24_UPGRADE_PENCE) return "tracked-24";
+  if (shippingPence === TRACKED_24_PENCE) return "tracked-24";
+  if (shippingPence === TRACKED_24_FREE_SHIP_UPGRADE_PENCE) return "tracked-24";
   return null;
 }
 

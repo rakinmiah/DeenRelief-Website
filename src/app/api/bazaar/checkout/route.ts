@@ -34,7 +34,13 @@ export const dynamic = "force-dynamic";
  */
 const FREE_SHIPPING_THRESHOLD_PENCE = 7500;
 const TRACKED_48_PENCE = 399;
-const TRACKED_24_UPGRADE_PENCE = 499;
+const TRACKED_24_PENCE = 499;
+// When the order qualifies for free shipping, Tracked 48 drops
+// to £0 — but customers should still be able to upgrade to
+// Tracked 24 for just the price difference (~£1) rather than
+// the full £4.99 they'd pay if shipping wasn't free.
+const TRACKED_24_FREE_SHIP_UPGRADE_PENCE =
+  TRACKED_24_PENCE - TRACKED_48_PENCE;
 
 /**
  * POST /api/bazaar/checkout
@@ -306,11 +312,25 @@ export async function POST(req: Request) {
     };
   }
 
+  // Above the free-shipping threshold we still surface both
+  // services, but Tracked 48 is free and Tracked 24 is priced at
+  // just the upgrade differential (~£1) — customers who care about
+  // 1–2 day delivery shouldn't lose that option just because they
+  // qualified for the free-shipping benefit. Below the threshold,
+  // both services are charged at their full rates.
   const shippingOptions = qualifiesFreeShipping
-    ? [rate(0, "Free UK delivery — Royal Mail Tracked 48", 2, 4)]
+    ? [
+        rate(0, "Free UK delivery — Royal Mail Tracked 48", 2, 4),
+        rate(
+          TRACKED_24_FREE_SHIP_UPGRADE_PENCE,
+          "Royal Mail Tracked 24 (£1 upgrade)",
+          1,
+          2
+        ),
+      ]
     : [
         rate(TRACKED_48_PENCE, "Royal Mail Tracked 48", 2, 4),
-        rate(TRACKED_24_UPGRADE_PENCE, "Royal Mail Tracked 24", 1, 2),
+        rate(TRACKED_24_PENCE, "Royal Mail Tracked 24", 1, 2),
       ];
 
   try {
