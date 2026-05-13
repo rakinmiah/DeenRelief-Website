@@ -117,15 +117,31 @@ export async function POST(req: Request) {
   try {
     await uploadMediaBinary(storagePath, file, file.type);
   } catch (err) {
-    const message =
+    const rawMessage =
       err instanceof Error ? err.message : "Storage upload failed.";
     console.error("[media/upload] storage upload failed:", err);
-    return NextResponse.json(
-      {
-        error: `Couldn't upload: ${message}. Check the file size — Supabase free tier caps uploads at 50 MB per file.`,
-      },
-      { status: 502 }
-    );
+
+    // Translate the most common Supabase Storage errors into
+    // actionable trustee-facing messages. Falls back to the raw
+    // message + a generic note if no pattern matches.
+    const lower = rawMessage.toLowerCase();
+    let friendly: string;
+    if (lower.includes("bucket not found") || lower.includes("bucket_not_found")) {
+      friendly =
+        "Storage bucket `dr-media` doesn't exist yet. Run migration `017_dr_media.sql` on the Supabase SQL editor to create it, then try again.";
+    } else if (
+      lower.includes("exceeded") ||
+      lower.includes("payload too large") ||
+      lower.includes("file size")
+    ) {
+      friendly = `File is too big for this Supabase plan tier (${Math.round(file.size / 1_000_000)} MB). Free tier caps uploads at 50 MB per file; Pro tier caps at 5 GB.`;
+    } else if (lower.includes("mime") || lower.includes("not allowed")) {
+      friendly = `File type "${file.type}" isn't on the bucket's allow-list. If you think it should be, edit the allow-list in migration 017 and re-run.`;
+    } else {
+      friendly = `Couldn't upload: ${rawMessage}.`;
+    }
+
+    return NextResponse.json({ error: friendly }, { status: 502 });
   }
 
   const created = await createMediaRow({
