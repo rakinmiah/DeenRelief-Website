@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import AdminShell from "@/components/admin/AdminShell";
 import OfflineIndicator from "@/components/admin/OfflineIndicator";
+import PageTransition from "@/components/admin/PageTransition";
 import PWAInstallPrompt from "@/components/admin/PWAInstallPrompt";
 import ServiceWorkerRegistrar from "@/components/admin/ServiceWorkerRegistrar";
 import { getAdminSession } from "@/lib/admin-session";
@@ -113,7 +114,13 @@ export default async function AdminLayout({
           we've lost connectivity — gives the trustee context for
           why their save actions might be failing. */}
       <OfflineIndicator />
-      <AdminShell signedInAs={session?.email}>{children}</AdminShell>
+      <AdminShell signedInAs={session?.email}>
+        {/* Wrap children in PageTransition so a subtle fade-up
+            fires on every admin route change. Keyed off pathname
+            internally — pure CSS animation, ~250ms, respects
+            prefers-reduced-motion. */}
+        <PageTransition>{children}</PageTransition>
+      </AdminShell>
       {/* Custom install prompt — Android: intercepts the
           beforeinstallprompt event for a properly branded install
           banner. iOS Safari: 2-line hint pointing at the Share

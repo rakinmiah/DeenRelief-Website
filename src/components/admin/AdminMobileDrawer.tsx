@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Slide-out left drawer that contains the full admin navigation
@@ -168,6 +169,24 @@ export default function AdminMobileDrawer({
   const drawerRef = useRef<HTMLElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
 
+  // Swipe-to-close state. The drawer normally renders pinned at
+  // translate-x-0 (open) or -translate-x-full (closed). During a
+  // drag we override that with a live pixel value held in
+  // `dragOffsetPx` (a negative number while dragging left). On
+  // release: if the user dragged far enough to cross the threshold,
+  // we call onClose; otherwise we snap back to 0.
+  //
+  // Why pixel math instead of CSS transitions: the drawer needs to
+  // follow the finger 1:1. Tailwind transition classes interpolate
+  // every frame which would lag behind the touch. We disable
+  // transitions during the drag and restore them on release.
+  const [dragOffsetPx, setDragOffsetPx] = useState<number | null>(null);
+  const dragStartXRef = useRef<number | null>(null);
+  const dragStartTimeRef = useRef<number>(0);
+
+  const SWIPE_CLOSE_THRESHOLD_PX = 64; // ~16% of a 384px drawer width
+  const SWIPE_CLOSE_VELOCITY_PX_PER_MS = 0.4; // fast flick
+
   // Escape key closes.
   useEffect(() => {
     if (!open) return;
@@ -201,6 +220,55 @@ export default function AdminMobileDrawer({
     }
   }, [open]);
 
+  function handleTouchStart(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    if (!touch) return;
+    dragStartXRef.current = touch.clientX;
+    dragStartTimeRef.current = performance.now();
+    // Initialise at 0 so the inline style takes over immediately;
+    // the CSS transition class is gated on dragOffsetPx === null.
+    setDragOffsetPx(0);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (dragStartXRef.current === null) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - dragStartXRef.current;
+    // Only track leftward motion (drawer-closing direction). Cap
+    // rightward drag at 0 so the drawer can't slide off the
+    // right edge.
+    setDragOffsetPx(Math.min(0, dx));
+  }
+
+  function handleTouchEnd() {
+    if (dragStartXRef.current === null || dragOffsetPx === null) {
+      dragStartXRef.current = null;
+      setDragOffsetPx(null);
+      return;
+    }
+    const elapsed = performance.now() - dragStartTimeRef.current;
+    const velocity = Math.abs(dragOffsetPx) / Math.max(elapsed, 1);
+    const closedByDistance = Math.abs(dragOffsetPx) > SWIPE_CLOSE_THRESHOLD_PX;
+    const closedByVelocity =
+      velocity > SWIPE_CLOSE_VELOCITY_PX_PER_MS && dragOffsetPx < -16;
+    dragStartXRef.current = null;
+    if (closedByDistance || closedByVelocity) {
+      // Wipe the drag offset BEFORE calling onClose so the CSS
+      // transition picks up from the current position back to
+      // -100% (instead of snapping). The setDragOffsetPx(null)
+      // in the open effect would otherwise interfere.
+      setDragOffsetPx(null);
+      haptic("tap");
+      onClose();
+    } else {
+      // Snap back. Re-enable transitions by clearing the inline
+      // style (dragOffsetPx === null → no inline transform → CSS
+      // transition class handles the spring back).
+      setDragOffsetPx(null);
+    }
+  }
+
   return (
     <>
       {/* Backdrop. Fades in/out with the drawer. Tap-to-close. */}
@@ -220,14 +288,28 @@ export default function AdminMobileDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Admin navigation"
-        className={`fixed top-0 left-0 z-50 h-full w-72 max-w-[85vw] bg-white shadow-2xl md:hidden transform transition-transform duration-200 ease-out flex flex-col ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        // Transition is disabled DURING a drag so the panel follows
+        // the finger 1:1. As soon as the drag ends (dragOffsetPx is
+        // nulled) the transition class kicks back in for the
+        // spring-back or close animation.
+        className={`fixed top-0 left-0 z-50 h-full w-72 max-w-[85vw] bg-white shadow-2xl md:hidden transform ${
+          dragOffsetPx === null ? "transition-transform duration-200 ease-out" : ""
+        } flex flex-col ${open ? "translate-x-0" : "-translate-x-full"}`}
         // Safe-area-inset padding so the drawer doesn't clip
-        // behind the iPhone notch in PWA standalone mode.
+        // behind the iPhone notch in PWA standalone mode. The
+        // inline transform overrides the Tailwind class while
+        // dragging — once released the inline style is wiped and
+        // the className takes back over.
         style={{
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
+          ...(dragOffsetPx !== null
+            ? { transform: `translateX(${dragOffsetPx}px)` }
+            : {}),
         }}
       >
         {/* Drawer header — DR Admin wordmark + close button. */}

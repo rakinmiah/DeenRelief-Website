@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { haptic } from "@/lib/haptics";
 
 /**
  * Reusable bottom sheet — slides up from the bottom edge on mobile,
@@ -63,6 +64,12 @@ export default function BottomSheet({
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
+
+  // Tap haptic on every open — feels like the sheet "lands" when it
+  // slides up. No-op on platforms without navigator.vibrate.
+  useEffect(() => {
+    if (open) haptic("tap");
+  }, [open]);
 
   // Body scroll lock — but only while the sheet is open.
   useEffect(() => {

@@ -174,3 +174,26 @@ main {
     font-size: 16px; /* prevents iOS zoom on focus */
   }
 }
+
+/* Page transition — fires on every admin route change because
+   the wrapper is keyed on pathname (see PageTransition.tsx).
+   12px lift + fade gives a small "yes, you navigated" cue
+   without becoming a heavy animation that wears out by lunchtime
+   on day one. Skipped entirely when the user has set their OS to
+   prefer reduced motion. */
+@keyframes page-transition-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-transition {
+    animation: page-transition-enter 250ms ease-out;
+  }
+}
