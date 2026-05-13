@@ -165,6 +165,27 @@ export async function pushOrderToClickAndDrop(
   // Verified against the v1 spec.
   const url = `${getBaseUrl()}/api/v1/orders`;
 
+  // ── DEBUG LOGGING ────────────────────────────────────────────
+  // Temporary while we diagnose Royal Mail 401s. Logs URL,
+  // header shape (token redacted to last 4 chars), and full body
+  // so we can compare against a curl call. Strip these console.log
+  // lines once auth is confirmed working.
+  const redactedToken =
+    apiKey.length > 8
+      ? `${apiKey.slice(0, 4)}…${apiKey.slice(-4)}`
+      : "<too-short>";
+  console.log("[royal-mail-api] DEBUG request →", {
+    url,
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${redactedToken}`,
+    },
+    bodyPreview: JSON.stringify(body, null, 2),
+  });
+  // ────────────────────────────────────────────────────────────
+
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -176,6 +197,13 @@ export async function pushOrderToClickAndDrop(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
+    });
+
+    // DEBUG: dump response headers for diagnostic
+    console.log("[royal-mail-api] DEBUG response ←", {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
     });
 
     // Read body once — even on failure we want the raw response for
