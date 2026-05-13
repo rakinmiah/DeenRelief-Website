@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
@@ -121,8 +122,19 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
             </p>
           </div>
           <div className="text-right">
-            <p className="text-base font-semibold">{CHARITY_NAME} Bazaar</p>
-            <p className="text-[11px] text-black/60">
+            {/* Brand mark sits where the text "Deen Relief Bazaar"
+                used to. The .webp is foreground, prints reliably
+                across browsers (background images don't print by
+                default; <img> elements do). */}
+            <Image
+              src="/images/logo.webp"
+              alt={CHARITY_NAME}
+              width={191}
+              height={32}
+              className="ml-auto h-8 w-auto"
+              priority={false}
+            />
+            <p className="text-[11px] text-black/60 mt-2">
               Registered charity in England &amp; Wales, No. {CHARITY_NUMBER}
             </p>
           </div>
