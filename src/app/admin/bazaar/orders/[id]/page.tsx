@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
@@ -126,17 +125,22 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
             </p>
           </div>
           <div className="text-right">
-            {/* Brand mark sits where the text "Deen Relief Bazaar"
-                used to. The .webp is foreground, prints reliably
-                across browsers (background images don't print by
-                default; <img> elements do). */}
-            <Image
+            {/* Brand mark for the print-only packing slip. Uses a
+                plain <img> rather than Next.js <Image> because the
+                slip's parent is `hidden print:block` — Next.js
+                lazy-loads via intersection observer, which never
+                fires on a display:none element, so by the time
+                print activates the optimised image has never been
+                fetched and the slip renders without the logo.
+                Plain <img> loads eagerly + prints reliably. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/images/logo.webp"
               alt={CHARITY_NAME}
               width={191}
               height={32}
               className="ml-auto h-8 w-auto"
-              priority={false}
+              loading="eager"
             />
             <p className="text-[11px] text-black/60 mt-2">
               Registered charity in England &amp; Wales, No. {CHARITY_NUMBER}
