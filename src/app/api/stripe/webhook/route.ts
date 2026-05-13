@@ -541,19 +541,34 @@ async function handleBazaarCheckoutCompleted(
     targetId: detail.order.id,
   });
 
-  const REMINDER_DELAY_HOURS = 24;
-  const reminderAt = new Date(
-    Date.now() + REMINDER_DELAY_HOURS * 60 * 60 * 1000
-  );
-  await enqueueNotification({
-    type: "bazaar_order_unfulfilled_reminder",
-    severity: "warning",
-    title: `Still to ship — ${receiptNum}`,
-    body: `Order from ${customerName} (£${totalGbp}, ${itemCount} item${itemCount === 1 ? "" : "s"}) is 24 hours old and not yet marked shipped. Open to fulfil.`,
-    targetUrl: adminUrl,
-    targetId: detail.order.id,
-    scheduledFor: reminderAt,
-  });
+  // Two-stage "still unfulfilled" reminder: a 12h heads-up
+  // (severity info — quieter, "don't forget about this") and
+  // a 24h escalation (severity warning — getting close to the
+  // 2-working-day ship-by promise).
+  //
+  // Both rows share the same `type` so the mark-shipped route's
+  // existing cancelNotifications({ type: ... }) call cancels
+  // them BOTH in a single query when the trustee marks the
+  // order shipped (no matter which mark we've already passed).
+  // The bell renders each row's own title/body, so they appear
+  // as distinct notifications as their scheduled_for ticks past.
+  const REMINDER_DELAYS = [
+    { hours: 12, severity: "info" as const, label: "12 hours" },
+    { hours: 24, severity: "warning" as const, label: "24 hours" },
+  ];
+
+  for (const { hours, severity, label } of REMINDER_DELAYS) {
+    const scheduledFor = new Date(Date.now() + hours * 60 * 60 * 1000);
+    await enqueueNotification({
+      type: "bazaar_order_unfulfilled_reminder",
+      severity,
+      title: `Still to ship — ${receiptNum}`,
+      body: `Order from ${customerName} (£${totalGbp}, ${itemCount} item${itemCount === 1 ? "" : "s"}) is ${label} old and not yet marked shipped. Open to fulfil.`,
+      targetUrl: adminUrl,
+      targetId: detail.order.id,
+      scheduledFor,
+    });
+  }
 
   // Send the order confirmation email. Same reasoning as above —
   // sendBazaarOrderConfirmation already catches its own errors and

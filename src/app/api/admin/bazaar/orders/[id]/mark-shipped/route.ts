@@ -116,12 +116,15 @@ export async function POST(
     );
   }
 
-  // Suppress the 24h "still unfulfilled" reminder for this order
-  // — it's now shipped, so the reminder is no longer relevant.
-  // Fire-and-forget: a failed cancel just means the reminder
-  // shows up later as expected (worst case: trustee gets a
-  // notification about an order they've already fulfilled, which
-  // they can dismiss).
+  // Suppress the "still unfulfilled" reminders for this order
+  // — it's now shipped, so any pending reminder is no longer
+  // relevant. The webhook enqueues two rows of the same type
+  // (12h heads-up + 24h escalation), so this single cancel
+  // nukes both with a target_id + type match. Fire-and-forget:
+  // a failed cancel just means an unfulfilled-reminder might
+  // show up later as expected (worst case: trustee gets a
+  // notification about an order they've already fulfilled,
+  // which they can dismiss).
   await cancelNotifications({
     targetId: id,
     type: "bazaar_order_unfulfilled_reminder",
