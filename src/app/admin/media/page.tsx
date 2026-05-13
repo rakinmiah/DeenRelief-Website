@@ -11,6 +11,7 @@ import {
 } from "@/lib/dr-media";
 import { formatAdminDate } from "@/lib/admin-donations";
 import MediaUploaderClient from "./MediaUploaderClient";
+import MediaDeleteButton from "./MediaDeleteButton";
 
 export const metadata: Metadata = {
   title: "Media | Deen Relief Admin",
@@ -190,40 +191,47 @@ function TagChip({
 function MediaTile({ media }: { media: DrMediaRow }) {
   const kind = mediaKindFromMimeType(media.mimeType);
   return (
-    <Link
-      href={`/admin/media/${media.id}`}
-      className="block group bg-white border border-charcoal/10 rounded-2xl overflow-hidden hover:border-charcoal/25 hover:shadow-md transition-all"
-    >
-      <div className="relative aspect-square bg-cream flex items-center justify-center overflow-hidden">
-        {kind === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={media.publicUrl}
-            alt={media.filename}
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : kind === "video" ? (
-          <VideoPlaceholder />
-        ) : kind === "document" ? (
-          <DocumentPlaceholder />
-        ) : (
-          <FilePlaceholder />
-        )}
-        <span className="absolute top-2 right-2 inline-block px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-sm text-[10px] font-semibold uppercase tracking-wider text-charcoal/70 border border-charcoal/10">
-          {kind}
-        </span>
-      </div>
-      <div className="p-3">
-        <p className="text-charcoal text-[13px] font-medium truncate group-hover:text-green-dark transition-colors">
-          {media.filename}
-        </p>
-        <p className="text-[11px] text-charcoal/50 mt-0.5 flex items-center justify-between gap-2">
-          <span>{formatFileSize(media.sizeBytes)}</span>
-          <span>{formatAdminDate(media.createdAt)}</span>
-        </p>
-      </div>
-    </Link>
+    // Wrapper div is the `group` for both hover state + as the
+    // positioning context for the absolutely-placed delete button.
+    // Link + delete button are SIBLINGS (not nested) so the button
+    // remains a valid <button> element a11y-wise.
+    <div className="relative group">
+      <Link
+        href={`/admin/media/${media.id}`}
+        className="block bg-white border border-charcoal/10 rounded-2xl overflow-hidden hover:border-charcoal/25 hover:shadow-md transition-all"
+      >
+        <div className="relative aspect-square bg-cream flex items-center justify-center overflow-hidden">
+          {kind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={media.publicUrl}
+              alt={media.filename}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : kind === "video" ? (
+            <VideoPlaceholder />
+          ) : kind === "document" ? (
+            <DocumentPlaceholder />
+          ) : (
+            <FilePlaceholder />
+          )}
+          <span className="absolute top-2 right-2 inline-block px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-sm text-[10px] font-semibold uppercase tracking-wider text-charcoal/70 border border-charcoal/10">
+            {kind}
+          </span>
+        </div>
+        <div className="p-3">
+          <p className="text-charcoal text-[13px] font-medium truncate group-hover:text-green-dark transition-colors">
+            {media.filename}
+          </p>
+          <p className="text-[11px] text-charcoal/50 mt-0.5 flex items-center justify-between gap-2">
+            <span>{formatFileSize(media.sizeBytes)}</span>
+            <span>{formatAdminDate(media.createdAt)}</span>
+          </p>
+        </div>
+      </Link>
+      <MediaDeleteButton mediaId={media.id} filename={media.filename} />
+    </div>
   );
 }
 

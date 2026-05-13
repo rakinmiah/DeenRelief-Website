@@ -110,7 +110,7 @@ export default async function AdminMediaDetailPage({
           <MediaDetailClient
             mediaId={media.id}
             publicUrl={media.publicUrl}
-            filename={media.filename}
+            mediaKind={kind}
             initialDescription={media.description ?? ""}
             initialTags={media.tags}
           />

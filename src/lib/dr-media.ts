@@ -141,6 +141,27 @@ export async function uploadMediaBinary(
 }
 
 /**
+ * Pull the raw binary back from Storage as an ArrayBuffer. Used by
+ * the download route to proxy bytes through Next so we can attach a
+ * `Content-Disposition: attachment` header (Supabase's public URLs
+ * always serve `inline`). Service-role client — bypasses RLS.
+ */
+export async function downloadMediaBinary(
+  storagePath: string
+): Promise<ArrayBuffer> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.storage
+    .from(DR_MEDIA_BUCKET)
+    .download(storagePath);
+  if (error || !data) {
+    throw new Error(
+      `Storage download failed: ${error?.message ?? "no data"}`
+    );
+  }
+  return data.arrayBuffer();
+}
+
+/**
  * Remove a file from Storage. Called by deleteMediaWithFile after
  * the row is removed. Failure here is logged but doesn't surface
  * — orphan objects in Storage are harmless and a future cleanup
