@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import BottomSheet from "@/components/admin/BottomSheet";
 
 /**
  * Donations admin filter bar.
@@ -9,7 +10,8 @@ import { useState, useEffect, useRef } from "react";
  * Three widgets in one component:
  *   1. Date range — preset chips (All time / Today / This month /
  *      Last 30 days) + custom-range date pair below
- *   2. Filters popover — Status / Campaign / Frequency / Gift Aid
+ *   2. Filters popover (desktop) / bottom sheet (mobile) —
+ *      Status / Campaign / Frequency / Gift Aid
  *   3. Donor search — case-insensitive substring on name + email
  *
  * URL state: every change writes to search params via router.push.
@@ -18,6 +20,15 @@ import { useState, useEffect, useRef } from "react";
  *
  * Donor search is debounced (300ms) so each keystroke doesn't trigger
  * a route push; only the settled query value is committed.
+ *
+ * Mobile layout: the desktop's two-row chip-heavy filter bar would
+ * wrap into 6+ rows on a phone, dominating the viewport above the
+ * actual donation list. Instead the mobile view collapses to a
+ * single row: full-width search input + Filters button. Tapping
+ * Filters pops a bottom sheet containing the FULL filter UI (date
+ * presets, dimensions, custom range). Active filter chips render
+ * below the search row at both viewports so the trustee always
+ * sees what's filtered without opening anything.
  */
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -135,6 +146,10 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
   // Local state for the popover open/close — uncontrolled <details>
   // would lose state on every router.push, so we manage explicitly.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Separate state for the mobile bottom sheet so it doesn't share
+  // open/close with the desktop popover (a trustee might briefly
+  // resize a window with the sheet open + the popover closed, etc.).
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   // ── URL update helpers ─────────────────────────────────────────────
 
@@ -205,10 +220,161 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
     (frequency ? 1 : 0) +
     (giftAid ? 1 : 0);
 
+  // Render the dimension filters (Status / Campaign / Frequency /
+  // Gift Aid) as a 4-column grid block. Reused in both the desktop
+  // popover and the mobile bottom sheet so the choices stay in sync.
+  const dimensionFiltersBlock = (
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
+          Status
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {STATUS_OPTIONS.map((opt) => {
+            const active = status.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleInList(status, opt.value, "status")}
+                className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
+                  active
+                    ? "bg-charcoal text-white border-charcoal"
+                    : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
+          Campaign
+        </p>
+        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+          {availableCampaigns.map((c) => {
+            const active = campaign.includes(c.slug);
+            return (
+              <button
+                key={c.slug}
+                type="button"
+                onClick={() => toggleInList(campaign, c.slug, "campaign")}
+                className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
+                  active
+                    ? "bg-charcoal text-white border-charcoal"
+                    : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
+                }`}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+          {availableCampaigns.length === 0 && (
+            <span className="text-[11px] text-charcoal/40 italic">
+              No campaigns yet
+            </span>
+          )}
+        </div>
+      </div>
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
+          Frequency
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {FREQUENCY_OPTIONS.map((opt) => {
+            const active = frequency === opt.value;
+            return (
+              <button
+                key={opt.value || "all"}
+                type="button"
+                onClick={() => updateParam("frequency", opt.value || null)}
+                className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
+                  active
+                    ? "bg-charcoal text-white border-charcoal"
+                    : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
+          Gift Aid
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {GIFT_AID_OPTIONS.map((opt) => {
+            const active = giftAid === opt.value;
+            return (
+              <button
+                key={opt.value || "any"}
+                type="button"
+                onClick={() => updateParam("giftAid", opt.value || null)}
+                className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
+                  active
+                    ? "bg-charcoal text-white border-charcoal"
+                    : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-3 mb-6">
-      {/* Row 1 — date presets + custom range + filters popover + search */}
-      <div className="flex flex-wrap gap-2 items-center">
+      {/* ─── MOBILE row: search + Filters button. < md only. ─── */}
+      <div className="md:hidden flex items-center gap-2">
+        <input
+          type="search"
+          placeholder="Search donor…"
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          className="flex-1 min-h-[44px] px-4 rounded-full text-base bg-white border border-charcoal/10 text-charcoal placeholder:text-charcoal/40 focus:outline-none focus:border-charcoal/30"
+        />
+        <button
+          type="button"
+          onClick={() => setMobileSheetOpen(true)}
+          className={`flex-shrink-0 min-h-[44px] px-4 rounded-full text-sm font-medium inline-flex items-center gap-2 transition-colors ${
+            dimensionFilterCount > 0 || from || to
+              ? "bg-charcoal text-white"
+              : "bg-white border border-charcoal/10 text-charcoal/70"
+          }`}
+          aria-label="Filters"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 4.5h18M6 12h12M10 19.5h4"
+            />
+          </svg>
+          {(dimensionFilterCount > 0 || from || to) && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber text-charcoal min-w-[18px] text-center">
+              {dimensionFilterCount + (from || to ? 1 : 0)}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ─── DESKTOP row 1 — date presets + filters popover + search.
+          md+ only. ─── */}
+      <div className="hidden md:flex flex-wrap gap-2 items-center">
         {/* Date presets */}
         <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/50 mr-1">
           Date
@@ -256,8 +422,9 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
         </div>
       </div>
 
-      {/* Row 2 — custom date range pair (always visible) */}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      {/* Row 2 — custom date range pair. md+ only — mobile uses
+          the bottom-sheet variant lower down. */}
+      <div className="hidden md:flex flex-wrap items-center gap-2 text-sm">
         <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/50 mr-1">
           Custom range
         </span>
@@ -289,127 +456,124 @@ export default function DonationsFilters({ availableCampaigns }: Props) {
         )}
       </div>
 
-      {/* Filters popover — Status, Campaign, Frequency, Gift Aid */}
+      {/* Filters popover — Status, Campaign, Frequency, Gift Aid.
+          Desktop only. Mobile uses the bottom sheet below. */}
       {filtersOpen && (
-        <div className="bg-white border border-charcoal/10 rounded-2xl p-5 shadow-sm">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Status */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
-                Status
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {STATUS_OPTIONS.map((opt) => {
-                  const active = status.includes(opt.value);
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => toggleInList(status, opt.value, "status")}
-                      className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
-                        active
-                          ? "bg-charcoal text-white border-charcoal"
-                          : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Campaign */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
-                Campaign
-              </p>
-              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                {availableCampaigns.map((c) => {
-                  const active = campaign.includes(c.slug);
-                  return (
-                    <button
-                      key={c.slug}
-                      type="button"
-                      onClick={() =>
-                        toggleInList(campaign, c.slug, "campaign")
-                      }
-                      className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
-                        active
-                          ? "bg-charcoal text-white border-charcoal"
-                          : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-                {availableCampaigns.length === 0 && (
-                  <span className="text-[11px] text-charcoal/40 italic">
-                    No campaigns yet
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Frequency */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
-                Frequency
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {FREQUENCY_OPTIONS.map((opt) => {
-                  const active = frequency === opt.value;
-                  return (
-                    <button
-                      key={opt.value || "all"}
-                      type="button"
-                      onClick={() =>
-                        updateParam("frequency", opt.value || null)
-                      }
-                      className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
-                        active
-                          ? "bg-charcoal text-white border-charcoal"
-                          : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Gift Aid */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
-                Gift Aid
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {GIFT_AID_OPTIONS.map((opt) => {
-                  const active = giftAid === opt.value;
-                  return (
-                    <button
-                      key={opt.value || "any"}
-                      type="button"
-                      onClick={() =>
-                        updateParam("giftAid", opt.value || null)
-                      }
-                      className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
-                        active
-                          ? "bg-charcoal text-white border-charcoal"
-                          : "bg-white border-charcoal/10 text-charcoal/70 hover:border-charcoal/30"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        <div className="hidden md:block bg-white border border-charcoal/10 rounded-2xl p-5 shadow-sm">
+          {dimensionFiltersBlock}
         </div>
       )}
+
+      {/* Mobile bottom-sheet variant — contains the FULL filter UI
+          (date presets + custom range + all four dimension filter
+          groups) so a phone user has parity with desktop in one
+          panel. md:hidden wrapper means the sheet (and its
+          background tap-out region) is unreachable on desktop. */}
+      <div className="md:hidden">
+        <BottomSheet
+          open={mobileSheetOpen}
+          onClose={() => setMobileSheetOpen(false)}
+          title="Filters"
+        >
+          <div className="space-y-6">
+            {/* Date presets */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
+                Date
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { key: "alltime", label: "All time" },
+                    { key: "today", label: "Today" },
+                    { key: "thismonth", label: "This month" },
+                    { key: "last30days", label: "Last 30 days" },
+                  ] as { key: DatePreset; label: string }[]
+                ).map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => applyPreset(p.key)}
+                    className={`min-h-[44px] px-4 rounded-full text-sm font-medium transition-colors ${
+                      activePreset === p.key
+                        ? "bg-charcoal text-white"
+                        : "bg-white border border-charcoal/10 text-charcoal/70"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom range pair */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-2">
+                Custom range
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={from}
+                  max={to || undefined}
+                  onChange={(e) =>
+                    updateParam("from", e.target.value || null)
+                  }
+                  className="flex-1 min-h-[44px] px-3 rounded-lg bg-white border border-charcoal/10 text-charcoal text-base"
+                  aria-label="From date"
+                />
+                <span className="text-charcoal/40">→</span>
+                <input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  onChange={(e) =>
+                    updateParam("to", e.target.value || null)
+                  }
+                  className="flex-1 min-h-[44px] px-3 rounded-lg bg-white border border-charcoal/10 text-charcoal text-base"
+                  aria-label="To date"
+                />
+              </div>
+              {(from || to) && (
+                <button
+                  type="button"
+                  onClick={() => updateMany({ from: null, to: null })}
+                  className="mt-2 text-[12px] text-charcoal/60 hover:text-charcoal underline"
+                >
+                  Clear date range
+                </button>
+              )}
+            </div>
+
+            {/* Dimensions — same block as the desktop popover. */}
+            {dimensionFiltersBlock}
+
+            {/* Footer action buttons — sticky at the bottom of the
+                sheet content. Two actions: clear everything, or
+                accept and close (filters apply live on every chip
+                tap so "Apply" is really just "close"). */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  router.push("?", { scroll: false });
+                  setMobileSheetOpen(false);
+                }}
+                className="flex-1 min-h-[44px] px-4 rounded-lg bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-cream transition-colors"
+              >
+                Clear all
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileSheetOpen(false)}
+                className="flex-1 min-h-[44px] px-4 rounded-lg bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/90 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </BottomSheet>
+      </div>
 
       {/* Active filter chips (shown when any filter active) */}
       {(dimensionFilterCount > 0 || from || to || q) && (
