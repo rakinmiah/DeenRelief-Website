@@ -61,7 +61,11 @@ export type AdminAction =
   // audit log keeps a permanent record of what was removed and
   // by whom, even after the source row is gone.
   | "delete_bazaar_order"
-  | "delete_donation";
+  | "delete_donation"
+  // Media library
+  | "upload_media"
+  | "delete_media"
+  | "update_media_metadata";
 
 interface LogAdminActionOpts {
   action: AdminAction;

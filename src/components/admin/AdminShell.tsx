@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/admin/bazaar/orders", label: "Bazaar Orders" },
   { href: "/admin/bazaar/inquiries", label: "Bazaar Inquiries" },
   { href: "/admin/bazaar/catalog", label: "Bazaar Catalog" },
+  { href: "/admin/media", label: "Media" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/audit-log", label: "Audit log" },
 ];

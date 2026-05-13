@@ -53,6 +53,9 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   push_to_click_and_drop: "Pushed to Click & Drop",
   delete_bazaar_order: "Bazaar order deleted",
   delete_donation: "Donation deleted",
+  upload_media: "Media uploaded",
+  delete_media: "Media deleted",
+  update_media_metadata: "Media metadata updated",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -94,6 +97,9 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   push_to_click_and_drop: "bg-blue-50 text-blue-800 border-blue-200",
   delete_bazaar_order: "bg-red-50 text-red-700 border-red-200",
   delete_donation: "bg-red-50 text-red-700 border-red-200",
+  upload_media: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  delete_media: "bg-red-50 text-red-700 border-red-200",
+  update_media_metadata: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
 /**
