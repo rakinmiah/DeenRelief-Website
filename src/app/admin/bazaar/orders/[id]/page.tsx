@@ -23,6 +23,7 @@ import MarkShippedClient from "./MarkShippedClient";
 import PostShipActionsClient from "./PostShipActionsClient";
 import OrderMessageClient from "./OrderMessageClient";
 import PackingSlipPrintButton from "./PackingSlipPrintButton";
+import PushToClickAndDropClient from "./PushToClickAndDropClient";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 
 export const metadata: Metadata = {
@@ -442,6 +443,20 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
               )}
             </p>
           </section>
+
+          {/* Push to Click & Drop — only meaningful for paid
+              orders awaiting fulfilment. Pre-push state shows a
+              button; post-push state shows the C&D reference +
+              timestamp so the trustee knows it's safe to log in
+              and generate the label. */}
+          {isPaid && (
+            <PushToClickAndDropClient
+              orderId={order.id}
+              alreadyPushed={Boolean(order.clickAndDropOrderId)}
+              clickAndDropOrderId={order.clickAndDropOrderId}
+              pushedAt={order.clickAndDropPushedAt}
+            />
+          )}
 
           {/* Mark Shipped panel — only for paid orders awaiting
               fulfilment. */}

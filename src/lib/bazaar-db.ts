@@ -65,6 +65,14 @@ export interface BazaarOrderRow {
    * clear the hold. See migration 014.
    */
   stockHeldUntil: string | null;
+  /**
+   * Royal Mail Click & Drop order reference returned from the
+   * Order API after a successful push. NULL means the order
+   * hasn't been pushed to C&D yet. See migration 016 +
+   * royal-mail-api.ts.
+   */
+  clickAndDropOrderId: string | null;
+  clickAndDropPushedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -778,6 +786,27 @@ export async function fetchAdminBazaarOrdersForClickAndDrop(): Promise<
  * row matches, null otherwise. Used by the webhook when promoting an
  * order to paid.
  */
+/**
+ * Stamp the Royal Mail Click & Drop reference + timestamp onto a
+ * bazaar order after a successful push to the C&D Order API.
+ */
+export async function attachClickAndDropOrderId(input: {
+  orderId: string;
+  clickAndDropOrderId: string;
+}): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("bazaar_orders")
+    .update({
+      click_and_drop_order_id: input.clickAndDropOrderId,
+      click_and_drop_pushed_at: new Date().toISOString(),
+    })
+    .eq("id", input.orderId);
+  if (error) {
+    throw new Error(`attachClickAndDropOrderId failed: ${error.message}`);
+  }
+}
+
 export async function findDonorIdByEmail(
   email: string
 ): Promise<string | null> {
@@ -800,7 +829,7 @@ export async function findDonorIdByEmail(
 // GenericStringError type. Update both locations if the row shape
 // changes.
 const BAZAAR_ORDER_COLUMNS =
-  "id, contact_email, donor_id, status, subtotal_pence, shipping_pence, total_pence, currency, shipping_address, stripe_session_id, stripe_payment_intent, livemode, fulfilled_at, tracking_number, royal_mail_service, internal_notes, stock_held_until, created_at, updated_at";
+  "id, contact_email, donor_id, status, subtotal_pence, shipping_pence, total_pence, currency, shipping_address, stripe_session_id, stripe_payment_intent, livemode, fulfilled_at, tracking_number, royal_mail_service, internal_notes, stock_held_until, click_and_drop_order_id, click_and_drop_pushed_at, created_at, updated_at";
 
 const BAZAAR_ORDER_ITEM_COLUMNS =
   "id, order_id, product_id, variant_id, product_name_snapshot, variant_snapshot, maker_name_snapshot, unit_price_pence_snapshot, quantity";
@@ -823,6 +852,8 @@ type RawBazaarOrderRow = {
   royal_mail_service: BazaarOrderRow["royalMailService"];
   internal_notes: string | null;
   stock_held_until: string | null;
+  click_and_drop_order_id: string | null;
+  click_and_drop_pushed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -850,6 +881,8 @@ function mapOrderRow(r: RawBazaarOrderRow): BazaarOrderRow {
     royalMailService: r.royal_mail_service,
     internalNotes: r.internal_notes,
     stockHeldUntil: r.stock_held_until,
+    clickAndDropOrderId: r.click_and_drop_order_id,
+    clickAndDropPushedAt: r.click_and_drop_pushed_at,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

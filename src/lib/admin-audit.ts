@@ -54,7 +54,8 @@ export type AdminAction =
   | "send_bazaar_inquiry_reply"
   | "update_bazaar_inquiry_status"
   | "log_manual_inquiry_message"
-  | "send_bazaar_order_message";
+  | "send_bazaar_order_message"
+  | "push_to_click_and_drop";
 
 interface LogAdminActionOpts {
   action: AdminAction;
