@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import AdminShell from "@/components/admin/AdminShell";
+import OfflineIndicator from "@/components/admin/OfflineIndicator";
+import PWAInstallPrompt from "@/components/admin/PWAInstallPrompt";
+import ServiceWorkerRegistrar from "@/components/admin/ServiceWorkerRegistrar";
 import { getAdminSession } from "@/lib/admin-session";
 
 /**
@@ -102,7 +105,21 @@ export default async function AdminLayout({
           a SPA-style admin → public transition flips the flag
           off. */}
       <AdminRouteAttribute />
+      {/* Service worker registers in the background so the admin
+          shell + offline page get cached for fast subsequent loads
+          and offline fallback. */}
+      <ServiceWorkerRegistrar />
+      {/* Top-of-page banner that surfaces when the browser detects
+          we've lost connectivity — gives the trustee context for
+          why their save actions might be failing. */}
+      <OfflineIndicator />
       <AdminShell signedInAs={session?.email}>{children}</AdminShell>
+      {/* Custom install prompt — Android: intercepts the
+          beforeinstallprompt event for a properly branded install
+          banner. iOS Safari: 2-line hint pointing at the Share
+          button. Both auto-dismiss for 7 days after the user opts
+          out so we don't nag. */}
+      <PWAInstallPrompt />
     </>
   );
 }
