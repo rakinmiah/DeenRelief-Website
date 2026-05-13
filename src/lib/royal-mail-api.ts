@@ -25,27 +25,37 @@
  * Token comes from ROYAL_MAIL_API_KEY env var. Never logged or
  * surfaced in errors.
  *
- * ─── Spec uncertainty ───────────────────────────────────────────
+ * ─── Spec ───────────────────────────────────────────────────────
  *
- * Royal Mail's API surface has shifted over the years and their
- * docs are gated behind a C&D account login. The endpoint and
- * body shape below are my best understanding as of 2026; before
- * the first live push, the trustee should:
+ * Implementation is verified against the public OpenAPI/Swagger
+ * v1 spec for "ChannelShipper & Royal Mail Public API":
  *
- *   1. Log into C&D → Settings → Integrations
- *   2. Pull the latest Order API doc PDF
- *   3. Verify the POST URL + request body match what's below
- *   4. Run a sandbox test before pointing at production
+ *   - Endpoint:   POST /api/v1/orders
+ *   - Auth:       Authorization: Bearer <token>
+ *   - Body:       CreateOrdersRequest = { items: CreateOrderRequest[] }
+ *   - Response:   CreateOrdersResponse = {
+ *                   successCount, errorsCount,
+ *                   createdOrders[], failedOrders[]
+ *                 }
  *
- * Anything I'm uncertain about is flagged with `// VERIFY:` so the
- * trustee can grep for them and double-check against current docs.
+ * Key shape rules:
+ *   - Product items go inside `packages[].contents[]`
+ *     (ProductItemRequest), NOT a top-level orderLines field
+ *   - `packageFormatIdentifier` is required per package; enum
+ *     includes letter / largeLetter / smallParcel / mediumParcel /
+ *     largeParcel / parcel / documents
+ *   - Service code lives in `postageDetails.serviceCode`, not at
+ *     top level
+ *   - `sender` carries only tradingName / phoneNumber /
+ *     emailAddress; the return address comes from the C&D
+ *     account, not the API call
  *
  * ─── Sandbox vs production ──────────────────────────────────────
  *
- * Royal Mail uses the same domain for both — sandbox keys produce
- * test orders that never get fulfilled. Set `ROYAL_MAIL_API_KEY` to
- * the sandbox key on Vercel Preview, the production key on
- * Production. Setup-wise that's just two different env values.
+ * Spec doesn't document a separate sandbox endpoint. Test mode is
+ * determined by which API key you use — generate a sandbox key in
+ * C&D for testing, swap to a production key for live. Set
+ * ROYAL_MAIL_API_KEY accordingly per environment.
  */
 
 import type { BazaarOrderRow, BazaarOrderItemRow } from "@/lib/bazaar-db";
@@ -53,11 +63,11 @@ import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import { fromPence } from "@/lib/stripe";
 
 /**
- * Base URL of the Royal Mail Click & Drop Order API.
- *
- * VERIFY: the base URL is from Royal Mail's published docs but
- * has been known to change. Override via ROYAL_MAIL_API_BASE_URL if
- * the trustee's docs show a different host.
+ * Base URL of the Royal Mail Click & Drop Order API. The v1 spec
+ * doesn't document a separate sandbox host — sandbox testing is
+ * done by using a sandbox API key against the same base URL.
+ * Override via ROYAL_MAIL_API_BASE_URL only if Royal Mail rotates
+ * their host (they have historically).
  */
 const DEFAULT_BASE_URL = "https://api.parcel.royalmail.com";
 
@@ -71,32 +81,23 @@ function getApiKey(): string | null {
 }
 
 /**
- * Test mode toggle.
+ * Test mode.
  *
- * Royal Mail Click & Drop doesn't expose a "test mode" switch in
- * the dashboard UI — per their docs, it's configured via the API
- * itself. The exact mechanism is one of:
+ * The Royal Mail Click & Drop Order API v1 spec (verified against
+ * the YAML) has NO test-mode field on the order body — no
+ * `testOrder`, `isTest`, `sandbox`, etc. There is also no
+ * separate sandbox endpoint documented in the same spec.
  *
- *   (a) An account-level config call (POST to a configuration
- *       endpoint) that flips the whole account into test mode.
+ * Royal Mail's "test mode is configured via the API" doc pointer
+ * therefore appears to mean: **use a sandbox API key**. Generate
+ * a sandbox key in your C&D dashboard for testing; orders pushed
+ * with that key go to a sandbox account rather than the live one.
+ * Swap to a production key for live shipments.
  *
- *   (b) A per-request flag on each order body (e.g.
- *       `testOrder: true`) so test and live orders coexist.
- *
- *   (c) Key-determined — the API key itself is either a sandbox
- *       or production key, and test mode is implicit.
- *
- * Until we confirm which mechanism Royal Mail uses for THIS
- * account, the env var below sits as a stub. When test mode is
- * enabled (env = "true"), we currently include a `isTest: true`
- * field in the order body — option (b). If the docs say
- * otherwise, the body builder in buildOrderPushBody is where to
- * change the mechanism.
- *
- * Safety: when test mode is "true" we ALSO refuse to push if
- * we're running with what looks like a production key — without
- * the exact pattern of test vs prod keys we can't validate, but
- * a defensive `console.warn` at least flags suspicious combos.
+ * The env var below is kept as a label/logging hint only — it
+ * doesn't affect what we send to Royal Mail. If your C&D account
+ * later exposes a per-request test flag, plug it into
+ * buildOrderPushBody.
  */
 function isTestMode(): boolean {
   const v = (process.env.ROYAL_MAIL_API_TEST_MODE ?? "").trim().toLowerCase();
@@ -148,10 +149,20 @@ export async function pushOrderToClickAndDrop(
 
   const body = buildOrderPushBody(input);
 
-  // VERIFY: endpoint path. Royal Mail's free Order API documents
-  // POST /api/v1/orders for creating one or many orders in a single
-  // call. If the docs show a different path (e.g. /v2/orders or
-  // /api/v1/orders/import), update here.
+  // Log when test-mode env var is set so a trustee sees in the
+  // server logs whether they're pushing to a sandbox account vs
+  // production. The flag itself doesn't change the request — test
+  // vs. prod is determined by which API key is configured (Royal
+  // Mail's spec has no per-order test flag).
+  if (isTestMode()) {
+    console.log(
+      `[royal-mail-api] pushing order ${input.order.id} in TEST mode ` +
+        `(ROYAL_MAIL_API_TEST_MODE=true). Confirm your ROYAL_MAIL_API_KEY ` +
+        `is a sandbox key, not a production one.`
+    );
+  }
+
+  // Verified against the v1 spec.
   const url = `${getBaseUrl()}/api/v1/orders`;
 
   try {
@@ -160,13 +171,8 @@ export async function pushOrderToClickAndDrop(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        // VERIFY: auth header. Royal Mail uses one of:
-        //   Authorization: Bearer <token>
-        //   X-RMG-Auth: <token>
-        //   api-key: <token>
-        // depending on which API doc you're looking at. Bearer is
-        // the most common for new C&D integrations. If the trustee's
-        // docs show a different scheme, swap the header here.
+        // Verified against the v1 spec — securityDefinitions.Bearer
+        // is `Authorization: Bearer <token>`.
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
@@ -188,6 +194,19 @@ export async function pushOrderToClickAndDrop(
         `Royal Mail API returned ${response.status} ${response.statusText}`;
       console.error(
         `[royal-mail-api] push failed for order ${input.order.id}: ${response.status}`,
+        parsed
+      );
+      return { clickAndDropOrderId: null, error: message };
+    }
+
+    // CreateOrdersResponse can return HTTP 200 with errorsCount > 0
+    // and the order in failedOrders. Surface that as a failure.
+    if (hasFailedOrders(parsed)) {
+      const message =
+        extractErrorMessage(parsed) ??
+        "Royal Mail accepted the request but the order was rejected.";
+      console.error(
+        `[royal-mail-api] push returned 200 with failed order for ${input.order.id}:`,
         parsed
       );
       return { clickAndDropOrderId: null, error: message };
@@ -227,47 +246,48 @@ export async function pushOrderToClickAndDrop(
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * Sender details for the C&D shipping label. Pulled from env vars
- * so the trustee can update without code changes.
+ * Sender details that the C&D Order API actually accepts on the
+ * order body.
  *
- * VERIFY: the exact field names in the C&D Order API spec.
- * Royal Mail historically uses `sender` / `from` / `senderDetails`
- * interchangeably across doc revisions.
+ * Verified against the v1 spec: SenderDetailsRequest only has
+ * `tradingName`, `phoneNumber`, `emailAddress` — NO address
+ * fields. The return address is configured per-account in the
+ * C&D dashboard (Settings → Trading Addresses); it can't be set
+ * per-order via the API.
  */
 interface SenderDetails {
-  name: string;
-  companyName: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  postcode: string;
-  countryCode: string;
+  tradingName: string;
   emailAddress?: string;
   phoneNumber?: string;
 }
 
 function getSenderDetails(): SenderDetails {
-  // Defaults are the Brighton operations office from /contact's
-  // LocalBusiness schema. Override via env vars per-environment.
   return {
-    name: process.env.ROYAL_MAIL_SENDER_NAME ?? "Deen Relief Bazaar",
-    companyName: process.env.ROYAL_MAIL_SENDER_COMPANY ?? "Deen Relief",
-    addressLine1:
-      process.env.ROYAL_MAIL_SENDER_ADDRESS_LINE1 ?? "7 Maldon Road",
-    addressLine2: process.env.ROYAL_MAIL_SENDER_ADDRESS_LINE2,
-    city: process.env.ROYAL_MAIL_SENDER_CITY ?? "Brighton",
-    postcode: process.env.ROYAL_MAIL_SENDER_POSTCODE ?? "BN1 5BD",
-    countryCode: process.env.ROYAL_MAIL_SENDER_COUNTRY_CODE ?? "GB",
-    emailAddress: process.env.ROYAL_MAIL_SENDER_EMAIL ?? "info@deenrelief.org",
+    tradingName:
+      process.env.ROYAL_MAIL_SENDER_COMPANY ??
+      process.env.ROYAL_MAIL_SENDER_NAME ??
+      "Deen Relief Bazaar",
+    emailAddress:
+      process.env.ROYAL_MAIL_SENDER_EMAIL ?? "info@deenrelief.org",
     phoneNumber: process.env.ROYAL_MAIL_SENDER_PHONE,
   };
 }
 
 /**
- * Map the bazaar order to Click & Drop's expected POST body. C&D
- * accepts a batch of orders per call; we send one at a time keyed
- * to the bazaar order id so retries are idempotent at the C&D side
- * (their unique `orderReference` field rejects duplicates).
+ * Map the bazaar order to Click & Drop's CreateOrdersRequest body
+ * shape, verified against the v1 OpenAPI spec.
+ *
+ * Key shape rules from the spec:
+ *   - Product lines live inside `packages[].contents[]` as
+ *     ProductItemRequest objects, NOT at top level.
+ *   - `packageFormatIdentifier` is required on each package
+ *     (enum: undefined / letter / largeLetter / smallParcel /
+ *     mediumParcel / largeParcel / parcel / documents).
+ *   - `weightInGrams` is required on each package; range 1..30000.
+ *   - Service code goes in `postageDetails.serviceCode`, not top
+ *     level.
+ *   - `orderReference` is the idempotency key — C&D rejects
+ *     duplicates so re-pushing is safe at their side.
  */
 function buildOrderPushBody(input: PushClickAndDropInput): unknown {
   const { order, items } = input;
@@ -275,19 +295,14 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
   const sender = getSenderDetails();
   const address = order.shippingAddress!;
 
-  // Service identifier — maps our internal service label to the
-  // C&D service code. Royal Mail's free Order API can be told NOT
-  // to pre-select a service (the trustee chooses in C&D rules
-  // afterward) by omitting the field entirely. We pre-select when
-  // we know the customer paid for Tracked 24, otherwise default to
-  // Tracked 48.
+  // Service codes — pre-select the service the customer paid for
+  // at Stripe Checkout. The trustee can override via C&D shipping
+  // rules; this is a hint, not a binding choice.
   //
-  // VERIFY: service codes. Royal Mail uses internal SKUs like
-  // "TPN" (Tracked 48 untracked-signature), "TPLN" (Tracked 48 +
-  // signature), "TPS24" (Tracked 24), etc. The exact code your
-  // C&D account uses depends on your service contract. The
-  // trustee should map the strings below to the correct codes
-  // from their C&D Settings → Services page.
+  // The defaults below match common Royal Mail service codes but
+  // your C&D account may use different ones. Check C&D →
+  // Settings → Services for the exact codes for your contract and
+  // override via env vars.
   const serviceCode =
     order.royalMailService === "tracked-24"
       ? process.env.ROYAL_MAIL_SERVICE_CODE_TRACKED_24 ?? "TPS24"
@@ -295,44 +310,57 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
         ? process.env.ROYAL_MAIL_SERVICE_CODE_SPECIAL ?? "SDN"
         : process.env.ROYAL_MAIL_SERVICE_CODE_TRACKED_48 ?? "TPN";
 
-  // Total weight in grams — sum of item-level weights if we know
-  // them, else use a sensible default per item. Royal Mail rejects
-  // orders with weight = 0 so a default beats blank.
-  //
-  // VERIFY: weight unit. C&D Order API accepts grams in the
-  // `weightInGrams` field per docs, but some versions use a
-  // `weight` field in kg.
+  // Package format. UK-domestic single-piece clothing/textiles
+  // typically fit in 'smallParcel'. Override per-environment if
+  // your typical bazaar parcels are a different shape.
+  // Valid spec values: undefined, letter, largeLetter, smallParcel,
+  // mediumParcel, largeParcel, parcel, documents.
+  const packageFormatIdentifier =
+    process.env.ROYAL_MAIL_PACKAGE_FORMAT ?? "smallParcel";
+
+  // Total weight in grams. Royal Mail's spec caps weightInGrams at
+  // 30000 per package and requires >= 1. Default to 500g per item
+  // until we wire up the bazaar_products.weight_grams column.
   const DEFAULT_PER_ITEM_WEIGHT_G = 500;
-  const totalWeightGrams = items.reduce(
-    (sum, item) => sum + DEFAULT_PER_ITEM_WEIGHT_G * item.quantity,
-    0
+  const totalWeightGrams = Math.max(
+    1,
+    Math.min(
+      30000,
+      items.reduce(
+        (sum, item) => sum + DEFAULT_PER_ITEM_WEIGHT_G * item.quantity,
+        0
+      )
+    )
   );
 
-  // Line items for the C&D order. The "SKU" field is what shows
-  // on the picking list inside C&D, so we use a readable combo
-  // of product name + variant.
-  const orderLines = items.map((item) => ({
-    SKU: item.variantSnapshot
+  // Product items inside packages[].contents[] per the
+  // ProductItemRequest schema. SKU max length 100 per spec; clip
+  // to be safe.
+  const contents = items.map((item) => ({
+    name: (item.productNameSnapshot ?? "").slice(0, 800),
+    SKU: (item.variantSnapshot
       ? `${item.productNameSnapshot} (${item.variantSnapshot})`
-      : item.productNameSnapshot,
-    name: item.productNameSnapshot,
+      : item.productNameSnapshot
+    ).slice(0, 100),
     quantity: item.quantity,
     unitValue: fromPence(item.unitPricePenceSnapshot),
     unitWeightInGrams: DEFAULT_PER_ITEM_WEIGHT_G,
   }));
 
-  // The order envelope. Field names below follow Royal Mail's
-  // most-recent (as of my training) Order API spec. The trustee
-  // should diff this against their current docs and adjust.
   return {
     items: [
       {
-        // Idempotency key — C&D rejects duplicate orderReferences
-        // so re-pushing the same order is a safe no-op at the
-        // their side. We also enforce idempotency on our side via
-        // click_and_drop_pushed_at, but defense in depth.
+        // Idempotency key. C&D's orderReference is unique per
+        // account so re-pushing the same order is a safe no-op at
+        // their side. We also guard in pushToClickAndDropAction
+        // against re-push at the application layer.
         orderReference: receiptNum,
+
+        // ISO 8601 datetime per spec.
         orderDate: order.createdAt,
+
+        // Money fields — decimals not pence per spec
+        // (multipleOf: 0.01).
         subtotal: fromPence(order.subtotalPence),
         shippingCostCharged: fromPence(order.shippingPence),
         total: fromPence(order.totalPence),
@@ -341,57 +369,35 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
         recipient: {
           address: {
             fullName: address.name,
-            companyName: "",
             addressLine1: address.line1,
             addressLine2: address.line2 ?? "",
-            addressLine3: "",
             city: address.city,
-            county: "",
             postcode: address.postcode,
             countryCode: "GB",
           },
           emailAddress: order.contactEmail,
         },
 
+        // Minimal SenderDetailsRequest — no address per spec.
         sender: {
-          tradingName: sender.companyName,
-          phoneNumber: sender.phoneNumber ?? "",
-          emailAddress: sender.emailAddress ?? "",
-          address: {
-            fullName: sender.name,
-            companyName: sender.companyName,
-            addressLine1: sender.addressLine1,
-            addressLine2: sender.addressLine2 ?? "",
-            addressLine3: "",
-            city: sender.city,
-            county: "",
-            postcode: sender.postcode,
-            countryCode: sender.countryCode,
-          },
+          tradingName: sender.tradingName,
+          ...(sender.phoneNumber ? { phoneNumber: sender.phoneNumber } : {}),
+          ...(sender.emailAddress ? { emailAddress: sender.emailAddress } : {}),
         },
 
-        // Picking list / contents of the parcel.
-        orderLines,
+        // Products live INSIDE the package, not at top level.
+        packages: [
+          {
+            weightInGrams: totalWeightGrams,
+            packageFormatIdentifier,
+            contents,
+          },
+        ],
 
-        // Top-level totals C&D uses for label cost decisions.
-        packageReference: receiptNum,
-        weightInGrams: totalWeightGrams,
-
-        // Pre-select the service. The trustee can override via C&D
-        // shipping rules; this is just a hint.
-        shippingServiceId: serviceCode,
-
-        // Per-request test flag — option (b) from the isTestMode()
-        // doc comment. Royal Mail's API may also accept this as a
-        // top-level body field rather than per-order; if so, move
-        // this out of the items[] envelope to the wrapping object
-        // below.
-        //
-        // VERIFY: exact field name. Royal Mail's docs have used
-        // `testOrder`, `isTest`, `sandbox`, and `mode` across
-        // different revisions. Once you've shared the docs page
-        // I can pin this to the correct name.
-        ...(isTestMode() ? { testOrder: true } : {}),
+        // Service code lives in postageDetails, not top level.
+        postageDetails: {
+          serviceCode,
+        },
       },
     ],
   };
@@ -402,35 +408,78 @@ function buildOrderPushBody(input: PushClickAndDropInput): unknown {
 // ─────────────────────────────────────────────────────────────────
 
 /**
- * C&D's response shape varies between docs revisions. Try a few
- * common shapes and return the first matching order id, or null.
+ * Extract the order id from a `CreateOrdersResponse` body.
  *
- * Known shapes:
- *   - { createdOrders: [{ orderIdentifier: "..." }] }
- *   - { orders: [{ id: "..." }] }
- *   - { items: [{ orderIdentifier: "..." }] }
- *   - { id: "..." }   (single-item response)
+ * Per spec:
+ *   {
+ *     successCount: int,
+ *     errorsCount: int,
+ *     createdOrders: [{ orderIdentifier: int, orderReference: str, ... }],
+ *     failedOrders: [...]
+ *   }
+ *
+ * orderIdentifier is an INTEGER. We stringify so it stores cleanly
+ * in our text column.
  */
 function extractCreatedOrderId(parsed: unknown): string | null {
   if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as Record<string, unknown>;
 
-  // Single-id at top level
-  if (typeof obj.id === "string") return obj.id;
-  if (typeof obj.orderIdentifier === "string") return obj.orderIdentifier;
+  const createdOrders = obj.createdOrders;
+  if (Array.isArray(createdOrders) && createdOrders.length > 0) {
+    const first = createdOrders[0] as Record<string, unknown> | null;
+    if (first) {
+      const id = first.orderIdentifier;
+      if (typeof id === "number" && Number.isFinite(id)) return String(id);
+      if (typeof id === "string" && id.length > 0) return id;
+      // Fallback: orderReference is our own receipt number echoed
+      // back. Lets us avoid a "couldn't parse response" branch even
+      // if Royal Mail changes the integer/string type later.
+      const ref = first.orderReference;
+      if (typeof ref === "string" && ref.length > 0) return ref;
+    }
+  }
 
-  // Arrays nested under common keys
-  const candidates = ["createdOrders", "orders", "items"];
-  for (const key of candidates) {
-    const arr = obj[key];
-    if (Array.isArray(arr) && arr.length > 0) {
-      const first = arr[0] as Record<string, unknown> | null;
-      if (first) {
-        if (typeof first.orderIdentifier === "string")
-          return first.orderIdentifier;
-        if (typeof first.id === "string") return first.id;
-        if (typeof first.orderReference === "string")
-          return first.orderReference;
+  return null;
+}
+
+/**
+ * Extract a human-readable error from a Royal Mail response.
+ *
+ * Two shapes per spec:
+ *   - Top-level ErrorResponse: { code, message, details } — used on
+ *     401/500 and validation errors that prevent any processing.
+ *   - CreateOrdersResponse failedOrders[].errors[] — used when the
+ *     batch was accepted (HTTP 200) but the order itself failed
+ *     validation. Each error has { errorCode, errorMessage, fields[] }.
+ */
+function extractErrorMessage(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") {
+    return typeof parsed === "string" ? parsed.slice(0, 300) : null;
+  }
+  const obj = parsed as Record<string, unknown>;
+
+  // ErrorResponse shape
+  if (typeof obj.message === "string") {
+    const msg = obj.message;
+    const details =
+      typeof obj.details === "string" ? ` (${obj.details})` : "";
+    return `${msg}${details}`;
+  }
+  if (typeof obj.error === "string") return obj.error;
+
+  // CreateOrdersResponse with failedOrders[]
+  const failedOrders = obj.failedOrders;
+  if (Array.isArray(failedOrders) && failedOrders.length > 0) {
+    const firstFail = failedOrders[0] as Record<string, unknown> | null;
+    if (firstFail) {
+      const errors = firstFail.errors;
+      if (Array.isArray(errors) && errors.length > 0) {
+        const firstErr = errors[0] as Record<string, unknown> | null;
+        if (firstErr) {
+          const msg = firstErr.errorMessage;
+          if (typeof msg === "string") return msg;
+        }
       }
     }
   }
@@ -439,30 +488,15 @@ function extractCreatedOrderId(parsed: unknown): string | null {
 }
 
 /**
- * Pull a human-readable error from C&D's error response. Their
- * errors come as `{ message: "..." }` or `{ errors: [{ field,
- * message }] }` depending on the failure mode.
+ * A successful HTTP 200 can still contain failed orders in the
+ * `failedOrders` array (when partial submission succeeds). Check
+ * the body before declaring success.
  */
-function extractErrorMessage(parsed: unknown): string | null {
-  if (!parsed || typeof parsed !== "object") {
-    return typeof parsed === "string" ? parsed.slice(0, 300) : null;
-  }
+function hasFailedOrders(parsed: unknown): boolean {
+  if (!parsed || typeof parsed !== "object") return false;
   const obj = parsed as Record<string, unknown>;
-
-  if (typeof obj.message === "string") return obj.message;
-  if (typeof obj.error === "string") return obj.error;
-
-  if (Array.isArray(obj.errors) && obj.errors.length > 0) {
-    const first = obj.errors[0] as Record<string, unknown> | null;
-    if (first) {
-      const field = typeof first.field === "string" ? `${first.field}: ` : "";
-      const msg =
-        typeof first.message === "string"
-          ? first.message
-          : JSON.stringify(first);
-      return `${field}${msg}`;
-    }
-  }
-
-  return null;
+  const errorsCount = obj.errorsCount;
+  if (typeof errorsCount === "number" && errorsCount > 0) return true;
+  const failedOrders = obj.failedOrders;
+  return Array.isArray(failedOrders) && failedOrders.length > 0;
 }
