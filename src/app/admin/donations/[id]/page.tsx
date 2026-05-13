@@ -14,6 +14,7 @@ import {
 } from "@/lib/donation-messages";
 import DonationActionsClient from "./DonationActionsClient";
 import DonationMessageClient from "./DonationMessageClient";
+import DeleteDonationClient from "./DeleteDonationClient";
 
 export const metadata: Metadata = {
   title: "Donation detail | Deen Relief Admin",
@@ -430,6 +431,22 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
           </div>
         )}
       </section>
+
+      {/* Danger zone — hard delete. Sits below the donor-comms
+          section so it's a deliberate scroll-to-find. Hard-stops
+          on Gift Aid claimed donations (HMRC 6-year retention).
+          Typed `DELETE` confirm + a "this is real donor data"
+          warning panel for all other deletes. */}
+      <div className="mt-10">
+        <DeleteDonationClient
+          donationId={donation.id}
+          receiptNumber={donation.receiptNumber}
+          amountFormatted={formatPence(donation.amountPence)}
+          donorEmail={donation.donorEmail}
+          giftAidClaimed={donation.giftAidClaimed}
+          giftAidRevoked={donation.giftAidDeclarationRevoked}
+        />
+      </div>
     </main>
   );
 }

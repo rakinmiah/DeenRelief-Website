@@ -24,6 +24,7 @@ import PostShipActionsClient from "./PostShipActionsClient";
 import OrderMessageClient from "./OrderMessageClient";
 import PackingSlipPrintButton from "./PackingSlipPrintButton";
 import PushToClickAndDropClient from "./PushToClickAndDropClient";
+import DeleteOrderClient from "./DeleteOrderClient";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 
 export const metadata: Metadata = {
@@ -624,6 +625,21 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
           </div>
         )}
       </section>
+
+      {/* Danger zone — hard delete. Sits at the very bottom so it's
+          a deliberate scroll-to-find. Typed `DELETE` confirm + an
+          extra warning panel for live orders with received goods.
+          Stock auto-restores when applicable. */}
+      <div className="mt-10">
+        <DeleteOrderClient
+          orderId={order.id}
+          receiptNumber={receiptNum}
+          status={order.status}
+          livemode={order.livemode}
+          customerEmail={order.contactEmail}
+          totalFormatted={formatPence(order.totalPence)}
+        />
+      </div>
       </div>
       {/* ─── End screen-only admin view ─── */}
     </main>

@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { requireAdminSession } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   attachClickAndDropOrderId,
+  deleteBazaarOrder,
   fetchAdminBazaarOrderById,
 } from "@/lib/bazaar-db";
 import {
@@ -15,6 +17,7 @@ import {
 import { sendBazaarOrderMessageEmail } from "@/lib/bazaar-order-message-email";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import { pushOrderToClickAndDrop } from "@/lib/royal-mail-api";
+import { restoreStockForOrderItems } from "@/lib/bazaar-catalog";
 
 /**
  * Server actions for the bazaar order detail page.
@@ -225,4 +228,101 @@ export async function pushToClickAndDropAction(
 
   revalidatePath(`/admin/bazaar/orders/${orderId}`);
   return { ok: true, clickAndDropOrderId: push.clickAndDropOrderId };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Hard-delete the order
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Permanently delete a bazaar order + all dependent rows
+ * (line items, abandonment emails, customer comms messages cascade
+ * via FK; inquiry links set to NULL).
+ *
+ * Stock restore: orders in paid / fulfilled / delivered status
+ * have stock decremented, so deletion must restore those quantities
+ * before removing the row. Orders that were already 'refunded' or
+ * 'cancelled' already had stock restored. 'abandoned' orders had
+ * stock restored by the cleanup job. 'pending_payment' with an
+ * active hold still has stock debited — also needs restore.
+ *
+ * Audits the full deleted-order payload to admin_audit_log
+ * (metadata field) so the action is permanently recoverable even
+ * though the source row is gone.
+ *
+ * Redirects to the orders list on success — the detail page would
+ * 404 immediately after the delete.
+ */
+export async function deleteBazaarOrderAction(
+  orderId: string
+): Promise<void> {
+  const session = await requireAdminSession();
+
+  const detail = await fetchAdminBazaarOrderById(orderId);
+  if (!detail) {
+    throw new Error("Order not found.");
+  }
+  const { order, items } = detail;
+
+  // Stock restore for any status where stock was debited and not
+  // yet returned. Refund/cancel/abandoned paths already restored.
+  const stockWasDebited =
+    order.status === "paid" ||
+    order.status === "fulfilled" ||
+    order.status === "delivered" ||
+    (order.status === "pending_payment" && order.stockHeldUntil);
+
+  if (stockWasDebited) {
+    try {
+      await restoreStockForOrderItems(items);
+    } catch (err) {
+      console.error(
+        `[deleteBazaarOrderAction] stock restore failed for ${orderId}:`,
+        err
+      );
+      // Don't block the delete — admin can manually adjust stock.
+    }
+  }
+
+  // Snapshot the order BEFORE we delete it so the audit log can
+  // record everything that vanished.
+  const auditSnapshot = {
+    receiptNumber: bazaarReceiptNumber(order.id),
+    status: order.status,
+    livemode: order.livemode,
+    contactEmail: order.contactEmail,
+    totalPence: order.totalPence,
+    itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+    stripeSessionId: order.stripeSessionId,
+    stripePaymentIntent: order.stripePaymentIntent,
+    items: items.map((i) => ({
+      productName: i.productNameSnapshot,
+      variant: i.variantSnapshot,
+      maker: i.makerNameSnapshot,
+      quantity: i.quantity,
+      unitPricePence: i.unitPricePenceSnapshot,
+    })),
+    stockRestored: stockWasDebited,
+  };
+
+  await deleteBazaarOrder(orderId);
+
+  // Audit on the way out.
+  const h = await headers();
+  const fauxRequest = new Request("http://server-action.local", {
+    headers: {
+      "user-agent": h.get("user-agent") ?? "",
+      "x-forwarded-for": h.get("x-forwarded-for") ?? "",
+    },
+  });
+  await logAdminAction({
+    action: "delete_bazaar_order",
+    userEmail: session.email,
+    targetId: orderId,
+    request: fauxRequest,
+    metadata: auditSnapshot,
+  });
+
+  revalidatePath("/admin/bazaar/orders");
+  redirect("/admin/bazaar/orders?deleted=1");
 }

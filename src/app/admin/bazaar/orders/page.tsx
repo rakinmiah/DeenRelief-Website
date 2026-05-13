@@ -120,8 +120,16 @@ export default async function AdminBazaarOrdersPage({
     filters.to ||
     filters.q;
 
+  const justDeleted = params.deleted === "1";
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {justDeleted && (
+        <p className="mb-6 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          Order deleted. Stock was restored if it had been debited.
+          The audit log keeps a permanent record of what was removed.
+        </p>
+      )}
       {/* Page header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>

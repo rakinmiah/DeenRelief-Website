@@ -55,7 +55,13 @@ export type AdminAction =
   | "update_bazaar_inquiry_status"
   | "log_manual_inquiry_message"
   | "send_bazaar_order_message"
-  | "push_to_click_and_drop";
+  | "push_to_click_and_drop"
+  // Hard deletions — purging accidental test rows / mistakes.
+  // Both record the deleted row's payload in metadata so the
+  // audit log keeps a permanent record of what was removed and
+  // by whom, even after the source row is gone.
+  | "delete_bazaar_order"
+  | "delete_donation";
 
 interface LogAdminActionOpts {
   action: AdminAction;

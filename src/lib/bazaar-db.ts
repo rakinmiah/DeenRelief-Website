@@ -787,6 +787,44 @@ export async function fetchAdminBazaarOrdersForClickAndDrop(): Promise<
  * order to paid.
  */
 /**
+ * Hard-delete a bazaar order and all dependent rows. Cascades
+ * handle order_items / order_messages / abandonment_emails /
+ * inquiries (the inquiry FK is ON DELETE SET NULL so linked
+ * inquiries stay alive but lose the order link).
+ *
+ * Returns a snapshot of the deleted order + items so the caller
+ * can stash it in the audit log metadata for permanent record.
+ * The trustee who deleted, what they deleted, and when stays in
+ * admin_audit_log forever even after the source row is gone.
+ *
+ * Throws if the order doesn't exist. Caller handles stock
+ * restoration BEFORE calling this (decrements may have happened
+ * at hold time or webhook time and need to be reversed).
+ */
+export async function deleteBazaarOrder(
+  orderId: string
+): Promise<{
+  deletedOrder: BazaarOrderRow;
+  deletedItems: BazaarOrderItemRow[];
+}> {
+  const supabase = getSupabaseAdmin();
+  const detail = await fetchAdminBazaarOrderById(orderId);
+  if (!detail) {
+    throw new Error(`deleteBazaarOrder: order ${orderId} not found`);
+  }
+
+  const { error } = await supabase
+    .from("bazaar_orders")
+    .delete()
+    .eq("id", orderId);
+  if (error) {
+    throw new Error(`deleteBazaarOrder failed: ${error.message}`);
+  }
+
+  return { deletedOrder: detail.order, deletedItems: detail.items };
+}
+
+/**
  * Stamp the Royal Mail Click & Drop reference + timestamp onto a
  * bazaar order after a successful push to the C&D Order API.
  */

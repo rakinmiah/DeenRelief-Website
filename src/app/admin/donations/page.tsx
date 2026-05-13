@@ -45,6 +45,9 @@ interface RouteParams {
     frequency?: string;
     giftAid?: string;
     q?: string;
+    /** Set to "1" by the delete-donation server action's redirect
+     *  so the list page renders a one-shot success banner. */
+    deleted?: string;
   }>;
 }
 
@@ -171,8 +174,16 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
     .map(([slug, label]) => ({ slug, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
+  const justDeleted = rawParams.deleted === "1";
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {justDeleted && (
+        <p className="mb-6 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          Donation deleted. The audit log keeps a permanent record
+          of what was removed.
+        </p>
+      )}
       {/* Page header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>

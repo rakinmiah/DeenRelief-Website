@@ -51,6 +51,8 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   log_manual_inquiry_message: "Bazaar inquiry note added",
   send_bazaar_order_message: "Bazaar customer email sent",
   push_to_click_and_drop: "Pushed to Click & Drop",
+  delete_bazaar_order: "Bazaar order deleted",
+  delete_donation: "Donation deleted",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -90,6 +92,8 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   log_manual_inquiry_message: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   send_bazaar_order_message: "bg-green/10 text-green-dark border-green/30",
   push_to_click_and_drop: "bg-blue-50 text-blue-800 border-blue-200",
+  delete_bazaar_order: "bg-red-50 text-red-700 border-red-200",
+  delete_donation: "bg-red-50 text-red-700 border-red-200",
 };
 
 /**
