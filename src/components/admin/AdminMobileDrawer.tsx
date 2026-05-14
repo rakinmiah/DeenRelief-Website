@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { haptic } from "@/lib/haptics";
+import AdminPushPrompt from "./AdminPushPrompt";
 
 /**
  * Slide-out left drawer that contains the full admin navigation
@@ -382,8 +383,16 @@ export default function AdminMobileDrawer({
           </ul>
         </nav>
 
-        {/* Footer — signed-in identity + sign out */}
+        {/* Footer — push toggle + signed-in identity + sign out */}
         <div className="border-t border-charcoal/10 p-4">
+          {/* Push notifications toggle. On iOS this is the ONLY way
+              to enable push because we hide it from the desktop
+              header on phone-sized screens (cramped chrome). The
+              component renders nothing if push isn't supported on
+              this browser, or if iOS isn't in standalone PWA mode. */}
+          <div className="mb-3">
+            <AdminPushPrompt />
+          </div>
           <p className="text-[11px] uppercase tracking-[0.1em] font-bold text-charcoal/40 mb-1">
             Signed in
           </p>
