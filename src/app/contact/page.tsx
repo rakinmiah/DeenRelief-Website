@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import Header from "@/components/Header";
 import ProofTag from "@/components/ProofTag";
 import Newsletter from "@/components/Newsletter";
@@ -9,6 +10,7 @@ import Footer from "@/components/Footer";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 import JsonLd from "@/components/JsonLd";
 import { SOCIAL_LINKS } from "@/lib/social";
+import { isBazaarLive } from "@/lib/bazaar-flag";
 
 /**
  * Local draft persistence for the contact form.
@@ -369,6 +371,30 @@ export default function ContactPage() {
 
               {/* Right: Contact Form */}
               <div>
+                {/* Soft redirect for bazaar customers who landed here
+                    by accident. Same inbox underneath, but the bazaar
+                    form has an order-number field + reason-shaped
+                    subject line that makes triage faster.
+
+                    Gated behind the bazaar feature flag — while the
+                    shop isn't live the cross-link would point at a
+                    404, which would just confuse a visitor who isn't
+                    yet supposed to know the shop exists. Flip the
+                    flag and the link re-appears automatically. */}
+                {isBazaarLive() && (
+                  <Link
+                    href="/bazaar/contact"
+                    className="block mb-4 px-4 py-3 rounded-xl border border-amber/40 bg-amber-light/50 hover:bg-amber-light text-charcoal text-sm transition-colors"
+                  >
+                    <span className="font-semibold">
+                      Shopping with the Bazaar?
+                    </span>{" "}
+                    <span className="text-charcoal/75">
+                      Use our shop contact form &mdash; it has an
+                      order-number field so we can help faster. →
+                    </span>
+                  </Link>
+                )}
                 {/* Draft-restored notice. Shows only when an actual
                     draft was rehydrated from localStorage so first-
                     time visitors see no extra chrome. The "Start

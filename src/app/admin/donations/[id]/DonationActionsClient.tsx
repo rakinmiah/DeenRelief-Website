@@ -7,6 +7,16 @@ interface Props {
   internalId: string;
   status: "succeeded" | "pending" | "failed" | "refunded";
   frequency: "one-time" | "monthly";
+  /** Pre-formatted amount ("£25.00") — surfaced in the refund
+   *  confirm so the trustee sees the exact sum before clicking
+   *  through. Belt-and-braces against fat-finger refunds. */
+  amountFormatted: string;
+  /** Donor email — surfaced in the refund confirm so the trustee
+   *  knows whose card will be credited. */
+  donorEmail: string;
+  /** Did this donation have an active Gift Aid claim? Drives the
+   *  Gift Aid-reversal warning paragraph in the confirm prompt. */
+  giftAidClaimed: boolean;
 }
 
 /**
@@ -31,6 +41,9 @@ export default function DonationActionsClient({
   internalId,
   status,
   frequency,
+  amountFormatted,
+  donorEmail,
+  giftAidClaimed,
 }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,12 +79,16 @@ export default function DonationActionsClient({
   }
 
   async function handleRefund() {
+    const giftAidParagraph = giftAidClaimed
+      ? "Gift Aid claimed on this donation will need to be reversed " +
+        "in the next HMRC reclaim — adjust the next R68 submission " +
+        "accordingly.\n\n"
+      : "";
     const confirmed = window.confirm(
-      "Issue a full refund?\n\n" +
-        "Stripe will refund the donor's card immediately (typically " +
-        "instant for cards, up to 10 working days for bank transfers).\n\n" +
-        "Gift Aid claimed on this donation will be reversed automatically " +
-        "by HMRC when the next reclaim is filed.\n\n" +
+      `Issue a ${amountFormatted} refund to ${donorEmail || "the donor"}?\n\n` +
+        "Stripe will refund the card immediately (typically instant for " +
+        "cards, up to 10 working days for bank transfers).\n\n" +
+        giftAidParagraph +
         "This action cannot be undone."
     );
     if (!confirmed) return;

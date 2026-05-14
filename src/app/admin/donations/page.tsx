@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
 import { CAMPAIGNS } from "@/lib/campaigns";
+import PullToRefresh from "@/components/admin/PullToRefresh";
 import DonationsFilters from "./DonationsFilters";
 
 export const metadata: Metadata = {
@@ -45,6 +46,9 @@ interface RouteParams {
     frequency?: string;
     giftAid?: string;
     q?: string;
+    /** Set to "1" by the delete-donation server action's redirect
+     *  so the list page renders a one-shot success banner. */
+    deleted?: string;
   }>;
 }
 
@@ -171,8 +175,17 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
     .map(([slug, label]) => ({ slug, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
+  const justDeleted = rawParams.deleted === "1";
+
   return (
+    <PullToRefresh>
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {justDeleted && (
+        <p className="mb-6 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          Donation deleted. The audit log keeps a permanent record
+          of what was removed.
+        </p>
+      )}
       {/* Page header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -242,8 +255,72 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
       {/* Filters bar — date range, dimensions popover, donor search */}
       <DonationsFilters availableCampaigns={availableCampaigns} />
 
-      {/* Donations table */}
-      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
+      {/* Mobile card list (<md). Stacked cards beat a 6-column
+          table on a 390px viewport — every column would otherwise
+          fight for ~50px and become unreadable. The desktop table
+          below stays untouched. */}
+      <ul className="md:hidden space-y-3">
+        {donations.length === 0 ? (
+          <li className="bg-white border border-charcoal/10 rounded-2xl p-8 text-center text-charcoal/50 text-sm">
+            No donations yet.
+          </li>
+        ) : (
+          donations.map((donation) => (
+            <li key={donation.id}>
+              <Link
+                href={`/admin/donations/${donation.id}`}
+                className="block bg-white border border-charcoal/10 rounded-2xl p-4 hover:border-charcoal/25 active:bg-cream/40 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="min-w-0">
+                    <p className="text-charcoal font-semibold text-base truncate">
+                      {donation.donorName}
+                    </p>
+                    <p className="text-charcoal/50 text-[12px] truncate">
+                      {donation.donorEmail}
+                    </p>
+                  </div>
+                  <p className="text-charcoal font-heading font-semibold text-lg whitespace-nowrap">
+                    {formatPence(donation.amountPence)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+                  <span className="text-charcoal/60">
+                    {formatAdminDate(donation.chargedAt ?? donation.createdAt)}
+                  </span>
+                  <span className="text-charcoal/30">·</span>
+                  <span className="text-charcoal/70">
+                    {donation.campaignLabel}
+                  </span>
+                  {donation.frequency === "monthly" && (
+                    <span className="text-charcoal/30">·</span>
+                  )}
+                  {donation.frequency === "monthly" && (
+                    <span className="font-bold uppercase tracking-wider text-charcoal/60">
+                      Monthly
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border ${STATUS_STYLES[donation.status]}`}
+                  >
+                    {STATUS_LABEL[donation.status]}
+                  </span>
+                  {donation.giftAidClaimed && !donation.giftAidDeclarationRevoked && (
+                    <span className="text-green-dark text-[11px] font-medium">
+                      +{formatPence(donation.giftAidReclaimablePence)} Gift Aid
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </li>
+          ))
+        )}
+      </ul>
+
+      {/* Donations table (desktop only) */}
+      <div className="hidden md:block bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-cream border-b border-charcoal/10">
@@ -365,5 +442,6 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
         </p>
       )}
     </main>
+    </PullToRefresh>
   );
 }

@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import AdminShell from "@/components/admin/AdminShell";
+import OfflineIndicator from "@/components/admin/OfflineIndicator";
+import PageTransition from "@/components/admin/PageTransition";
+import PWAInstallPrompt from "@/components/admin/PWAInstallPrompt";
+import ServiceWorkerRegistrar from "@/components/admin/ServiceWorkerRegistrar";
 import { getAdminSession } from "@/lib/admin-session";
 
 /**
@@ -74,6 +78,12 @@ export const viewport: Viewport = {
   themeColor: "#1A1A2E",
   width: "device-width",
   initialScale: 1,
+  // viewportFit:'cover' tells WebKit/Chromium to extend the page
+  // under the notch + home-indicator areas on modern iPhones,
+  // and to expose `env(safe-area-inset-*)` to our CSS so the
+  // admin shell can apply correct padding rather than getting
+  // clipped behind the system UI in PWA standalone mode.
+  viewportFit: "cover",
 };
 
 export default async function AdminLayout({
@@ -88,6 +98,48 @@ export default async function AdminLayout({
   // page bypasses the chrome anyway so the fallback never renders.
   const session = await getAdminSession();
   return (
-    <AdminShell signedInAs={session?.email}>{children}</AdminShell>
+    <>
+      {/* Set body[data-route="admin"] on the client so the
+          admin-only touch-target / safe-area CSS in globals.css
+          can scope to admin routes without affecting the public
+          site. Effect runs once on mount, cleared on unmount —
+          a SPA-style admin → public transition flips the flag
+          off. */}
+      <AdminRouteAttribute />
+      {/* Service worker registers in the background so the admin
+          shell + offline page get cached for fast subsequent loads
+          and offline fallback. */}
+      <ServiceWorkerRegistrar />
+      {/* Top-of-page banner that surfaces when the browser detects
+          we've lost connectivity — gives the trustee context for
+          why their save actions might be failing. */}
+      <OfflineIndicator />
+      <AdminShell signedInAs={session?.email}>
+        {/* Wrap children in PageTransition so a subtle fade-up
+            fires on every admin route change. Keyed off pathname
+            internally — pure CSS animation, ~250ms, respects
+            prefers-reduced-motion. */}
+        <PageTransition>{children}</PageTransition>
+      </AdminShell>
+      {/* Custom install prompt — Android: intercepts the
+          beforeinstallprompt event for a properly branded install
+          banner. iOS Safari: 2-line hint pointing at the Share
+          button. Both auto-dismiss for 7 days after the user opts
+          out so we don't nag. */}
+      <PWAInstallPrompt />
+    </>
+  );
+}
+
+// Tiny client component just for the body attribute. Kept inline
+// so the admin layout itself stays a server component for the
+// auth-gate pattern when it gets wired.
+function AdminRouteAttribute() {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `document.body.dataset.route='admin';`,
+      }}
+    />
   );
 }

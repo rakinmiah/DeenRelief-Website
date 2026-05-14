@@ -111,3 +111,89 @@ main {
   outline: 2px solid var(--color-green);
   outline-offset: 2px;
 }
+
+/* ============================================
+   ADMIN PWA — touch targets + safe area
+   ============================================
+
+   Scoped to /admin/* via body[data-route="admin"] which the
+   admin layout sets. Two concerns:
+
+   1. Native-app touch targets — 44 px is Apple's HIG minimum
+      and Material's recommendation. All clickable elements in
+      the admin grow to at least 44 px on coarse pointers
+      (touch). Desktop / fine pointer keeps the existing
+      tighter spacing.
+
+   2. Safe-area-inset — viewport-fit: cover (set in admin
+      layout viewport metadata) tells WebKit to extend the
+      viewport under the iPhone notch + home indicator. These
+      utility classes let layouts add inset padding without
+      having to write style={{...}} blocks. The admin shell
+      already uses inline style for its sticky header; these
+      classes are available for any future fixed-bottom
+      elements (sticky CTA bars, etc) when we add them.
+*/
+
+.safe-pt {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-pl {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-pr {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Coarse pointer = touch. Every interactive element inside the
+   admin gets a minimum tap target. Buttons, links rendered as
+   buttons, summary elements, and form inputs all qualify. */
+@media (pointer: coarse) {
+  body[data-route="admin"] button,
+  body[data-route="admin"] a[role="button"],
+  body[data-route="admin"] [data-touch-target] {
+    min-height: 44px;
+  }
+
+  body[data-route="admin"] input[type="text"],
+  body[data-route="admin"] input[type="email"],
+  body[data-route="admin"] input[type="search"],
+  body[data-route="admin"] input[type="number"],
+  body[data-route="admin"] input[type="tel"],
+  body[data-route="admin"] input[type="url"],
+  body[data-route="admin"] input[type="password"],
+  body[data-route="admin"] select,
+  body[data-route="admin"] textarea {
+    min-height: 44px;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}
+
+/* Page transition — fires on every admin route change because
+   the wrapper is keyed on pathname (see PageTransition.tsx).
+   12px lift + fade gives a small "yes, you navigated" cue
+   without becoming a heavy animation that wears out by lunchtime
+   on day one. Skipped entirely when the user has set their OS to
+   prefer reduced motion. */
+@keyframes page-transition-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-transition {
+    animation: page-transition-enter 250ms ease-out;
+  }
+}

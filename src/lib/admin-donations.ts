@@ -347,6 +347,51 @@ export async function fetchAdminDonationById(
 }
 
 /**
+ * Hard-delete a donation row. Cascades handle donation_messages
+ * (per migration 012). The donor row stays alive — donors may
+ * have other donations, and we never auto-orphan a donor record.
+ *
+ * Gift Aid safety: refuses to delete a donation that has been
+ * claimed under Gift Aid (gift_aid_claimed = true AND a non-revoked
+ * declaration exists). HMRC requires us to retain records of every
+ * Gift Aid claim for six years; deleting one would put us out of
+ * compliance. The trustee must revoke the declaration FIRST if
+ * they truly need to delete.
+ *
+ * Returns a snapshot of the deleted row for audit-log metadata.
+ */
+export async function deleteDonation(donationId: string): Promise<{
+  deletedDonation: AdminDonationRow;
+}> {
+  const donation = await fetchAdminDonationById(donationId);
+  if (!donation) {
+    throw new Error(`deleteDonation: donation ${donationId} not found`);
+  }
+
+  if (
+    donation.giftAidClaimed &&
+    !donation.giftAidDeclarationRevoked
+  ) {
+    throw new Error(
+      "Refusing to delete: this donation has an active Gift Aid claim. " +
+        "HMRC requires us to retain Gift Aid records for six years. " +
+        "Revoke the declaration first if deletion is truly necessary."
+    );
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("donations")
+    .delete()
+    .eq("id", donationId);
+  if (error) {
+    throw new Error(`deleteDonation failed: ${error.message}`);
+  }
+
+  return { deletedDonation: donation };
+}
+
+/**
  * Aggregate stats for the donations dashboard header. By default
  * windowed to the last 30 days; when filters are passed, the date /
  * status / campaign / frequency / giftAid filters apply to the
