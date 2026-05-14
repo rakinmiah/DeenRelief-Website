@@ -19,6 +19,7 @@ import { CHARITY_NAME, CHARITY_NUMBER, totalWithGiftAidGbp } from "@/lib/gift-ai
 import { fromPence } from "@/lib/stripe";
 import { signManageToken } from "@/lib/signed-token";
 import { DonationReceiptPDF } from "@/lib/donation-receipt-pdf";
+import { notifyEmailFailure } from "@/lib/admin-notifications";
 
 /**
  * The email logo is attached inline (via `cid:logo`) rather than linked
@@ -213,6 +214,22 @@ export async function sendDonationReceipt(
 
     if (result.error) {
       console.error("[donation-receipt] Resend returned error:", result.error);
+      // Receipt failure is urgent — the donor paid and didn't get
+      // confirmation. Trustee can manually resend from the donation
+      // detail page once they investigate the cause.
+      const receiptRef = input.donationId
+        ? receiptNumberFromDonationId(input.donationId)
+        : input.paymentIntentId;
+      await notifyEmailFailure({
+        kind: `Donation receipt (${receiptRef})`,
+        recipientEmail: input.toEmail,
+        errorMessage:
+          result.error.message ?? "Resend returned an error response",
+        targetUrl: input.donationId
+          ? `/admin/donations/${input.donationId}`
+          : "/admin/donations",
+        targetId: input.donationId,
+      });
       return false;
     }
 
@@ -220,6 +237,18 @@ export async function sendDonationReceipt(
     return true;
   } catch (err) {
     console.error("[donation-receipt] Send threw:", err);
+    const receiptRef = input.donationId
+      ? receiptNumberFromDonationId(input.donationId)
+      : input.paymentIntentId;
+    await notifyEmailFailure({
+      kind: `Donation receipt (${receiptRef})`,
+      recipientEmail: input.toEmail,
+      errorMessage: err instanceof Error ? err.message : "Unknown send error",
+      targetUrl: input.donationId
+        ? `/admin/donations/${input.donationId}`
+        : "/admin/donations",
+      targetId: input.donationId,
+    });
     return false;
   }
 }

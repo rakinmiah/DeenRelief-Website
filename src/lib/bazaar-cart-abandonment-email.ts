@@ -15,6 +15,7 @@
 import { Resend } from "resend";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 import { BAZAAR_FROM_EMAIL, BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
+import { notifyEmailFailure } from "@/lib/admin-notifications";
 import type { BazaarOrderItemRow } from "@/lib/bazaar-db";
 
 export interface SendCartAbandonmentInput {
@@ -68,17 +69,31 @@ export async function sendCartAbandonmentEmail(
       headers: { "Message-ID": buildMessageId(input.orderId) },
     });
     if (result.error) {
-      return {
-        messageId: null,
-        error: result.error.message ?? "Resend send error",
-      };
+      const errorMessage = result.error.message ?? "Resend send error";
+      await notifyEmailFailure({
+        kind: "Cart abandonment recovery",
+        recipientEmail: input.toEmail,
+        errorMessage,
+        // Abandoned orders sit in pending_payment / abandoned status —
+        // the order list filtered to that subset is the right
+        // surface for the trustee to investigate.
+        targetUrl: `/admin/bazaar/orders/${input.orderId}`,
+        targetId: input.orderId,
+      });
+      return { messageId: null, error: errorMessage };
     }
     return { messageId: result.data?.id ?? null, error: null };
   } catch (err) {
-    return {
-      messageId: null,
-      error: err instanceof Error ? err.message : "Unknown send error",
-    };
+    const errorMessage =
+      err instanceof Error ? err.message : "Unknown send error";
+    await notifyEmailFailure({
+      kind: "Cart abandonment recovery",
+      recipientEmail: input.toEmail,
+      errorMessage,
+      targetUrl: `/admin/bazaar/orders/${input.orderId}`,
+      targetId: input.orderId,
+    });
+    return { messageId: null, error: errorMessage };
   }
 }
 

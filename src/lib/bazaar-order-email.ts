@@ -35,6 +35,7 @@ import path from "node:path";
 import { Resend } from "resend";
 import { BAZAAR_FROM_EMAIL, BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
+import { notifyEmailFailure } from "@/lib/admin-notifications";
 import { fromPence } from "@/lib/stripe";
 import type {
   BazaarOrderItemRow,
@@ -144,6 +145,17 @@ export async function sendBazaarOrderConfirmation(
         "[bazaar-order-email] Resend returned error:",
         result.error
       );
+      // Order confirmation failure is genuinely urgent — customer
+      // paid and didn't get a receipt. Notification lets a trustee
+      // resend manually from the order detail page.
+      await notifyEmailFailure({
+        kind: `Order confirmation (${bazaarReceiptNumber(input.order.id)})`,
+        recipientEmail: input.order.contactEmail ?? "(no email on file)",
+        errorMessage:
+          result.error.message ?? "Resend returned an error response",
+        targetUrl: `/admin/bazaar/orders/${input.order.id}`,
+        targetId: input.order.id,
+      });
       return false;
     }
 
@@ -151,6 +163,13 @@ export async function sendBazaarOrderConfirmation(
     return true;
   } catch (err) {
     console.error("[bazaar-order-email] Send threw:", err);
+    await notifyEmailFailure({
+      kind: `Order confirmation (${bazaarReceiptNumber(input.order.id)})`,
+      recipientEmail: input.order.contactEmail ?? "(no email on file)",
+      errorMessage: err instanceof Error ? err.message : "Unknown send error",
+      targetUrl: `/admin/bazaar/orders/${input.order.id}`,
+      targetId: input.order.id,
+    });
     return false;
   }
 }
