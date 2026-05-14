@@ -28,7 +28,16 @@ export type NotificationType =
   // because every inquiry expects a reply within ~1 working day —
   // not as urgent as an unfulfilled order but a missed reply
   // hurts the brand promise on the bazaar contact page.
-  | "bazaar_inquiry_new";
+  | "bazaar_inquiry_new"
+  // Resend failed to send a customer-facing email. Emitted by the
+  // donation + bazaar email senders in their error branch. Severity
+  // "urgent" because a failed send means a customer didn't receive
+  // an email they expect (order confirmation, refund confirmation,
+  // tracking notification, etc.) — every minute of delay erodes
+  // trust. The trustee gets the failure context (which email kind,
+  // who it was to, the underlying Resend error) so they can either
+  // retry from the admin UI or follow up out-of-band.
+  | "email_send_failure";
 
 export type NotificationSeverity = "info" | "warning" | "urgent";
 
@@ -83,6 +92,49 @@ export async function enqueueNotification(
   } catch (err) {
     console.error("[admin-notifications] enqueue failed:", err);
   }
+}
+
+/**
+ * Convenience wrapper for the "Resend failed to send X" pattern.
+ *
+ * Called from every email sender's error branch (bazaar order
+ * confirmation, shipping notification, abandonment recovery,
+ * inquiry reply, order message, donation receipt, donation
+ * message). Produces a consistently-shaped urgent notification
+ * with enough context that the trustee can either retry from the
+ * relevant admin UI or follow up with the customer out-of-band.
+ *
+ * `kind` is a human-readable short label used in the notification
+ * title (e.g. "Order confirmation", "Inquiry reply"). Keep it
+ * short — it renders in the bell dropdown.
+ *
+ * `targetUrl` should deep-link to wherever the trustee should look
+ * (the order detail page, the inquiry detail page, etc.). The
+ * notification badge becomes the entry point for recovery.
+ *
+ * Same fire-and-forget posture as the rest of this module — a
+ * failed notification insert never re-throws, because the email
+ * send has ALREADY failed and we don't want to compound errors.
+ */
+export async function notifyEmailFailure(params: {
+  kind: string;
+  recipientEmail: string;
+  errorMessage: string;
+  targetUrl?: string;
+  targetId?: string;
+}): Promise<void> {
+  const truncatedError =
+    params.errorMessage.length > 280
+      ? `${params.errorMessage.slice(0, 280)}…`
+      : params.errorMessage;
+  await enqueueNotification({
+    type: "email_send_failure",
+    severity: "urgent",
+    title: `Email failed: ${params.kind}`,
+    body: `To ${params.recipientEmail} — ${truncatedError}`,
+    targetUrl: params.targetUrl,
+    targetId: params.targetId,
+  });
 }
 
 /**

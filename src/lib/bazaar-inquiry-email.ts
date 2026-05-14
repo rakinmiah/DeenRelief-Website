@@ -25,6 +25,7 @@
 import { Resend } from "resend";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 import { BAZAAR_FROM_EMAIL, BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
+import { notifyEmailFailure } from "@/lib/admin-notifications";
 
 export interface SendInquiryReplyInput {
   inquiryId: string;
@@ -107,17 +108,31 @@ export async function sendInquiryReply(
       },
     });
     if (result.error) {
-      return {
-        messageId: null,
-        error: result.error.message ?? "Resend send error",
-      };
+      const errorMessage = result.error.message ?? "Resend send error";
+      // Surface in admin notifications inbox so a failed reply doesn't
+      // silently vanish — the trustee sees the bell badge and can
+      // retry from the inquiry page or follow up out-of-band.
+      await notifyEmailFailure({
+        kind: "Inquiry reply",
+        recipientEmail: input.toEmail,
+        errorMessage,
+        targetUrl: `/admin/bazaar/inquiries/${input.inquiryId}`,
+        targetId: input.inquiryId,
+      });
+      return { messageId: null, error: errorMessage };
     }
     return { messageId: result.data?.id ?? null, error: null };
   } catch (err) {
-    return {
-      messageId: null,
-      error: err instanceof Error ? err.message : "Unknown send error",
-    };
+    const errorMessage =
+      err instanceof Error ? err.message : "Unknown send error";
+    await notifyEmailFailure({
+      kind: "Inquiry reply",
+      recipientEmail: input.toEmail,
+      errorMessage,
+      targetUrl: `/admin/bazaar/inquiries/${input.inquiryId}`,
+      targetId: input.inquiryId,
+    });
+    return { messageId: null, error: errorMessage };
   }
 }
 

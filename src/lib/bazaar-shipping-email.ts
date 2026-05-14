@@ -26,6 +26,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Resend } from "resend";
 import { BAZAAR_FROM_EMAIL, BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
+import { notifyEmailFailure } from "@/lib/admin-notifications";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import type { BazaarOrderRow } from "@/lib/bazaar-db";
@@ -134,6 +135,14 @@ export async function sendBazaarShippingNotification(
         "[bazaar-shipping-email] Resend returned error:",
         result.error
       );
+      await notifyEmailFailure({
+        kind: `Shipping notification (${bazaarReceiptNumber(input.order.id)})`,
+        recipientEmail: input.order.contactEmail ?? "(no email on file)",
+        errorMessage:
+          result.error.message ?? "Resend returned an error response",
+        targetUrl: `/admin/bazaar/orders/${input.order.id}`,
+        targetId: input.order.id,
+      });
       return false;
     }
 
@@ -141,6 +150,13 @@ export async function sendBazaarShippingNotification(
     return true;
   } catch (err) {
     console.error("[bazaar-shipping-email] Send threw:", err);
+    await notifyEmailFailure({
+      kind: `Shipping notification (${bazaarReceiptNumber(input.order.id)})`,
+      recipientEmail: input.order.contactEmail ?? "(no email on file)",
+      errorMessage: err instanceof Error ? err.message : "Unknown send error",
+      targetUrl: `/admin/bazaar/orders/${input.order.id}`,
+      targetId: input.order.id,
+    });
     return false;
   }
 }

@@ -13,6 +13,7 @@
 
 import { Resend } from "resend";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
+import { notifyEmailFailure } from "@/lib/admin-notifications";
 
 // Donations use the main charity inbox for replies (not the
 // bazaar inbox). Kept inline to avoid pulling in bazaar-config
@@ -74,17 +75,28 @@ export async function sendDonationMessageEmail(
       headers: { "Message-ID": messageIdHeader },
     });
     if (result.error) {
-      return {
-        messageId: null,
-        error: result.error.message ?? "Resend send error",
-      };
+      const errorMessage = result.error.message ?? "Resend send error";
+      await notifyEmailFailure({
+        kind: "Donor message",
+        recipientEmail: input.toEmail,
+        errorMessage,
+        targetUrl: `/admin/donations/${input.donationId}`,
+        targetId: input.donationId,
+      });
+      return { messageId: null, error: errorMessage };
     }
     return { messageId: result.data?.id ?? null, error: null };
   } catch (err) {
-    return {
-      messageId: null,
-      error: err instanceof Error ? err.message : "Unknown send error",
-    };
+    const errorMessage =
+      err instanceof Error ? err.message : "Unknown send error";
+    await notifyEmailFailure({
+      kind: "Donor message",
+      recipientEmail: input.toEmail,
+      errorMessage,
+      targetUrl: `/admin/donations/${input.donationId}`,
+      targetId: input.donationId,
+    });
+    return { messageId: null, error: errorMessage };
   }
 }
 
