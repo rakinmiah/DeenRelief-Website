@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import { BazaarCartProvider } from "@/components/bazaar/BazaarCartProvider";
 import BazaarHeader from "@/components/bazaar/BazaarHeader";
+import { isBazaarLive } from "@/lib/bazaar-flag";
 
 /**
  * Pre-launch crawler suppression for the entire /bazaar/* tree.
@@ -43,6 +45,17 @@ export default function BazaarLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Pre-launch gate. When NEXT_PUBLIC_BAZAAR_ENABLED isn't set to
+  // "true" on the deployment, every /bazaar/* route returns 404 at
+  // the layout level — well before any page renders, so cart state,
+  // product fetches, etc. all short-circuit. Admin bazaar routes
+  // are NOT gated; they live under /admin and stay functional so a
+  // trustee can keep working with the schema while the storefront
+  // is dark. Flip this to "true" on Vercel to launch.
+  if (!isBazaarLive()) {
+    notFound();
+  }
+
   return (
     <BazaarCartProvider>
       <BazaarHeader />

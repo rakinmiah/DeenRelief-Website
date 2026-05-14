@@ -3,6 +3,7 @@ import { fetchOrderByStripeSession } from "@/lib/bazaar-db";
 import { createInquiry } from "@/lib/bazaar-inquiries";
 import { enqueueNotification } from "@/lib/admin-notifications";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
+import { isBazaarLive } from "@/lib/bazaar-flag";
 
 /**
  * Customer-facing "Request a return" endpoint.
@@ -24,6 +25,12 @@ import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
  * here — the contact form is the right surface for those.
  */
 export async function POST(req: Request) {
+  // Match the /bazaar layout gate — direct POSTs that bypass the
+  // confirmation page UI get 404'd while the flag is off.
+  if (!isBazaarLive()) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
   let payload: {
     sessionId?: string;
     reason?: string;

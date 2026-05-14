@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { isBazaarLive } from "@/lib/bazaar-flag";
 import {
   attachStripeSessionId,
   createPendingOrder,
@@ -80,6 +81,15 @@ const TRACKED_24_FREE_SHIP_UPGRADE_PENCE =
  * for current volume the cruft is invisible.
  */
 export async function POST(req: Request) {
+  // Defense-in-depth: the /bazaar layout already returns 404 when
+  // the feature flag is off, so customers can't reach the cart UI
+  // to trigger this endpoint. But a direct POST from a script /
+  // bookmarked dev tool would still bypass the layout. Match the
+  // layout's behaviour by 404-ing the API too.
+  if (!isBazaarLive()) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
   // ─── Parse & validate request body ─────────────────────────────
   let body: { items?: CartLineItem[] };
   try {
