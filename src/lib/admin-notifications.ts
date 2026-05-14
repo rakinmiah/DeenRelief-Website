@@ -17,6 +17,7 @@
  */
 
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { sendAdminPush } from "@/lib/admin-push";
 
 export type NotificationType =
   | "bazaar_order_placed"
@@ -91,6 +92,36 @@ export async function enqueueNotification(
     });
   } catch (err) {
     console.error("[admin-notifications] enqueue failed:", err);
+  }
+
+  // Fan out as a Web Push to every subscribed device so trustees
+  // get an OS-level alert even when DR Admin isn't the active tab.
+  // Skipped (no-op inside sendAdminPush) when:
+  //   - VAPID keys aren't configured (warns once, then quietly skips)
+  //   - The notification is scheduled for the future (a 24h reminder
+  //     shouldn't buzz the phone now — the push fires when the
+  //     reminder becomes due via the same scheduled-reminders cron
+  //     that surfaces the bell row)
+  //
+  // Failure-isolated: a dead push service never blocks the insert
+  // (which is already committed at this point).
+  const scheduledAt = input.scheduledFor ?? new Date();
+  const isImmediate = scheduledAt.getTime() <= Date.now() + 1000;
+  if (isImmediate) {
+    try {
+      await sendAdminPush({
+        title: input.title,
+        body: input.body ?? null,
+        url: input.targetUrl ?? null,
+        // Dedup tag pairs type with target_id so two rapid events
+        // about the same object (e.g. abandonment + reminder) don't
+        // stack as separate banners on the lock screen.
+        tag: input.targetId ? `${input.type}:${input.targetId}` : input.type,
+        severity: input.severity,
+      });
+    } catch (err) {
+      console.error("[admin-notifications] push send failed:", err);
+    }
   }
 }
 

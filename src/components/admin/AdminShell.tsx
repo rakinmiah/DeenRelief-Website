@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import AdminNotificationBell from "./AdminNotificationBell";
+import AdminPushPrompt from "./AdminPushPrompt";
 import AdminMobileDrawer from "./AdminMobileDrawer";
 
 /**
@@ -115,6 +116,13 @@ export default function AdminShell({
               </nav>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* "Enable notifications" toggle — hidden if the device
+                  doesn't support push, or if iOS Safari isn't in
+                  standalone mode. Renders next to the bell on
+                  desktop only; the mobile chrome is too cramped. */}
+              <span className="hidden lg:inline">
+                <AdminPushPrompt />
+              </span>
               <AdminNotificationBell />
               <span className="hidden sm:inline text-sm text-charcoal/60">
                 {signedInAs}

@@ -23,7 +23,7 @@
  * the strategy is improved.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2"; // v2: added push + notificationclick handlers
 const STATIC_CACHE = `dr-admin-static-${CACHE_VERSION}`;
 const HTML_CACHE = `dr-admin-html-${CACHE_VERSION}`;
 const OFFLINE_URL = "/admin/offline";
@@ -173,3 +173,79 @@ function isStaticAsset(pathname) {
     /\.(png|jpe?g|webp|avif|svg|woff2?|ico|css|js)$/.test(pathname)
   );
 }
+
+// ─── Web Push ─────────────────────────────────────────────────
+//
+// Fires when the browser's push service (FCM on Android, APNs on
+// iOS, autopush on Firefox, etc.) wakes us with an incoming push.
+// The server side (src/lib/admin-push.ts) sends a JSON payload
+// like:
+//   {
+//     title: "New bazaar order",
+//     body:  "Sara K. ordered the Sylhet scarf · DR-BZR-A1B2C3D4",
+//     url:   "/admin/bazaar/orders/<id>",
+//     tag:   "bazaar_order_placed:<id>",     // optional dedup
+//     severity: "info" | "warning" | "urgent"
+//   }
+//
+// On iOS the user must have installed the PWA to Home Screen for
+// this to surface as an OS notification. On Android Chrome it
+// works in regular tabs after permission grant. The service
+// worker code is identical either way.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // If decoding fails we still want SOMETHING to surface — a
+    // silent failure is the worst outcome (user wonders why their
+    // phone buzzed with nothing visible).
+    payload = { title: "DR Admin", body: "New notification" };
+  }
+
+  const title = payload.title || "DR Admin";
+  const body = payload.body || "";
+  const url = payload.url || "/admin/donations";
+  const tag = payload.tag;
+
+  const options = {
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    // The vibration pattern is Android-only — iOS uses its own
+    // haptic profile and ignores this. Light double-pulse for
+    // non-urgent, longer pulse for urgent.
+    vibrate:
+      payload.severity === "urgent" ? [200, 100, 200] : [100, 50, 100],
+    data: { url },
+  };
+  if (tag) options.tag = tag;
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// User taps the notification → open the deep-linked URL. If
+// there's an existing admin tab open, focus it and navigate it
+// to the URL via postMessage (handled in the client); otherwise
+// open a fresh window.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/admin/donations";
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        // Prefer focusing an already-open admin tab if any exists.
+        for (const client of clients) {
+          const clientUrl = new URL(client.url);
+          if (clientUrl.pathname.startsWith("/admin")) {
+            client.postMessage({ type: "admin-push-navigate", url: targetUrl });
+            return client.focus();
+          }
+        }
+        // No admin tab open — launch one at the target URL.
+        return self.clients.openWindow(targetUrl);
+      })
+  );
+});
