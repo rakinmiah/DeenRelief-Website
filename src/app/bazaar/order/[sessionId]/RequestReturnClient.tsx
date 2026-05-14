@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 /**
  * Expandable "Request a return" form on the order confirmation
@@ -69,7 +70,7 @@ export default function RequestReturnClient({
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong. Email info@deenrelief.org and we'll help."
+          : `Something went wrong. Email ${BAZAAR_SUPPORT_EMAIL} and we'll help.`
       );
       setStatus("error");
     }

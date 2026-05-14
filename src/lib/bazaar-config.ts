@@ -17,9 +17,11 @@
  *   2. SUPABASE TABLES — bazaar lives in `bazaar_*` tables, donations
  *      in the existing `donations` + `donors` tables. `donors` is the
  *      one shared table — same person, may donate AND buy.
- *   3. EMAIL SENDER — currently info@deenrelief.org for both, will
- *      split to bazaar@... once revenue justifies the operational
- *      separation.
+ *   3. EMAIL SENDER — split: donations send from info@deenrelief.org,
+ *      bazaar sends from bazaar@deenrelief.org. Donor receipts and
+ *      bazaar order comms land in separate inboxes, customer replies
+ *      route to the right team without manual sorting, and the
+ *      audit trail per channel is cleaner.
  *   4. ADMIN UI — donations live at /admin/donations, bazaar at
  *      /admin/bazaar/orders, accountant reconciliation at
  *      /admin/reports/reconciliation (combined view with Type column).
@@ -27,18 +29,26 @@
 
 /**
  * Email sender for bazaar order confirmations, shipping notifications,
- * refund confirmations. Currently shared with the donation flow at
- * info@deenrelief.org; will split to a bazaar-specific sender once the
- * volume justifies the operational separation.
+ * refund confirmations, abandonment recovery, and the inquiries
+ * inbox. Distinct from the donation-side info@deenrelief.org so
+ * trading-side comms route to their own inbox + reply thread.
+ *
+ * Requires bazaar@deenrelief.org to be configured as an authorised
+ * sending address on Resend (a verified subdomain or alias on the
+ * existing deenrelief.org domain). The domain DNS records that
+ * already authorise info@ also authorise bazaar@ since they're on
+ * the same root domain.
  */
-export const BAZAAR_FROM_EMAIL = "info@deenrelief.org";
+export const BAZAAR_FROM_EMAIL = "bazaar@deenrelief.org";
 
 /**
  * Customer-service address — published on the returns policy, order
- * confirmation footer, and admin "contact donor" buttons. Currently the
- * same as BAZAAR_FROM_EMAIL; can split later.
+ * confirmation footer, contact page, and admin "contact customer"
+ * UIs. Same as BAZAAR_FROM_EMAIL so when a customer replies to a
+ * transactional email the reply lands in the same inbox they would
+ * reach by typing the address into a fresh mail compose.
  */
-export const BAZAAR_SUPPORT_EMAIL = "info@deenrelief.org";
+export const BAZAAR_SUPPORT_EMAIL = "bazaar@deenrelief.org";
 
 /**
  * UK returns address — printed on the returns policy page and included

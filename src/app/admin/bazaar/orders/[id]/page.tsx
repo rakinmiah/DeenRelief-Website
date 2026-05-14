@@ -26,6 +26,7 @@ import PushToClickAndDropClient from "./PushToClickAndDropClient";
 import DeleteOrderClient from "./DeleteOrderClient";
 import MobileActionPanel from "@/components/admin/MobileActionPanel";
 import { CHARITY_NAME, CHARITY_NUMBER } from "@/lib/gift-aid";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 export const metadata: Metadata = {
   title: "Order detail | Bazaar Admin",
@@ -235,8 +236,8 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
             already been paid for their work.
           </p>
           <p className="mt-2">
-            Not quite right? 14 days from delivery to return. Email
-            info@deenrelief.org or use the contact form at
+            Not quite right? 14 days from delivery to return. Email{" "}
+            {BAZAAR_SUPPORT_EMAIL} or use the contact form at
             deenrelief.org/bazaar/contact.
           </p>
         </div>

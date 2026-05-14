@@ -2,8 +2,8 @@
  * Outbound reply email for the Bazaar inquiries inbox.
  *
  * When a trustee replies from /admin/bazaar/inquiries/[id], we send
- * the customer an email that looks like it came from
- * info@deenrelief.org. The trustee's plain-text reply is wrapped in
+ * the customer an email from bazaar@deenrelief.org (see
+ * BAZAAR_FROM_EMAIL). The trustee's plain-text reply is wrapped in
  * the brand's transactional template (matching order-confirmation
  * + shipping emails) so the customer sees a consistent voice across
  * touchpoints.
@@ -11,9 +11,9 @@
  * Threading: Message-ID headers are set so a customer's email client
  * shows the reply in the same conversation as our prior emails
  * (order confirmation, shipping notification). When the customer
- * hits Reply, their reply lands in info@deenrelief.org Gmail with
- * the right In-Reply-To references, keeping the thread intact even
- * though phase-1 doesn't auto-capture inbound replies into the
+ * hits Reply, their reply lands in the bazaar@deenrelief.org inbox
+ * with the right In-Reply-To references, keeping the thread intact
+ * even though phase-1 doesn't auto-capture inbound replies into the
  * inquiry log.
  *
  * Failure semantics: returns { messageId, error } — never throws.

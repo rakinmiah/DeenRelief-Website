@@ -290,13 +290,17 @@ interface SenderDetails {
 }
 
 function getSenderDetails(): SenderDetails {
+  // Default sender email is the Bazaar's dedicated address — when a
+  // Royal Mail customer-service issue arises, C&D forwards back to
+  // whatever address was registered on the order, so we want that
+  // routing to land in the Bazaar inbox, not the donations one.
   return {
     tradingName:
       process.env.ROYAL_MAIL_SENDER_COMPANY ??
       process.env.ROYAL_MAIL_SENDER_NAME ??
       "Deen Relief Bazaar",
     emailAddress:
-      process.env.ROYAL_MAIL_SENDER_EMAIL ?? "info@deenrelief.org",
+      process.env.ROYAL_MAIL_SENDER_EMAIL ?? "bazaar@deenrelief.org",
     phoneNumber: process.env.ROYAL_MAIL_SENDER_PHONE,
   };
 }

@@ -4,6 +4,7 @@ import { createInquiry } from "@/lib/bazaar-inquiries";
 import { enqueueNotification } from "@/lib/admin-notifications";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import { isBazaarLive } from "@/lib/bazaar-flag";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 /**
  * Customer-facing "Request a return" endpoint.
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("[return-request] order lookup failed:", err);
     return NextResponse.json(
-      { error: "Couldn't look up the order. Please email info@deenrelief.org." },
+      { error: `Couldn't look up the order. Please email ${BAZAAR_SUPPORT_EMAIL}.` },
       { status: 500 }
     );
   }
@@ -87,8 +88,7 @@ export async function POST(req: Request) {
   if (!okStatuses.has(order.status)) {
     return NextResponse.json(
       {
-        error:
-          "This order isn't eligible for a return request yet. Email info@deenrelief.org if you need help.",
+        error: `This order isn't eligible for a return request yet. Email ${BAZAAR_SUPPORT_EMAIL} if you need help.`,
       },
       { status: 409 }
     );
@@ -139,8 +139,7 @@ export async function POST(req: Request) {
     console.error("[return-request] inquiry creation failed:", err);
     return NextResponse.json(
       {
-        error:
-          "Couldn't submit the request. Please email info@deenrelief.org and we'll help.",
+        error: `Couldn't submit the request. Please email ${BAZAAR_SUPPORT_EMAIL} and we'll help.`,
       },
       { status: 500 }
     );
