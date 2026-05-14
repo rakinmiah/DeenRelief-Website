@@ -24,7 +24,10 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={`/bazaar/${product.slug}`}
-      className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1"
+      className={`group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1 ${
+        isSoldOut ? "opacity-70" : ""
+      }`}
+      aria-disabled={isSoldOut ? "true" : undefined}
     >
       {/* Image */}
       {/* Square on mobile, 4:5 portrait on tablet+. The taller
@@ -40,7 +43,16 @@ export default function ProductCard({ product }: { product: Product }) {
           variant="product"
           src={product.primaryImage}
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="transition-transform duration-300 group-hover:scale-105"
+          // Sold-out pieces desaturate to greyscale and don't lift on
+          // hover — the page still surfaces the product (detail link
+          // stays live so a customer can read about it / request
+          // restock) but visually signals "not in the buy lane right
+          // now."
+          className={`transition-transform duration-300 ${
+            isSoldOut
+              ? "grayscale"
+              : "group-hover:scale-105"
+          }`}
         />
 
         {/* Live stock pill — always rendered, style varies by state */}
@@ -81,7 +93,13 @@ export default function ProductCard({ product }: { product: Product }) {
           {product.tagline}
         </p>
         <div className="flex items-center justify-between mt-2">
-          <span className="text-amber-dark font-heading font-semibold text-lg">
+          <span
+            className={`font-heading font-semibold text-lg ${
+              isSoldOut
+                ? "text-charcoal/40 line-through decoration-1"
+                : "text-amber-dark"
+            }`}
+          >
             {formatPence(product.pricePence)}
           </span>
           <span className="text-grey text-xs italic">

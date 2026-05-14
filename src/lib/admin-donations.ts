@@ -76,6 +76,10 @@ export interface AdminDonationRow {
   receiptNumber: string;
   chargedAt: string | null;
   createdAt: string;
+  /** UUID from the donors table — drives the "View profile" link on
+   *  donation detail pages. Nullable for the (theoretical) case of
+   *  an orphaned donation row whose donor was deleted. */
+  donorId: string | null;
   donorName: string;
   donorEmail: string;
   donorFirstName: string | null;
@@ -203,6 +207,7 @@ function shapeRow(raw: RawDonationRow): AdminDonationRow {
     receiptNumber: receiptNumberFor(raw.id),
     chargedAt: raw.completed_at,
     createdAt: raw.created_at,
+    donorId: donor?.id ?? null,
     donorName: donorName || "Anonymous",
     donorEmail: donor?.email ?? "",
     donorFirstName: donor?.first_name ?? null,
