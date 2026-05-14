@@ -163,9 +163,19 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
 
           {/* Donor */}
           <section className="bg-white border border-charcoal/10 rounded-2xl p-5 sm:p-6">
-            <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-3">
-              Donor
-            </h2>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60">
+                Donor
+              </h2>
+              {donation.donorId && (
+                <Link
+                  href={`/admin/donors/${donation.donorId}`}
+                  className="text-[11px] font-semibold uppercase tracking-wider text-green hover:text-green-dark transition-colors"
+                >
+                  View profile →
+                </Link>
+              )}
+            </div>
             <dl className="space-y-2.5 text-sm">
               <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
                 <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">Name</dt>

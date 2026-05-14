@@ -35,7 +35,19 @@ export const dynamic = "force-dynamic";
  * understanding the supply chain isn't paying premium for premium's sake.
  */
 export default async function BazaarPage() {
-  const products = await fetchActiveProducts();
+  const productsRaw = await fetchActiveProducts();
+
+  // Sort sold-out products to the bottom of the grid. Keeps the
+  // browse experience focused on what's actually buyable today
+  // without hiding sold-out pieces entirely (they're part of the
+  // small-batch story — empty shelves communicate "people loved
+  // this enough to take it all"). Stable sort within each group
+  // preserves the catalog's natural ordering for in-stock items.
+  const products = [...productsRaw].sort((a, b) => {
+    const aOut = a.stockCount === 0 ? 1 : 0;
+    const bOut = b.stockCount === 0 ? 1 : 0;
+    return aOut - bOut;
+  });
   return (
     <>
       {/* ─── Hero ─── */}
