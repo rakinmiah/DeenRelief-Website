@@ -140,8 +140,13 @@ export interface TimelineBazaarOrder {
   totalPence: number;
   itemCount: number;
   createdAt: string;
+  /** Timestamp of fulfilment (mark-shipped). Null while the order
+   *  is in pending_payment / paid / cancelled / refunded states. */
   fulfilledAt: string | null;
-  deliveredAt: string | null;
+  /** Delivered-status transition has no dedicated timestamp on the
+   *  current schema (markOrderDelivered() flips status only). The
+   *  bazaar_orders.status field is the source of truth — when it
+   *  reads "delivered", you're past that transition. */
 }
 
 export interface FullDonorProfile {
@@ -439,7 +444,7 @@ async function fetchBazaarOrdersForEmail(
   const { data, error } = await supabase
     .from("bazaar_orders")
     .select(
-      `id, status, total_pence, created_at, fulfilled_at, delivered_at,
+      `id, status, total_pence, created_at, fulfilled_at,
        bazaar_order_items ( id )`
     )
     .eq("contact_email", email)
@@ -456,7 +461,6 @@ async function fetchBazaarOrdersForEmail(
       total_pence: number;
       created_at: string;
       fulfilled_at: string | null;
-      delivered_at: string | null;
       bazaar_order_items: { id: string }[] | null;
     };
     return {
@@ -467,7 +471,6 @@ async function fetchBazaarOrdersForEmail(
       itemCount: r.bazaar_order_items?.length ?? 0,
       createdAt: r.created_at,
       fulfilledAt: r.fulfilled_at,
-      deliveredAt: r.delivered_at,
     };
   });
 }
