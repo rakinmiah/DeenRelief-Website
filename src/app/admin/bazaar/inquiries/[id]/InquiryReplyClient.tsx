@@ -7,6 +7,7 @@ import {
   addManualMessageAction,
 } from "@/app/admin/bazaar/inquiries/actions";
 import type { InquiryStatus } from "@/lib/bazaar-inquiries";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 /**
  * Reply composer + workflow controls for a single inquiry.
@@ -116,13 +117,13 @@ export default function InquiryReplyClient({
           rows={6}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Type your reply here. The customer will receive it from info@deenrelief.org and your message will be logged on this inquiry."
+          placeholder={`Type your reply here. The customer will receive it from ${BAZAAR_SUPPORT_EMAIL} and your message will be logged on this inquiry.`}
           className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal placeholder:text-grey/40 focus:outline-none focus:border-green/40 transition-colors resize-y text-sm leading-[1.6]"
         />
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-[11px] text-charcoal/50">
-            Sent from <span className="font-mono">info@deenrelief.org</span>.
-            Their reply lands in your Gmail inbox — paste it into the
+            Sent from <span className="font-mono">{BAZAAR_SUPPORT_EMAIL}</span>.
+            Their reply lands in the Bazaar inbox — paste it into the
             log below if you want it on the record.
           </p>
           <button

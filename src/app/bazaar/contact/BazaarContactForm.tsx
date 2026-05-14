@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 /**
  * Bazaar contact form — the only client component on
@@ -249,7 +250,7 @@ export default function BazaarContactForm() {
           We&apos;ll reply within one working day. Check your spam
           folder if you don&apos;t see anything from{" "}
           <span className="font-medium text-charcoal">
-            info@deenrelief.org
+            {BAZAAR_SUPPORT_EMAIL}
           </span>{" "}
           by then.
         </p>
@@ -405,7 +406,7 @@ export default function BazaarContactForm() {
         {formState === "error" && (
           <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
             {errorMessage ??
-              "Something went wrong. Please try again or email info@deenrelief.org directly."}
+              `Something went wrong. Please try again or email ${BAZAAR_SUPPORT_EMAIL} directly.`}
           </p>
         )}
 

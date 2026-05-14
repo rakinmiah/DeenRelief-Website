@@ -8,6 +8,7 @@ import {
 } from "@/lib/bazaar-inquiries";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 export const metadata: Metadata = {
   title: "Inquiries | Bazaar Admin",
@@ -53,7 +54,7 @@ export default async function AdminInquiriesListPage({
         <p className="text-grey text-sm mt-2 max-w-2xl">
           Every message sent via the bazaar contact form lands here.
           Reply directly — outbound replies go from{" "}
-          <span className="font-mono">info@deenrelief.org</span> with
+          <span className="font-mono">{BAZAAR_SUPPORT_EMAIL}</span> with
           a full chat log kept on each conversation.
         </p>
       </div>

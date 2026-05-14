@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { sendBazaarOrderMessageAction } from "./actions";
+import { BAZAAR_SUPPORT_EMAIL } from "@/lib/bazaar-config";
 
 /**
  * Send-email composer for the bazaar order detail page.
  *
  * Same shape as DonationMessageClient — subject + body + Send.
  * On submit, the server action sends via Resend from
- * info@deenrelief.org (Deen Relief Bazaar branded) and logs the
+ * bazaar@deenrelief.org (Deen Relief Bazaar branded) and logs the
  * send in bazaar_order_messages. Errors surface inline so the
  * trustee can adjust + retry without losing the typed content.
  */
@@ -87,7 +88,7 @@ export default function OrderMessageClient({
           rows={6}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Type the email body. The customer will receive it from info@deenrelief.org wrapped in the Bazaar transactional template — the order's receipt number is automatically referenced."
+          placeholder={`Type the email body. The customer will receive it from ${BAZAAR_SUPPORT_EMAIL} wrapped in the Bazaar transactional template — the order's receipt number is automatically referenced.`}
           className="w-full px-4 py-3 rounded-xl border-2 border-grey-light bg-white text-charcoal placeholder:text-grey/40 focus:outline-none focus:border-green/40 transition-colors resize-y text-sm leading-[1.6]"
         />
       </div>
@@ -96,8 +97,8 @@ export default function OrderMessageClient({
         <p className="text-[11px] text-charcoal/50">
           Sent to{" "}
           <span className="font-mono text-charcoal/70">{customerEmail}</span>{" "}
-          from <span className="font-mono">info@deenrelief.org</span>.
-          Replies land in the shared inbox.
+          from <span className="font-mono">{BAZAAR_SUPPORT_EMAIL}</span>.
+          Replies land in the Bazaar inbox.
         </p>
         <button
           type="button"

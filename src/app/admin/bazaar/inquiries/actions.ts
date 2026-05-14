@@ -18,7 +18,7 @@ import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
  *
  * Three actions:
  *   - sendReplyAction: trustee composes a reply, we send via Resend
- *                      from info@deenrelief.org, log the outbound
+ *                      from bazaar@deenrelief.org, log the outbound
  *                      message, set status='replied', audit.
  *   - updateStatusAction: change open/replied/closed.
  *   - addManualMessageAction: trustee pastes a customer's Gmail
