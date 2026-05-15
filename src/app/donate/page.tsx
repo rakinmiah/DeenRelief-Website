@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutClient from "./CheckoutClient";
@@ -25,6 +26,16 @@ interface DonatePageProps {
 
 export default async function DonatePage({ searchParams }: DonatePageProps) {
   const params = await searchParams;
+
+  // Detect donor country from the edge geo header Vercel adds to
+  // every request. Used by CheckoutClient to (a) hide Gift Aid for
+  // non-UK donors and (b) show a friendly local-currency hint
+  // alongside the GBP amount. Falls back to "GB" when the header
+  // is missing (local dev, non-Vercel hosts), which renders the
+  // UK experience by default — the safest fallback because the UK
+  // affordances are a superset of the international ones.
+  const h = await headers();
+  const donorCountry = (h.get("x-vercel-ip-country") ?? "GB").toUpperCase();
 
   // Seed values from the query string. The client component owns mutation
   // from here — users can adjust amount in checkout without navigating back.
@@ -65,6 +76,7 @@ export default async function DonatePage({ searchParams }: DonatePageProps) {
               qurbaniProductId={qurbaniProductId}
               pathwaySlug={pathway?.slug ?? null}
               pathwayLabel={pathway?.label ?? null}
+              donorCountry={donorCountry}
             />
           </div>
         </section>

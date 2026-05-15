@@ -43,6 +43,7 @@ import {
   trackDonationFunnelStep,
   type DonationFunnelStep,
 } from "@/lib/analytics";
+import { convertGbpForDisplay, isUKDonor } from "@/lib/geo";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -67,6 +68,24 @@ interface Props {
   pathwaySlug?: string | null;
   /** Human-readable pathway label corresponding to pathwaySlug. */
   pathwayLabel?: string | null;
+  /**
+   * ISO 3166-1 alpha-2 country code from Vercel's edge geo header
+   * (or "GB" as the fallback for local dev / non-Vercel hosts).
+   *
+   * Used here to:
+   *   - Hide the Gift Aid checkbox for non-UK donors (the relief
+   *     scheme is HMRC-only; showing it to a US/EU donor either
+   *     confuses them or invites a non-compliant claim)
+   *   - Render a friendly local-currency hint next to the GBP
+   *     amount ("£50 ~ $64") so international donors don't have
+   *     to do FX math in their head
+   *
+   * Display-only — Stripe still charges in GBP regardless. The
+   * donor's actual home currency is whatever their card issuer
+   * does FX from; our hint is a one-line UX nicety, not a price
+   * commitment.
+   */
+  donorCountry?: string;
 }
 
 export default function CheckoutClient({
@@ -77,7 +96,12 @@ export default function CheckoutClient({
   qurbaniProductId = null,
   pathwaySlug = null,
   pathwayLabel = null,
+  donorCountry = "GB",
 }: Props) {
+  // Computed once per render — both are pure functions of the
+  // donor country prop. Used down in the JSX to gate Gift Aid +
+  // emit the local-currency hint.
+  const isUK = isUKDonor(donorCountry);
   const [amountGbp, setAmountGbp] = useState<number>(initialAmountGbp);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
@@ -232,6 +256,7 @@ export default function CheckoutClient({
       <AmountBlock
         amountGbp={amountGbp}
         frequency={initialFrequency}
+        donorCountry={donorCountry}
         onUpdate={(next) => {
           setAmountGbp(next);
           createIntent(next);
@@ -269,6 +294,7 @@ export default function CheckoutClient({
             customerId={customerId}
             qurbaniProductId={qurbaniProductId}
             pathwaySlug={pathwaySlug}
+            isUK={isUK}
             onPaymentMethodAdded={() => {
               deepestStepRef.current = "payment_method_added";
             }}
@@ -294,14 +320,24 @@ export default function CheckoutClient({
 function AmountBlock({
   amountGbp,
   frequency,
+  donorCountry,
   onUpdate,
 }: {
   amountGbp: number;
   frequency: "one-time" | "monthly";
+  donorCountry: string;
   onUpdate: (next: number) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(String(amountGbp));
+
+  // For international donors, show a local-currency approximation
+  // under the £ amount so they don't have to do FX math. Display
+  // only — the actual charge always happens in GBP. Returns null for
+  // UK + unknown countries so the hint just doesn't render in those
+  // cases. Recomputes on every amount change for free since
+  // amountGbp is in the dependency chain.
+  const localHint = convertGbpForDisplay(amountGbp, donorCountry);
 
   return (
     <div className="mb-6 p-5 bg-green-light rounded-xl flex items-center justify-between">
@@ -342,6 +378,11 @@ function AmountBlock({
                 <span className="text-base font-medium text-grey"> / month</span>
               )}
             </p>
+            {localHint && (
+              <p className="text-[12px] text-charcoal/60 mt-1">
+                {localHint} — charged in GBP at your card&apos;s rate
+              </p>
+            )}
           </div>
           <button
             onClick={() => {
@@ -369,6 +410,7 @@ function CheckoutForm({
   customerId,
   qurbaniProductId,
   pathwaySlug,
+  isUK,
   onPaymentMethodAdded,
   onIntentionalNavigation,
 }: {
@@ -381,6 +423,9 @@ function CheckoutForm({
   customerId: string | null;
   qurbaniProductId: string | null;
   pathwaySlug: string | null;
+  /** Drives Gift Aid visibility — false hides the whole section
+   *  for international donors (UK-taxpayer-only relief scheme). */
+  isUK: boolean;
   /** Called once when Stripe Elements transitions to complete: true. */
   onPaymentMethodAdded: () => void;
   /** Called with `true` immediately before stripe.confirm{Payment,Setup}
@@ -678,7 +723,17 @@ function CheckoutForm({
         </fieldset>
       )}
 
-      {/* Gift Aid */}
+      {/* Gift Aid — UK donors only.
+          The Gift Aid relief is an HMRC scheme: only available to
+          UK taxpayers and only claimable by charities on donations
+          from those taxpayers. Showing the checkbox to an
+          international donor either (a) confuses them with copy
+          that doesn't apply or (b) invites a non-compliant
+          declaration we can't actually claim against. Detecting
+          country at the edge + gating the whole section keeps the
+          form short for international donors and our HMRC return
+          clean. */}
+      {isUK && (
       <fieldset>
         <legend className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/60 mb-3">
           Gift Aid
@@ -737,6 +792,7 @@ function CheckoutForm({
           )}
         </div>
       </fieldset>
+      )}
 
       {/* Payment */}
       <fieldset>
