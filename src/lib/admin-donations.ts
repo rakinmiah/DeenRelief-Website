@@ -694,18 +694,40 @@ export async function fetchFailedDonations(
   return (data ?? []).map((r) => shapeRow(r as unknown as RawDonationRow));
 }
 
-/** UK-format an ISO date for display (DD/MM/YYYY HH:MM). */
+// Locked to Europe/London so timestamps render consistently regardless
+// of where the code runs. Server components on Vercel execute in UTC,
+// which previously meant a 09:30 BST event rendered as "08:30" in the
+// admin — exactly one hour behind what UK trustees expected. The
+// Intl formatter respects BST/GMT transitions automatically (no
+// manual offset math). Cached module-level so we don't rebuild the
+// formatter on every call.
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "Europe/London",
+});
+
+const DATE_ONLY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Europe/London",
+});
+
+/** UK-format an ISO date for display (DD/MM/YYYY HH:MM in Europe/London). */
 export function formatAdminDate(iso: string): string {
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  // en-GB with both date + time pieces emits "DD/MM/YYYY, HH:MM" with
+  // a comma — strip it so the rendered shape matches the previous
+  // hand-rolled formatter exactly. Every page that calls this assumes
+  // the comma-less layout (and lots of existing screenshots / mocks
+  // reference it), so preserving format is the lowest-risk change.
+  return DATE_TIME_FORMATTER.format(new Date(iso)).replace(", ", " ");
 }
 
 export function formatAdminDateOnly(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  return DATE_ONLY_FORMATTER.format(new Date(iso));
 }
