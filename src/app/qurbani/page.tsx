@@ -279,26 +279,22 @@ export default function QurbaniPage() {
             the donor sees evidence the Qurbani actually happened,
             not a stock-photo promise.
 
-            bg-charcoal: a deliberate dark "evidence" moment. The
-            section above (Where Your Qurbani Goes) is cream and the
-            Delivery Assurance section below is white — a dark band
-            between them avoids any same-tone adjacency entirely AND
-            makes the field media pop, framing the proof as a
-            weighty, distinct beat in the page rhythm. Mirrors the
-            dark final-CTA section's place in the design system. */}
+            bg-white: part of the page's cream/white alternation —
+            cream (Where Your Qurbani Goes) → white (here) → cream
+            (How We Deliver) → white (FAQ). */}
         <section
           data-track-section="field_evidence"
-          className="py-16 md:py-24 bg-charcoal"
+          className="py-16 md:py-24 bg-white"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-amber mb-3">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
                 Field Evidence
               </span>
-              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-white leading-tight mb-3">
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
                 Qurbani 2026 in Syria
               </h2>
-              <p className="text-white/65 text-base sm:text-[1.0625rem] leading-[1.7]">
+              <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 Footage and photographs from this year&apos;s Qurbani
                 dispatch in Syria — performed locally and delivered
                 hand-to-hand to families in conflict-affected regions.
@@ -307,7 +303,7 @@ export default function QurbaniPage() {
 
             {/* Dispatch video — poster-first via LazyVideo so the
                 file only downloads when the donor taps play. */}
-            <div className="relative rounded-2xl overflow-hidden aspect-video max-w-3xl mx-auto mb-6 bg-black">
+            <div className="relative rounded-2xl overflow-hidden aspect-video max-w-3xl mx-auto mb-6 bg-charcoal">
               <LazyVideo
                 src="/videos/qurbani-syria-2026.mp4"
                 poster="/videos/qurbani-syria-2026-poster.jpg"
@@ -320,7 +316,7 @@ export default function QurbaniPage() {
 
             {/* Two field photographs from the same dispatch. */}
             <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
-              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-black/40">
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-cream">
                 <Image
                   src="/images/qurbani-syria-field-a.webp"
                   alt="Deen Relief field team with Qurbani 2026 meat parcels prepared for distribution in Syria"
@@ -330,7 +326,7 @@ export default function QurbaniPage() {
                 />
                 <ProofTag location="Syria" date="Qurbani 2026" />
               </div>
-              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-black/40">
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-cream">
                 <Image
                   src="/images/qurbani-syria-field-b.webp"
                   alt="Qurbani 2026 meat reaching a family in need in Syria, delivered hand-to-hand by the Deen Relief team"
@@ -345,11 +341,11 @@ export default function QurbaniPage() {
         </section>
 
         {/* ─── 6. Delivery Assurance ─── */}
-        {/* bg-white — alternates cleanly from the dark Field Evidence
-            band above and the cream FAQ below. */}
+        {/* bg-cream — keeps the cream/white alternation: white Field
+            Evidence above, white FAQ below. */}
         <section
           data-track-section="delivery_assurance"
-          className="py-16 md:py-24 bg-white"
+          className="py-16 md:py-24 bg-cream"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12">
@@ -401,7 +397,7 @@ export default function QurbaniPage() {
         {/* ─── 7. FAQ ─── */}
         <section
           data-track-section="faq"
-          className="py-16 md:py-24 bg-cream"
+          className="py-16 md:py-24 bg-white"
         >
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
