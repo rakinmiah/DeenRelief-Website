@@ -273,11 +273,13 @@ export default function QurbaniPage() {
         </section>
 
         {/* ─── 5. Field Evidence — Qurbani in Syria ─── */}
-        {/* Real dispatch footage + photographs from the 2026 Syria
-            Qurbani. Core to the "Proof & Proximity" brand — every
-            asset carries a ProofTag with location + appeal year so
-            the donor sees evidence the Qurbani actually happened,
-            not a stock-photo promise.
+        {/* Real footage + photographs from the 2025 Syria Qurbani.
+            Core to the "Proof & Proximity" brand — every asset
+            carries a ProofTag with location + appeal year so the
+            donor sees evidence the Qurbani actually happened, not a
+            stock-photo promise. Like the Bangladesh 2024 video
+            elsewhere on the page, this is prior-year evidence shown
+            on the current (2026) appeal.
 
             bg-white: part of the page's cream/white alternation —
             cream (Where Your Qurbani Goes) → white (here) → cream
@@ -292,10 +294,10 @@ export default function QurbaniPage() {
                 Field Evidence
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                Qurbani 2026 in Syria
+                Qurbani 2025 in Syria
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-                Footage and photographs from this year&apos;s Qurbani
+                Footage and photographs from last year&apos;s Qurbani
                 dispatch in Syria — performed locally and delivered
                 hand-to-hand to families in conflict-affected regions.
               </p>
@@ -305,13 +307,13 @@ export default function QurbaniPage() {
                 file only downloads when the donor taps play. */}
             <div className="relative rounded-2xl overflow-hidden aspect-video max-w-3xl mx-auto mb-6 bg-charcoal">
               <LazyVideo
-                src="/videos/qurbani-syria-2026.mp4"
-                poster="/videos/qurbani-syria-2026-poster.jpg"
-                alt="Deen Relief Qurbani 2026 dispatch in Syria — field footage of meat distribution to families"
+                src="/videos/qurbani-syria-2025.mp4"
+                poster="/videos/qurbani-syria-2025-poster.jpg"
+                alt="Field footage from Deen Relief's 2025 Qurbani in Syria"
                 posterSizes="(min-width: 768px) 768px, 100vw"
                 posterObjectPosition="center 50%"
               />
-              <ProofTag location="Syria" date="Qurbani 2026" />
+              <ProofTag location="Syria" date="Qurbani 2025" />
             </div>
 
             {/* Two field photographs from the same dispatch. */}
@@ -319,22 +321,22 @@ export default function QurbaniPage() {
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-cream">
                 <Image
                   src="/images/qurbani-syria-field-a.webp"
-                  alt="Deen Relief field team with Qurbani 2026 meat parcels prepared for distribution in Syria"
+                  alt="A Deen Relief field worker holding a banner among a flock of sheep gathered for the 2025 Qurbani in Syria"
                   fill
                   className="object-cover"
                   sizes="(min-width: 640px) 50vw, 100vw"
                 />
-                <ProofTag location="Syria" date="Qurbani 2026" />
+                <ProofTag location="Syria" date="Qurbani 2025" />
               </div>
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-cream">
                 <Image
                   src="/images/qurbani-syria-field-b.webp"
-                  alt="Qurbani 2026 meat reaching a family in need in Syria, delivered hand-to-hand by the Deen Relief team"
+                  alt="A Deen Relief field worker tending sheep gathered for the 2025 Qurbani in Syria"
                   fill
                   className="object-cover"
                   sizes="(min-width: 640px) 50vw, 100vw"
                 />
-                <ProofTag location="Syria" date="Qurbani 2026" />
+                <ProofTag location="Syria" date="Qurbani 2025" />
               </div>
             </div>
           </div>
