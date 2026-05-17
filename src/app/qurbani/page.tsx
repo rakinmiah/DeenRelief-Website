@@ -272,13 +272,81 @@ export default function QurbaniPage() {
           </div>
         </section>
 
-        {/* ─── 5. Delivery Assurance ─── */}
-        {/* bg-white (was cream) — Field Evidence section above was removed,
-            so the previous Where-Your-Qurbani-Goes (cream) would now be
-            adjacent to a second cream block, breaking the design system's
-            no-consecutive-cream rule. White preserves alternation; FAQ
-            below is also white but uses a different layout, which is
-            permitted per the system. */}
+        {/* ─── 5. Field Evidence — Qurbani in Syria ─── */}
+        {/* Real dispatch footage + photographs from the 2026 Syria
+            Qurbani. Core to the "Proof & Proximity" brand — every
+            asset carries a ProofTag with location + appeal year so
+            the donor sees evidence the Qurbani actually happened,
+            not a stock-photo promise.
+
+            bg-charcoal: a deliberate dark "evidence" moment. The
+            section above (Where Your Qurbani Goes) is cream and the
+            Delivery Assurance section below is white — a dark band
+            between them avoids any same-tone adjacency entirely AND
+            makes the field media pop, framing the proof as a
+            weighty, distinct beat in the page rhythm. Mirrors the
+            dark final-CTA section's place in the design system. */}
+        <section
+          data-track-section="field_evidence"
+          className="py-16 md:py-24 bg-charcoal"
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-amber mb-3">
+                Field Evidence
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-heading font-bold text-white leading-tight mb-3">
+                Qurbani 2026 in Syria
+              </h2>
+              <p className="text-white/65 text-base sm:text-[1.0625rem] leading-[1.7]">
+                Footage and photographs from this year&apos;s Qurbani
+                dispatch in Syria — performed locally and delivered
+                hand-to-hand to families in conflict-affected regions.
+              </p>
+            </div>
+
+            {/* Dispatch video — poster-first via LazyVideo so the
+                file only downloads when the donor taps play. */}
+            <div className="relative rounded-2xl overflow-hidden aspect-video max-w-3xl mx-auto mb-6 bg-black">
+              <LazyVideo
+                src="/videos/qurbani-syria-2026.mp4"
+                poster="/videos/qurbani-syria-2026-poster.jpg"
+                alt="Deen Relief Qurbani 2026 dispatch in Syria — field footage of meat distribution to families"
+                posterSizes="(min-width: 768px) 768px, 100vw"
+                posterObjectPosition="center 50%"
+              />
+              <ProofTag location="Syria" date="Qurbani 2026" />
+            </div>
+
+            {/* Two field photographs from the same dispatch. */}
+            <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-black/40">
+                <Image
+                  src="/images/qurbani-syria-field-a.webp"
+                  alt="Deen Relief field team with Qurbani 2026 meat parcels prepared for distribution in Syria"
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 640px) 50vw, 100vw"
+                />
+                <ProofTag location="Syria" date="Qurbani 2026" />
+              </div>
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-black/40">
+                <Image
+                  src="/images/qurbani-syria-field-b.webp"
+                  alt="Qurbani 2026 meat reaching a family in need in Syria, delivered hand-to-hand by the Deen Relief team"
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 640px) 50vw, 100vw"
+                />
+                <ProofTag location="Syria" date="Qurbani 2026" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 6. Delivery Assurance ─── */}
+        {/* bg-white — alternates cleanly from the dark Field Evidence
+            band above and the cream FAQ below. */}
         <section
           data-track-section="delivery_assurance"
           className="py-16 md:py-24 bg-white"
