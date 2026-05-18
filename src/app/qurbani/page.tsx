@@ -97,10 +97,10 @@ export default function QurbaniPage() {
         <section className="relative md:min-h-[80vh] md:flex md:items-end mt-[60px] md:mt-[64px]">
           <div className="absolute inset-0 z-0">
             <Image
-              src="/images/qurbani-hero-v4.webp"
-              alt="A Deen Relief field worker with around twenty Bangladeshi children, alongside dozens of packed Qurbani aid parcels and food supplies ready for distribution"
+              src="/images/qurbani-hero-v5.webp"
+              alt="Six children in Bangladesh holding bags of Qurbani meat distributed by Deen Relief, with an elderly volunteer in a Deen Relief T-shirt standing behind them"
               fill
-              className="object-cover object-[center_40%]"
+              className="object-cover object-[center_45%]"
               priority
             />
             <div
@@ -331,7 +331,7 @@ export default function QurbaniPage() {
                 <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
                   <Image
                     src="/images/qurbani-bangladesh-field-a.webp"
-                    alt="Children in Bangladesh holding bags of Qurbani 2025 meat distributed by Deen Relief"
+                    alt="Children and elders in Bangladesh holding bags of Qurbani 2025 meat distributed by Deen Relief outside a community building"
                     fill
                     className="object-cover"
                     sizes="(min-width: 640px) 33vw, 100vw"
