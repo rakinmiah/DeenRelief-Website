@@ -100,7 +100,7 @@ export default function QurbaniPage() {
               src="/images/qurbani-hero-v5.webp"
               alt="Six children in Bangladesh holding bags of Qurbani meat distributed by Deen Relief, with an elderly volunteer in a Deen Relief T-shirt standing behind them"
               fill
-              className="object-cover object-[center_45%]"
+              className="object-cover object-[center_55%]"
               priority
             />
             <div
@@ -194,19 +194,19 @@ export default function QurbaniPage() {
                   Performed Locally, Distributed Locally
                 </h2>
 
-                {/* Mobile-only inline video — Bangladesh Qurbani 2024
-                    distribution by boat (rural villages reached during the
-                    monsoon Eid). Poster-first via LazyVideo: the 7.8 MB
-                    file only downloads when the donor taps play. */}
-                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/5] mb-6 bg-charcoal">
-                  <LazyVideo
-                    src="/videos/qurbani-bangladesh-2024.mp4"
-                    poster="/videos/qurbani-bangladesh-2024-poster.jpg"
-                    alt="Deen Relief team distributing Qurbani 2024 meat parcels by boat to families in rural Bangladesh"
-                    posterSizes="100vw"
-                    posterObjectPosition="center 50%"
+                {/* Mobile-only inline image — a girl and her grandmother
+                    with the Qurbani meat they received. Shown inline in
+                    the text column on mobile; the desktop layout carries
+                    the same image as its right-hand column. */}
+                <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/5] mb-6 bg-cream">
+                  <Image
+                    src="/images/qurbani-bangladesh-distribution.webp"
+                    alt="A young girl and an elderly woman in Bangladesh with the Qurbani 2025 meat they received from Deen Relief"
+                    fill
+                    className="object-cover"
+                    sizes="100vw"
                   />
-                  <ProofTag location="Bangladesh — Qurbani 2024" />
+                  <ProofTag location="Bangladesh" date="Qurbani 2025" />
                 </div>
 
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
@@ -255,18 +255,16 @@ export default function QurbaniPage() {
                 </div>
               </div>
 
-              {/* Desktop-only video — mobile has the inline video above.
-                  Same poster-first treatment so the file only downloads
-                  when the donor taps play. */}
-              <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px] bg-charcoal">
-                <LazyVideo
-                  src="/videos/qurbani-bangladesh-2024.mp4"
-                  poster="/videos/qurbani-bangladesh-2024-poster.jpg"
-                  alt="Deen Relief team distributing Qurbani 2024 meat parcels by boat to families in rural Bangladesh"
-                  posterSizes="50vw"
-                  posterObjectPosition="center 50%"
+              {/* Desktop-only image — mobile has the inline image above. */}
+              <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px] bg-cream">
+                <Image
+                  src="/images/qurbani-bangladesh-distribution.webp"
+                  alt="A young girl and an elderly woman in Bangladesh with the Qurbani 2025 meat they received from Deen Relief"
+                  fill
+                  className="object-cover"
+                  sizes="50vw"
                 />
-                <ProofTag location="Bangladesh — Qurbani 2024" />
+                <ProofTag location="Bangladesh" date="Qurbani 2025" />
               </div>
             </div>
           </div>
@@ -274,19 +272,17 @@ export default function QurbaniPage() {
 
         {/* ─── 5. Field Evidence — Qurbani 2025 ─── */}
         {/* Footage + photographs from our field teams during the
-            2025 Qurbani, across Bangladesh and Syria. Core to the
-            "Proof & Proximity" brand — every asset carries a
-            ProofTag with location + appeal year so the donor sees
-            evidence the Qurbani actually happened, not a stock-
-            photo promise. Prior-year evidence shown on the current
-            (2026) appeal, same as the Bangladesh 2024 video earlier
-            on the page.
+            2025 Qurbani. Core to the "Proof & Proximity" brand —
+            every asset carries a ProofTag with location + appeal
+            year so the donor sees evidence the Qurbani actually
+            happened, not a stock-photo promise. Prior-year evidence
+            shown on the current (2026) appeal.
 
-            Two country blocks, each a 3-up grid of square media
-            cards (one video + two photos). Square keeps the grid
-            uniform across mixed-orientation source media — the
-            portrait Bangladesh phone video and the landscape Syria
-            footage both crop cleanly via object-cover.
+            A single 3-up grid of square media cards: one video +
+            two photos. Square keeps the grid uniform across the
+            mixed-orientation sources — the portrait Bangladesh
+            phone video and the landscape Syria photo both crop
+            cleanly via object-cover.
 
             bg-white: part of the page's cream/white alternation —
             cream (Where Your Qurbani Goes) → white (here) → cream
@@ -305,88 +301,47 @@ export default function QurbaniPage() {
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
                 Footage and photographs from last year&apos;s Qurbani —
-                meat distributed in Bangladesh and livestock prepared
-                in Syria, recorded by our teams on the ground.
+                meat distributed to families in Bangladesh and
+                livestock prepared in Syria, recorded by our teams on
+                the ground.
               </p>
             </div>
 
-            {/* Bangladesh block. */}
-            <div className="mb-10">
-              <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/50 mb-3">
-                Bangladesh — distribution to families in flood-affected villages
-              </p>
-              <div className="grid sm:grid-cols-3 gap-4">
-                {/* Video — poster-first via LazyVideo so the file
-                    only downloads when the visitor taps play. */}
-                <div className="relative rounded-2xl overflow-hidden aspect-square bg-charcoal">
-                  <LazyVideo
-                    src="/videos/qurbani-bangladesh-2025.mp4"
-                    poster="/videos/qurbani-bangladesh-2025-poster.jpg"
-                    alt="Deen Relief volunteers distributing Qurbani 2025 meat to children in Bangladesh"
-                    posterSizes="(min-width: 640px) 33vw, 100vw"
-                    posterObjectPosition="center 45%"
-                  />
-                  <ProofTag location="Bangladesh" date="Qurbani 2025" />
-                </div>
-                <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
-                  <Image
-                    src="/images/qurbani-bangladesh-field-a.webp"
-                    alt="Children and elders in Bangladesh holding bags of Qurbani 2025 meat distributed by Deen Relief outside a community building"
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 640px) 33vw, 100vw"
-                  />
-                  <ProofTag location="Bangladesh" date="Qurbani 2025" />
-                </div>
-                <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
-                  <Image
-                    src="/images/qurbani-bangladesh-field-b.webp"
-                    alt="A young girl and an elderly woman in Bangladesh with the Qurbani 2025 meat they received from Deen Relief"
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 640px) 33vw, 100vw"
-                  />
-                  <ProofTag location="Bangladesh" date="Qurbani 2025" />
-                </div>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {/* Bangladesh distribution video — poster-first via
+                  LazyVideo so the file only downloads when the
+                  visitor taps play. */}
+              <div className="relative rounded-2xl overflow-hidden aspect-square bg-charcoal">
+                <LazyVideo
+                  src="/videos/qurbani-bangladesh-2025.mp4"
+                  poster="/videos/qurbani-bangladesh-2025-poster.jpg"
+                  alt="Deen Relief volunteers delivering Qurbani 2025 meat to a family at their flood-affected home in Bangladesh"
+                  posterSizes="(min-width: 640px) 33vw, 100vw"
+                  posterObjectPosition="center 45%"
+                />
+                <ProofTag location="Bangladesh" date="Qurbani 2025" />
               </div>
-            </div>
-
-            {/* Syria block. */}
-            <div>
-              <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/50 mb-3">
-                Syria — livestock gathered and prepared for Qurbani
-              </p>
-              <div className="grid sm:grid-cols-3 gap-4">
-                <div className="relative rounded-2xl overflow-hidden aspect-square bg-charcoal">
-                  <LazyVideo
-                    src="/videos/qurbani-syria-2025.mp4"
-                    poster="/videos/qurbani-syria-2025-poster.jpg"
-                    alt="Field footage from Deen Relief's 2025 Qurbani in Syria"
-                    posterSizes="(min-width: 640px) 33vw, 100vw"
-                    posterObjectPosition="center 50%"
-                  />
-                  <ProofTag location="Syria" date="Qurbani 2025" />
-                </div>
-                <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
-                  <Image
-                    src="/images/qurbani-syria-field-a.webp"
-                    alt="A Deen Relief field worker among sheep gathered for the 2025 Qurbani in Syria"
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 640px) 33vw, 100vw"
-                  />
-                  <ProofTag location="Syria" date="Qurbani 2025" />
-                </div>
-                <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
-                  <Image
-                    src="/images/qurbani-syria-field-b.webp"
-                    alt="Sheep gathered for the 2025 Qurbani at a Deen Relief site in Syria"
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 640px) 33vw, 100vw"
-                  />
-                  <ProofTag location="Syria" date="Qurbani 2025" />
-                </div>
+              {/* Bangladesh photo. */}
+              <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
+                <Image
+                  src="/images/qurbani-bangladesh-field-a.webp"
+                  alt="Children and elders in Bangladesh holding bags of Qurbani 2025 meat distributed by Deen Relief outside a community building"
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 640px) 33vw, 100vw"
+                />
+                <ProofTag location="Bangladesh" date="Qurbani 2025" />
+              </div>
+              {/* Syria photo. */}
+              <div className="relative rounded-2xl overflow-hidden aspect-square bg-cream">
+                <Image
+                  src="/images/qurbani-syria-field-a.webp"
+                  alt="A Deen Relief field worker among sheep gathered for the 2025 Qurbani in Syria"
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 640px) 33vw, 100vw"
+                />
+                <ProofTag location="Syria" date="Qurbani 2025" />
               </div>
             </div>
           </div>
