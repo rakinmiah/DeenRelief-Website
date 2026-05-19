@@ -104,6 +104,29 @@ export default function ConsentBootstrap() {
                 }
               }
               gtag('js', new Date());
+              // Consent Mode v2 ad-tracking durability. We default
+              // analytics_storage + ad_storage to denied, so a donor
+              // who hasn't accepted cookies has nowhere to STORE the
+              // Google click id (gclid/gbraid/wbraid). Without these
+              // two flags the click id is lost the moment they leave
+              // the ad landing page — and the donation that follows
+              // (which completes on /donate/thank-you, after a
+              // 3-D Secure redirect) reports no source, surfacing as
+              // "data not available" in GA4 acquisition reports.
+              //
+              //   url_passthrough  — carries the click id forward in
+              //     the URL across navigations + the Stripe redirect
+              //     when cookies aren't available, so the conversion
+              //     still attributes to google / cpc.
+              //   ads_data_redaction — redacts ad identifiers from
+              //     network requests while ad_storage is denied;
+              //     Google's recommended companion to url_passthrough.
+              //
+              // Both must be set BEFORE config() fires. They are
+              // Consent-Mode-aware: when the donor DOES grant
+              // consent, gtag reverts to normal cookie-based linking.
+              gtag('set', 'url_passthrough', true);
+              gtag('set', 'ads_data_redaction', true);
               gtag('config', '${measurementId}', { anonymize_ip: true });
               ${
                 googleAdsId
