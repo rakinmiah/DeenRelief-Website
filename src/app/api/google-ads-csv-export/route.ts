@@ -16,9 +16,17 @@
  *                              processing window) to csv_uploaded_at, and
  *                              resets rows stuck > 24h back to the queue.
  *
- * Auth: token in query string only. Returns 404 (not 401) on mismatch so
- *       the endpoint can't be enumerated. No Bearer header check — Google's
- *       fetcher can't send custom headers.
+ * Auth: TWO accepted paths, either is sufficient:
+ *   1. ?token=… in the URL — matched against GOOGLE_ADS_CSV_TOKEN. Used by
+ *      the internal commit cron in vercel.json (which can't easily inject
+ *      a custom Authorization header).
+ *   2. HTTP Basic auth — `Authorization: Basic base64(user:pass)`, matched
+ *      against GOOGLE_ADS_CSV_USER + GOOGLE_ADS_CSV_PASS. Used by the
+ *      Google Ads Data Manager HTTPS connector, which exposes username
+ *      and password fields in its UI but not a "custom query string"
+ *      affordance.
+ * Both comparisons are timing-safe. Returns 404 (not 401) on mismatch so
+ * the endpoint can't be enumerated.
  *
  * The route is intentionally NOT under /api/cron/* because Vercel cron's
  * Bearer header would conflict with the public-poll model. The internal
@@ -76,7 +84,13 @@ export async function GET(request: Request) {
   const providedToken = url.searchParams.get("token") ?? "";
   const phase = url.searchParams.get("phase") ?? "fetch";
 
-  if (!verifyToken(providedToken)) {
+  // Either auth path is sufficient — see the file docstring. Token check
+  // runs first because it's cheaper (no header parsing) and covers the
+  // internal commit cron's hot path; basic-auth check is the fallback for
+  // external HTTPS connectors that use standard Authorization headers.
+  const tokenOk = providedToken !== "" && verifyToken(providedToken);
+  const basicOk = !tokenOk && verifyBasicAuth(request);
+  if (!tokenOk && !basicOk) {
     // 404, not 401 — don't advertise that this endpoint exists.
     return notFound();
   }
@@ -108,6 +122,54 @@ function verifyToken(provided: string): boolean {
   // knows the length is wrong if they sent the wrong-length token).
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+// ─── Basic-auth verification ───────────────────────────────────────────────
+//
+// Alternative to ?token=… for callers that prefer / require standard
+// Basic auth — specifically the Google Ads Data Manager HTTPS connector,
+// which exposes username + password form fields but no obvious affordance
+// for "append a token to the query string."
+//
+// Returns false on any malformed header, missing env, or mismatch — the
+// caller treats false as 404 so we don't leak which auth path failed.
+// Comparisons are constant-time on both username and password to avoid
+// length / contents side-channels.
+
+function verifyBasicAuth(request: Request): boolean {
+  const expectedUser = process.env.GOOGLE_ADS_CSV_USER;
+  const expectedPass = process.env.GOOGLE_ADS_CSV_PASS;
+  if (!expectedUser || !expectedPass) return false;
+
+  const header = request.headers.get("authorization") ?? "";
+  if (!header.toLowerCase().startsWith("basic ")) return false;
+
+  let decoded: string;
+  try {
+    decoded = Buffer.from(header.slice(6).trim(), "base64").toString("utf8");
+  } catch {
+    return false;
+  }
+
+  const colonIdx = decoded.indexOf(":");
+  if (colonIdx < 0) return false;
+  const providedUser = decoded.slice(0, colonIdx);
+  const providedPass = decoded.slice(colonIdx + 1);
+
+  return (
+    constantTimeStringEqual(providedUser, expectedUser) &&
+    constantTimeStringEqual(providedPass, expectedPass)
+  );
+}
+
+function constantTimeStringEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  // Length mismatch can't be hidden from timingSafeEqual (it throws on
+  // unequal buffers). Short-circuit on length, then constant-time on
+  // contents.
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
 }
 
 // ─── Phase: fetch ──────────────────────────────────────────────────────────
