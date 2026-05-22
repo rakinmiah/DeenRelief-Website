@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
 import {
   fetchAdminDonationById,
+  fetchQurbaniOrderDetails,
   formatAdminDate,
   type AdminDonationStatus,
 } from "@/lib/admin-donations";
@@ -59,6 +60,16 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
   // either way and only shows the history list when something's
   // been sent.
   const messageHistory = await fetchDonationMessages(donation.id);
+
+  // Qurbani fulfilment details (country / animal / names the Qurbani is
+  // performed in). Stored on the Stripe PaymentIntent metadata, not our
+  // DB — fetched live so it works for every Qurbani order without a
+  // migration or backfill. Null for non-Qurbani donations (we skip the
+  // Stripe call entirely) or if the metadata isn't present.
+  const qurbaniDetails =
+    donation.campaign === "qurbani" && donation.stripePaymentIntent
+      ? await fetchQurbaniOrderDetails(donation.stripePaymentIntent)
+      : null;
 
   const totalWithGiftAid =
     donation.amountPence + donation.giftAidReclaimablePence;
@@ -127,6 +138,65 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
               </div>
             </dl>
           </section>
+
+          {/* Qurbani order — fulfilment details. Only renders for
+              Qurbani donations (country / animal / names the Qurbani is
+              performed in). Placed high in the column because it's the
+              information the fulfilment team acts on. Amber-accented to
+              stand out as an action item, not just a record. */}
+          {qurbaniDetails && (
+            <section className="bg-white border border-amber/40 rounded-2xl p-5 sm:p-6">
+              <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-amber-dark mb-3">
+                Qurbani order
+              </h2>
+              <dl className="space-y-2.5 text-sm">
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">
+                    Country
+                  </dt>
+                  <dd className="text-charcoal font-medium">
+                    {qurbaniDetails.country}
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">
+                    Animal
+                  </dt>
+                  <dd className="text-charcoal">
+                    {qurbaniDetails.animal}
+                    <span className="text-charcoal/50">
+                      {" "}· {qurbaniDetails.shares}{" "}
+                      {qurbaniDetails.shares === 1 ? "share" : "shares"}
+                    </span>
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-0.5 sm:grid sm:grid-cols-[140px_1fr] sm:gap-3">
+                  <dt className="text-[11px] uppercase tracking-wider font-bold text-charcoal/40 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-charcoal/60">
+                    Performed for
+                  </dt>
+                  <dd className="text-charcoal">
+                    {qurbaniDetails.names.length > 0 ? (
+                      <ol className="space-y-1">
+                        {qurbaniDetails.names.map((name, i) => (
+                          <li key={`${name}-${i}`} className="flex gap-2">
+                            <span className="text-charcoal/40 tabular-nums">
+                              {i + 1}.
+                            </span>
+                            <span className="font-medium">{name}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <span className="text-charcoal/60 italic">
+                        No names provided — perform in the donor&apos;s own
+                        name ({donation.donorName}).
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          )}
 
           {/* Allocation */}
           <section className="bg-white border border-charcoal/10 rounded-2xl p-5 sm:p-6">
