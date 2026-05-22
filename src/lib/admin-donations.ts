@@ -26,6 +26,8 @@
  */
 
 import { getSupabaseAdmin } from "./supabase";
+import { stripe } from "./stripe";
+import { describeQurbaniProduct } from "./qurbani";
 
 export type AdminDonationStatus =
   | "pending"
@@ -730,4 +732,83 @@ export function formatAdminDate(iso: string): string {
 
 export function formatAdminDateOnly(iso: string): string {
   return DATE_ONLY_FORMATTER.format(new Date(iso));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Qurbani order details
+// ─────────────────────────────────────────────────────────────────
+
+export interface QurbaniOrderDetails {
+  /** Raw product id, e.g. "bd-cow". */
+  productId: string;
+  /** Country the Qurbani is performed in. */
+  country: string;
+  /** Animal label ("Sheep" / "Cow" / "Half Cow" / "Goat"). */
+  animal: string;
+  /** Number of Islamic shares for this product. */
+  shares: number;
+  /** Names the Qurbani is to be performed in. Empty = the donor's own
+   *  name (they left the names section blank). */
+  names: string[];
+}
+
+/**
+ * Fetch the Qurbani-specific details for a donation.
+ *
+ * Why read from Stripe rather than our own DB: the Qurbani product id +
+ * names are written to the PaymentIntent metadata at /api/donations/confirm
+ * but never persisted to the donations table (the webhook only reads them
+ * transiently for the receipt email). They live on the PaymentIntent for
+ * every Qurbani donation — past and future — so a live read surfaces them
+ * for ALL existing orders with no schema migration and no backfill.
+ *
+ * Qurbani is one-time only, so the relevant intent is always a
+ * PaymentIntent (never a SetupIntent). Pass the donation's
+ * stripePaymentIntent. Returns null when the PI has no Qurbani metadata
+ * (i.e. it isn't a Qurbani donation) or on any Stripe error — the caller
+ * just doesn't render the Qurbani section in that case.
+ *
+ * Cost: one Stripe paymentIntents.retrieve per call. Only invoked on the
+ * donation detail page for campaign === "qurbani" rows, so volume is low.
+ */
+export async function fetchQurbaniOrderDetails(
+  paymentIntentId: string
+): Promise<QurbaniOrderDetails | null> {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const productId = pi.metadata?.qurbani_product_id;
+    if (!productId) return null;
+
+    const product = describeQurbaniProduct(productId);
+    if (!product) return null;
+
+    let names: string[] = [];
+    const rawNames = pi.metadata?.qurbani_names;
+    if (rawNames) {
+      try {
+        const parsed = JSON.parse(rawNames);
+        if (Array.isArray(parsed)) {
+          names = parsed.filter(
+            (n): n is string => typeof n === "string" && n.trim().length > 0
+          );
+        }
+      } catch {
+        // Malformed metadata — treat as no names rather than erroring.
+      }
+    }
+
+    return {
+      productId,
+      country: product.country,
+      animal: product.animal,
+      shares: product.shares,
+      names,
+    };
+  } catch (err) {
+    console.error(
+      "[admin-donations] fetchQurbaniOrderDetails failed:",
+      err
+    );
+    return null;
+  }
 }
