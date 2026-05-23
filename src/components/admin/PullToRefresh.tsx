@@ -142,6 +142,17 @@ export default function PullToRefresh({
   const spinnerRotation = refreshing ? 0 : (pull / PULL_THRESHOLD_PX) * 360;
   const spinnerOpacity = Math.min(1, pull / 32) || (refreshing ? 1 : 0);
 
+  // How far to push the content down. ZERO at rest — and crucially we
+  // must emit NO transform at all in that case, not `translateY(0px)`.
+  // Any transform value (even 0) makes this element the containing
+  // block for `position: fixed` descendants, which silently re-anchors
+  // every BottomSheet / modal opened from a page wrapped in
+  // PullToRefresh to the bottom of the (tall) page content instead of
+  // the viewport — the panel renders off-screen below the fold and the
+  // user sees only the dim backdrop ("transparent screen" bug).
+  const contentTranslateY = refreshing ? PULL_THRESHOLD_PX / 2 : pull / 2;
+  const isPulling = contentTranslateY > 0;
+
   return (
     <div
       onTouchStart={handleTouchStart}
@@ -183,11 +194,17 @@ export default function PullToRefresh({
       </div>
 
       {/* Page content. Translates down with the pull so the user
-          feels the rubber-band. Snaps back when released. */}
+          feels the rubber-band. Snaps back when released. The
+          transform is OMITTED entirely at rest (see contentTranslateY
+          note above) so it never becomes a fixed-positioning
+          containing block. */}
       <div
         style={{
-          transform: `translateY(${refreshing ? PULL_THRESHOLD_PX / 2 : pull / 2}px)`,
-          transition: refreshing || pull === 0 ? "transform 250ms ease-out" : "none",
+          transform: isPulling
+            ? `translateY(${contentTranslateY}px)`
+            : undefined,
+          transition:
+            refreshing || pull === 0 ? "transform 250ms ease-out" : "none",
         }}
       >
         {children}
