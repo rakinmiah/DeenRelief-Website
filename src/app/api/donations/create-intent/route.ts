@@ -5,11 +5,22 @@
  *   Creates a PaymentIntent, returns { clientSecret, paymentIntentId, mode: 'payment' }.
  *
  * Monthly:
- *   Creates (or reuses) a Stripe Customer and a SetupIntent attached to
- *   that customer, returns { clientSecret, setupIntentId, customerId,
- *   mode: 'setup' }. The actual recurring Subscription is created by the
- *   webhook handler on setup_intent.succeeded, once the payment method
- *   is confirmed attached.
+ *   Creates a Stripe Customer, a per-donation Product, and a Subscription
+ *   with payment_behavior: 'default_incomplete'. Stripe finalises the first
+ *   invoice immediately and creates a PaymentIntent for it; we return that
+ *   invoice's PaymentIntent client_secret as { clientSecret, paymentIntentId,
+ *   subscriptionId, customerId, mode: 'payment' }.
+ *
+ *   The client then confirms that PaymentIntent ON-SESSION via
+ *   stripe.confirmPayment() — which means any 3-D Secure / SCA challenge is
+ *   presented to the donor while they're present on the page. (The old flow
+ *   used a SetupIntent + off-session subscription charge, which silently
+ *   failed for cards that mandate 3DS on every transaction because the
+ *   challenge can't be completed off-session.)
+ *
+ *   When the first payment succeeds the subscription activates and Stripe
+ *   fires invoice.paid, where the webhook flips the donation to succeeded
+ *   and sends the receipt.
  *
  * Security:
  *   - Amount validated server-side against MIN/MAX bounds (clients can't
@@ -131,28 +142,74 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── Monthly: SetupIntent + Customer ──
-    // A fresh Customer per checkout; the Subscription is created later by
-    // the setup_intent.succeeded webhook. We don't yet know the donor's
-    // email, so we can't upsert a named Customer — that's fine, Stripe
-    // allows us to update it post-creation when /confirm arrives.
+    // ── Monthly: Customer + Product + default_incomplete Subscription ──
+    // A fresh Customer per checkout. We don't yet know the donor's email,
+    // so the Customer is anonymous for now; /confirm updates it with the
+    // donor's name + email once they submit the form.
     const customer = await stripe.customers.create({
       metadata: commonMetadata,
     });
 
-    const setupIntent = await stripe.setupIntents.create({
-      customer: customer.id,
-      automatic_payment_methods: { enabled: true },
-      usage: "off_session",
-      description: `Monthly donation setup — ${getCampaignLabel(campaign)}`,
-      metadata: commonMetadata,
+    // One Product per donation so the Stripe Dashboard shows the campaign
+    // name + amount on each subscription's line item.
+    const product = await stripe.products.create({
+      name: `Monthly donation — ${getCampaignLabel(campaign)}`,
+      metadata: { campaign, donation_amount_pence: String(amount) },
     });
 
+    // default_incomplete: Stripe creates + finalises the first invoice
+    // immediately and attaches a PaymentIntent, but does NOT attempt to
+    // charge it off-session. The subscription sits in `incomplete` until we
+    // confirm that PaymentIntent on-session from the client — at which point
+    // any SCA challenge runs with the donor present. Incomplete subscriptions
+    // auto-expire after ~23h, so amount edits (which create a fresh
+    // subscription each time) self-clean.
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [
+        {
+          price_data: {
+            currency: "gbp",
+            product: product.id,
+            unit_amount: amount,
+            recurring: { interval: "month" },
+          },
+        },
+      ],
+      payment_behavior: "default_incomplete",
+      // Persist the confirmed payment method as the subscription default so
+      // future renewals charge off-session without re-authentication.
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      metadata: commonMetadata,
+      // Pull the first invoice's confirmation secret back in one round-trip.
+      expand: ["latest_invoice.confirmation_secret"],
+    });
+
+    const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null;
+    const clientSecret = latestInvoice?.confirmation_secret?.client_secret;
+    if (!clientSecret) {
+      console.error(
+        `[create-intent] No confirmation_secret on subscription ${subscription.id} first invoice.`
+      );
+      return NextResponse.json(
+        { error: "Could not start payment. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    // The confirmation secret is a PaymentIntent client_secret of the form
+    // `pi_XXX_secret_YYY`; the id is everything before `_secret_`. We hand it
+    // to /confirm so the pending donation row can be keyed on the (unique)
+    // PaymentIntent id — stripe_subscription_id is non-unique because monthly
+    // renewals reuse it, so it can't be the upsert conflict target.
+    const paymentIntentId = clientSecret.split("_secret_")[0];
+
     return NextResponse.json({
-      clientSecret: setupIntent.client_secret,
-      setupIntentId: setupIntent.id,
+      clientSecret,
+      paymentIntentId,
+      subscriptionId: subscription.id,
       customerId: customer.id,
-      mode: "setup" as const,
+      mode: "payment" as const,
     });
   } catch (err) {
     console.error("[create-intent] Stripe error:", err);

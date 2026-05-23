@@ -1,18 +1,23 @@
 /**
- * /donate/thank-you?payment_intent=... (one-time)
- * /donate/thank-you?setup_intent=...   (monthly)
+ * /donate/thank-you?payment_intent=... (one-time AND monthly)
+ * /donate/thank-you?setup_intent=...   (legacy monthly — pre-SCA-refactor)
  *
- * Stripe redirects here after stripe.confirmPayment() / stripe.confirmSetup()
- * resolves. We:
- *   1. Read payment_intent or setup_intent from the URL
+ * Stripe redirects here after stripe.confirmPayment() resolves. We:
+ *   1. Read payment_intent (or, for legacy redirects, setup_intent) from URL
  *   2. Retrieve the intent server-side (source of truth, can't spoof)
- *   3. Show a summary based on its status
+ *   3. Cross-reference our donation row for campaign / frequency / Gift Aid
+ *   4. Show a summary based on its status
  *
- * For monthly flows the actual charge happens asynchronously — the webhook
- * creates the Subscription on setup_intent.succeeded and the first charge
- * fires invoice.paid shortly after. This page shows "processing" for the
- * first few seconds until the DB row catches up, then the success state
- * once the donation is marked succeeded.
+ * Monthly now uses a default_incomplete Subscription whose first invoice's
+ * PaymentIntent the donor confirms on-session — so monthly redirects carry
+ * `payment_intent`, same as one-time. The invoice PI does NOT inherit the
+ * subscription's campaign/frequency metadata, so we read those off the
+ * donation row (keyed by the PI id, written in /confirm) rather than the PI.
+ *
+ * The first charge is captured synchronously during confirmPayment, but the
+ * donation row flips to succeeded asynchronously via the invoice.paid
+ * webhook — so this page may briefly show "processing" until the row catches
+ * up, then the success state.
  *
  * noindex: we don't want these URLs (with intent IDs) in search results.
  */
@@ -55,7 +60,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
   let pathway: string | null = null;
 
   if (piId) {
-    // ── One-time path ──
+    // ── PaymentIntent path (one-time AND monthly first charge) ──
     try {
       const pi = await stripe.paymentIntents.retrieve(piId);
       status = pi.status;
@@ -68,14 +73,25 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       console.error("[thank-you] PI retrieve failed:", err);
     }
 
+    // Cross-reference the donation row. For monthly, the invoice PI carries
+    // none of our campaign/frequency metadata — the row is the source of
+    // truth (campaign label, frequency, Gift Aid, donor email).
     try {
       const supabase = getSupabaseAdmin();
       const { data } = await supabase
         .from("donations")
-        .select("gift_aid_claimed")
+        .select("gift_aid_claimed, frequency, campaign, campaign_label, donors(email)")
         .eq("stripe_payment_intent_id", piId)
         .maybeSingle();
-      giftAidClaimed = data?.gift_aid_claimed === true;
+      if (data) {
+        giftAidClaimed = data.gift_aid_claimed === true;
+        isMonthly = data.frequency === "monthly";
+        campaignSlug = campaignSlug ?? (data.campaign as string | null) ?? null;
+        campaignLabel = campaignLabel ?? (data.campaign_label as string | null) ?? null;
+        const donors = data.donors as { email?: string } | { email?: string }[] | undefined;
+        const donorRow = Array.isArray(donors) ? donors[0] : donors;
+        email = email ?? donorRow?.email ?? null;
+      }
     } catch (err) {
       console.error("[thank-you] donation lookup failed:", err);
     }
@@ -219,7 +235,7 @@ function SuccessState({
 
       <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-2 max-w-md mx-auto">
         {isMonthly
-          ? "Your monthly donation is set up. Your first charge is processing now — a receipt will arrive shortly, and each following month."
+          ? "Your monthly donation is set up and your first payment has gone through. A receipt is on its way, and you'll receive one each following month."
           : "Your donation has been received and will go directly to the people who need it most."}
       </p>
       {email && (
