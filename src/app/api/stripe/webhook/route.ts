@@ -15,10 +15,12 @@
  *   - payment_intent.succeeded  — one-time donation completed
  *   - payment_intent.payment_failed
  *   - charge.refunded           — mark donation refunded
- *   - setup_intent.succeeded    — monthly: payment method saved, create the
- *                                 Stripe Subscription now
- *   - invoice.paid              — monthly: each renewal. Month 1 fills in
- *                                 the pending row; months 2+ insert new rows.
+ *   - setup_intent.succeeded    — NO-OP. Monthly now creates the Subscription
+ *                                 up front (default_incomplete) and confirms
+ *                                 its first invoice PI on-session; SetupIntents
+ *                                 are no longer used.
+ *   - invoice.paid              — monthly: each charge. Month 1 fills in the
+ *                                 pending row; months 2+ insert new rows.
  *   - invoice.payment_failed    — monthly: mark renewal failed
  *
  * Next.js 15+ App Router: raw body via request.text() — do NOT parse as
@@ -204,16 +206,6 @@ async function findDonationByPi(
     if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, delayMs));
   }
   return null;
-}
-
-async function findDonationBySetupIntent(siId: string): Promise<DonationRow | null> {
-  const supabase = getSupabaseAdmin();
-  const { data } = await supabase
-    .from("donations")
-    .select("id, donor_id, amount_pence, campaign, campaign_label, frequency, gift_aid_claimed, gift_aid_declaration_id")
-    .eq("stripe_setup_intent_id", siId)
-    .maybeSingle();
-  return (data as DonationRow) ?? null;
 }
 
 async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
@@ -746,177 +738,27 @@ async function handleBazaarCheckoutExpired(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * setup_intent.succeeded: the donor's payment method is now attached to the
- * Stripe Customer. We create the Subscription using that payment method as
- * the default. Stripe will then generate the first invoice, charge it, and
- * fire invoice.paid — where we send the receipt and mark the donation
- * succeeded.
+ * setup_intent.succeeded — NO-OP under the current monthly flow.
+ *
+ * Monthly donations no longer use SetupIntents. The Subscription is created
+ * up front at /api/donations/create-intent with payment_behavior:
+ * 'default_incomplete', and the donor confirms its first invoice's
+ * PaymentIntent ON-SESSION (so 3-D Secure / SCA runs while they're present).
+ * Activation flows through invoice.paid, handled below.
+ *
+ * The previous implementation created the Subscription HERE with
+ * payment_behavior: 'error_if_incomplete' and an off-session first charge —
+ * which silently failed for any card mandating 3DS on every transaction
+ * (the challenge can't be completed off-session), marking the donation
+ * failed. That path is gone.
+ *
+ * We keep this handler registered only to swallow any stray/legacy
+ * setup_intent.succeeded events without error.
  */
 async function handleSetupIntentSucceeded(si: Stripe.SetupIntent) {
-  console.log(`[webhook] setup_intent.succeeded received for ${si.id}, campaign=${si.metadata?.campaign}, freq=${si.metadata?.frequency}`);
-
-  // Only act on setup intents we created (must have our campaign metadata).
-  if (!si.metadata?.campaign || si.metadata?.frequency !== "monthly") {
-    console.log(`[webhook] setup_intent ${si.id} not ours — skipping.`);
-    return;
-  }
-
-  const customerId =
-    typeof si.customer === "string" ? si.customer : si.customer?.id;
-  const paymentMethodId =
-    typeof si.payment_method === "string"
-      ? si.payment_method
-      : si.payment_method?.id;
-
-  if (!customerId || !paymentMethodId) {
-    const reason = `missing ${!customerId ? "customer" : "payment_method"}`;
-    console.error(
-      `[webhook] setup_intent ${si.id}: ${reason} — cannot create subscription.`
-    );
-    await notifySubscriptionFailure(si.id, reason, null);
-    return;
-  }
-
-  // Find the donation row we wrote in /confirm. Retry briefly in case of
-  // webhook/confirm race (same pattern as one-time).
-  let donation: DonationRow | null = null;
-  for (let attempt = 1; attempt <= 4; attempt++) {
-    donation = await findDonationBySetupIntent(si.id);
-    if (donation) break;
-    if (attempt < 4) await new Promise((r) => setTimeout(r, 400));
-  }
-  if (!donation) {
-    console.error(
-      `[webhook] donation row for setup_intent ${si.id} never appeared after 4 retries — cannot create subscription.`
-    );
-    await notifySubscriptionFailure(
-      si.id,
-      "donation row not found after 4 retries",
-      null
-    );
-    return;
-  }
-
-  console.log(`[webhook] setup_intent ${si.id}: matched donation ${donation.id}, amount=${donation.amount_pence}, campaign=${donation.campaign}`);
-
-  const amountPence = donation.amount_pence;
-  const campaignLabel = donation.campaign_label;
-  const supabase = getSupabaseAdmin();
-
-  // Create the Subscription. dahlia API requires a pre-existing Product ID
-  // for inline price_data on subscription items — we create one Product per
-  // donation so the Stripe Dashboard shows the campaign name + amount in
-  // each subscription's line item.
-  try {
-    const product = await stripe.products.create({
-      name: `Monthly donation — ${campaignLabel}`,
-      metadata: {
-        campaign: donation.campaign,
-        donation_id: donation.id,
-      },
-    });
-
-    console.log(`[webhook] setup_intent ${si.id}: created product ${product.id}, creating subscription...`);
-
-    // Carry pathway through from the SetupIntent metadata onto the
-    // Subscription so each renewal invoice's PI also surfaces it (Stripe
-    // copies subscription.metadata onto invoice → PI for charges).
-    const siPathway = (si.metadata?.pathway as string | undefined) ?? null;
-    const siPathwayLabel = (si.metadata?.pathway_label as string | undefined) ?? null;
-
-    const subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      default_payment_method: paymentMethodId,
-      items: [
-        {
-          price_data: {
-            currency: "gbp",
-            product: product.id,
-            unit_amount: amountPence,
-            recurring: { interval: "month" },
-          },
-        },
-      ],
-      metadata: {
-        campaign: donation.campaign,
-        campaign_label: campaignLabel,
-        frequency: "monthly",
-        donation_id: donation.id,
-        ...(siPathway ? { pathway: siPathway } : {}),
-        ...(siPathwayLabel ? { pathway_label: siPathwayLabel } : {}),
-      },
-      // Charge immediately. If the first charge fails, we'll get
-      // invoice.payment_failed and can surface it.
-      payment_behavior: "error_if_incomplete",
-    });
-
-    console.log(`[webhook] setup_intent ${si.id}: created subscription ${subscription.id} (status=${subscription.status})`);
-
-    // Record the subscription ID on the donation so invoice.paid for month 1
-    // can find + update this exact row (rather than creating a duplicate).
-    const { error: updErr } = await supabase
-      .from("donations")
-      .update({
-        stripe_subscription_id: subscription.id,
-      })
-      .eq("id", donation.id);
-
-    if (updErr) {
-      console.error(`[webhook] donation update with subscription ID failed:`, updErr);
-      throw new Error(`DB update failed after subscription creation: ${updErr.message}`);
-    }
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    console.error(`[webhook] Subscription creation failed for setup_intent ${si.id}:`, err);
-
-    // Mark the donation as failed and notify the charity so a human can
-    // follow up with the donor (Stripe won't retry error_if_incomplete).
-    await supabase
-      .from("donations")
-      .update({ status: "failed" })
-      .eq("id", donation.id);
-
-    await notifySubscriptionFailure(si.id, reason, donation.id);
-
-    // Rethrow so the webhook returns 500 and Stripe retries the event.
-    throw err;
-  }
-}
-
-/**
- * Fire a notification email to the charity's contact address when a monthly
- * subscription creation fails. Swallow send errors — we still want the
- * donation.status update and the thrown error to propagate.
- */
-async function notifySubscriptionFailure(
-  setupIntentId: string,
-  reason: string,
-  donationId: string | null
-) {
-  try {
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) return;
-    const to = process.env.CONTACT_EMAIL ?? "info@deenrelief.org";
-    const { Resend } = await import("resend");
-    const resend = new Resend(resendKey);
-    await resend.emails.send({
-      from: "Deen Relief Website <noreply@deenrelief.org>",
-      to,
-      subject: "ALERT: Monthly donation subscription failed to set up",
-      text: [
-        `A monthly donation SetupIntent succeeded but we could not create the subscription.`,
-        ``,
-        `SetupIntent: ${setupIntentId}`,
-        `Donation row: ${donationId ?? "(not found)"}`,
-        `Reason: ${reason}`,
-        ``,
-        `The donor's card was validated but no charge was made. They will NOT be billed and will NOT receive a receipt.`,
-        `Please check the donation row in Supabase, the SetupIntent in Stripe, and decide whether to contact the donor.`,
-      ].join("\n"),
-    });
-  } catch (err) {
-    console.error("[webhook] notifySubscriptionFailure failed:", err);
-  }
+  console.log(
+    `[webhook] setup_intent.succeeded ${si.id} received — no-op (monthly now uses default_incomplete subscriptions confirmed on-session).`
+  );
 }
 
 /**

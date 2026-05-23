@@ -2,14 +2,18 @@
  * POST /api/donations/confirm
  *
  * Stores donor + pending donation before the client calls stripe.confirmPayment
- * (one-time) or stripe.confirmSetup (monthly). NEVER marks status=succeeded —
- * that's the webhook's job, keyed on signed Stripe events.
+ * (both one-time and monthly confirm a PaymentIntent on-session). NEVER marks
+ * status=succeeded — that's the webhook's job, keyed on signed Stripe events.
  *
  * One-time: keyed by paymentIntentId. Webhook payment_intent.succeeded flips
  * the row to succeeded and sends the receipt.
  *
- * Monthly: keyed by setupIntentId. Webhook setup_intent.succeeded creates
- * the recurring Subscription. Subsequent invoice.paid events create new
+ * Monthly: the Subscription was already created (payment_behavior:
+ * default_incomplete) at /create-intent time. We key the pending row on the
+ * first invoice's paymentIntentId (the unique column) and also record the
+ * subscriptionId + customerId. The client then confirms that PaymentIntent
+ * on-session; webhook invoice.paid (month-1 branch) flips the row to
+ * succeeded and sends the receipt. Subsequent invoice.paid events create new
  * donation rows per renewal, reusing the donor + gift aid declaration.
  *
  * Gift Aid: if the donor ticks the box, we insert a gift_aid_declarations
@@ -28,10 +32,11 @@ import { type GiftAidScope } from "@/lib/gift-aid";
 import { QURBANI_NAME_MAX_LENGTH, getQurbaniShareCount } from "@/lib/qurbani";
 
 interface ConfirmBody {
-  // Exactly one of these is set, depending on frequency.
+  // One-time: paymentIntentId only.
+  // Monthly: paymentIntentId (first invoice PI) + subscriptionId + customerId.
   paymentIntentId?: string;
-  setupIntentId?: string;
-  customerId?: string;       // required when setupIntentId is set
+  subscriptionId?: string;   // required for monthly
+  customerId?: string;       // required for monthly
 
   campaign?: string;
   frequency?: "one-time" | "monthly";
@@ -81,7 +86,7 @@ export async function POST(request: Request) {
 
   const {
     paymentIntentId,
-    setupIntentId,
+    subscriptionId,
     customerId,
     campaign,
     frequency,
@@ -99,18 +104,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid frequency." }, { status: 400 });
   }
 
-  // One-time requires paymentIntentId; monthly requires setupIntentId + customerId.
-  if (frequency === "one-time") {
-    if (!paymentIntentId || typeof paymentIntentId !== "string") {
+  // One-time requires paymentIntentId; monthly requires the first invoice's
+  // paymentIntentId plus the subscriptionId + customerId created upfront.
+  if (!paymentIntentId || typeof paymentIntentId !== "string") {
+    return NextResponse.json(
+      { error: "paymentIntentId is required." },
+      { status: 400 }
+    );
+  }
+  if (frequency === "monthly") {
+    if (!subscriptionId || typeof subscriptionId !== "string") {
       return NextResponse.json(
-        { error: "paymentIntentId is required for one-time donations." },
-        { status: 400 }
-      );
-    }
-  } else {
-    if (!setupIntentId || typeof setupIntentId !== "string") {
-      return NextResponse.json(
-        { error: "setupIntentId is required for monthly donations." },
+        { error: "subscriptionId is required for monthly donations." },
         { status: 400 }
       );
     }
@@ -200,26 +205,30 @@ export async function POST(request: Request) {
       amountPence = pi.amount;
       livemode = pi.livemode;
     } else {
-      const si = await stripe.setupIntents.retrieve(setupIntentId!);
-      if (si.metadata?.campaign !== campaign) {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId!);
+      if (sub.metadata?.campaign !== campaign) {
         return NextResponse.json({ error: "Campaign mismatch." }, { status: 400 });
       }
-      const siCustomer = typeof si.customer === "string" ? si.customer : si.customer?.id;
-      if (siCustomer !== customerId) {
+      const subCustomer =
+        typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+      if (subCustomer !== customerId) {
         return NextResponse.json({ error: "Customer mismatch." }, { status: 400 });
       }
-      // SetupIntents have no amount — pull it from the metadata we set at
-      // create-intent time.
-      const meta = si.metadata?.amount_pence;
-      const parsed = meta ? Number(meta) : NaN;
-      if (!Number.isInteger(parsed) || parsed <= 0) {
+      // Amount: prefer the authoritative subscription line item; fall back to
+      // the amount_pence metadata we stamped at create-intent time.
+      const itemAmount = sub.items?.data?.[0]?.price?.unit_amount ?? null;
+      const metaAmount = sub.metadata?.amount_pence
+        ? Number(sub.metadata.amount_pence)
+        : NaN;
+      const resolved = itemAmount ?? metaAmount;
+      if (!Number.isInteger(resolved) || resolved <= 0) {
         return NextResponse.json(
           { error: "Could not determine amount for monthly donation." },
           { status: 400 }
         );
       }
-      amountPence = parsed;
-      livemode = si.livemode;
+      amountPence = resolved;
+      livemode = sub.livemode;
     }
   } catch (err) {
     console.error("[confirm] Intent retrieve failed:", err);
@@ -374,19 +383,19 @@ export async function POST(request: Request) {
     ad_storage_consent: consent?.ad_storage ?? null,
     ad_user_data_consent: consent?.ad_user_data ?? null,
   };
-  if (frequency === "one-time") {
-    donationRow.stripe_payment_intent_id = paymentIntentId;
-  } else {
-    donationRow.stripe_setup_intent_id = setupIntentId;
+  // Both frequencies key on the (unique) PaymentIntent id. For monthly we
+  // also record the subscription + customer so webhook invoice.paid (month-1
+  // branch) can find this pending row by stripe_subscription_id, and so
+  // future renewals copy donor/declaration info from it.
+  donationRow.stripe_payment_intent_id = paymentIntentId;
+  if (frequency === "monthly") {
+    donationRow.stripe_subscription_id = subscriptionId;
     donationRow.stripe_customer_id = customerId;
   }
 
-  const conflictCol =
-    frequency === "one-time" ? "stripe_payment_intent_id" : "stripe_setup_intent_id";
-
   const { error: donationErr } = await supabase
     .from("donations")
-    .upsert(donationRow, { onConflict: conflictCol });
+    .upsert(donationRow, { onConflict: "stripe_payment_intent_id" });
 
   if (donationErr) {
     console.error("[confirm] Donation insert failed:", donationErr);

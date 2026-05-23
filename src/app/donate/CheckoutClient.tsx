@@ -105,9 +105,12 @@ export default function CheckoutClient({
   const [amountGbp, setAmountGbp] = useState<number>(initialAmountGbp);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const [setupIntentId, setSetupIntentId] = useState<string | null>(null);
+  // Monthly only — the Subscription (default_incomplete) + Customer created
+  // up front at /create-intent. Null for one-time. Both frequencies confirm
+  // a PaymentIntent on-session; monthly's PI belongs to the subscription's
+  // first invoice.
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
-  const [mode, setMode] = useState<"payment" | "setup">("payment");
   const [intentError, setIntentError] = useState<string | null>(null);
   const [intentLoading, setIntentLoading] = useState<boolean>(true);
 
@@ -146,16 +149,12 @@ export default function CheckoutClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start payment.");
       setClientSecret(data.clientSecret);
-      setMode(data.mode);
-      if (data.mode === "payment") {
-        setPaymentIntentId(data.paymentIntentId);
-        setSetupIntentId(null);
-        setCustomerId(null);
-      } else {
-        setSetupIntentId(data.setupIntentId);
-        setCustomerId(data.customerId);
-        setPaymentIntentId(null);
-      }
+      // Both one-time and monthly return a PaymentIntent client_secret +
+      // paymentIntentId. Monthly additionally returns the subscription +
+      // customer created up front (null on one-time).
+      setPaymentIntentId(data.paymentIntentId ?? null);
+      setSubscriptionId(data.subscriptionId ?? null);
+      setCustomerId(data.customerId ?? null);
     } catch (err) {
       setIntentError(err instanceof Error ? err.message : "Unknown error.");
     } finally {
@@ -288,9 +287,8 @@ export default function CheckoutClient({
             amountGbp={amountGbp}
             campaign={initialCampaign}
             frequency={initialFrequency}
-            mode={mode}
             paymentIntentId={paymentIntentId}
-            setupIntentId={setupIntentId}
+            subscriptionId={subscriptionId}
             customerId={customerId}
             qurbaniProductId={qurbaniProductId}
             pathwaySlug={pathwaySlug}
@@ -404,9 +402,8 @@ function CheckoutForm({
   amountGbp,
   campaign,
   frequency,
-  mode,
   paymentIntentId,
-  setupIntentId,
+  subscriptionId,
   customerId,
   qurbaniProductId,
   pathwaySlug,
@@ -417,9 +414,9 @@ function CheckoutForm({
   amountGbp: number;
   campaign: string;
   frequency: "one-time" | "monthly";
-  mode: "payment" | "setup";
   paymentIntentId: string | null;
-  setupIntentId: string | null;
+  /** Monthly only — the default_incomplete subscription created up front. */
+  subscriptionId: string | null;
   customerId: string | null;
   qurbaniProductId: string | null;
   pathwaySlug: string | null;
@@ -487,11 +484,11 @@ function CheckoutForm({
       setError("Payment form not ready. Please refresh and try again.");
       return;
     }
-    if (mode === "payment" && !paymentIntentId) {
+    if (!paymentIntentId) {
       setError("Payment form not ready. Please refresh and try again.");
       return;
     }
-    if (mode === "setup" && (!setupIntentId || !customerId)) {
+    if (frequency === "monthly" && (!subscriptionId || !customerId)) {
       setError("Payment form not ready. Please refresh and try again.");
       return;
     }
@@ -546,10 +543,9 @@ function CheckoutForm({
           .map((n) => n.trim())
           .filter((n) => n.length > 0);
       }
-      if (mode === "payment") {
-        confirmBody.paymentIntentId = paymentIntentId;
-      } else {
-        confirmBody.setupIntentId = setupIntentId;
+      confirmBody.paymentIntentId = paymentIntentId;
+      if (frequency === "monthly") {
+        confirmBody.subscriptionId = subscriptionId;
         confirmBody.customerId = customerId;
       }
 
@@ -561,9 +557,13 @@ function CheckoutForm({
       const confirmData = await confirmRes.json();
       if (!confirmRes.ok) throw new Error(confirmData.error ?? "Could not save donation.");
 
-      // Now confirm with Stripe — different method per mode. Both redirect
-      // to /donate/thank-you on success; on failure the promise resolves
-      // with { error } and we show it inline.
+      // Now confirm with Stripe. Both one-time and monthly confirm a
+      // PaymentIntent on-session — for monthly it's the subscription's first
+      // invoice PI, so any 3-D Secure / SCA challenge runs with the donor
+      // present (the old off-session subscription charge couldn't do that and
+      // silently failed for 3DS-mandatory cards). Redirects to
+      // /donate/thank-you on success; on failure the promise resolves with
+      // { error } and we show it inline.
       const billingDetails = {
         name: `${firstName.trim()} ${lastName.trim()}`,
         email: email.trim(),
@@ -585,23 +585,14 @@ function CheckoutForm({
       // tracking re-enabled. Cleared by the error branch below.
       onIntentionalNavigation(true);
 
-      const { error: stripeError } =
-        mode === "payment"
-          ? await stripe.confirmPayment({
-              elements,
-              confirmParams: {
-                return_url: returnUrl,
-                receipt_email: email.trim(),
-                payment_method_data: { billing_details: billingDetails },
-              },
-            })
-          : await stripe.confirmSetup({
-              elements,
-              confirmParams: {
-                return_url: returnUrl,
-                payment_method_data: { billing_details: billingDetails },
-              },
-            });
+      const { error: stripeError } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: returnUrl,
+          receipt_email: email.trim(),
+          payment_method_data: { billing_details: billingDetails },
+        },
+      });
 
       if (stripeError) {
         setError(stripeError.message ?? "Payment failed. Please try again.");
