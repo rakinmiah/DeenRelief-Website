@@ -36,7 +36,7 @@ const faqs = [
     slug: "deadline",
     question: "What is the deadline for ordering?",
     answer:
-      "Orders must be placed by 23 May 2026 to guarantee performance on the first day of Eid. Orders received after this date will be performed on the second or third day of Eid where possible.",
+      "Orders must be placed by 25 May 2026 to guarantee performance on the first day of Eid. Orders received after this date will be performed on the second or third day of Eid where possible.",
     links: [{ href: "/contact", label: "Contact us about late orders" }],
   },
   {

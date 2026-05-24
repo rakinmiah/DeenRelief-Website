@@ -11,9 +11,9 @@
  *
  * To run a future Qurbani campaign, update this date — both places follow.
  *
- * Date is Europe/London end-of-day 23 May 2026 (UK donor base).
+ * Date is Europe/London end-of-day 25 May 2026 (UK donor base).
  */
-export const QURBANI_DEADLINE = new Date("2026-05-23T23:59:59+01:00");
+export const QURBANI_DEADLINE = new Date("2026-05-25T23:59:59+01:00");
 
 /**
  * Returns true while the Qurbani campaign is still accepting orders.
