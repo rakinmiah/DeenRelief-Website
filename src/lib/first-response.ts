@@ -154,6 +154,68 @@ export interface GetEmergencyEventsOptions {
 }
 
 /**
+ * Fetch a single emergency_events row by id, including everything the
+ * detail page + launch-packet generator need (raw_payload, draft_packet,
+ * the works). Returns null when not found.
+ */
+export interface EmergencyEventDetail extends EmergencyEvent {
+  rawPayload: unknown;
+  draftPacketJson: unknown | null;
+  draftPacketGeneratedAt: Date | null;
+  draftPacketGeneratedByEmail: string | null;
+  draftPacketModel: string | null;
+  draftPacketInputTokens: number | null;
+  draftPacketOutputTokens: number | null;
+}
+
+export async function getEmergencyEventById(
+  id: string
+): Promise<EmergencyEventDetail | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .select(
+      "id, external_id, source, event_type, country_iso, region, title, summary, severity_raw, dr_priority_score, matched_campaigns, status, detected_at, reviewed_by_email, reviewed_at, source_url, raw_payload, draft_packet_json, draft_packet_generated_at, draft_packet_generated_by_email, draft_packet_model, draft_packet_input_tokens, draft_packet_output_tokens"
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[first-response] event-by-id read failed:", error);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    externalId: data.external_id,
+    source: data.source,
+    eventType: data.event_type,
+    countryIso: data.country_iso,
+    region: data.region,
+    title: data.title,
+    summary: data.summary,
+    severityRaw: data.severity_raw,
+    drPriorityScore: data.dr_priority_score,
+    matchedCampaigns: data.matched_campaigns ?? [],
+    status: data.status,
+    detectedAt: new Date(data.detected_at),
+    reviewedByEmail: data.reviewed_by_email,
+    reviewedAt: data.reviewed_at ? new Date(data.reviewed_at) : null,
+    sourceUrl: data.source_url,
+    rawPayload: data.raw_payload,
+    draftPacketJson: data.draft_packet_json,
+    draftPacketGeneratedAt: data.draft_packet_generated_at
+      ? new Date(data.draft_packet_generated_at)
+      : null,
+    draftPacketGeneratedByEmail: data.draft_packet_generated_by_email,
+    draftPacketModel: data.draft_packet_model,
+    draftPacketInputTokens: data.draft_packet_input_tokens,
+    draftPacketOutputTokens: data.draft_packet_output_tokens,
+  };
+}
+
+/**
  * Recent emergency events, sorted by priority score then time.
  * Empty array when the table is empty or the migration hasn't been
  * applied — caller renders an empty state.

@@ -75,7 +75,11 @@ export type AdminAction =
   | "featured_campaign_updated"
   | "spotlight_created"
   | "spotlight_extended"
-  | "spotlight_cleared";
+  | "spotlight_cleared"
+  // First Response (crisis intelligence)
+  | "first_response_packet_drafted"
+  | "first_response_event_reviewed"
+  | "first_response_event_dismissed";
 
 interface LogAdminActionOpts {
   action: AdminAction;

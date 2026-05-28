@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Fragment } from "react";
 import { requireAdminSession } from "@/lib/admin-session";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import {
@@ -128,21 +129,28 @@ export default async function FirstResponsePage() {
           ) : (
             <ul className="divide-y divide-charcoal/5">
               {events.map((ev) => (
-                <li key={ev.id} className="px-5 py-4">
+                <li key={ev.id} className="px-5 py-4 hover:bg-cream/40 transition-colors">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <p className="text-charcoal font-semibold text-[14px] leading-snug">
-                        {ev.sourceUrl ? (
-                          <a
-                            href={ev.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="hover:underline"
-                          >
-                            {ev.title}
-                          </a>
-                        ) : (
-                          ev.title
+                        <Link
+                          href={`/admin/social/first-response/${ev.id}`}
+                          className="hover:underline"
+                        >
+                          {ev.title}
+                        </Link>
+                        {ev.sourceUrl && (
+                          <Fragment>
+                            {" "}
+                            <a
+                              href={ev.sourceUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="text-[12px] text-charcoal/40 font-normal hover:text-charcoal/70"
+                            >
+                              (source ↗)
+                            </a>
+                          </Fragment>
                         )}
                       </p>
                       <p className="text-charcoal/60 text-[12px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
