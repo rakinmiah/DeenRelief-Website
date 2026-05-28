@@ -271,6 +271,57 @@ function PacketView({
 }) {
   return (
     <div className="space-y-6">
+      {/* Strategy brief — Claude's thinking BEFORE drafting. Surfaces
+          why the packet looks the way it does (angle, arc, slide
+          count rationale, register per surface). */}
+      <Section title="Claude's strategy brief">
+        <div className="text-[13px] text-charcoal/85 leading-relaxed space-y-3">
+          <div>
+            <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-charcoal/45 mb-1">
+              The human angle
+            </div>
+            <p>{packet.strategy_brief.angle}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
+            <div className="bg-cream-soft/40 border border-charcoal/10 rounded-xl p-3">
+              <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-charcoal/45 mb-1">
+                Narrative arc
+              </div>
+              <p className="font-mono">{packet.strategy_brief.arc}</p>
+            </div>
+            <div className="bg-cream-soft/40 border border-charcoal/10 rounded-xl p-3">
+              <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-charcoal/45 mb-1">
+                Slide count · {packet.strategy_brief.slide_count}
+              </div>
+              <p>{packet.strategy_brief.slide_count_rationale}</p>
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-charcoal/45 mb-1.5">
+              Register per surface
+            </div>
+            <ul className="text-[12px] space-y-1">
+              <li>
+                <span className="font-mono text-charcoal/55">caption →</span>{" "}
+                {packet.strategy_brief.register_per_surface.caption}
+              </li>
+              <li>
+                <span className="font-mono text-charcoal/55">slides →</span>{" "}
+                {packet.strategy_brief.register_per_surface.slides}
+              </li>
+              <li>
+                <span className="font-mono text-charcoal/55">email →</span>{" "}
+                {packet.strategy_brief.register_per_surface.email}
+              </li>
+              <li>
+                <span className="font-mono text-charcoal/55">press →</span>{" "}
+                {packet.strategy_brief.register_per_surface.press}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </Section>
+
       {/* Tiers */}
       <Section title="Donation tiers">
         <ul className="divide-y divide-charcoal/5">
@@ -323,10 +374,11 @@ function PacketView({
       {/* Carousel slides — Instagram's native multi-image format. */}
       <Section title="Carousel slides — for Instagram">
         <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
-          Five 1080×1080 brand-styled slides. Right-click any to copy, or
-          use the download button to save individually. Upload as an
-          Instagram carousel in this order. (Facebook also accepts
-          carousels — these work there too if preferred.)
+          {packet.carousel_slides.length} 1080×1080 brand-styled slides — Claude
+          chose this count based on the story&apos;s shape (see strategy
+          brief above for rationale). Right-click any to copy, or use the
+          download button to save individually. Upload as an Instagram
+          carousel in this order.
         </p>
         <CarouselGrid
           eventId={eventId}
