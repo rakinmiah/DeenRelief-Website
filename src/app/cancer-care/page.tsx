@@ -126,7 +126,7 @@ export default function CancerCarePage() {
         </section>
 
         {/* ─── 2. Donation Panel ─── */}
-        <section id="donate-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20">
+        <section id="donate-form" data-donate-panel className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
               {/* Image */}
