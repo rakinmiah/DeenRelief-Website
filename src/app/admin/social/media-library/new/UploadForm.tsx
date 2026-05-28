@@ -2,12 +2,6 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CAMPAIGNS, type CampaignSlug } from "@/lib/campaigns";
-import {
-  MEDIA_TONES,
-  MEDIA_USE_CASES,
-  type MediaUseCase,
-} from "@/lib/media-library";
 import {
   saveMediaAction,
   uploadMediaAction,
@@ -15,393 +9,358 @@ import {
 } from "../actions";
 
 /**
- * Upload + tag-edit form (client component).
+ * Multi-file queue uploader.
  *
- * Three states:
- *   • picking  — empty drop zone
- *   • analysing — file uploaded, Claude Vision running, suggestions
- *                 pending. SMM sees the photo immediately.
- *   • editing  — suggestions arrived, form populated, SMM reviews +
- *                clicks Save. On save, redirect to library.
+ * The SMM drops N photos at once (or picks them via the system file
+ * dialog). Each item streams through the queue independently:
+ *
+ *   picked → uploading → analysing → saving → done
+ *                                    ↓
+ *                                 (or) error
+ *
+ * Concurrency is throttled to MAX_CONCURRENT so we don't fan 50
+ * Claude Vision calls out at once — Anthropic's tier-1 rate limits
+ * sit around ~50 RPM, so 5 at a time is comfortable headroom plus
+ * gives the UI a watchable progression rather than everything
+ * finishing at once.
+ *
+ * Each item auto-saves with the AI-suggested metadata as-is. The SMM
+ * doesn't review at upload time — she edits any rows that need
+ * correction afterwards from the library grid (faster overall, since
+ * Claude's tags are usually right for ~80% of photos).
+ *
+ * Failure isolation: one bad file (vision error, oversized, wrong
+ * MIME) doesn't stop the rest. The queue keeps going; the failed
+ * item shows a red error chip.
  */
+
+const MAX_CONCURRENT = 5;
+const MAX_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+type Status =
+  | "queued"
+  | "uploading"
+  | "analysing"
+  | "saving"
+  | "done"
+  | "error";
+
+interface QueueItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: Status;
+  error: string | null;
+  uploadResult: UploadMediaResult | null;
+}
+
 export default function UploadForm() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [items, setItems] = useState<QueueItem[]>([]);
+  const [, startTransition] = useTransition();
 
-  // Stage 1: file metadata
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [fileMeta, setFileMeta] = useState<{
-    name: string;
-    bytes: number;
-    mimeType: string;
-  } | null>(null);
+  function handleFilesSelected(files: FileList | File[]) {
+    const arr = Array.from(files);
+    const accepted: QueueItem[] = [];
+    const rejected: { name: string; reason: string }[] = [];
 
-  // Stage 2: upload result
-  const [uploadResult, setUploadResult] = useState<UploadMediaResult | null>(
-    null
-  );
-  const [uploadPending, startUpload] = useTransition();
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // Stage 3: editable form state
-  const [caption, setCaption] = useState("");
-  const [tagsRaw, setTagsRaw] = useState("");
-  const [campaignSlugs, setCampaignSlugs] = useState<CampaignSlug[]>([]);
-  const [countryIso, setCountryIso] = useState("");
-  const [eventTypesRaw, setEventTypesRaw] = useState("");
-  const [tone, setTone] = useState<string>("");
-  const [useCases, setUseCases] = useState<MediaUseCase[]>([]);
-  const [peopleVisible, setPeopleVisible] = useState(false);
-  const [identifiableMinors, setIdentifiableMinors] = useState(false);
-
-  const [savePending, startSave] = useTransition();
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  function handleFileSelected(file: File) {
-    setUploadError(null);
-    setUploadResult(null);
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== "string") return;
-      setPreviewUrl(dataUrl);
-      setFileMeta({
-        name: file.name,
-        bytes: file.size,
-        mimeType: file.type,
+    for (const file of arr) {
+      if (!ALLOWED_MIME.has(file.type)) {
+        rejected.push({ name: file.name, reason: "wrong file type" });
+        continue;
+      }
+      if (file.size > MAX_BYTES) {
+        rejected.push({ name: file.name, reason: "over 10 MB" });
+        continue;
+      }
+      accepted.push({
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        status: "queued",
+        error: null,
+        uploadResult: null,
       });
+    }
 
-      // Kick the upload immediately — base64 is the data URI payload.
-      startUpload(async () => {
-        const result = await uploadMediaAction({
-          fileBase64: dataUrl,
-          fileName: file.name,
-          mimeType: file.type,
-          bytes: file.size,
-        });
-        if (!result.ok) {
-          setUploadError(result.error);
-          return;
-        }
-        setUploadResult(result.data);
+    if (accepted.length === 0 && rejected.length > 0) {
+      alert(
+        `No valid files. Rejected ${rejected.length}: ${rejected
+          .map((r) => `${r.name} (${r.reason})`)
+          .join(", ")}`
+      );
+      return;
+    }
 
-        // Prefill form with suggestions when available.
-        const s = result.data.suggestions;
-        if (s) {
-          setCaption(s.caption);
-          setTagsRaw(s.tags.join(", "));
-          setCampaignSlugs(s.campaign_slugs as CampaignSlug[]);
-          setCountryIso(s.country_iso ?? "");
-          setEventTypesRaw(s.event_types.join(", "));
-          setTone(s.tone);
-          setUseCases(s.use_cases as MediaUseCase[]);
-          setPeopleVisible(s.people_visible);
-          setIdentifiableMinors(s.identifiable_minors);
-        }
-      });
-    };
-    reader.readAsDataURL(file);
+    setItems((prev) => [...prev, ...accepted]);
+    // Start processing in the next tick so React has rendered the
+    // queued items first.
+    setTimeout(() => processQueue(accepted), 0);
+
+    if (rejected.length > 0) {
+      console.warn("[upload] rejected:", rejected);
+    }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!uploadResult || !fileMeta) return;
-    setSaveError(null);
+  async function processQueue(toProcess: QueueItem[]) {
+    // Simple pool: while there's work, dispatch up to MAX_CONCURRENT
+    // workers, each of which pulls the next queued item.
+    const queue = [...toProcess];
+    const workers: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(MAX_CONCURRENT, queue.length); i += 1) {
+      workers.push(
+        (async () => {
+          while (queue.length > 0) {
+            const next = queue.shift();
+            if (!next) return;
+            await processItem(next);
+          }
+        })()
+      );
+    }
+    await Promise.all(workers);
+  }
 
-    const tags = tagsRaw
-      .split(/[,\n]/)
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-    const eventTypes = eventTypesRaw
-      .split(/[,\n]/)
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+  async function processItem(item: QueueItem) {
+    try {
+      updateItem(item.id, { status: "uploading" });
+      const fileBase64 = await readAsDataUrl(item.file);
 
-    startSave(async () => {
-      const result = await saveMediaAction({
-        storagePath: uploadResult.storagePath,
-        caption,
-        tags,
-        campaignSlugs,
-        countryIso: countryIso.trim().toUpperCase() || null,
-        eventTypes,
-        tone: tone || null,
-        useCases,
-        peopleVisible,
-        identifiableMinors,
-        bytes: fileMeta.bytes,
-        mimeType: fileMeta.mimeType,
-        aiTagging: uploadResult.aiTagging ?? undefined,
+      const uploadRes = await uploadMediaAction({
+        fileBase64,
+        fileName: item.file.name,
+        mimeType: item.file.type,
+        bytes: item.file.size,
       });
-      if (!result.ok) {
-        setSaveError(result.error);
+      if (!uploadRes.ok) {
+        updateItem(item.id, { status: "error", error: uploadRes.error });
         return;
       }
+      updateItem(item.id, {
+        status: "analysing",
+        uploadResult: uploadRes.data,
+      });
+
+      // AI tagging already happened inside uploadMediaAction; the
+      // 'analysing' phase here is mostly cosmetic, plus the brief
+      // window before saving. Apply suggestions as-is.
+      const s = uploadRes.data.suggestions;
+      updateItem(item.id, { status: "saving" });
+      const saveRes = await saveMediaAction({
+        storagePath: uploadRes.data.storagePath,
+        caption: s?.caption ?? "",
+        tags: s?.tags ?? [],
+        campaignSlugs: s?.campaign_slugs ?? [],
+        countryIso: s?.country_iso ?? null,
+        eventTypes: s?.event_types ?? [],
+        tone: s?.tone ?? null,
+        useCases: s?.use_cases ?? [],
+        peopleVisible: s?.people_visible ?? false,
+        identifiableMinors: s?.identifiable_minors ?? false,
+        bytes: item.file.size,
+        mimeType: item.file.type,
+        aiTagging: uploadRes.data.aiTagging ?? undefined,
+      });
+      if (!saveRes.ok) {
+        updateItem(item.id, { status: "error", error: saveRes.error });
+        return;
+      }
+      updateItem(item.id, { status: "done" });
+    } catch (err) {
+      updateItem(item.id, {
+        status: "error",
+        error: err instanceof Error ? err.message : "unexpected error",
+      });
+    }
+  }
+
+  function updateItem(id: string, patch: Partial<QueueItem>) {
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, ...patch } : it))
+    );
+  }
+
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl === "string") resolve(dataUrl);
+        else reject(new Error("Could not read file"));
+      };
+      reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function handleFinish() {
+    startTransition(() => {
       router.push("/admin/social/media-library");
       router.refresh();
     });
   }
 
-  // ─── Empty drop zone ────────────────────────────────────────────
-  if (!previewUrl) {
+  const counts = {
+    total: items.length,
+    done: items.filter((i) => i.status === "done").length,
+    error: items.filter((i) => i.status === "error").length,
+    inFlight: items.filter(
+      (i) =>
+        i.status === "uploading" ||
+        i.status === "analysing" ||
+        i.status === "saving"
+    ).length,
+  };
+  const allFinished =
+    items.length > 0 && counts.done + counts.error === items.length;
+
+  /* ─── Empty state ──────────────────────────────────────────── */
+  if (items.length === 0) {
     return (
       <div className="space-y-4">
         <DropZone
-          onFile={handleFileSelected}
+          onFiles={handleFilesSelected}
           fileInputRef={inputRef}
         />
         <p className="text-[12px] text-charcoal/55">
-          JPEG, PNG, or WebP. Max 10 MB per image. Multi-upload coming
-          later — for now, one photo at a time, but the AI tagger makes
-          each one ~30 seconds of work.
+          JPEG, PNG, or WebP. Max 10 MB per image. Drop a folder of
+          photos or shift-click to select multiple — each one gets
+          Claude Vision auto-tagged and saved with default metadata.
+          Review and edit any that need correction in the library
+          afterwards.
         </p>
       </div>
     );
   }
 
+  /* ─── Queue view ───────────────────────────────────────────── */
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6"
-    >
-      {/* ─── Preview column ─── */}
-      <div className="flex flex-col gap-3">
-        <div className="aspect-square rounded-2xl overflow-hidden bg-cream border border-charcoal/10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewUrl}
-            alt="Upload preview"
-            className="w-full h-full object-cover"
-          />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4 bg-cream/60 border border-charcoal/10 rounded-2xl px-4 py-3">
+        <div className="flex items-center gap-4 text-[13px]">
+          <span className="font-semibold text-charcoal">
+            {counts.done}/{counts.total} saved
+          </span>
+          {counts.inFlight > 0 && (
+            <span className="text-amber-dark">
+              {counts.inFlight} processing…
+            </span>
+          )}
+          {counts.error > 0 && (
+            <span className="text-red-700">
+              {counts.error} failed
+            </span>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setPreviewUrl(null);
-            setUploadResult(null);
-            setFileMeta(null);
-          }}
-          className="text-[12px] text-charcoal/60 hover:text-charcoal underline underline-offset-2"
-        >
-          Choose a different file
-        </button>
-        {uploadResult?.suggestions ? (
-          <p className="text-[11px] text-charcoal/55 leading-relaxed">
-            Pre-filled by Claude Vision.{" "}
-            {uploadResult.aiTagging && (
-              <>
-                {uploadResult.aiTagging.inputTokens}/
-                {uploadResult.aiTagging.outputTokens} tokens in/out.{" "}
-              </>
-            )}
-            Review and adjust before saving.
-          </p>
-        ) : uploadPending ? (
-          <p className="text-[11px] text-amber-dark leading-relaxed">
-            Analysing image with Claude Vision…
-          </p>
-        ) : uploadResult?.suggestionsError ? (
-          <p className="text-[11px] text-red-700 leading-relaxed">
-            AI tagging failed — fill the fields manually below. Error:{" "}
-            {uploadResult.suggestionsError}
-          </p>
-        ) : null}
-      </div>
-
-      {/* ─── Form column ─── */}
-      <div className="space-y-4">
-        {uploadError && (
-          <div
-            role="alert"
-            className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm"
-          >
-            {uploadError}
-          </div>
-        )}
-        {saveError && (
-          <div
-            role="alert"
-            className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm"
-          >
-            {saveError}
-          </div>
-        )}
-
-        <Field label="Caption">
-          <textarea
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            rows={2}
-            placeholder="One-line description of what's in the photo"
-            maxLength={140}
-            className={baseInput}
-          />
-        </Field>
-
-        <Field label="Tags (comma-separated, lowercase)">
-          <input
-            type="text"
-            value={tagsRaw}
-            onChange={(e) => setTagsRaw(e.target.value)}
-            placeholder="volunteers, food-distribution, brighton"
-            className={baseInput}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Country (ISO-2)">
-            <input
-              type="text"
-              value={countryIso}
-              onChange={(e) =>
-                setCountryIso(e.target.value.toUpperCase().slice(0, 2))
-              }
-              placeholder="BD, PK, PS, GB…"
-              maxLength={2}
-              className={baseInput}
-            />
-          </Field>
-          <Field label="Tone">
-            <select
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-              className={baseInput}
-            >
-              <option value="">— select tone —</option>
-              {MEDIA_TONES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-
-        <Field label="Campaigns this image suits">
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(CAMPAIGNS) as CampaignSlug[]).map((slug) => {
-              const on = campaignSlugs.includes(slug);
-              return (
-                <button
-                  key={slug}
-                  type="button"
-                  onClick={() =>
-                    setCampaignSlugs((prev) =>
-                      on ? prev.filter((s) => s !== slug) : [...prev, slug]
-                    )
-                  }
-                  className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-                    on
-                      ? "bg-charcoal text-white"
-                      : "bg-cream border border-charcoal/15 text-charcoal/70 hover:bg-charcoal/5"
-                  }`}
-                >
-                  {CAMPAIGNS[slug]}
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-
-        <Field label="Event types (comma-separated)">
-          <input
-            type="text"
-            value={eventTypesRaw}
-            onChange={(e) => setEventTypesRaw(e.target.value)}
-            placeholder="earthquake, flood, ramadan, daily-operations"
-            className={baseInput}
-          />
-        </Field>
-
-        <Field label="Use cases (for slide selection)">
-          <div className="flex flex-wrap gap-2">
-            {MEDIA_USE_CASES.map((uc) => {
-              const on = useCases.includes(uc);
-              return (
-                <button
-                  key={uc}
-                  type="button"
-                  onClick={() =>
-                    setUseCases((prev) =>
-                      on ? prev.filter((s) => s !== uc) : [...prev, uc]
-                    )
-                  }
-                  className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-                    on
-                      ? "bg-charcoal text-white"
-                      : "bg-cream border border-charcoal/15 text-charcoal/70 hover:bg-charcoal/5"
-                  }`}
-                >
-                  {uc}
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-
-        <div className="space-y-2 bg-amber-light/40 border border-amber/20 rounded-xl px-4 py-3">
-          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-amber-dark">
-            Safeguarding
-          </p>
-          <label className="flex items-center gap-2 text-[13px] text-charcoal/85">
-            <input
-              type="checkbox"
-              checked={peopleVisible}
-              onChange={(e) => setPeopleVisible(e.target.checked)}
-            />
-            People visible in shot (recognisable adults)
-          </label>
-          <label className="flex items-center gap-2 text-[13px] text-charcoal/85">
-            <input
-              type="checkbox"
-              checked={identifiableMinors}
-              onChange={(e) => setIdentifiableMinors(e.target.checked)}
-            />
-            Identifiable minors (auto-excluded from selection unless you
-            also add the &lsquo;consent-on-file&rsquo; use case)
-          </label>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 pt-2 border-t border-charcoal/5">
+        <div className="flex items-center gap-2">
           <button
-            type="submit"
-            disabled={savePending || uploadPending || !uploadResult}
-            className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/85 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={counts.inFlight > 0}
+            className="px-3 py-1.5 rounded-full bg-white border border-charcoal/15 text-charcoal text-[12px] font-semibold hover:bg-cream disabled:opacity-50 transition-colors"
           >
-            {savePending ? "Saving…" : "Save to library"}
+            + Add more
+          </button>
+          <button
+            type="button"
+            onClick={handleFinish}
+            disabled={!allFinished}
+            className="px-3 py-1.5 rounded-full bg-charcoal text-white text-[12px] font-semibold hover:bg-charcoal/85 disabled:opacity-50 transition-colors"
+          >
+            {allFinished ? "Done · go to library" : "Wait for processing…"}
           </button>
         </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) handleFilesSelected(e.target.files);
+            e.target.value = ""; // reset so re-selecting same files re-adds them
+          }}
+        />
       </div>
-    </form>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {items.map((item) => (
+          <QueueCard key={item.id} item={item} />
+        ))}
+      </div>
+    </div>
   );
 }
 
-const baseInput =
-  "w-full px-3 py-2.5 rounded-xl bg-cream border border-charcoal/10 focus:border-charcoal/30 focus:outline-none focus:ring-2 focus:ring-charcoal/10 text-charcoal text-sm";
+function QueueCard({ item }: { item: QueueItem }) {
+  const statusLabel: Record<Status, string> = {
+    queued: "Queued",
+    uploading: "Uploading…",
+    analysing: "Tagging…",
+    saving: "Saving…",
+    done: "Saved ✓",
+    error: "Failed",
+  };
+  const statusColor: Record<Status, string> = {
+    queued: "bg-charcoal/10 text-charcoal/60",
+    uploading: "bg-amber-light text-amber-dark",
+    analysing: "bg-amber-light text-amber-dark",
+    saving: "bg-amber-light text-amber-dark",
+    done: "bg-green/15 text-green-dark",
+    error: "bg-red-100 text-red-800",
+  };
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
   return (
-    <label className="block">
-      <span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5">
-        {label}
-      </span>
-      {children}
-    </label>
+    <div className="bg-white border border-charcoal/10 rounded-xl overflow-hidden flex flex-col">
+      <div className="aspect-square bg-cream relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={item.previewUrl}
+          alt={item.file.name}
+          className="w-full h-full object-cover"
+        />
+        {(item.status === "uploading" ||
+          item.status === "analysing" ||
+          item.status === "saving") && (
+          <div className="absolute inset-0 bg-charcoal/30 flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-cream/30 border-t-cream rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+      <div className="p-2.5 flex flex-col gap-1.5 flex-1">
+        <span
+          className={`text-[10px] font-bold tracking-[0.08em] uppercase px-2 py-0.5 rounded-full self-start ${statusColor[item.status]}`}
+        >
+          {statusLabel[item.status]}
+        </span>
+        <p
+          className="text-[11px] text-charcoal/70 truncate"
+          title={item.file.name}
+        >
+          {item.file.name}
+        </p>
+        {item.error && (
+          <p className="text-[10px] text-red-700 leading-tight line-clamp-2">
+            {item.error}
+          </p>
+        )}
+        {item.status === "done" && item.uploadResult?.suggestions && (
+          <p className="text-[10px] text-charcoal/55 leading-tight line-clamp-1">
+            {item.uploadResult.suggestions.caption}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
 function DropZone({
-  onFile,
+  onFiles,
   fileInputRef,
 }: {
-  onFile: (file: File) => void;
+  onFiles: (files: FileList | File[]) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const [dragOver, setDragOver] = useState(false);
@@ -409,8 +368,7 @@ function DropZone({
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) onFile(file);
+    if (e.dataTransfer.files.length > 0) onFiles(e.dataTransfer.files);
   }
 
   return (
@@ -429,21 +387,26 @@ function DropZone({
       }`}
     >
       <p className="text-charcoal font-semibold text-[15px]">
-        Drop an image here, or click to choose
+        Drop photos here, or click to choose
       </p>
-      <p className="text-[12px] text-charcoal/55">
-        JPEG · PNG · WebP · max 10 MB
+      <p className="text-[12px] text-charcoal/55 text-center max-w-md">
+        Drop a single file, a batch, or a whole folder. JPEG · PNG · WebP ·
+        max 10 MB each. Each upload runs Claude Vision for auto-tagging
+        then saves with default metadata — review afterwards from the
+        library.
       </p>
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFile(file);
+          if (e.target.files) onFiles(e.target.files);
+          e.target.value = "";
         }}
       />
     </div>
   );
 }
+
