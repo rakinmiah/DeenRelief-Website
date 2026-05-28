@@ -8,6 +8,7 @@ import ConsentBootstrap from "@/components/ConsentBootstrap";
 import ContentsquareBootstrap from "@/components/ContentsquareBootstrap";
 import EngagedSessionTracker from "@/components/EngagedSessionTracker";
 import JsonLd from "@/components/JsonLd";
+import SiteBanner from "@/components/SiteBanner";
 import { SOCIAL_LINKS } from "@/lib/social";
 
 const SITE_URL = "https://deenrelief.org";
@@ -211,6 +212,10 @@ export default function RootLayout({
         <JsonLd data={websiteSchema} />
         <AttributionCapture />
         <EngagedSessionTracker />
+        {/* SMM-controlled site-wide banner. Renders only when configured
+            active in /admin/social/banner, and hides itself on /admin/*
+            paths via the client wrapper. */}
+        <SiteBanner />
         {children}
         <ConsentBanner />
       </body>

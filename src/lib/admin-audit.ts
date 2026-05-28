@@ -69,7 +69,13 @@ export type AdminAction =
   // Social Operations Platform — short links
   | "short_link_created"
   | "short_link_archived"
-  | "short_link_restored";
+  | "short_link_restored"
+  // Campaign Command Center
+  | "banner_updated"
+  | "featured_campaign_updated"
+  | "spotlight_created"
+  | "spotlight_extended"
+  | "spotlight_cleared";
 
 interface LogAdminActionOpts {
   action: AdminAction;
