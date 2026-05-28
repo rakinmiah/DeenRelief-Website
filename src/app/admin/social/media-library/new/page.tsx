@@ -9,19 +9,30 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+// Each parallel upload triggers a server-action chain (upload + Vision
+// + save). The page renders fast; the actions run as separate function
+// invocations so individual file calls each get their own runtime.
+// Bumping maxDuration here protects the initial page load when many
+// items are being added simultaneously.
+export const maxDuration = 60;
 
 /**
- * /admin/social/media-library/new — upload one or more images, get
- * Claude Vision tag suggestions, edit, save.
+ * /admin/social/media-library/new — multi-file queue uploader.
  *
- * The page itself is mostly the form; all interactivity happens in
- * UploadForm (client component) — file pick, base64 encode, dispatch
- * upload action, render suggestions, dispatch save action.
+ * The SMM drops one photo or a hundred. Each file streams through
+ * upload → AI tag → auto-save independently. The queue UI shows
+ * per-item progress; up to 5 process at once. Failures on individual
+ * files don't stop the batch.
+ *
+ * Auto-save policy: each item saves with Claude's suggested metadata
+ * as-is — the SMM doesn't review at upload time. She edits any rows
+ * that need correction afterwards from the library grid (much faster
+ * overall, since ~80% of suggestions are usable as-is).
  */
 export default async function UploadMediaPage() {
   await requireAdminSession();
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="mb-6">
         <Link
           href="/admin/social/media-library"
@@ -33,11 +44,10 @@ export default async function UploadMediaPage() {
           Upload media
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Drop a photo and Claude will analyse it to suggest a caption,
-          tags, campaign matches, tone, and safeguarding flags. Review,
-          edit anything that&apos;s off, then save. The library serves
-          imagery to launch-packet carousel slides — better tagging now
-          means better slide selection later.
+          Drop one photo or a whole batch. Each file uploads, gets
+          Claude Vision auto-tagged, and saves to the library — all in
+          parallel (up to 5 at a time). Review and edit any tags that
+          need adjustment afterwards from the library grid.
         </p>
       </div>
       <UploadForm />
