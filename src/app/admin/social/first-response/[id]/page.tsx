@@ -8,6 +8,7 @@ import {
   type LaunchPacket,
 } from "@/lib/first-response-packet";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
+import { CAMPAIGN_LANDING_PATHS } from "@/lib/short-links";
 import EventControls from "./EventControls";
 import CopyButton from "./CopyButton";
 import DebugPanel from "./DebugPanel";
@@ -213,6 +214,7 @@ export default async function EmergencyEventPage({
           packet={packet}
           eventId={event.id}
           draftStamp={event.draftPacketGeneratedAt?.getTime() ?? 0}
+          matchedCampaigns={event.matchedCampaigns}
         />
       )}
 
@@ -244,10 +246,12 @@ function PacketView({
   packet,
   eventId,
   draftStamp,
+  matchedCampaigns,
 }: {
   packet: LaunchPacket;
   eventId: string;
   draftStamp: number;
+  matchedCampaigns: string[];
 }) {
   return (
     <div className="space-y-6">
@@ -291,26 +295,40 @@ function PacketView({
         </p>
       </Section>
 
-      {/* Social */}
-      <Section title="Social post (Instagram · Facebook · X)">
+      {/* Social post caption — same across all three platforms. */}
+      <Section title="Social post caption (Instagram · Facebook · X)">
         <SocialPostBlock
           caption={packet.social_post.caption}
           hashtags={packet.social_post.hashtags}
+          campaignPath={topCampaignPath(matchedCampaigns)}
         />
       </Section>
 
-      {/* Carousel slides — server-rendered PNGs ready to upload */}
-      <Section title="Carousel slides">
+      {/* Carousel slides — Instagram's native multi-image format. */}
+      <Section title="Carousel slides — for Instagram">
         <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
           Five 1080×1080 brand-styled slides. Right-click any to copy, or
           use the download button to save individually. Upload as an
-          Instagram/Facebook carousel in this order.
+          Instagram carousel in this order. (Facebook also accepts
+          carousels — these work there too if preferred.)
         </p>
         <CarouselGrid
           eventId={eventId}
           count={packet.carousel_slides.length}
           draftStamp={draftStamp}
         />
+      </Section>
+
+      {/* Single-image post — for Facebook + X (where 5-slide carousels
+          don't translate well; X caps at 4 images per tweet). */}
+      <Section title="Single-image post — for Facebook & X">
+        <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
+          1200×675 (16:9) landscape — the optimal aspect ratio for both
+          Facebook feed and X (Twitter) image posts. Condenses the
+          carousel into one striking image with the donation URL
+          prominent.
+        </p>
+        <SocialImagePreview eventId={eventId} draftStamp={draftStamp} />
       </Section>
 
       {/* Email */}
@@ -395,22 +413,51 @@ function PacketField({
 }
 
 /**
- * Single unified social post — shown once, posts identically to IG/FB/X.
- * Two copy buttons: caption-only, and caption+hashtags appended.
+ * Top-matched campaign path — picks the first slug in matched_campaigns
+ * that is a valid known campaign and returns its landing path (e.g.
+ * 'palestine' → '/palestine'). Falls back to '/donate' when no valid
+ * match exists. Used for the X-friendly caption variant + the social
+ * image overlay URL.
+ */
+function topCampaignPath(matchedCampaigns: string[]): string {
+  for (const slug of matchedCampaigns) {
+    if (isValidCampaign(slug)) {
+      return CAMPAIGN_LANDING_PATHS[slug as CampaignSlug];
+    }
+  }
+  return "/donate";
+}
+
+/**
+ * Single unified social post — shown once, posts identically across
+ * Instagram, Facebook, and the IG-style version of X. We also surface
+ * an X-only caption variant where "Link in bio to donate" is swapped
+ * for the campaign URL (X allows inline URLs; IG does not, FB tolerates
+ * either).
  */
 function SocialPostBlock({
   caption,
   hashtags,
+  campaignPath,
 }: {
   caption: string;
   hashtags: string[];
+  campaignPath: string;
 }) {
   const withHashtags = `${caption}\n\n${hashtags.map((h) => `#${h}`).join(" ")}`;
+
+  // X variant: replace any "link in bio to donate" / "link in bio"
+  // phrasing with the campaign URL. Case-insensitive.
+  const xUrl = `deenrelief.org${campaignPath}`;
+  const xCaption = caption
+    .replace(/link in bio to donate/gi, xUrl)
+    .replace(/link in bio/gi, xUrl);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55">
-          Caption · {caption.length}/270 chars
+          Caption · {caption.length} chars (≤280 fits X)
         </p>
         <div className="flex items-center gap-2">
           <CopyButton text={caption} />
@@ -423,11 +470,72 @@ function SocialPostBlock({
       <p className="mt-3 text-[12px] text-charcoal/55 font-mono leading-relaxed">
         {hashtags.map((h) => `#${h}`).join("  ")}
       </p>
+
+      {xCaption !== caption && (
+        <div className="mt-5 pt-4 border-t border-charcoal/8">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-amber-dark">
+              X variant · URL inlined · {xCaption.length} chars
+            </p>
+            <CopyButton text={xCaption} />
+          </div>
+          <p className="text-charcoal/85 text-sm leading-relaxed whitespace-pre-line bg-amber-light/30 rounded-lg px-4 py-3">
+            {xCaption}
+          </p>
+          <p className="mt-2 text-[11px] text-charcoal/45 leading-relaxed">
+            X allows inline URLs but Instagram suppresses them. This
+            variant swaps &ldquo;Link in bio to donate&rdquo; for{" "}
+            <span className="font-mono">{xUrl}</span> — use this version
+            when posting to X.
+          </p>
+        </div>
+      )}
+
       <p className="mt-3 text-[11px] text-charcoal/45 leading-relaxed">
-        The same caption posts identically on Instagram, Facebook, and X
-        (≤270 chars covers X&apos;s ceiling). Right-hand copy button
-        includes hashtags appended — paste straight into any platform.
+        The main caption posts identically on Instagram and Facebook
+        (≤280 chars covers X&apos;s ceiling too). For X, use the
+        URL-inlined variant above.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Single-image post preview for Facebook / X. Hits the
+ * /api/admin/first-response/{id}/social-image route which server-
+ * renders a 1200×675 PNG.
+ */
+function SocialImagePreview({
+  eventId,
+  draftStamp,
+}: {
+  eventId: string;
+  draftStamp: number;
+}) {
+  const src = `/api/admin/first-response/${eventId}/social-image?v=${draftStamp}`;
+  return (
+    <div className="flex flex-col gap-3 bg-cream/30 rounded-xl p-3 max-w-2xl">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="Single-image post for Facebook and X"
+        width={1200}
+        height={675}
+        className="w-full aspect-[16/9] rounded-lg border border-charcoal/10 bg-white"
+        loading="lazy"
+      />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55">
+          1200×675 · PNG
+        </span>
+        <a
+          href={src}
+          download="deenrelief-social-post.png"
+          className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-charcoal text-white hover:bg-charcoal/85 transition-colors"
+        >
+          Download
+        </a>
+      </div>
     </div>
   );
 }
