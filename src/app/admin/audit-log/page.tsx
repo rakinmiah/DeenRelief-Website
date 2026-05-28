@@ -59,6 +59,11 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   short_link_created: "Short link created",
   short_link_archived: "Short link archived",
   short_link_restored: "Short link restored",
+  banner_updated: "Site banner updated",
+  featured_campaign_updated: "Featured campaign updated",
+  spotlight_created: "/now spotlight set",
+  spotlight_extended: "/now spotlight extended",
+  spotlight_cleared: "/now spotlight cleared",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -106,6 +111,11 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   short_link_created: "bg-green/10 text-green-dark border-green/30",
   short_link_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   short_link_restored: "bg-green/10 text-green-dark border-green/30",
+  banner_updated: "bg-amber-light text-amber-dark border-amber/30",
+  featured_campaign_updated: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  spotlight_created: "bg-green/10 text-green-dark border-green/30",
+  spotlight_extended: "bg-green/10 text-green-dark border-green/30",
+  spotlight_cleared: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
 /**
