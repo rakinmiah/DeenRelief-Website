@@ -275,12 +275,14 @@ function SlideContent({
         position: "relative",
       }}
     >
-      {/* Brand chip — top-left. Pinned to every slide for identity.
-          CTA flips background to forest green → wants logo-on-dark.
-          Everything else has a cream chip → wants logo-on-light. */}
+      {/* Brand logo — top-left. Renders directly on the slide
+          background (no chip frame), so the variant must contrast
+          with the slide bg:
+            • CTA slide (cream bg)    → logo-on-light (green logo)
+            • Other slides (forest bg) → logo-on-dark  (white logo) */}
       <BrandChip
         inverted={isCta}
-        logoDataUri={isCta ? logoOnDark : logoOnLight}
+        logoDataUri={isCta ? logoOnLight : logoOnDark}
       />
 
       {/* Slide-number pip top-right. Tiny visual progress indicator. */}
@@ -361,11 +363,14 @@ function PhotoSlide({
             objectFit: "cover",
           }}
         />
-        {/* BrandChip uses its own absolute positioning (top:48, left:48)
-            relative to this photo-half container — same brand stamp
-            position as the typography-only slides. Cream chip + green
-            logo (logo-on-light) — high contrast against any photo. */}
-        <BrandChip inverted={false} logoDataUri={logoOnLight} />
+        {/* Framed mode (cream chip + green logo) — the photo half has
+            an unpredictable background, so the chip frame guarantees
+            the brand stamp is legible against any imagery. */}
+        <BrandChip
+          inverted={false}
+          logoDataUri={logoOnLight}
+          framed
+        />
         {/* Slide pip — wrapped in a small dark green chip for legibility
             against arbitrary photo backgrounds. The existing SlidePip
             component assumes a single foreground colour; the wrap gives
@@ -546,9 +551,17 @@ function photoSlideTitleSize(titleLength: number): number {
 function BrandChip({
   inverted,
   logoDataUri,
+  framed = false,
 }: {
   inverted: boolean;
   logoDataUri: string | null;
+  /** When true, wrap the logo in a coloured chip (cream / forest)
+   *  for guaranteed contrast — used on photo slides where the
+   *  underlying background is an unpredictable image. When false,
+   *  the logo sits directly on the slide background; the caller
+   *  must pass the correct colour variant (white logo on dark
+   *  slides, green logo on light slides). */
+  framed?: boolean;
 }) {
   // On the dark green slides the chip is a cream card (high contrast,
   // postage-stamp style). On the cream CTA slide we flip — the chip is
@@ -556,11 +569,37 @@ function BrandChip({
   const cardBg = inverted ? DR.forest : DR.cream;
   const cardFg = inverted ? DR.cream : DR.forest;
 
-  // When an uploaded logo is available, render it instead of the
-  // inline-SVG approximation. The logo replaces both the mark AND
-  // the wordmark (since DR's real logo includes "Deen Relief" text).
-  // Tagline below remains in DM Sans either way.
-  if (logoDataUri) {
+  // ─── Direct mode: logo on slide background, no chip wrapper ─────
+  // The uploaded logo file already has transparency + its own
+  // tagline embedded — no need to add a chip frame or our own text
+  // line. Caller is responsible for passing the correct colour
+  // variant for the slide background.
+  if (logoDataUri && !framed) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 56,
+          left: 56,
+          display: "flex",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoDataUri}
+          alt="Deen Relief"
+          height={60}
+          style={{ height: 60, width: "auto", objectFit: "contain" }}
+        />
+      </div>
+    );
+  }
+
+  // ─── Framed mode: logo inside a cream/forest chip ──────────────
+  // Used by photo slides where the background image colour is not
+  // predictable. The chip guarantees high contrast for the logo
+  // against any photo content.
+  if (logoDataUri && framed) {
     return (
       <div
         style={{
@@ -584,21 +623,6 @@ function BrandChip({
           height={36}
           style={{ height: 36, width: "auto", objectFit: "contain" }}
         />
-        <span
-          style={{
-            display: "flex",
-            fontFamily: "DM Sans",
-            fontWeight: 700,
-            fontSize: 9,
-            color: cardFg,
-            opacity: 0.7,
-            letterSpacing: 1.5,
-            marginTop: 4,
-            textTransform: "uppercase",
-          }}
-        >
-          Helping vulnerable communities globally
-        </span>
       </div>
     );
   }
