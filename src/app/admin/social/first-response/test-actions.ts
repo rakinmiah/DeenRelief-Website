@@ -144,12 +144,22 @@ function buildScenarioInput(
           categories: [{ id: "floods", title: "Floods" }],
           sources: [
             {
-              id: "EO",
-              // NASA Earth Observatory direct-image URL — Public Domain
-              // (US Govt). Ends in .jpg → passes imagery-fetcher regex.
-              // If the specific image ID 404s the slide renderer falls
-              // back to typography gracefully (existing safety net).
-              url: "https://eoimages.gsfc.nasa.gov/images/imagerecords/150000/150148/pakistanflooding_oli_2022240_lrg.jpg",
+              id: "MODIS",
+              // NASA MODIS satellite image of the 2022 Sindh floods,
+              // hosted on Wikimedia Commons (which serves as a stable
+              // permanent mirror for NASA public-domain imagery). The
+              // image is genuinely a NASA Terra/MODIS capture from
+              // 2022-08-30; Wikimedia just hosts the bytes. Verified
+              // HTTP 200, ETag stable since 2024-01.
+              //
+              // Why Wikimedia rather than eoimages.gsfc.nasa.gov: the
+              // NASA EO archive uses 6-digit image-record IDs that
+              // aren't deterministic from the date/region, so any
+              // hard-coded URL is fragile. Wikimedia URLs are content-
+              // addressed by filename + hash — permanent once uploaded.
+              //
+              // Ends in .jpg → passes imagery-fetcher regex.
+              url: "https://upload.wikimedia.org/wikipedia/commons/2/27/Deadly_Flooding_in_Pakistan_%28MODIS_2022-08-30%29.jpg",
             },
           ],
           geometry: [
