@@ -31,6 +31,12 @@ export const TEST_SCENARIOS = {
       "Dashboard only — uk-homeless intensification trigger, no push",
     expectedTier: "none",
   },
+  "pk-flood-eonet": {
+    label: "Pakistan — Sindh flooding (NASA EONET)",
+    description:
+      "HIGH push — exercises NASA EONET signal + satellite imagery integration",
+    expectedTier: "HIGH",
+  },
 } as const;
 
 export type TestScenarioId = keyof typeof TEST_SCENARIOS;
