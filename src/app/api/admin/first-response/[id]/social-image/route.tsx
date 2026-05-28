@@ -112,7 +112,13 @@ export async function GET(
   // Falls back to the response slide's media if hero has none.
   const heroSlide = packet.carousel_slides.find((s) => s.layout === "hero");
   const responseSlide = packet.carousel_slides.find((s) => s.layout === "response");
-  const mediaId = heroSlide?.media_id ?? responseSlide?.media_id ?? null;
+  // Source slide that contributes the photo — needed so we honour
+  // that slide's per-slide logo_variant choice (set by Stage 2/3 based
+  // on actually looking at the photo).
+  const sourceSlide = heroSlide?.media_id ? heroSlide : responseSlide;
+  const mediaId = sourceSlide?.media_id ?? null;
+  const photoLogoVariant: "white" | "green" =
+    sourceSlide?.logo_variant === "green" ? "green" : "white";
 
   // Resolve via prefix switch — same shape as the slide route:
   //   • 'dr:<uuid>'   → DR's media_library
@@ -199,6 +205,7 @@ export async function GET(
       }
       mediaUrl={mediaDataUri}
       creditText={creditText}
+      photoLogoVariant={photoLogoVariant}
       logoOnLight={logoOnLight?.dataUri ?? null}
       logoOnDark={logoOnDark?.dataUri ?? null}
     />,
@@ -229,6 +236,7 @@ function Composition({
   campaignLabel,
   mediaUrl,
   creditText,
+  photoLogoVariant,
   logoOnLight,
   logoOnDark,
 }: {
@@ -242,6 +250,10 @@ function Composition({
    *  source. Drives the small italic attribution strip on the photo
    *  half — required by CC-BY licensing. */
   creditText: string | null;
+  /** Per-slide logo_variant for the source carousel slide whose
+   *  photo we're reusing. 'green' = green wordmark, 'white' = white.
+   *  Stage 2 picked it based on the actual photo content. */
+  photoLogoVariant: "white" | "green";
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
@@ -282,10 +294,13 @@ function Composition({
                 objectFit: "cover",
               }}
             />
-            {/* Green logo (logo-on-light variant) sits directly on the
-                photo — matches how DR uses the wordmark on their own
-                Instagram photo posts. */}
-            <BrandChip logoDataUri={logoOnLight} />
+            {/* Logo on photo — variant chosen by Stage 2 based on
+                actual photo content (Stage 3 may have swapped it). */}
+            <BrandChip
+              logoDataUri={
+                photoLogoVariant === "green" ? logoOnLight : logoOnDark
+              }
+            />
 
             {/* Attribution strip — only when the photo is third-party.
                 CC-BY/CC0/Public Domain licensing requires visible

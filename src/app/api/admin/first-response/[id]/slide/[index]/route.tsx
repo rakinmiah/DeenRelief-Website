@@ -45,7 +45,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SLIDE_SIZE = 1080;
-const SLIDE_COUNT = 5;
+/** Upper bound on slide index — actual count is read from the packet
+ *  at request time (3–8 per strategy_brief.slide_count). This is the
+ *  hard ceiling for input validation. */
+const MAX_SLIDE_COUNT = 8;
 
 // DR brand palette — sampled visually from real Instagram posts.
 // Kept inline rather than imported from Tailwind config: Satori
@@ -106,8 +109,8 @@ export async function GET(
   await requireAdminSession();
   const { id, index: indexStr } = await params;
   const index = Number.parseInt(indexStr, 10);
-  if (!Number.isFinite(index) || index < 0 || index >= SLIDE_COUNT) {
-    return new Response(`Slide index must be 0..${SLIDE_COUNT - 1}.`, {
+  if (!Number.isFinite(index) || index < 0 || index >= MAX_SLIDE_COUNT) {
+    return new Response(`Slide index must be 0..${MAX_SLIDE_COUNT - 1}.`, {
       status: 400,
     });
   }
@@ -275,6 +278,14 @@ function SlideContent({
   // than tinting the photo with a green overlay, which washes out the
   // imagery and makes text hard to read against arbitrary backgrounds.
   if (hasPhoto) {
+    // Per-slide logo variant comes from Claude's Stage 2 choice
+    // (reviewed in Stage 3) — based on actually LOOKING at the photo:
+    //   'green' = logo-on-light variant (green wordmark)
+    //   'white' = logo-on-dark variant (white wordmark)
+    // No more global "always green on photos" rule — that produced
+    // green-on-green disappearances on foliage scenes.
+    const photoLogo =
+      slide.logo_variant === "green" ? logoOnLight : logoOnDark;
     return (
       <PhotoSlide
         slide={slide}
@@ -282,11 +293,7 @@ function SlideContent({
         creditText={creditText}
         slideIndex={slideIndex}
         slideTotal={slideTotal}
-        // Green/dark logo (logo-on-light variant) sits directly on the
-        // photo. The DR green is recognisably "brand" rather than just
-        // "an overlay" — matches how DR uses the wordmark on their own
-        // Instagram photo posts.
-        logoOnPhoto={logoOnLight}
+        logoOnPhoto={photoLogo}
       />
     );
   }
@@ -309,14 +316,13 @@ function SlideContent({
         position: "relative",
       }}
     >
-      {/* Brand logo — top-left. Renders directly on the slide
-          background (no chip frame), so the variant must contrast
-          with the slide bg:
-            • CTA slide (cream bg)    → logo-on-light (green logo)
-            • Other slides (forest bg) → logo-on-dark  (white logo) */}
+      {/* Brand logo — top-left. Per-slide logo_variant comes from
+          Stage 2/3 — Claude picked it for THIS slide's background.
+          Typography-only slides default to white on forest, green on
+          cream (CTA), matching the slide bg colour. */}
       <BrandChip
         inverted={isCta}
-        logoDataUri={isCta ? logoOnLight : logoOnDark}
+        logoDataUri={slide.logo_variant === "green" ? logoOnLight : logoOnDark}
       />
 
       {/* Slide-number pip top-right. Tiny visual progress indicator. */}
@@ -825,7 +831,94 @@ function SlideBody({
 }) {
   if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} />;
   if (isCta) return <CtaBody slide={slide} />;
+  if (slide.layout === "testimony")
+    return <TestimonyBody slide={slide} fg={fg} />;
   return <DisplayBody slide={slide} fg={fg} />;
+}
+
+/** Testimony slide — quote-styled. The title is the quote itself,
+ *  rendered in a slightly more humane register than the chunky fact
+ *  display, with a leading quotation mark in DR's amber. The
+ *  source_attribution becomes the speaker line. */
+function TestimonyBody({ slide, fg }: { slide: Slide; fg: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        textAlign: "center",
+        paddingTop: 100,
+        paddingBottom: 60,
+        paddingLeft: 24,
+        paddingRight: 24,
+      }}
+    >
+      {slide.eyebrow && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Caveat",
+            fontWeight: 600,
+            fontSize: 48,
+            color: DR.amber,
+            marginBottom: 14,
+            fontStyle: "italic",
+          }}
+        >
+          {slide.eyebrow.toLowerCase()}…
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: 56,
+          color: DR.amber,
+          marginBottom: 6,
+          lineHeight: 1,
+        }}
+      >
+        “
+      </div>
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: titleSizeFor("fact", slide.title.length),
+          color: fg,
+          textAlign: "center",
+          textTransform: "uppercase",
+          lineHeight: 1.1,
+          letterSpacing: 0.5,
+          maxWidth: 880,
+          alignSelf: "center",
+        }}
+      >
+        {slide.title}
+      </div>
+      {slide.source_attribution && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontStyle: "italic",
+            fontWeight: 400,
+            fontSize: 24,
+            color: fg,
+            opacity: 0.7,
+            marginTop: 28,
+          }}
+        >
+          {slide.source_attribution}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Hero / fact / response — eyebrow + chunky title + supporting body. */
