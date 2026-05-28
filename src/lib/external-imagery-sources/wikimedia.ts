@@ -23,7 +23,11 @@
  */
 
 import type { EmergencyEvent } from "../first-response";
-import type { CreateImageryInput, ExternalSource } from "../external-imagery";
+import {
+  EXTERNAL_FETCH_UA,
+  type CreateImageryInput,
+  type ExternalSource,
+} from "../external-imagery";
 
 const SEARCH_API = "https://commons.wikimedia.org/w/api.php";
 const SOURCE: ExternalSource = "wikimedia";
@@ -111,7 +115,9 @@ export async function fetchWikimediaImagery(
 
   let searchResp: SearchResponse;
   try {
-    const res = await fetch(searchUrl.toString());
+    const res = await fetch(searchUrl.toString(), {
+      headers: { "User-Agent": EXTERNAL_FETCH_UA },
+    });
     if (!res.ok) {
       console.warn(`[wikimedia] search HTTP ${res.status}`);
       return [];
@@ -142,7 +148,9 @@ export async function fetchWikimediaImagery(
 
   let infoResp: ImageInfoResponse;
   try {
-    const res = await fetch(infoUrl.toString());
+    const res = await fetch(infoUrl.toString(), {
+      headers: { "User-Agent": EXTERNAL_FETCH_UA },
+    });
     if (!res.ok) {
       console.warn(`[wikimedia] info HTTP ${res.status}`);
       return [];
