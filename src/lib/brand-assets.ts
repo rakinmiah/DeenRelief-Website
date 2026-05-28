@@ -50,9 +50,9 @@ export function brandVariantLabel(variant: string): string {
 export function brandVariantHint(variant: string): string {
   switch (variant) {
     case "logo-on-light":
-      return "Typically a forest-green or dark version of the DR logo. Used inside the brand chip on cream-coloured slides and on the photo half of photo slides.";
+      return "Upload the GREEN / DARK version of the DR logo. Sits directly on the cream CTA slide and inside the cream chip on photo slides. Transparent PNG or SVG.";
     case "logo-on-dark":
-      return "Typically a white or cream version of the DR logo. Used when the renderer prefers a logo directly on a dark background (no chip).";
+      return "Upload the WHITE / CREAM version of the DR logo. Sits directly on dark green backgrounds (every typography slide and the bottom panel of photo slides). Transparent PNG or SVG.";
     case "logo-amber":
       return "Optional. Accent variant for amber-coloured contexts. Rarely needed for First Response output.";
     default:

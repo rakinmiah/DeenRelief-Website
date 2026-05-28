@@ -151,14 +151,17 @@ export async function GET(
   const title = heroSlide?.title ?? packet.headline;
   const body = heroSlide?.body ?? null;
 
-  const [bowlby, dmBold, dmReg, caveat, logoOnLight] = await Promise.all([
-    loadGoogleFont("Bowlby One SC", 400),
-    loadGoogleFont("DM Sans", 700),
-    loadGoogleFont("DM Sans", 400),
-    loadGoogleFont("Caveat", 600),
-    // The cream chip on this layout always wants the light-bg variant.
-    getLogoDataUri("logo-on-light"),
-  ]);
+  const [bowlby, dmBold, dmReg, caveat, logoOnLight, logoOnDark] =
+    await Promise.all([
+      loadGoogleFont("Bowlby One SC", 400),
+      loadGoogleFont("DM Sans", 700),
+      loadGoogleFont("DM Sans", 400),
+      loadGoogleFont("Caveat", 600),
+      // Split mode uses the green logo inside a cream chip on photo;
+      // typography mode uses the white logo directly on dark green.
+      getLogoDataUri("logo-on-light"),
+      getLogoDataUri("logo-on-dark"),
+    ]);
 
   return new ImageResponse(
     <Composition
@@ -172,7 +175,8 @@ export async function GET(
           : null
       }
       mediaUrl={mediaDataUri}
-      logoDataUri={logoOnLight?.dataUri ?? null}
+      logoOnLight={logoOnLight?.dataUri ?? null}
+      logoOnDark={logoOnDark?.dataUri ?? null}
     />,
     {
       width: WIDTH,
@@ -200,7 +204,8 @@ function Composition({
   ctaUrl,
   campaignLabel,
   mediaUrl,
-  logoDataUri,
+  logoOnLight,
+  logoOnDark,
 }: {
   title: string;
   eyebrow: string | null;
@@ -208,7 +213,8 @@ function Composition({
   ctaUrl: string;
   campaignLabel: string | null;
   mediaUrl: string | null;
-  logoDataUri: string | null;
+  logoOnLight: string | null;
+  logoOnDark: string | null;
 }) {
   const hasPhoto = mediaUrl != null;
 
@@ -247,8 +253,9 @@ function Composition({
                 objectFit: "cover",
               }}
             />
-            {/* Brand chip floats top-left on the photo. */}
-            <BrandChip logoDataUri={logoDataUri} />
+            {/* Brand chip on photo — framed (cream chip + green logo)
+                for guaranteed contrast against arbitrary photo content. */}
+            <BrandChip logoDataUri={logoOnLight} framed />
           </div>
 
           {/* ─── Right half — text panel ─── */}
@@ -263,7 +270,9 @@ function Composition({
         </>
       ) : (
         <>
-          {/* Typography-only — single full-canvas dark green panel. */}
+          {/* Typography-only — single full-canvas dark green panel.
+              White logo (logo-on-dark) directly on the green field,
+              no chip wrapper. */}
           <div
             style={{
               position: "absolute",
@@ -272,7 +281,7 @@ function Composition({
               display: "flex",
             }}
           >
-            <BrandChip logoDataUri={logoDataUri} />
+            <BrandChip logoDataUri={logoOnDark} />
           </div>
           <TextPanel
             title={title}
@@ -441,11 +450,42 @@ function titleSize(length: number, centered: boolean): number {
 
 /* ─── Brand chip (compact variant) ──────────────────────────────── */
 
-function BrandChip({ logoDataUri }: { logoDataUri: string | null }) {
-  // Same fallback pattern as the slide route's BrandChip — render the
-  // uploaded logo when available, otherwise fall back to the inline
-  // SVG approximation so layout is consistent during onboarding.
-  if (logoDataUri) {
+function BrandChip({
+  logoDataUri,
+  framed = false,
+}: {
+  logoDataUri: string | null;
+  /** Wrap the logo in a cream chip — used when the background it sits
+   *  on is an unpredictable photo. False (default) renders the logo
+   *  directly on the slide bg; the caller must pass the correct
+   *  colour variant. */
+  framed?: boolean;
+}) {
+  // Direct mode: logo on background, no chip wrapper.
+  if (logoDataUri && !framed) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 32,
+          left: 32,
+          display: "flex",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoDataUri}
+          alt="Deen Relief"
+          height={48}
+          style={{ height: 48, width: "auto", objectFit: "contain" }}
+        />
+      </div>
+    );
+  }
+
+  // Framed mode: logo inside a cream chip — used on the photo half
+  // of the split-screen composition where the bg is variable imagery.
+  if (logoDataUri && framed) {
     return (
       <div
         style={{
@@ -469,21 +509,6 @@ function BrandChip({ logoDataUri }: { logoDataUri: string | null }) {
           height={30}
           style={{ height: 30, width: "auto", objectFit: "contain" }}
         />
-        <span
-          style={{
-            display: "flex",
-            fontFamily: "DM Sans",
-            fontWeight: 700,
-            fontSize: 8,
-            color: DR.forest,
-            opacity: 0.7,
-            letterSpacing: 1.5,
-            marginTop: 4,
-            textTransform: "uppercase",
-          }}
-        >
-          Helping vulnerable communities globally
-        </span>
       </div>
     );
   }
