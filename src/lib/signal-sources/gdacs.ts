@@ -29,6 +29,7 @@
 
 import Parser from "rss-parser";
 import type { EmergencyEventInput } from "../first-response-ingest";
+import { isIngestCountry } from "./dr-coverage-countries";
 
 const FEED_URL = "https://www.gdacs.org/xml/rss.xml";
 
@@ -134,6 +135,14 @@ export async function fetchGdacsEvents(): Promise<EmergencyEventInput[]> {
     const eventType = EVENT_TYPE_MAP[rawType] ?? null;
 
     const countryIso = normaliseCountry(item["gdacs:iso3"]);
+
+    // Source-side filter: drop events whose primary country isn't in
+    // DR's ingest set. GDACS publishes ~40 events per fetch globally;
+    // most are in Americas/East Asia/Pacific where DR has no operational
+    // reach. Skipping them at ingest time keeps the data model tight
+    // (same intent as ReliefWeb's MONITORED_COUNTRIES_ISO3 filter).
+    if (!isIngestCountry(countryIso)) continue;
+
     const region = item["gdacs:country"]?.split(/[;,]/)[0]?.trim() ?? null;
 
     items.push({

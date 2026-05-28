@@ -23,6 +23,7 @@
  */
 
 import type { EmergencyEventInput } from "../first-response-ingest";
+import { isIngestCountry } from "./dr-coverage-countries";
 
 const API_URL =
   "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=50&days=14";
@@ -180,12 +181,13 @@ export async function fetchEonetEvents(): Promise<EmergencyEventInput[]> {
     const countryIso = point ? bboxLookup(point[0], point[1]) : null;
 
     // Source-side filter: only ingest EONET events whose coordinates
-    // fall inside a DR-coverage or diaspora-adjacent country box. Events
-    // outside (mid-ocean cyclones, Antarctic activity, Americas wildfires
-    // etc.) are dropped at ingest time rather than landing in the DB
-    // with score 0. Brings EONET in line with ReliefWeb + Met Office
-    // which already pre-filter by geography at the source.
-    if (!countryIso) continue;
+    // fall inside DR's ingest country set. Events outside (mid-ocean
+    // cyclones, Antarctic activity, Americas wildfires etc.) are
+    // dropped at ingest time rather than landing in the DB with
+    // score 0. The bbox-then-set check is belt-and-braces: bbox
+    // resolves country from lat/lng, isIngestCountry validates
+    // against the canonical list shared with GDACS + IFRC.
+    if (!countryIso || !isIngestCountry(countryIso)) continue;
 
     const region = point
       ? `${point[0].toFixed(2)},${point[1].toFixed(2)}`

@@ -21,6 +21,7 @@
  */
 
 import type { EmergencyEventInput } from "../first-response-ingest";
+import { isIngestCountry } from "./dr-coverage-countries";
 
 const API_URL =
   "https://goadmin.ifrc.org/api/v2/event/?ordering=-created_at&limit=50";
@@ -98,12 +99,18 @@ export async function fetchIfrcEvents(): Promise<EmergencyEventInput[]> {
   for (const event of data.results ?? []) {
     if (!event.name) continue;
 
-    // Primary country — IFRC events can span multiple countries
-    // (regional appeals). Take the first; the others ride along in
-    // raw_payload for forensics.
-    const primary = event.countries?.[0];
-    const countryIso = primary?.iso ? primary.iso.toUpperCase() : null;
-    const region = primary?.name ?? null;
+    // Source-side filter + smart primary-country selection. IFRC
+    // regional appeals often span multiple countries (e.g. a Yemen
+    // appeal might list [Saudi Arabia, Yemen, Oman]). Old logic took
+    // the first country and would drop a relevant event if a non-DR
+    // country was listed first. New logic: find the FIRST country
+    // in the event's list that's in DR's ingest set; if none, skip.
+    const matchingCountry = event.countries?.find(
+      (c) => c.iso && isIngestCountry(c.iso.toUpperCase())
+    );
+    if (!matchingCountry?.iso) continue;
+    const countryIso = matchingCountry.iso.toUpperCase();
+    const region = matchingCountry.name ?? null;
 
     const rawType = event.dtype?.name ?? "";
     const eventType = DTYPE_MAP[rawType] ?? null;
