@@ -81,14 +81,14 @@ export const LaunchPacketSchema = z.object({
     ),
   social_post: z.object({
     // One caption that works identically on Instagram, Facebook, and X.
-    // X's 270-char ceiling is the binding constraint; IG and FB tolerate
+    // X's 280-char ceiling is the binding constraint; IG and FB tolerate
     // anything shorter so a single text fits all three. No inline URL —
     // ends with "Link in bio to donate" so it's IG-safe.
     caption: z
       .string()
-      .max(270)
+      .max(280)
       .describe(
-        "ONE caption used identically across Instagram, Facebook, and X. STRICTLY ≤270 characters (X's hard limit). Warm Deen Relief voice in UK English. NO inline URL (Instagram suppresses links). End with 'Link in bio to donate 🤍' or close variant. Lead with the situation, name the geography, mention the matched campaign loosely (e.g. 'our partners are deploying support'). The 🤍 sign-off is the closing flourish."
+        "ONE caption used identically across Instagram, Facebook, and X. HARD LIMIT 280 characters — count carefully, the structured-output validator REJECTS anything longer and the entire packet generation FAILS. Aim for ~240 to leave safety margin. Warm Deen Relief voice in UK English. NO inline URL (Instagram suppresses links). End with 'Link in bio to donate 🤍' or close variant. Lead with the situation, name the geography, mention the matched campaign loosely (e.g. 'our partners are deploying support'). The 🤍 sign-off is the closing flourish."
       ),
     hashtags: z
       .array(z.string())
@@ -257,11 +257,12 @@ SOCIAL POST RULES — single post for Instagram + Facebook + X
 ──────────────────────────────────────────────────────────────────────
 
 You write ONE caption (the social_post.caption field) used identically
-on all three platforms. The constraint is X's 270-char limit; IG and
-FB tolerate anything shorter. Hashtags go AFTER the caption.
+on all three platforms. The constraint is X's 280-char hard limit; IG
+and FB tolerate anything shorter. Hashtags go AFTER the caption.
 
-  • STRICTLY ≤270 characters in the caption itself (the renderer will
-    reject longer text — X's hard ceiling). Be ruthless.
+  • HARD LIMIT 280 characters in the caption itself. The validator
+    REJECTS captions over 280 chars and the entire packet generation
+    FAILS — so aim for ~240 chars to leave a safety margin.
   • Lead with the SITUATION — what's happening, where, who's affected.
   • UK English. Warm but factual. First-person plural ("our team").
   • NO inline URL — Instagram suppresses link-in-caption posts. Always
@@ -486,6 +487,74 @@ Generate the launch packet now in the structured format. Be specific,
 on-brand, and dignified.`;
 }
 
+/**
+ * Wrap messages.parse() with a single retry on validation failure.
+ *
+ * Claude occasionally returns a field a few characters over the
+ * schema's max (most commonly the social_post.caption — counting
+ * unicode/emoji is fuzzy in practice). The Anthropic SDK throws on
+ * structured-output validation failures with a message containing
+ * the path + constraint. We catch that, surface the exact violation
+ * back to Claude in a follow-up turn, and let it try once more.
+ *
+ * One retry is enough in 99% of cases. Two failed attempts surfaces
+ * the error to the caller — the SMM sees a useful message rather
+ * than the system silently swallowing it.
+ */
+async function generateWithRetry(client: Anthropic, brief: string) {
+  const sharedRequest = {
+    model: MODEL,
+    max_tokens: 8000,
+    output_config: {
+      format: zodOutputFormat(LaunchPacketSchema),
+      effort: "high" as const,
+    },
+    system: [
+      {
+        type: "text" as const,
+        text: BRAND_VOICE_SYSTEM,
+        cache_control: { type: "ephemeral" as const },
+      },
+    ],
+  };
+
+  try {
+    return await client.messages.parse({
+      ...sharedRequest,
+      messages: [{ role: "user", content: brief }],
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Only retry on validation errors — network / 5xx / rate limit
+    // should bubble up. Validation errors contain "Failed to parse
+    // structured output" or "Too big" / "Too small" from Zod.
+    if (
+      !message.includes("Failed to parse structured output") &&
+      !message.includes("Too big") &&
+      !message.includes("Too small") &&
+      !message.includes("Invalid")
+    ) {
+      throw err;
+    }
+    console.warn(
+      "[first-response-packet] validation failed, retrying once with correction hint:",
+      message.slice(0, 200)
+    );
+    const correction = `Your previous attempt failed structured-output validation with this error:
+
+${message}
+
+Try again. Pay special attention to character limits — the caption MUST be 280 characters or fewer, and aim for ~240 to leave safety margin. Count carefully.`;
+    return await client.messages.parse({
+      ...sharedRequest,
+      messages: [
+        { role: "user", content: brief },
+        { role: "user", content: correction },
+      ],
+    });
+  }
+}
+
 export async function generateLaunchPacket(
   input: GenerateLaunchPacketInput
 ): Promise<GenerateLaunchPacketResult> {
@@ -509,22 +578,14 @@ export async function generateLaunchPacket(
   // against the schema, and returns a typed object. The brand voice
   // system prompt is cached via cache_control so each subsequent packet
   // generation only pays for the variable brief + the output tokens.
-  const response = await client.messages.parse({
-    model: MODEL,
-    max_tokens: 8000,
-    output_config: {
-      format: zodOutputFormat(LaunchPacketSchema),
-      effort: "high",
-    },
-    system: [
-      {
-        type: "text",
-        text: BRAND_VOICE_SYSTEM,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [{ role: "user", content: brief }],
-  });
+  //
+  // Auto-retry on validation failure: occasionally Claude returns a
+  // caption a few chars over the limit (counting unicode + emoji is
+  // fuzzy) and the Zod max() rejects it, failing the whole packet. We
+  // catch that, append a precise correction message to the prompt, and
+  // re-issue. One retry is enough to fix the vast majority of cases
+  // without ballooning costs.
+  const response = await generateWithRetry(client, brief);
 
   if (!response.parsed_output) {
     throw new Error(
