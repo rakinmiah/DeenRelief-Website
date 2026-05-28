@@ -461,14 +461,15 @@ function BrandChip({
    *  colour variant. */
   framed?: boolean;
 }) {
-  // Direct mode: logo on background, no chip wrapper.
+  // Direct mode: logo on background, no chip wrapper. ~14% of slide
+  // height (90px on 675) for similar visual weight to slide route.
   if (logoDataUri && !framed) {
     return (
       <div
         style={{
           position: "absolute",
-          top: 32,
-          left: 32,
+          top: 36,
+          left: 36,
           display: "flex",
         }}
       >
@@ -476,8 +477,8 @@ function BrandChip({
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          height={48}
-          style={{ height: 48, width: "auto", objectFit: "contain" }}
+          height={90}
+          style={{ height: 90, width: "auto", objectFit: "contain" }}
         />
       </div>
     );
@@ -495,19 +496,19 @@ function BrandChip({
           display: "flex",
           flexDirection: "column",
           backgroundColor: DR.cream,
-          paddingTop: 10,
-          paddingBottom: 10,
-          paddingLeft: 18,
-          paddingRight: 18,
-          borderRadius: 5,
+          paddingTop: 12,
+          paddingBottom: 12,
+          paddingLeft: 22,
+          paddingRight: 22,
+          borderRadius: 6,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          height={30}
-          style={{ height: 30, width: "auto", objectFit: "contain" }}
+          height={52}
+          style={{ height: 52, width: "auto", objectFit: "contain" }}
         />
       </div>
     );
