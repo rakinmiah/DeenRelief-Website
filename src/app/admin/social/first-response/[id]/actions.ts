@@ -24,7 +24,6 @@ import {
 } from "@/lib/first-response-packet";
 import { createSpotlight } from "@/lib/now-spotlight";
 import { CAMPAIGN_LANDING_PATHS } from "@/lib/short-links";
-import { setBannerConfig, setFeaturedCampaign } from "@/lib/site-config";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 export type ActionResult<T = void> =
@@ -225,42 +224,16 @@ export async function launchAppealAction(
   const steps: Record<string, boolean | string> = {};
   const stepErrors: string[] = [];
 
-  // 1. Banner
-  try {
-    const bannerResult = await setBannerConfig(
-      {
-        active: true,
-        message: packet.headline,
-        linkHref: campaignPath,
-        linkLabel: "Donate now",
-        theme: "urgent",
-        dismissible: true,
-      },
-      session.email
-    );
-    steps.banner = bannerResult.ok ? true : bannerResult.error;
-    if (!bannerResult.ok) stepErrors.push(`banner: ${bannerResult.error}`);
-  } catch (err) {
-    steps.banner = err instanceof Error ? err.message : "threw";
-    stepErrors.push(`banner: exception`);
-  }
+  // SCOPE NOTE (changed 2026-05-28 per SMM request):
+  // Launching an appeal NO LONGER edits the public site itself —
+  // the site banner and the homepage's "featured campaign" stay
+  // exactly as the SMM left them in Campaign Command Center. The
+  // ONLY public-facing side effect is the /now spotlight, which is
+  // a soft bio-link redirect rather than a site-content change.
+  // She can still flip banner + featured manually from
+  // /admin/social/banner and /admin/social/featured if she wants.
 
-  // 2. Featured campaign
-  try {
-    const featuredResult = await setFeaturedCampaign(
-      primaryMatch,
-      session.email
-    );
-    steps.featured = featuredResult.ok ? true : featuredResult.error;
-    if (!featuredResult.ok) {
-      stepErrors.push(`featured: ${featuredResult.error}`);
-    }
-  } catch (err) {
-    steps.featured = err instanceof Error ? err.message : "threw";
-    stepErrors.push(`featured: exception`);
-  }
-
-  // 3. /now spotlight — 7-day default for emergencies (a normal post is
+  // 1. /now spotlight — 7-day default for emergencies (a normal post is
   // 3 days; an emergency holds the bio link longer).
   const spotlightDays = Math.min(
     Math.max(options.spotlightDays ?? 7, 1),
@@ -281,14 +254,14 @@ export async function launchAppealAction(
     stepErrors.push(`spotlight: exception`);
   }
 
-  // 4. Admin push — bell + OS push to every subscribed DR Admin user.
+  // 2. Admin push — bell + OS push to every subscribed DR Admin user.
   // Fire-and-forget; enqueueNotification swallows its own errors.
   try {
     await enqueueNotification({
       type: "first_response_critical",
       severity: "urgent",
       title: `🚀 Appeal launched: ${packet.headline.slice(0, 80)}`,
-      body: `Banner, featured campaign, and /now spotlight now live for ${primaryMatch}. Score ${event.drPriorityScore?.toFixed(1) ?? "—"}.`,
+      body: `/now spotlight set to ${primaryMatch} for ${spotlightDays} days. Score ${event.drPriorityScore?.toFixed(1) ?? "—"}.`,
       targetUrl: `/admin/social/first-response/${eventId}`,
       targetId: eventId,
     });

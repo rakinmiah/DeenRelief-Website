@@ -183,8 +183,10 @@ export default async function EmergencyEventPage({
               by {event.appealLaunchedByEmail ?? "—"}
             </p>
             <p className="text-red-900/70 text-[13px] mt-0.5 leading-relaxed">
-              Banner, featured campaign, /now spotlight, and admin push were
-              fired. To roll back, edit Campaign Command Center directly.
+              /now spotlight is pointing at the matched campaign for 7
+              days + admin push fired. The site banner and homepage
+              featured campaign were NOT changed — flip those manually
+              in Campaign Command Center if you want them updated too.
             </p>
           </div>
         </section>
