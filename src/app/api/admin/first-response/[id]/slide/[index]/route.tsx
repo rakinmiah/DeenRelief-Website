@@ -190,6 +190,17 @@ export async function GET(
       getLogoDataUri("logo-on-dark"),
     ]);
 
+  // Surface what got loaded so logos that DIDN'T resolve show up
+  // clearly in Vercel function logs. Most common cause when one is
+  // null: SMM uploaded both files under the same variant name.
+  console.log(
+    `[slide ${index}] logo-on-light: ${
+      logoOnLight ? `${logoOnLight.mimeType}` : "null"
+    } · logo-on-dark: ${
+      logoOnDark ? `${logoOnDark.mimeType}` : "null"
+    } · slide.layout=${slide.layout}`
+  );
+
   return new ImageResponse(
     <SlideContent
       slide={slide}
@@ -574,6 +585,10 @@ function BrandChip({
   // tagline embedded — no need to add a chip frame or our own text
   // line. Caller is responsible for passing the correct colour
   // variant for the slide background.
+  //
+  // Logo height ≈ 10% of slide (108px on 1080) — matches the visual
+  // weight of DR's actual brand chip on real Instagram posts. Width
+  // is auto so wordmarks scale naturally to their intrinsic ratio.
   if (logoDataUri && !framed) {
     return (
       <div
@@ -588,8 +603,8 @@ function BrandChip({
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          height={60}
-          style={{ height: 60, width: "auto", objectFit: "contain" }}
+          height={108}
+          style={{ height: 108, width: "auto", objectFit: "contain" }}
         />
       </div>
     );
@@ -598,7 +613,8 @@ function BrandChip({
   // ─── Framed mode: logo inside a cream/forest chip ──────────────
   // Used by photo slides where the background image colour is not
   // predictable. The chip guarantees high contrast for the logo
-  // against any photo content.
+  // against any photo content. Logo is slightly smaller here since
+  // the chip frame adds visual weight around it.
   if (logoDataUri && framed) {
     return (
       <div
@@ -609,19 +625,19 @@ function BrandChip({
           display: "flex",
           flexDirection: "column",
           backgroundColor: cardBg,
-          paddingTop: 14,
-          paddingBottom: 14,
-          paddingLeft: 22,
-          paddingRight: 22,
-          borderRadius: 6,
+          paddingTop: 16,
+          paddingBottom: 16,
+          paddingLeft: 26,
+          paddingRight: 26,
+          borderRadius: 8,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          height={36}
-          style={{ height: 36, width: "auto", objectFit: "contain" }}
+          height={64}
+          style={{ height: 64, width: "auto", objectFit: "contain" }}
         />
       </div>
     );
