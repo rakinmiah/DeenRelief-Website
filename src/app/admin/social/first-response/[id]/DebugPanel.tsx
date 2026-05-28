@@ -190,16 +190,65 @@ function DebugView({ info }: { info: EventDebugInfo }) {
         )}
       </div>
 
-      {/* ─── Section 3: per-slide selection ─── */}
+      {/* ─── Section 3: external verified imagery ─── */}
       <div>
         <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55 mb-2">
-          3. Per-slide selection
+          3. External verified imagery ({info.externalCandidates.length})
+        </h3>
+        {info.externalCandidates.length === 0 ? (
+          <div className="bg-white border border-charcoal/10 rounded-xl p-3 text-[12px] text-charcoal/65 leading-relaxed">
+            No third-party imagery fetched for this event yet. Wikimedia
+            + NASA EONET run when the packet is drafted — if you haven't
+            generated one, drafts the packet to populate. (ReliefWeb +
+            IFRC are stubs pending API approval.)
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {info.externalCandidates.map((e) => (
+              <div
+                key={e.id}
+                className="bg-white border border-charcoal/10 rounded-xl p-3 flex items-start gap-3"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={e.url}
+                  alt={e.title ?? ""}
+                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0 bg-cream"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-charcoal text-[12px] leading-snug line-clamp-2 mb-1">
+                    {e.title ?? (
+                      <span className="text-charcoal/40">(no title)</span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-1 font-mono text-[10px]">
+                    <Tag label="source" value={e.sourceLabel} good />
+                    <Tag label="license" value={e.license} good />
+                    {e.selected && <Tag label="selected" value="✓" good />}
+                  </div>
+                  <p className="text-[10px] text-charcoal/55 mt-1 italic line-clamp-1">
+                    {e.creditText}
+                  </p>
+                  <p className="font-mono text-[10px] text-charcoal/45 mt-0.5">
+                    id: ext:{e.id}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Section 4: per-slide selection ─── */}
+      <div>
+        <h3 className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55 mb-2">
+          4. Per-slide selection
         </h3>
         {info.packet.present ? (
           <div className="bg-white border border-charcoal/10 rounded-xl divide-y divide-charcoal/5">
             {info.packet.slides.map((s) => {
               const shouldHavePhoto = s.layout === "hero" || s.layout === "response";
-              const has = !!s.mediaResolved;
+              const resolved = s.mediaResolved;
               return (
                 <div
                   key={s.index}
@@ -212,21 +261,34 @@ function DebugView({ info }: { info: EventDebugInfo }) {
                     <p className="text-charcoal text-[12px] line-clamp-1">
                       {s.title}
                     </p>
-                    {has ? (
-                      <p className="text-[11px] text-green-dark mt-0.5">
-                        ✓ Image: {s.mediaResolved!.caption ?? "(no caption)"}{" "}
-                        <span className="font-mono text-charcoal/50">
-                          [{s.mediaId}]
-                        </span>
-                      </p>
+                    {resolved ? (
+                      resolved.kind === "dr" ? (
+                        <p className="text-[11px] text-green-dark mt-0.5">
+                          ✓ DR library: {resolved.caption ?? "(no caption)"}{" "}
+                          <span className="font-mono text-charcoal/50">
+                            [{s.mediaId}]
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-green-dark mt-0.5">
+                          ✓ External ({resolved.sourceLabel}):{" "}
+                          <span className="italic text-charcoal/70">
+                            {resolved.creditText}
+                          </span>{" "}
+                          <span className="font-mono text-charcoal/50">
+                            [{s.mediaId}]
+                          </span>
+                        </p>
+                      )
                     ) : shouldHavePhoto ? (
                       <p className="text-[11px] text-red-700 mt-0.5">
                         ✗ No image picked
                         {s.mediaId
-                          ? ` (Claude returned id ${s.mediaId} which isn't in current candidates — likely an archived/stale row)`
-                          : info.candidates.length === 0
-                            ? " (no candidates available)"
-                            : " (candidates were available but Claude chose null — try redrafting; prompt now biases toward using them)"}
+                          ? ` (Claude returned id ${s.mediaId} which isn't in either candidate pool — likely an archived/stale row or a stale draft predating this code)`
+                          : info.candidates.length === 0 &&
+                              info.externalCandidates.length === 0
+                            ? " (no candidates available from either pool)"
+                            : " (candidates were available but Claude chose null — try redrafting; prompt biases toward using them)"}
                       </p>
                     ) : (
                       <p className="text-[11px] text-charcoal/45 mt-0.5">

@@ -16,6 +16,11 @@
  */
 
 import { requireAdminSession } from "@/lib/admin-session";
+import {
+  listImageryForEvent,
+  externalSourceLabel,
+  type ExternalImagery,
+} from "@/lib/external-imagery";
 import { getEmergencyEventById } from "@/lib/first-response";
 import {
   LaunchPacketSchema,
@@ -48,6 +53,20 @@ export interface EventDebugInfo {
     tags: string[];
     publicUrl: string;
   }>;
+  /** Third-party verified imagery (Wikimedia / NASA EONET / etc.)
+   *  attached to this event. Surfaced as a parallel candidate pool so
+   *  the SMM can see exactly which external sources Claude had to
+   *  choose from on top of DR's own library. */
+  externalCandidates: Array<{
+    id: string;
+    source: string;
+    sourceLabel: string;
+    url: string;
+    title: string | null;
+    creditText: string;
+    license: string;
+    selected: boolean;
+  }>;
   packet:
     | {
         present: true;
@@ -56,7 +75,13 @@ export interface EventDebugInfo {
           layout: string;
           title: string;
           mediaId: string | null;
-          mediaResolved: { id: string; publicUrl: string; caption: string | null } | null;
+          /** Where the media_id resolved to. Branched so the UI can
+           *  show different metadata per source (DR caption vs.
+           *  external credit/license). */
+          mediaResolved:
+            | { kind: "dr"; id: string; publicUrl: string; caption: string | null }
+            | { kind: "ext"; id: string; url: string; sourceLabel: string; creditText: string }
+            | null;
         }>;
       }
     | { present: false; reason: string };
@@ -79,10 +104,27 @@ export async function getEventDebugInfoAction(
       eventType: event.eventType,
       campaignSlugs: event.matchedCampaigns,
     };
-    const candidates = await getCandidateMediaForEvent({
-      ...candidateQuery,
-      limit: 20,
-    });
+    // Fetch BOTH candidate pools in parallel — same shape the launch
+    // packet generator passes to Claude. The debug panel needs both
+    // so it can correctly resolve 'dr:' AND 'ext:' prefixed media_ids
+    // (without the second list, every ext: ID looks orphaned).
+    const [candidates, externalCandidates] = await Promise.all([
+      getCandidateMediaForEvent({
+        ...candidateQuery,
+        limit: 20,
+      }),
+      listImageryForEvent(event.id),
+    ]);
+
+    // Build prefix-keyed lookup maps that mirror what
+    // src/lib/first-response-packet.ts builds when sanitising
+    // Claude's media_id choices. Without these prefixes the lookup
+    // misses every ID (since the packet schema requires 'dr:<uuid>' /
+    // 'ext:<uuid>' format).
+    const drById = new Map(candidates.map((c) => [`dr:${c.id}`, c]));
+    const extById = new Map(
+      externalCandidates.map((e) => [`ext:${e.id}`, e])
+    );
 
     // Resolve packet + per-slide media selection.
     let packetBlock: EventDebugInfo["packet"];
@@ -98,24 +140,43 @@ export async function getEventDebugInfoAction(
         };
       } else {
         const packet: LaunchPacket = parsed.data;
-        // Map media_id → candidate metadata for display.
-        const byId = new Map(candidates.map((c) => [c.id, c]));
+        type Resolved =
+          | { kind: "dr"; id: string; publicUrl: string; caption: string | null }
+          | { kind: "ext"; id: string; url: string; sourceLabel: string; creditText: string }
+          | null;
         packetBlock = {
           present: true,
           slides: packet.carousel_slides.map((slide, idx) => {
-            const resolved = slide.media_id ? byId.get(slide.media_id) : null;
+            const mediaId = slide.media_id ?? null;
+            let resolved: Resolved = null;
+            if (mediaId) {
+              const dr = drById.get(mediaId);
+              if (dr) {
+                resolved = {
+                  kind: "dr",
+                  id: dr.id,
+                  publicUrl: dr.publicUrl,
+                  caption: dr.caption,
+                };
+              } else {
+                const ext = extById.get(mediaId);
+                if (ext) {
+                  resolved = {
+                    kind: "ext",
+                    id: ext.id,
+                    url: ext.url,
+                    sourceLabel: externalSourceLabel(ext.source),
+                    creditText: ext.creditText,
+                  };
+                }
+              }
+            }
             return {
               index: idx + 1,
               layout: slide.layout,
               title: slide.title.slice(0, 80),
-              mediaId: slide.media_id ?? null,
-              mediaResolved: resolved
-                ? {
-                    id: resolved.id,
-                    publicUrl: resolved.publicUrl,
-                    caption: resolved.caption,
-                  }
-                : null,
+              mediaId,
+              mediaResolved: resolved,
             };
           }),
         };
@@ -144,6 +205,16 @@ export async function getEventDebugInfoAction(
           useCases: c.useCases,
           tags: c.tags,
           publicUrl: c.publicUrl,
+        })),
+        externalCandidates: externalCandidates.map((e: ExternalImagery) => ({
+          id: e.id,
+          source: e.source,
+          sourceLabel: externalSourceLabel(e.source),
+          url: e.url,
+          title: e.title,
+          creditText: e.creditText,
+          license: e.license,
+          selected: e.selected,
         })),
         packet: packetBlock,
       },
