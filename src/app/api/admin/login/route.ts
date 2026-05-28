@@ -15,13 +15,19 @@ import {
  * Validates admin credentials and sets the `dr_admin_session` cookie.
  *
  * Validation strategy (interim, pre-Supabase-Auth):
- *   - Server holds a shared passphrase via env var:
- *       ADMIN_LOGIN_PASSPHRASE = "long-random-string-from-1password"
+ *   - Server holds TWO passphrases, one per role:
+ *       ADMIN_LOGIN_PASSPHRASE   — for trustee/admin role
+ *       SOCIAL_LOGIN_PASSPHRASE  — for social-media-manager role
+ *     This means the SMM can never use a trustee credential and
+ *     vice versa, even if one passphrase leaks.
  *   - Email must EITHER be in ADMIN_ALLOWED_EMAILS env (legacy admin
  *     bootstrap) OR have a row in the admin_users table (the new
- *     role-aware allowlist — see migration 019). Admin role is
- *     resolved by resolveAdminRoleForLogin().
- *   - Constant-time compare on the passphrase.
+ *     role-aware allowlist — see migration 019). Role is resolved by
+ *     resolveAdminRoleForLogin(), which picks the correct passphrase
+ *     to validate against.
+ *   - Constant-time compare on the passphrase. Timing stays uniform
+ *     whether the email is known or not (we still run a compare on
+ *     unknown-email requests to avoid leaking allowlist info).
  *   - Session payload carries the resolved role; sidebar + page
  *     guards branch on it.
  *
@@ -97,15 +103,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const expectedPassphrase = process.env.ADMIN_LOGIN_PASSPHRASE ?? "";
-
-  // Fail closed if passphrase not configured. We DO log to server
-  // console so the sysadmin can spot the misconfig, but we don't leak
-  // it to the client.
-  if (!expectedPassphrase) {
+  // Load both role passphrases up front. We fail closed when neither
+  // is configured (no possible login), but per-role missing-passphrase
+  // is fine — it just means that role can't sign in.
+  const adminPassphrase = process.env.ADMIN_LOGIN_PASSPHRASE ?? "";
+  const socialPassphrase = process.env.SOCIAL_LOGIN_PASSPHRASE ?? "";
+  if (!adminPassphrase && !socialPassphrase) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        "[admin login] ADMIN_LOGIN_PASSPHRASE not set — all logins rejected."
+        "[admin login] Neither ADMIN_LOGIN_PASSPHRASE nor SOCIAL_LOGIN_PASSPHRASE set — all logins rejected."
       );
     }
     return NextResponse.json(
@@ -114,28 +120,39 @@ export async function POST(request: Request) {
     );
   }
 
-  // Validate the passphrase first (constant-time). Doing this BEFORE
-  // the role lookup ensures wrong-passphrase requests cost no DB query
-  // and timing doesn't reveal whether the email is known.
-  const passphraseMatch = secureCompare(passphrase, expectedPassphrase);
-
   // Resolve role (DB lookup + env-allowlist bootstrap). null = unknown
-  // email. We still call this on wrong-passphrase attempts so timing
-  // stays constant relative to email validity.
-  const role = await resolveAdminRoleForLogin(email);
-  const emailMatch = role !== null;
+  // email. We then pick the role-appropriate passphrase to compare
+  // against. Unknown email still triggers a passphrase compare against
+  // adminPassphrase so the request timing doesn't reveal whether the
+  // email is in the allowlist — uniform DB hit + uniform compare for
+  // every request.
+  const role: "admin" | "social" | null = await resolveAdminRoleForLogin(email);
 
-  if (!emailMatch || !passphraseMatch) {
+  // Pick the expected passphrase by role. For unknown emails we still
+  // compare against adminPassphrase (or empty string fallback) so the
+  // compare cost is constant.
+  const expectedPassphrase =
+    role === "social" ? socialPassphrase : adminPassphrase;
+
+  // Guard against the per-role passphrase being unset — treat as
+  // rejection. This keeps the error generic (still "Invalid credentials")
+  // so an attacker can't tell which role's passphrase is missing.
+  const passphraseConfigured = expectedPassphrase.length > 0;
+  const passphraseMatch =
+    passphraseConfigured && secureCompare(passphrase, expectedPassphrase);
+
+  // After this point, `role` is narrowed to a real role (not null).
+  if (!role || !passphraseMatch) {
     // Audit log the failure. The next-attempts-until-rate-limit count
     // helps trustees diagnose "I keep getting locked out" issues.
     await logAdminAction({
       action: "sign_in_failed",
-      userEmail: emailMatch ? email : null,
+      userEmail: role ? email : null,
       request,
       metadata: {
         // Record which side failed (timing-safe to log AFTER the fact)
         // for forensic purposes. Never returned to the client.
-        emailKnown: emailMatch,
+        emailKnown: role !== null,
         passphraseMatched: passphraseMatch,
       },
     });
