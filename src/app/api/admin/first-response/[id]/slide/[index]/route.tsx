@@ -282,10 +282,11 @@ function SlideContent({
         creditText={creditText}
         slideIndex={slideIndex}
         slideTotal={slideTotal}
-        // White logo sits directly on the photo — no chip wrapper.
-        // White reads against most photo content (mid-tones to dark);
-        // a green logo would clash with green/foliage-heavy scenes.
-        logoOnDark={logoOnDark}
+        // Green/dark logo (logo-on-light variant) sits directly on the
+        // photo. The DR green is recognisably "brand" rather than just
+        // "an overlay" — matches how DR uses the wordmark on their own
+        // Instagram photo posts.
+        logoOnPhoto={logoOnLight}
       />
     );
   }
@@ -353,7 +354,7 @@ function PhotoSlide({
   creditText,
   slideIndex,
   slideTotal,
-  logoOnDark,
+  logoOnPhoto,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -363,7 +364,9 @@ function PhotoSlide({
   creditText: string | null;
   slideIndex: number;
   slideTotal: number;
-  logoOnDark: string | null;
+  /** Green/dark logo variant — used directly on the photo (no chip).
+   *  DR uses the green wordmark on their own photo posts. */
+  logoOnPhoto: string | null;
 }) {
   const PHOTO_HEIGHT = 670; // ~62% of 1080
   const PANEL_HEIGHT = SLIDE_SIZE - PHOTO_HEIGHT;
@@ -401,8 +404,8 @@ function PhotoSlide({
             objectFit: "cover",
           }}
         />
-        {/* White logo directly on the photo — no chip wrapper. */}
-        <BrandChip inverted={false} logoDataUri={logoOnDark} />
+        {/* Green logo directly on the photo — no chip wrapper. */}
+        <BrandChip inverted={false} logoDataUri={logoOnPhoto} />
         {/* Slide pip — wrapped in a small dark green chip for legibility
             against arbitrary photo backgrounds. The existing SlidePip
             component assumes a single foreground colour; the wrap gives

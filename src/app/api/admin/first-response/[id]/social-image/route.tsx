@@ -180,8 +180,8 @@ export async function GET(
       loadGoogleFont("DM Sans", 700),
       loadGoogleFont("DM Sans", 400),
       loadGoogleFont("Caveat", 600),
-      // Split mode uses the green logo inside a cream chip on photo;
-      // typography mode uses the white logo directly on dark green.
+      // Split mode (photo half) uses the green logo directly on the
+      // photo; typography mode uses the white logo on dark green.
       getLogoDataUri("logo-on-light"),
       getLogoDataUri("logo-on-dark"),
     ]);
@@ -282,8 +282,10 @@ function Composition({
                 objectFit: "cover",
               }}
             />
-            {/* White logo sits directly on the photo — no chip. */}
-            <BrandChip logoDataUri={logoOnDark} />
+            {/* Green logo (logo-on-light variant) sits directly on the
+                photo — matches how DR uses the wordmark on their own
+                Instagram photo posts. */}
+            <BrandChip logoDataUri={logoOnLight} />
 
             {/* Attribution strip — only when the photo is third-party.
                 CC-BY/CC0/Public Domain licensing requires visible
