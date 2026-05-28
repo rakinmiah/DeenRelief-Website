@@ -59,7 +59,15 @@ interface GdacsItem {
   "gdacs:iso3"?: string;
 }
 
+// GDACS now returns HTTP 406 to rss-parser's default Accept header
+// ("application/rss+xml"). Explicit Accept + User-Agent satisfies their
+// content-negotiation. Discovered 2026-05-28 — every prior cron run was
+// silently dying with an "Status code 406" error.
 const parser = new Parser<unknown, GdacsItem>({
+  headers: {
+    Accept: "application/xml, application/rss+xml, text/xml;q=0.9, */*;q=0.8",
+    "User-Agent": "DeenRelief-FirstResponse/1.0 (+https://deenrelief.org)",
+  },
   customFields: {
     item: [
       ["gdacs:eventid", "gdacs:eventid"],
