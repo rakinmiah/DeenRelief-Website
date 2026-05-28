@@ -2,23 +2,29 @@
  * GET /api/admin/first-response/:id/slide/:index — render a single
  * launch-packet carousel slide as a 1080×1080 PNG.
  *
- * The launch packet (stored on emergency_events.draft_packet_json)
- * includes a `carousel_slides` array of 5 typed slides. This route
- * pulls that array, picks the slide at :index (0–4), and renders the
- * matching template via next/og's ImageResponse → Satori → PNG.
+ * Design system sourced from a live audit of @deenrelief's actual
+ * designed Instagram posts (the "INTRODUCING…" series + Qurbani 2026
+ * appeal). Key visual rules captured from the real brand:
  *
- * Why server-rendered (rather than rendering on the client)?
- *   • PNG output — the SMM downloads the file and uploads to IG/FB.
- *   • Brand-consistent fonts (Source Serif 4 + DM Sans) loaded from
- *     Google Fonts as binary buffers at request time.
- *   • No CSS environment quirks — Satori's subset of CSS is the
- *     contract.
+ *   • Deep forest-green field — #1F4D3B. NOT cream. The hero canvas.
+ *   • White brand chip top-left — "Deen Relief™" wordmark + tagline,
+ *     posted-stamp style. Anchors every slide to DR identity.
+ *   • Eyebrow in Caveat brush script — "INTRODUCING…" was DR's go-to
+ *     opener; we adapt it to "EMERGENCY APPEAL · {date}" etc.
+ *   • Display titles in Bowlby One SC — heavy rounded uppercase, the
+ *     closest free Google Font to DR's chunky display face. This is
+ *     the dominant visual move.
+ *   • Body / supporting copy in DM Sans Bold UPPERCASE, tight tracking.
+ *   • Amber/gold accent (#E0A636) for prices + emphasis — matches the
+ *     Qurbani 2026 pricing treatment.
+ *   • Decorative four-point sparkles flanking type — DR uses these
+ *     liberally on the educational series.
+ *   • CTA slide is INVERTED — cream background, green type, red
+ *     accent — mirrors the Eid Mubarak / festival aesthetic for the
+ *     closing emotional beat.
  *
- * Auth: requireAdminSession (same as the detail page). 'social' or
- * 'admin' roles. Anyone else gets a 401/redirect.
- *
- * Caching: NoStore. The packet can be regenerated and we want every
- * slide download to reflect the latest draft.
+ * Auth: requireAdminSession (admin or social role). Anyone else 307s
+ * to /admin/login.
  */
 
 import { ImageResponse } from "next/og";
@@ -35,24 +41,30 @@ export const dynamic = "force-dynamic";
 const SLIDE_SIZE = 1080;
 const SLIDE_COUNT = 5;
 
-// Cream / charcoal / green / amber from the DR brand tokens. Kept
-// inline so the renderer doesn't reach into Tailwind config — Satori
-// only understands the subset of CSS it explicitly supports.
-const COLORS = {
-  cream: "#FAF6EE",
-  charcoal: "#1A1A2E",
-  charcoalSoft: "#1A1A2E99",
-  green: "#1B5E3F",
-  greenDark: "#0E3D27",
-  amber: "#C8843B",
-  hairline: "#1A1A2E1A",
+// DR brand palette — sampled visually from real Instagram posts.
+// Kept inline rather than imported from Tailwind config: Satori
+// processes a subset of CSS that doesn't include Tailwind variables.
+const DR = {
+  forest: "#1F4D3B",       // hero background, primary brand green
+  forestDeep: "#163827",   // shadow / deeper accents on dark slides
+  cream: "#F7F3E8",        // warm off-white text + CTA slide background
+  creamSoft: "#F7F3E8B8",  // ~72% — for secondary copy on green
+  amber: "#E0A636",        // pricing accent + CTA highlights
+  amberDeep: "#B97F23",    // pressed/contrast variant
+  red: "#C0392B",          // "Donate now" emphasis (matches Eid posts)
+  white: "#FFFFFF",
+  hairlineLight: "#F7F3E833", // 20% cream — dividers on green
+  hairlineDark: "#1F4D3B22",  // ~13% green — dividers on cream
 } as const;
 
+/* ─── Font loading ────────────────────────────────────────────────── */
 /**
- * Fetch a Google Font as an ArrayBuffer for Satori. Cached per-process
- * via module-level memoisation — fonts are static, so re-downloading
- * them per render is wasteful. The promise itself is memoised so
- * concurrent requests share one fetch.
+ * Google Fonts content-negotiates on User-Agent: a modern UA returns
+ * WOFF (Satori can't decode), absent/unknown UA returns TTF. We rely
+ * on Node's default fetch UA (unidentified by Google's classifier) to
+ * stay on the TTF path. Fonts are memoised per-process — the same
+ * Vercel function instance serves many slide requests, no point
+ * re-downloading.
  */
 const fontCache = new Map<string, Promise<ArrayBuffer>>();
 function loadGoogleFont(family: string, weight: number): Promise<ArrayBuffer> {
@@ -60,31 +72,26 @@ function loadGoogleFont(family: string, weight: number): Promise<ArrayBuffer> {
   const cached = fontCache.get(key);
   if (cached) return cached;
   const promise = (async () => {
-    // The Google Fonts CSS API serves us a tiny CSS file containing
-    // the actual TTF/WOFF URL — extract and fetch it.
     const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}`;
-    // Counter-intuitive but verified: sending a MODERN User-Agent makes
-    // Google Fonts return WOFF, which Satori can't decode. Sending NO
-    // User-Agent (or an old/unknown one) triggers the TTF fallback. The
-    // Node fetch default UA is unidentified by Google, so omitting any
-    // explicit UA header gets us TTF.
     const css = await fetch(cssUrl).then((r) => r.text());
     const match = css.match(/src:\s*url\(([^)]+)\)\s*format\('(?:truetype|opentype)'\)/);
     if (!match || !match[1]) {
       throw new Error(
-        `Could not extract TTF font URL for ${family} ${weight} from Google Fonts CSS. ` +
+        `Could not extract TTF font URL for ${family} ${weight}. ` +
           `Response preview: ${css.slice(0, 200)}`
       );
     }
     const fontRes = await fetch(match[1]);
     if (!fontRes.ok) {
-      throw new Error(`Font fetch failed: ${fontRes.status}`);
+      throw new Error(`Font fetch failed (${family} ${weight}): ${fontRes.status}`);
     }
     return fontRes.arrayBuffer();
   })();
   fontCache.set(key, promise);
   return promise;
 }
+
+/* ─── Route handler ───────────────────────────────────────────────── */
 
 export async function GET(
   _request: Request,
@@ -101,7 +108,6 @@ export async function GET(
 
   const event = await getEmergencyEventById(id);
   if (!event) return new Response("Event not found.", { status: 404 });
-
   if (!event.draftPacketJson) {
     return new Response(
       "This event has no draft packet yet — generate one first.",
@@ -121,20 +127,26 @@ export async function GET(
     return new Response("Slide missing from packet.", { status: 422 });
   }
 
-  // Load fonts in parallel. Satori needs them embedded — no <link>.
-  const [serifBold, sansRegular, sansBold] = await Promise.all([
-    loadGoogleFont("Source Serif 4", 700),
-    loadGoogleFont("DM Sans", 400),
+  // Four fonts in parallel — every slide uses at least three of them.
+  //   Bowlby One SC 400  → chunky uppercase display titles
+  //   DM Sans 700        → bold uppercase body
+  //   DM Sans 400        → ordinary cream-on-green prose
+  //   Caveat 600         → italic brush eyebrow (the "INTRODUCING…" voice)
+  const [bowlby, dmBold, dmReg, caveat] = await Promise.all([
+    loadGoogleFont("Bowlby One SC", 400),
     loadGoogleFont("DM Sans", 700),
+    loadGoogleFont("DM Sans", 400),
+    loadGoogleFont("Caveat", 600),
   ]);
 
   return new ImageResponse(<SlideContent slide={slide} packet={packet} />, {
     width: SLIDE_SIZE,
     height: SLIDE_SIZE,
     fonts: [
-      { name: "Source Serif 4", data: serifBold, weight: 700, style: "normal" },
-      { name: "DM Sans", data: sansRegular, weight: 400, style: "normal" },
-      { name: "DM Sans", data: sansBold, weight: 700, style: "normal" },
+      { name: "Bowlby One SC", data: bowlby, weight: 400, style: "normal" },
+      { name: "DM Sans", data: dmBold, weight: 700, style: "normal" },
+      { name: "DM Sans", data: dmReg, weight: 400, style: "normal" },
+      { name: "Caveat", data: caveat, weight: 600, style: "normal" },
     ],
     headers: {
       "Cache-Control": "private, no-store",
@@ -143,7 +155,7 @@ export async function GET(
   });
 }
 
-/* ─── Slide rendering ─────────────────────────────────────────────── */
+/* ─── Slide composition ───────────────────────────────────────────── */
 
 type Slide = LaunchPacket["carousel_slides"][number];
 
@@ -154,13 +166,12 @@ function SlideContent({
   slide: Slide;
   packet: LaunchPacket;
 }) {
-  // CTA slide uses the inverted palette (charcoal background, cream
-  // text) so it stands out at the end of the carousel — gives the
-  // closing call-to-action visual weight.
-  const inverted = slide.layout === "cta";
-  const bg = inverted ? COLORS.charcoal : COLORS.cream;
-  const fg = inverted ? COLORS.cream : COLORS.charcoal;
-  const accent = inverted ? COLORS.amber : COLORS.green;
+  // CTA slide flips to a cream canvas with green type + red emphasis,
+  // mirroring the Eid Mubarak / festival treatment — gives the closing
+  // beat emotional warmth instead of more dark intensity.
+  const isCta = slide.layout === "cta";
+  const bg = isCta ? DR.cream : DR.forest;
+  const fg = isCta ? DR.forest : DR.cream;
 
   return (
     <div
@@ -170,136 +181,209 @@ function SlideContent({
         display: "flex",
         flexDirection: "column",
         backgroundColor: bg,
-        padding: 80,
+        padding: 64,
         fontFamily: "DM Sans",
         position: "relative",
       }}
     >
-      {/* Hairline border-frame for the slide so the typography breathes
-          inside a clear edge — a subtle "card" look. */}
-      <div
-        style={{
-          position: "absolute",
-          top: 32,
-          left: 32,
-          right: 32,
-          bottom: 32,
-          border: `1px solid ${inverted ? "#FAF6EE33" : COLORS.hairline}`,
-          borderRadius: 16,
-          display: "flex",
-        }}
+      {/* Brand chip — top-left. Pinned to every slide for identity. */}
+      <BrandChip inverted={isCta} />
+
+      {/* Slide-number pip top-right. Tiny visual progress indicator. */}
+      <SlidePip
+        current={packet.carousel_slides.indexOf(slide) + 1}
+        total={packet.carousel_slides.length}
+        fg={fg}
       />
 
-      {/* ─── Eyebrow (small uppercase tag) ─── */}
-      {slide.eyebrow && (
-        <div
-          style={{
-            display: "flex",
-            color: accent,
-            fontFamily: "DM Sans",
-            fontWeight: 700,
-            fontSize: 22,
-            letterSpacing: 4,
-            textTransform: "uppercase",
-            marginBottom: 28,
-          }}
-        >
-          {slide.eyebrow}
-        </div>
-      )}
+      {/* Decorative sparkles bracketing the title — DR uses these
+          liberally as visual rhythm on the educational series. */}
+      <SparkleField inverted={isCta} />
 
-      {/* ─── Main body switches on layout ─── */}
-      <SlideBody slide={slide} fg={fg} accent={accent} />
+      {/* Main composition switches on layout. */}
+      <SlideBody slide={slide} fg={fg} isCta={isCta} />
 
-      {/* ─── Footer ─── */}
-      <SlideFooter packet={packet} slide={slide} fg={fg} accent={accent} />
+      {/* Footer — source attribution, URL on CTA, hairline divider. */}
+      <SlideFooter slide={slide} fg={fg} isCta={isCta} />
     </div>
   );
 }
 
-function SlideBody({
-  slide,
-  fg,
-  accent,
-}: {
-  slide: Slide;
-  fg: string;
-  accent: string;
-}) {
-  // Different layouts get different vertical rhythm — tiers needs
-  // tight stacking, hero/fact/response give the title room to breathe.
-  if (slide.layout === "tiers") {
-    return (
+/* ─── Brand chip ──────────────────────────────────────────────────── */
+
+function BrandChip({ inverted }: { inverted: boolean }) {
+  // On the dark green slides the chip is a cream card (high contrast,
+  // postage-stamp style). On the cream CTA slide we flip — the chip is
+  // a green card so it still pops against the cream field.
+  const cardBg = inverted ? DR.forest : DR.cream;
+  const cardFg = inverted ? DR.cream : DR.forest;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 48,
+        left: 48,
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: cardBg,
+        paddingTop: 14,
+        paddingBottom: 14,
+        paddingLeft: 22,
+        paddingRight: 22,
+        borderRadius: 6,
+      }}
+    >
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          justifyContent: "center",
-          gap: 8,
+          alignItems: "center",
+          gap: 10,
         }}
       >
-        <div
+        {/* Simple geometric mark — abstract family/tree silhouette. Pure
+            SVG so it scales cleanly at any density. */}
+        <svg
+          width="32"
+          height="32"
+          viewBox="0 0 32 32"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle cx="16" cy="9" r="4.5" fill={cardFg} />
+          <path
+            d="M 7 28 Q 7 17 16 17 Q 25 17 25 28 Z"
+            fill={cardFg}
+          />
+        </svg>
+        <span
           style={{
             display: "flex",
-            fontFamily: "Source Serif 4",
-            fontWeight: 700,
-            fontSize: 60,
-            lineHeight: 1.05,
-            color: fg,
-            marginBottom: 40,
+            fontFamily: "Bowlby One SC",
+            fontWeight: 400,
+            fontSize: 26,
+            color: cardFg,
+            letterSpacing: 0.5,
           }}
         >
-          {slide.title}
-        </div>
-        {slide.tier_lines?.map((tier, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: 28,
-              borderTop: `1px solid ${COLORS.hairline}`,
-              paddingTop: 24,
-              paddingBottom: 24,
-              ...(i === (slide.tier_lines?.length ?? 0) - 1
-                ? { borderBottom: `1px solid ${COLORS.hairline}` }
-                : {}),
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                color: accent,
-                fontFamily: "Source Serif 4",
-                fontWeight: 700,
-                fontSize: 56,
-                width: 200,
-                flexShrink: 0,
-              }}
-            >
-              £{tier.amount_gbp}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                color: fg,
-                fontFamily: "DM Sans",
-                fontWeight: 400,
-                fontSize: 30,
-                lineHeight: 1.3,
-                flex: 1,
-              }}
-            >
-              {tier.short_description}
-            </div>
-          </div>
-        ))}
+          DEEN RELIEF
+        </span>
       </div>
-    );
-  }
+      <span
+        style={{
+          display: "flex",
+          fontFamily: "DM Sans",
+          fontWeight: 700,
+          fontSize: 9,
+          color: cardFg,
+          opacity: 0.7,
+          letterSpacing: 1.5,
+          marginTop: 2,
+          textTransform: "uppercase",
+        }}
+      >
+        Helping vulnerable communities globally
+      </span>
+    </div>
+  );
+}
 
-  // hero, fact, response, cta — title + optional body
+/* ─── Slide-number pip (top-right) ────────────────────────────────── */
+
+function SlidePip({
+  current,
+  total,
+  fg,
+}: {
+  current: number;
+  total: number;
+  fg: string;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 60,
+        right: 64,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            display: "flex",
+            width: i + 1 === current ? 22 : 10,
+            height: 10,
+            backgroundColor: fg,
+            opacity: i + 1 === current ? 1 : 0.3,
+            borderRadius: 5,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Decorative sparkles ─────────────────────────────────────────── */
+
+function Sparkle({
+  size,
+  color,
+  style,
+}: {
+  size: number;
+  color: string;
+  style?: React.CSSProperties;
+}) {
+  // 4-point star — same shape DR uses across the educational series.
+  // Built as SVG path so Satori renders consistently across runtimes.
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ position: "absolute", ...style }}
+    >
+      <path
+        d="M12 0 L13.5 10.5 L24 12 L13.5 13.5 L12 24 L10.5 13.5 L0 12 L10.5 10.5 Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+function SparkleField({ inverted }: { inverted: boolean }) {
+  const color = inverted ? DR.amber : DR.amber;
+  return (
+    <>
+      <Sparkle size={28} color={color} style={{ top: 200, left: 80 }} />
+      <Sparkle size={18} color={color} style={{ top: 280, right: 140 }} />
+      <Sparkle size={22} color={color} style={{ bottom: 280, left: 140 }} />
+      <Sparkle size={14} color={color} style={{ bottom: 200, right: 100 }} />
+    </>
+  );
+}
+
+/* ─── Slide body switches on layout ───────────────────────────────── */
+
+function SlideBody({
+  slide,
+  fg,
+  isCta,
+}: {
+  slide: Slide;
+  fg: string;
+  isCta: boolean;
+}) {
+  if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} />;
+  if (isCta) return <CtaBody slide={slide} />;
+  return <DisplayBody slide={slide} fg={fg} />;
+}
+
+/** Hero / fact / response — eyebrow + chunky title + supporting body. */
+function DisplayBody({ slide, fg }: { slide: Slide; fg: string }) {
   return (
     <div
       style={{
@@ -307,18 +391,42 @@ function SlideBody({
         flexDirection: "column",
         flex: 1,
         justifyContent: "center",
-        gap: 28,
+        alignItems: "center",
+        textAlign: "center",
+        paddingTop: 100,
+        paddingBottom: 60,
       }}
     >
+      {slide.eyebrow && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Caveat",
+            fontWeight: 600,
+            fontSize: 56,
+            color: DR.amber,
+            marginBottom: 16,
+            fontStyle: "italic",
+          }}
+        >
+          {slide.eyebrow.toLowerCase()}…
+        </div>
+      )}
       <div
         style={{
           display: "flex",
-          fontFamily: "Source Serif 4",
-          fontWeight: 700,
-          fontSize: titleSizeFor(slide.layout),
-          lineHeight: 1.05,
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: titleSizeFor(slide.layout, slide.title.length),
           color: fg,
-          letterSpacing: -0.5,
+          textAlign: "center",
+          textTransform: "uppercase",
+          lineHeight: 1.05,
+          letterSpacing: 1,
+          maxWidth: 900,
+          // Satori sometimes drops vertical centering when long titles
+          // wrap to 3 lines — explicit alignSelf keeps the block tight.
+          alignSelf: "center",
         }}
       >
         {slide.title}
@@ -328,12 +436,16 @@ function SlideBody({
           style={{
             display: "flex",
             fontFamily: "DM Sans",
-            fontWeight: 400,
-            fontSize: 34,
-            lineHeight: 1.3,
+            fontWeight: 700,
+            fontSize: 32,
             color: fg,
-            opacity: 0.78,
-            maxWidth: 880,
+            opacity: 0.85,
+            textTransform: "uppercase",
+            letterSpacing: 1.2,
+            lineHeight: 1.35,
+            marginTop: 32,
+            maxWidth: 820,
+            textAlign: "center",
           }}
         >
           {slide.body}
@@ -343,38 +455,215 @@ function SlideBody({
   );
 }
 
-function SlideFooter({
-  packet,
-  slide,
-  fg,
-  accent,
-}: {
-  packet: LaunchPacket;
-  slide: Slide;
-  fg: string;
-  accent: string;
-}) {
-  // Left side varies per slide; right side is always DR brand + page #
+/** Tiers slide — 3 amount/description rows with amber prices. */
+function TiersBody({ slide, fg }: { slide: Slide; fg: string }) {
   return (
     <div
       style={{
         display: "flex",
-        justifyContent: "space-between",
+        flexDirection: "column",
+        flex: 1,
+        justifyContent: "center",
+        paddingTop: 110,
+        paddingBottom: 60,
+        paddingLeft: 40,
+        paddingRight: 40,
+      }}
+    >
+      {slide.eyebrow && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Caveat",
+            fontWeight: 600,
+            fontSize: 48,
+            color: DR.amber,
+            marginBottom: 8,
+            alignSelf: "center",
+            fontStyle: "italic",
+          }}
+        >
+          {slide.eyebrow.toLowerCase()}…
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: 64,
+          color: fg,
+          textTransform: "uppercase",
+          letterSpacing: 1,
+          marginBottom: 40,
+          alignSelf: "center",
+          textAlign: "center",
+        }}
+      >
+        {slide.title}
+      </div>
+      {slide.tier_lines?.map((tier, i) => (
+        <div
+          key={i}
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 36,
+            paddingTop: 22,
+            paddingBottom: 22,
+            borderTop: i === 0 ? `1px solid ${DR.hairlineLight}` : "none",
+            borderBottom: `1px solid ${DR.hairlineLight}`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: 76,
+              color: DR.amber,
+              width: 220,
+              flexShrink: 0,
+            }}
+          >
+            £{tier.amount_gbp}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 30,
+              color: fg,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              lineHeight: 1.3,
+              flex: 1,
+              alignItems: "center",
+            }}
+          >
+            {tier.short_description}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** CTA slide — inverted cream canvas with green type + red emphasis. */
+function CtaBody({ slide }: { slide: Slide }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        textAlign: "center",
+        paddingTop: 100,
+        paddingBottom: 60,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Caveat",
+          fontWeight: 600,
+          fontSize: 56,
+          color: DR.amber,
+          marginBottom: 8,
+          fontStyle: "italic",
+        }}
+      >
+        every gift counts…
+      </div>
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: 180,
+          color: DR.red,
+          textTransform: "uppercase",
+          letterSpacing: 1,
+          lineHeight: 0.95,
+        }}
+      >
+        {slide.title}
+      </div>
+      {slide.body && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 700,
+            fontSize: 36,
+            color: DR.forest,
+            opacity: 0.85,
+            textTransform: "uppercase",
+            letterSpacing: 1.5,
+            marginTop: 32,
+            textAlign: "center",
+          }}
+        >
+          {slide.body}
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "DM Sans",
+          fontWeight: 700,
+          fontSize: 28,
+          color: DR.amber,
+          marginTop: 24,
+          letterSpacing: 1,
+        }}
+      >
+        deenrelief.org
+      </div>
+    </div>
+  );
+}
+
+/* ─── Footer ──────────────────────────────────────────────────────── */
+
+function SlideFooter({
+  slide,
+  fg,
+  isCta,
+}: {
+  slide: Slide;
+  fg: string;
+  isCta: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
         alignItems: "flex-end",
+        justifyContent: "space-between",
         marginTop: 16,
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+        }}
+      >
         {slide.source_attribution && (
           <div
             style={{
               display: "flex",
               fontFamily: "DM Sans",
-              fontStyle: "italic",
               fontWeight: 400,
+              fontStyle: "italic",
               fontSize: 22,
               color: fg,
-              opacity: 0.55,
+              opacity: 0.6,
             }}
           >
             {slide.source_attribution}
@@ -389,53 +678,62 @@ function SlideFooter({
           gap: 4,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "DM Sans",
-            fontWeight: 700,
-            fontSize: 26,
-            color: accent,
-            letterSpacing: 1,
-          }}
-        >
-          Deen Relief
-        </div>
+        {!isCta && (
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 20,
+              color: fg,
+              opacity: 0.7,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+            }}
+          >
+            deenrelief.org
+          </div>
+        )}
         <div
           style={{
             display: "flex",
             fontFamily: "DM Sans",
             fontWeight: 400,
-            fontSize: 18,
+            fontSize: 14,
             color: fg,
-            opacity: 0.55,
-            letterSpacing: 0.5,
+            opacity: 0.45,
+            letterSpacing: 1,
           }}
         >
-          Slide {slideIndexFor(slide, packet)} / {packet.carousel_slides.length}
-          {" · Charity No. 1158608"}
+          Charity No. 1158608
         </div>
       </div>
     </div>
   );
 }
 
-/** Larger type for the hero, slightly tighter for fact/response/cta. */
-function titleSizeFor(layout: Slide["layout"]): number {
-  switch (layout) {
-    case "hero":
-      return 110;
-    case "fact":
-      return 92;
-    case "response":
-      return 84;
-    case "cta":
-      return 130;
-    default:
-      return 90;
-  }
-}
+/* ─── Helpers ─────────────────────────────────────────────────────── */
 
-function slideIndexFor(slide: Slide, packet: LaunchPacket): number {
-  return packet.carousel_slides.indexOf(slide) + 1;
+/**
+ * Title size scales by layout AND by length — long hero headlines
+ * (8 words) need a smaller size to fit on 2 lines without overflowing
+ * the brand chip / pip clearances at top.
+ */
+function titleSizeFor(layout: Slide["layout"], titleLength: number): number {
+  const base = (() => {
+    switch (layout) {
+      case "hero":
+        return 124;
+      case "fact":
+        return 96;
+      case "response":
+        return 88;
+      default:
+        return 90;
+    }
+  })();
+  // Long titles step down once past ~24 chars, again past ~40.
+  if (titleLength > 40) return Math.round(base * 0.7);
+  if (titleLength > 24) return Math.round(base * 0.82);
+  return base;
 }
