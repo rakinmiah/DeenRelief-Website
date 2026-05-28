@@ -103,8 +103,8 @@ export default async function FirstResponsePage() {
               severity × coverage weight × UK Muslim diaspora × Muslim-majority
             </span>{" "}
             and pushed to your DR Admin bell when the score crosses 10 (amber)
-            or 20 (critical, audible). Phase 4 adds the launch-packet generator
-            + emergency launch button.
+            or 20 (critical, audible). Click any alert to draft a Claude-written
+            launch packet + one-click emergency launch.
           </p>
         </div>
       </div>
@@ -129,16 +129,25 @@ export default async function FirstResponsePage() {
           ) : (
             <ul className="divide-y divide-charcoal/5">
               {events.map((ev) => (
-                <li key={ev.id} className="px-5 py-4 hover:bg-cream/40 transition-colors">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                <li
+                  key={ev.id}
+                  className="relative px-5 py-4 hover:bg-cream/40 transition-colors"
+                >
+                  {/* Stretched link — the actual click target for the
+                      whole row. position:absolute + inset-0 makes the
+                      entire <li> clickable via CSS without nesting
+                      anchors. The source ↗ link below gets z-10 +
+                      relative to sit above this and remain
+                      independently clickable. */}
+                  <Link
+                    href={`/admin/social/first-response/${ev.id}`}
+                    className="absolute inset-0 z-0"
+                    aria-label={`Open event: ${ev.title}`}
+                  />
+                  <div className="relative flex items-start justify-between gap-3 flex-wrap pointer-events-none">
                     <div className="flex-1 min-w-0">
                       <p className="text-charcoal font-semibold text-[14px] leading-snug">
-                        <Link
-                          href={`/admin/social/first-response/${ev.id}`}
-                          className="hover:underline"
-                        >
-                          {ev.title}
-                        </Link>
+                        <span className="hover:underline">{ev.title}</span>
                         {ev.sourceUrl && (
                           <Fragment>
                             {" "}
@@ -146,7 +155,7 @@ export default async function FirstResponsePage() {
                               href={ev.sourceUrl}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className="text-[12px] text-charcoal/40 font-normal hover:text-charcoal/70"
+                              className="pointer-events-auto relative z-10 text-[12px] text-charcoal/40 font-normal hover:text-charcoal/70"
                             >
                               (source ↗)
                             </a>
