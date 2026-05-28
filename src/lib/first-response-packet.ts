@@ -29,6 +29,8 @@ import {
   getCandidateMediaForEvent,
   type MediaItem,
 } from "./media-library";
+import { fetchExternalImageryForEvent } from "./external-imagery-fetch";
+import { type ExternalImagery } from "./external-imagery";
 
 const MODEL = "claude-opus-4-7";
 
@@ -160,7 +162,7 @@ export const LaunchPacketSchema = z.object({
           .string()
           .nullable()
           .describe(
-            "ID of a media_library item to render as the slide's photo background (full-bleed, dark green gradient overlay underneath the typography). MUST be picked from the CANDIDATE MEDIA list in the prompt — never invent IDs. Selection rules: (1) For 'hero' and 'response' layouts: USE A CANDIDATE if the list contains ANY photo matching the event's country, event_type, or campaign — typography-only is a last resort, only when the list is empty or every candidate is plainly irrelevant. Don't set null just because the candidates aren't perfectly tagged; pick the best available match. Prefer candidates with use_cases including 'emergency-hero' (hero slide) or 'response-illustration'/'team-coverage' (response slide), but use ANY relevant photo if those aren't tagged. (2) For 'fact', 'tiers', 'cta' layouts: ALWAYS null — typography-only by design."
+            "ID of an image to render as the slide's photo. MUST be picked from EITHER the CANDIDATE MEDIA list OR the EXTERNAL VERIFIED IMAGERY list — never invent IDs. Format: 'dr:<uuid>' for DR library, 'ext:<uuid>' for external verified. PREFER DR library when relevant (more authentic + on-brand); use external imagery only when DR library has nothing matching the event. Selection rules: (1) hero/response layouts: USE A CANDIDATE if the lists contain ANY photo matching the event's country, event_type, or campaign — typography-only is a last resort. (2) fact/tiers/cta layouts: ALWAYS null — typography-only by design. The renderer auto-adds an attribution line bottom-right when an external image is used."
           ),
       })
     )
@@ -404,7 +406,8 @@ export interface GenerateLaunchPacketResult {
  */
 function buildEventBrief(
   input: GenerateLaunchPacketInput,
-  candidateMedia: MediaItem[]
+  candidateMedia: MediaItem[],
+  externalImagery: ExternalImagery[]
 ): string {
   const { event, matchedCoverage, rawPayload } = input;
 
@@ -435,21 +438,43 @@ function buildEventBrief(
     }
   }
 
-  // Candidate media list — passed as compact text. Each row gives
-  // Claude enough metadata to pick which slide each image fits, by ID.
+  // Candidate media list — DR's own photo inventory. PREFERRED source
+  // when relevant (authentic, on-brand, no external attribution
+  // required on slides).
   const candidateMediaLines =
     candidateMedia.length === 0
-      ? "  • (no matching media in the library — set every slide's media_id to null)"
+      ? "  • (no matching media in DR's library)"
       : candidateMedia
           .map((m) => {
             const bits = [
-              `id=${m.id}`,
+              `id=dr:${m.id}`,
               m.caption ? `caption="${m.caption}"` : null,
               m.countryIso ? `country=${m.countryIso}` : null,
               m.eventTypes.length ? `events=${m.eventTypes.join(",")}` : null,
               m.tone ? `tone=${m.tone}` : null,
               m.useCases.length ? `use=${m.useCases.join(",")}` : null,
               m.tags.length ? `tags=${m.tags.slice(0, 5).join(",")}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return `  • ${bits}`;
+          })
+          .join("\n");
+
+  // External verified imagery — Wikimedia Commons + NASA EONET +
+  // (when wired) ReliefWeb + IFRC. Use only when DR library has no
+  // relevant match. Renderer auto-adds attribution line to slides.
+  const externalImageryLines =
+    externalImagery.length === 0
+      ? "  • (no external imagery found for this event)"
+      : externalImagery
+          .map((e) => {
+            const bits = [
+              `id=ext:${e.id}`,
+              `source=${e.source}`,
+              e.title ? `title="${e.title.slice(0, 80)}"` : null,
+              `license=${e.license}`,
+              `credit="${e.creditText.slice(0, 80)}"`,
             ]
               .filter(Boolean)
               .join(" · ");
@@ -477,11 +502,22 @@ strongest recommendation):
 
 ${campaignLines || "  • (no matched campaigns — Deen Relief has no specific coverage for this geography)"}
 
-CANDIDATE MEDIA from DR's library (PICK media_id BY ID FROM THIS LIST
-ONLY — never invent IDs. ONLY use 'hero' and 'response' slides; for
-'fact', 'tiers', 'cta' always set media_id to null):
+CANDIDATE MEDIA from DR's own library — PREFERRED source (more
+authentic, no external attribution). Use this first when relevant.
+IDs prefixed 'dr:' — pass exactly as shown:
 
 ${candidateMediaLines}
+
+EXTERNAL VERIFIED IMAGERY — only use when DR's library has nothing
+relevant for the event. Renderer auto-adds an attribution line on
+slides using this source (CC-licensed, all free for use). IDs
+prefixed 'ext:' — pass exactly as shown:
+
+${externalImageryLines}
+
+IMPORTANT: pass IDs verbatim including the 'dr:' or 'ext:' prefix.
+Hero + response slides may use either source. Fact, tiers, cta:
+always null (typography-only by design).
 
 RAW SOURCE PAYLOAD (for verified facts — never invent numbers not present here):
 \`\`\`json
@@ -616,19 +652,20 @@ export async function generateLaunchPacket(
 ): Promise<GenerateLaunchPacketResult> {
   const client = getClient();
 
-  // Pre-fetch candidate media before composing the prompt. Limited to
-  // 12 candidates so the prompt stays compact; selection is metadata-
-  // only (no vision tokens spent). Returns [] if the library is empty
-  // — Claude then sets every media_id to null and slides render
-  // typography-only (the Phase 4d aesthetic).
-  const candidateMedia = await getCandidateMediaForEvent({
-    countryIso: input.event.countryIso,
-    eventType: input.event.eventType,
-    campaignSlugs: input.matchedCoverage.map((c) => c.campaignSlug),
-    limit: 12,
-  });
+  // Pre-fetch BOTH candidate pools in parallel. Metadata-only (no
+  // vision tokens). DR library limited to 12 candidates; external
+  // imagery is naturally capped per source.
+  const [candidateMedia, externalImagery] = await Promise.all([
+    getCandidateMediaForEvent({
+      countryIso: input.event.countryIso,
+      eventType: input.event.eventType,
+      campaignSlugs: input.matchedCoverage.map((c) => c.campaignSlug),
+      limit: 12,
+    }),
+    fetchExternalImageryForEvent(input.event),
+  ]);
 
-  const brief = buildEventBrief(input, candidateMedia);
+  const brief = buildEventBrief(input, candidateMedia, externalImagery);
 
   // messages.parse() runs the request, validates the structured response
   // against the schema, and returns a typed object. The brand voice
@@ -650,16 +687,19 @@ export async function generateLaunchPacket(
   }
 
   // Safety pass 1: ensure any media_id Claude picked actually exists
-  // in our candidate set. Confabulated IDs would render as broken
-  // images; forcing them to null lets the renderer fall back to
-  // typography.
-  const candidateIds = new Set(candidateMedia.map((m) => m.id));
+  // in one of the candidate sets. Confabulated IDs would render as
+  // broken images; forcing them to null lets the renderer fall back
+  // to typography. Accept both prefixes: 'dr:<uuid>' (library) and
+  // 'ext:<uuid>' (external imagery).
+  const drIds = new Set(candidateMedia.map((m) => `dr:${m.id}`));
+  const extIds = new Set(externalImagery.map((e) => `ext:${e.id}`));
+  const validIds = new Set<string>([...drIds, ...extIds]);
   const sanitisedSlides = response.parsed_output.carousel_slides.map(
     (slide) => {
       if (!slide.media_id) return slide;
-      if (candidateIds.has(slide.media_id)) return slide;
+      if (validIds.has(slide.media_id)) return slide;
       console.warn(
-        `[first-response-packet] Claude returned media_id=${slide.media_id} not in candidate set — coercing to null.`
+        `[first-response-packet] Claude returned media_id=${slide.media_id} not in either candidate set — coercing to null.`
       );
       return { ...slide, media_id: null };
     }

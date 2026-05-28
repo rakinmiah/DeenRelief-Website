@@ -21,6 +21,10 @@
 import { ImageResponse } from "next/og";
 import { requireAdminSession } from "@/lib/admin-session";
 import { getLogoDataUri } from "@/lib/brand-assets";
+import {
+  getExternalImageryDataUri,
+  markImagerySelected,
+} from "@/lib/external-imagery";
 import { getEmergencyEventById } from "@/lib/first-response";
 import { LaunchPacketSchema } from "@/lib/first-response-packet";
 import { getMediaById } from "@/lib/media-library";
@@ -110,27 +114,46 @@ export async function GET(
   const responseSlide = packet.carousel_slides.find((s) => s.layout === "response");
   const mediaId = heroSlide?.media_id ?? responseSlide?.media_id ?? null;
 
-  const media = mediaId ? await getMediaById(mediaId) : null;
+  // Resolve via prefix switch — same shape as the slide route:
+  //   • 'dr:<uuid>'   → DR's media_library
+  //   • 'ext:<uuid>'  → external_imagery (third-party, attribution
+  //                     required on display)
   let mediaDataUri: string | null = null;
-  if (media && !media.archivedAt) {
-    try {
-      const imgRes = await fetch(media.publicUrl);
-      if (imgRes.ok) {
-        const buf = await imgRes.arrayBuffer();
-        const mimeType =
-          imgRes.headers.get("content-type") ?? media.mimeType ?? "image/jpeg";
-        const base64 = Buffer.from(buf).toString("base64");
-        mediaDataUri = `data:${mimeType};base64,${base64}`;
-      } else {
-        console.warn(
-          `[social-image] media fetch failed (${imgRes.status}) for ${media.publicUrl}`
+  let creditText: string | null = null;
+
+  if (mediaId?.startsWith("dr:")) {
+    const drId = mediaId.slice(3);
+    const media = await getMediaById(drId);
+    if (media && !media.archivedAt) {
+      try {
+        const imgRes = await fetch(media.publicUrl);
+        if (imgRes.ok) {
+          const buf = await imgRes.arrayBuffer();
+          const mimeType =
+            imgRes.headers.get("content-type") ?? media.mimeType ?? "image/jpeg";
+          const base64 = Buffer.from(buf).toString("base64");
+          mediaDataUri = `data:${mimeType};base64,${base64}`;
+        } else {
+          console.warn(
+            `[social-image] DR media fetch failed (${imgRes.status}) for ${media.publicUrl}`
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[social-image] DR media fetch exception for ${media.publicUrl}:`,
+          err
         );
       }
-    } catch (err) {
-      console.error(
-        `[social-image] media fetch exception for ${media.publicUrl}:`,
-        err
-      );
+    }
+  } else if (mediaId?.startsWith("ext:")) {
+    const extId = mediaId.slice(4);
+    const ext = await getExternalImageryDataUri(extId);
+    if (ext) {
+      mediaDataUri = ext.dataUri;
+      creditText = ext.creditText;
+      // Same selected-tracking as the slide route — surfaces which
+      // sources produce the most-used social imagery.
+      await markImagerySelected(extId);
     }
   }
 
@@ -175,6 +198,7 @@ export async function GET(
           : null
       }
       mediaUrl={mediaDataUri}
+      creditText={creditText}
       logoOnLight={logoOnLight?.dataUri ?? null}
       logoOnDark={logoOnDark?.dataUri ?? null}
     />,
@@ -204,6 +228,7 @@ function Composition({
   ctaUrl,
   campaignLabel,
   mediaUrl,
+  creditText,
   logoOnLight,
   logoOnDark,
 }: {
@@ -213,6 +238,10 @@ function Composition({
   ctaUrl: string;
   campaignLabel: string | null;
   mediaUrl: string | null;
+  /** Non-null when the photo came from an external (third-party)
+   *  source. Drives the small italic attribution strip on the photo
+   *  half — required by CC-BY licensing. */
+  creditText: string | null;
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
@@ -255,6 +284,43 @@ function Composition({
             />
             {/* White logo sits directly on the photo — no chip. */}
             <BrandChip logoDataUri={logoOnDark} />
+
+            {/* Attribution strip — only when the photo is third-party.
+                CC-BY/CC0/Public Domain licensing requires visible
+                credit on display. Slim translucent pill along the
+                bottom edge of the photo half. */}
+            {creditText && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 12,
+                  right: 14,
+                  display: "flex",
+                  backgroundColor: "rgba(22, 56, 39, 0.78)",
+                  paddingTop: 5,
+                  paddingBottom: 5,
+                  paddingLeft: 10,
+                  paddingRight: 10,
+                  borderRadius: 3,
+                  maxWidth: WIDTH / 2 - 40,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    fontFamily: "DM Sans",
+                    fontStyle: "italic",
+                    fontWeight: 400,
+                    fontSize: 12,
+                    color: DR.cream,
+                    opacity: 0.92,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {creditText}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ─── Right half — text panel ─── */}
