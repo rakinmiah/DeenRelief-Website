@@ -3,6 +3,11 @@ import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-session";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import {
+  emptyPostSpotlightSummary,
+  getSpotlightSummaryByPostIds,
+  type PostSpotlightSummary,
+} from "@/lib/now-spotlight";
+import {
   aggregateBy,
   aggregateTotals,
   formatGbp,
@@ -10,6 +15,7 @@ import {
   platformLabel,
   type SocialPostStats,
 } from "@/lib/social-performance";
+import SpotlightFromPostButton from "./SpotlightFromPostButton";
 
 export const metadata: Metadata = {
   title: "Performance | Deen Relief Admin",
@@ -41,6 +47,13 @@ export default async function PerformancePage() {
   await requireAdminSession();
 
   const posts = await getPostStats({ limit: 200 });
+  // One bulk read of spotlight history for all visible posts — feeds the
+  // "Spotlight" column. Keyed by social_post_id, posts that never
+  // triggered a spotlight are simply absent (the table cell falls back
+  // to emptyPostSpotlightSummary() when looking up).
+  const spotlightSummaryByPostId = await getSpotlightSummaryByPostIds(
+    posts.map((p) => p.id)
+  );
   const totals = aggregateTotals(posts);
   const byPlatform = aggregateBy(posts, (p) => p.platform);
   const byCampaign = aggregateBy(posts, (p) => p.campaignSlug ?? "(untagged)");
@@ -123,7 +136,10 @@ export default async function PerformancePage() {
             <h2 className="text-charcoal font-heading font-semibold text-base mb-3">
               Posts
             </h2>
-            <PostsTable posts={posts} />
+            <PostsTable
+              posts={posts}
+              spotlightSummaryByPostId={spotlightSummaryByPostId}
+            />
           </section>
         </>
       )}
@@ -209,7 +225,13 @@ function RollupSection({
   );
 }
 
-function PostsTable({ posts }: { posts: SocialPostStats[] }) {
+function PostsTable({
+  posts,
+  spotlightSummaryByPostId,
+}: {
+  posts: SocialPostStats[];
+  spotlightSummaryByPostId: Map<string, PostSpotlightSummary>;
+}) {
   // Sort by donations DESC first, then by published date — so high-£
   // posts always sit at the top regardless of recency. Donor-impact
   // ranking is the dashboard's whole point.
@@ -241,6 +263,9 @@ function PostsTable({ posts }: { posts: SocialPostStats[] }) {
               <th className="text-right px-5 py-3">£ raised</th>
               <th className="text-right px-5 py-3 whitespace-nowrap">
                 Conv %
+              </th>
+              <th className="text-left px-5 py-3 whitespace-nowrap">
+                /now spotlight
               </th>
               <th className="text-left px-5 py-3 whitespace-nowrap">
                 Published
@@ -303,6 +328,16 @@ function PostsTable({ posts }: { posts: SocialPostStats[] }) {
                   </td>
                   <td className="px-5 py-3 text-right font-mono text-charcoal/70">
                     {conv > 0 ? `${(conv * 100).toFixed(1)}%` : "—"}
+                  </td>
+                  <td className="px-5 py-3 whitespace-nowrap">
+                    <SpotlightFromPostButton
+                      postId={p.id}
+                      postCampaignSlug={p.campaignSlug}
+                      summary={
+                        spotlightSummaryByPostId.get(p.id) ??
+                        emptyPostSpotlightSummary()
+                      }
+                    />
                   </td>
                   <td className="px-5 py-3 text-[12px] text-charcoal/60 whitespace-nowrap">
                     {p.publishedAt.toLocaleDateString("en-GB", {

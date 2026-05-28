@@ -121,6 +121,7 @@ export default async function SpotlightPage() {
               <thead>
                 <tr className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal/50 bg-charcoal/[0.02]">
                   <th className="text-left px-5 py-3">Campaign</th>
+                  <th className="text-left px-5 py-3">Source</th>
                   <th className="text-left px-5 py-3">Set by</th>
                   <th className="text-left px-5 py-3">Set at</th>
                   <th className="text-left px-5 py-3">Ended</th>
@@ -134,6 +135,23 @@ export default async function SpotlightPage() {
                   >
                     <td className="px-5 py-3 text-charcoal font-semibold">
                       {row.campaignLabel}
+                    </td>
+                    <td className="px-5 py-3 text-[12px] text-charcoal/70">
+                      {row.socialPostId ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-[0.08em] uppercase bg-amber-light text-amber-dark">
+                          From post
+                          {row.socialPostTitle ? (
+                            <span
+                              className="ml-1 normal-case font-medium tracking-normal text-amber-dark/80 max-w-[160px] truncate"
+                              title={row.socialPostTitle}
+                            >
+                              · {row.socialPostTitle}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span className="text-charcoal/40">Manual</span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-charcoal/70 text-[13px]">
                       {row.spotlightedByEmail ?? "—"}

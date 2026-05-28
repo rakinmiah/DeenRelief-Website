@@ -74,6 +74,7 @@ export type AdminAction =
   | "banner_updated"
   | "featured_campaign_updated"
   | "spotlight_created"
+  | "spotlight_created_from_post"
   | "spotlight_extended"
   | "spotlight_cleared"
   // First Response (crisis intelligence)
