@@ -142,6 +142,7 @@ export default function PalestinePage() {
             {/* Mobile-only donation form card, integrated into hero */}
             <div
               id="donate-form-mobile"
+              data-donate-panel
               className="lg:hidden mt-8 bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 p-6 sm:p-7 scroll-mt-20"
             >
               <DonationForm />
@@ -152,7 +153,7 @@ export default function PalestinePage() {
         </section>
 
         {/* ─── 2. Donation Panel (desktop only — mobile has it integrated into hero) ─── */}
-        <section id="donate-form" className="hidden lg:block pt-16 md:pt-24 pb-4 md:pb-6 bg-white">
+        <section id="donate-form" data-donate-panel className="hidden lg:block pt-16 md:pt-24 pb-4 md:pb-6 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
               {/* Image */}

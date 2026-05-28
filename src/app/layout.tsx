@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Source_Serif_4, DM_Sans } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import AdminAnalyticsExclusion from "@/components/AdminAnalyticsExclusion";
 import AttributionCapture from "@/components/AttributionCapture";
@@ -8,6 +9,7 @@ import ConsentBootstrap from "@/components/ConsentBootstrap";
 import ContentsquareBootstrap from "@/components/ContentsquareBootstrap";
 import EngagedSessionTracker from "@/components/EngagedSessionTracker";
 import JsonLd from "@/components/JsonLd";
+import ScrollToDonateOnSocial from "@/components/ScrollToDonateOnSocial";
 import SiteBanner from "@/components/SiteBanner";
 import { SOCIAL_LINKS } from "@/lib/social";
 
@@ -216,6 +218,13 @@ export default function RootLayout({
             active in /admin/social/banner, and hides itself on /admin/*
             paths via the client wrapper. */}
         <SiteBanner />
+        {/* Auto-scroll donors arriving from /now or any social/bio source
+            straight to the donation panel on the landing page. Wrapped
+            in Suspense so the useSearchParams call here doesn't force
+            every public page out of static generation. */}
+        <Suspense fallback={null}>
+          <ScrollToDonateOnSocial />
+        </Suspense>
         {children}
         <ConsentBanner />
       </body>

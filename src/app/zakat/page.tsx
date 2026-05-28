@@ -212,7 +212,7 @@ export default function ZakatPage() {
         </section>
 
         {/* ─── 2. Donation Panel (centred, bordered) ─── */}
-        <section id="zakat-form" className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20">
+        <section id="zakat-form" data-donate-panel className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <blockquote className="text-center mb-8 max-w-lg mx-auto">
               <p className="text-charcoal/40 text-sm italic leading-relaxed font-heading">

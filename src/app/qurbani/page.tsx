@@ -155,6 +155,7 @@ export default function QurbaniPage() {
             extra width. */}
         <section
           id="donate-form"
+          data-donate-panel
           data-track-section="pmax_form"
           className="pt-16 md:pt-24 pb-4 md:pb-6 bg-white scroll-mt-20"
         >
