@@ -92,13 +92,17 @@ export default async function FirstResponsePage() {
             scoring + push alerts wired.
           </p>
           <p className="text-charcoal/70 text-[13px] mt-0.5 leading-relaxed">
-            Ingesting from{" "}
-            <span className="font-semibold text-charcoal">GDACS</span> (every
-            15 min),{" "}
+            Ingesting from six authoritative sources:{" "}
+            <span className="font-semibold text-charcoal">GDACS</span> (15 min),{" "}
             <span className="font-semibold text-charcoal">USGS earthquakes</span>{" "}
-            (every 15 min), and{" "}
-            <span className="font-semibold text-charcoal">ReliefWeb</span>{" "}
-            (every 30 min). Each event is scored by{" "}
+            (15 min),{" "}
+            <span className="font-semibold text-charcoal">ReliefWeb</span> (30 min),{" "}
+            <span className="font-semibold text-charcoal">IFRC GO</span>{" "}
+            (Red Crescent national societies, 30 min),{" "}
+            <span className="font-semibold text-charcoal">UK Met Office</span>{" "}
+            (severe weather warnings, hourly, Brighton-region filtered), and{" "}
+            <span className="font-semibold text-charcoal">NASA EONET</span>{" "}
+            (curated natural events, hourly). Each event is scored by{" "}
             <span className="font-semibold text-charcoal">
               severity × coverage weight × UK Muslim diaspora × Muslim-majority
             </span>{" "}
