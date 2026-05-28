@@ -47,12 +47,16 @@ export default function AdminLoginPage() {
             Setup
           </span>
           Auth is HMAC-signed cookie-based via{" "}
-          <code className="text-[11px]">APP_SECRET</code>. Set{" "}
-          <code className="text-[11px]">ADMIN_ALLOWED_EMAILS</code>{" "}
-          (comma-separated list) and{" "}
-          <code className="text-[11px]">ADMIN_LOGIN_PASSPHRASE</code> in
-          Vercel to enable sign-in. Sessions last 8 hours; cookie is
-          HttpOnly + SameSite=Lax + Secure in production.
+          <code className="text-[11px]">APP_SECRET</code>. Trustees use{" "}
+          <code className="text-[11px]">ADMIN_LOGIN_PASSPHRASE</code>;
+          social-role users use{" "}
+          <code className="text-[11px]">SOCIAL_LOGIN_PASSPHRASE</code>.
+          Both set in Vercel. Bootstrap admin emails via{" "}
+          <code className="text-[11px]">ADMIN_ALLOWED_EMAILS</code>;
+          add social users straight to the{" "}
+          <code className="text-[11px]">admin_users</code> table.
+          Sessions last 8 hours; cookie is HttpOnly + SameSite=Lax +
+          Secure in production.
         </div>
       </div>
     </div>
