@@ -2,10 +2,11 @@
  * First Response launch packet generator.
  *
  * Given a detected emergency event, calls Claude (Opus 4.7) to draft a
- * complete launch packet — headline, body copy, donation tiers, verified
- * facts, social posts across 5 platforms, email subject lines + body,
- * and a press release. The SMM reviews + edits before publishing; this
- * just provides the on-brand starting point.
+ * complete launch packet — internal banner headline, donation tiers,
+ * verified facts, a single unified social post (IG/FB/X), 5 visual
+ * carousel slides, email subject lines + body, and a press release. The
+ * SMM reviews + edits before publishing; this just provides the on-brand
+ * starting point.
  *
  * Brand voice + visual rules baked into the system prompt are sourced from
  * the live audit of Deen Relief's actual social presence — see the
@@ -33,17 +34,7 @@ export const LaunchPacketSchema = z.object({
   headline: z
     .string()
     .describe(
-      "Short, factual headline for the emergency appeal page. 8–14 words. UK English. No emojis in the headline itself."
-    ),
-  subheadline: z
-    .string()
-    .describe(
-      "One-sentence subheadline expanding on the headline. 15–25 words. Sets the stakes for the donor."
-    ),
-  body: z
-    .string()
-    .describe(
-      "Body copy for the appeal page. 80–150 words. Factual, dignified, never exploitative. Names the affected geography, the immediate need, and what Deen Relief is doing. Mentions field-team presence where relevant. UK English. No emojis."
+      "Short, factual headline. 8–14 words, UK English, no emojis. Used INTERNALLY as the site-banner message and push-notification title when the SMM clicks 'Launch appeal' — never displayed as standalone section. Should be tight and stand-alone (a donor seeing only this in the banner needs to understand the situation)."
     ),
   donation_tiers: z
     .array(
