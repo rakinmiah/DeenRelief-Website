@@ -42,8 +42,12 @@ update emergency_events
 set matched_campaigns = array_remove(array_remove(matched_campaigns, 'zakat'), 'sadaqah')
 where 'zakat' = any(matched_campaigns) or 'sadaqah' = any(matched_campaigns);
 
--- Recompute dr_priority_score for rows that just lost their only
--- coverage match. With maxCoverageWeight() now returning 0 for
--- those, score should be 0. Done in code at next read rather than
--- a complex SQL recompute; the dashboard filter handles the
--- transition cleanly (empty matched_campaigns → hidden).
+-- Zero out scores for events with no remaining campaign matches.
+-- The dashboard filter is dr_priority_score > 0, and the stored
+-- score was set at INSERT time — stripping zakat/sadaqah from
+-- matched_campaigns above doesn't auto-recompute the score column.
+-- Without this UPDATE, events that ONLY matched the catch-alls
+-- would still display because their old score (e.g. 15.3) survives.
+update emergency_events
+set dr_priority_score = 0
+where array_length(matched_campaigns, 1) is null;

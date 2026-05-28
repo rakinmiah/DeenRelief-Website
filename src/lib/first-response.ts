@@ -253,11 +253,19 @@ export async function getEmergencyEvents(
     query = query.in("status", statuses);
   }
 
-  // Hide events DR can't action (no coverage match or below severity
-  // floor → score 0). Default-on for dashboard reads; the caller can
-  // opt out for audit / forensic views.
+  // Hide events DR can't action. Belt-and-braces: filter by BOTH
+  //   (a) score > 0 — events that survived the severity floor + had
+  //       coverage match at insert time
+  //   (b) matched_campaigns non-empty — events with at least one
+  //       campaign that can actually respond
+  // Either alone would work in theory (the scorer returns 0 when
+  // weight is 0), but pairing them protects against schema drift,
+  // partial data backfills (e.g. migration 027 stripped slugs but
+  // didn't recompute scores), and any future edge cases.
   if (options.onlyActionable !== false) {
-    query = query.gt("dr_priority_score", 0);
+    query = query
+      .gt("dr_priority_score", 0)
+      .not("matched_campaigns", "eq", "{}");
   }
 
   const { data, error } = await query.returns<EmergencyEventRow[]>();
