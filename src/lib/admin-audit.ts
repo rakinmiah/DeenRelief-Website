@@ -92,6 +92,7 @@ export type AdminAction =
   | "media_edited"
   | "media_archived_from_library"
   | "media_storage_scan"
+  | "media_retag_proposed"
   // First Response — manual test events for demo / QA (Phase 3i)
   | "first_response_test_event_created"
   | "first_response_test_events_cleared"
