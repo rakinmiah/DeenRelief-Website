@@ -38,7 +38,16 @@ export type NotificationType =
   // trust. The trustee gets the failure context (which email kind,
   // who it was to, the underlying Resend error) so they can either
   // retry from the admin UI or follow up out-of-band.
-  | "email_send_failure";
+  | "email_send_failure"
+  // First Response — a high-priority crisis matching DR's coverage
+  // map was just detected. Two tiers driven by the multi-factor
+  // dr_priority_score (see first-response-scoring.ts):
+  //   first_response_critical → score ≥ 20, immediate audible push
+  //                             (severity 'urgent')
+  //   first_response_high     → score ≥ 10, silent push in the bell
+  //                             (severity 'warning')
+  | "first_response_critical"
+  | "first_response_high";
 
 export type NotificationSeverity = "info" | "warning" | "urgent";
 

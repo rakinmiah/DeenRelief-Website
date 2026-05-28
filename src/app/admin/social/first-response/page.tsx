@@ -87,7 +87,8 @@ export default async function FirstResponsePage() {
         </span>
         <div>
           <p className="text-charcoal font-semibold text-[14px]">
-            Signal monitoring is live — Tier 1 sources active.
+            Signal monitoring is live — Tier 1 sources active, multi-factor
+            scoring + push alerts wired.
           </p>
           <p className="text-charcoal/70 text-[13px] mt-0.5 leading-relaxed">
             Ingesting from{" "}
@@ -96,10 +97,13 @@ export default async function FirstResponsePage() {
             <span className="font-semibold text-charcoal">USGS earthquakes</span>{" "}
             (every 15 min), and{" "}
             <span className="font-semibold text-charcoal">ReliefWeb</span>{" "}
-            (every 30 min). Events are matched against the coverage map below
-            and ranked by raw severity for now — Phase 3c will layer
-            multi-factor priority scoring + push alerts on top, and Phase 4
-            adds the launch-packet generator.
+            (every 30 min). Each event is scored by{" "}
+            <span className="font-semibold text-charcoal">
+              severity × coverage weight × UK Muslim diaspora × Muslim-majority
+            </span>{" "}
+            and pushed to your DR Admin bell when the score crosses 10 (amber)
+            or 20 (critical, audible). Phase 4 adds the launch-packet generator
+            + emergency launch button.
           </p>
         </div>
       </div>
@@ -184,13 +188,18 @@ export default async function FirstResponsePage() {
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      {ev.severityRaw !== null && (
+                      {ev.drPriorityScore !== null && (
                         <span
-                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full ${severityClasses(
-                            ev.severityRaw
+                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full ${scoreClasses(
+                            ev.drPriorityScore
                           )}`}
+                          title={
+                            ev.severityRaw !== null
+                              ? `Raw severity ${ev.severityRaw.toFixed(1)} × coverage × diaspora × Muslim-majority`
+                              : "DR priority score"
+                          }
                         >
-                          Sev {ev.severityRaw.toFixed(1)}
+                          Score {ev.drPriorityScore.toFixed(1)}
                         </span>
                       )}
                       <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
@@ -249,17 +258,15 @@ export default async function FirstResponsePage() {
 }
 
 /**
- * Severity colour pill. Tuned for the two main numeric scales we feed in:
- *   - USGS magnitude (raw value 0–10, with 5.5+ being significant)
- *   - GDACS alert level mapped to 1/2/3 (Green/Orange/Red)
- *   - ReliefWeb baseline 2
- *
- * The thresholds work for both: ≥7 = serious quake or GDACS red,
- * 4.5–7 = moderate, below = minor.
+ * Score colour pill. Aligned to the push-tier thresholds in
+ * src/lib/first-response-scoring.ts:
+ *   ≥ 20 → CRITICAL (red — fires an immediate push)
+ *   ≥ 10 → HIGH     (amber — bell-only push)
+ *   <  10 → standard (charcoal — dashboard only)
  */
-function severityClasses(severity: number): string {
-  if (severity >= 7) return "bg-red-100 text-red-800";
-  if (severity >= 4.5) return "bg-amber-light text-amber-dark";
+function scoreClasses(score: number): string {
+  if (score >= 20) return "bg-red-100 text-red-800";
+  if (score >= 10) return "bg-amber-light text-amber-dark";
   return "bg-charcoal/8 text-charcoal/70";
 }
 
