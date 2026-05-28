@@ -5,13 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Button from "./Button";
-import { isQurbaniLive } from "@/lib/qurbani";
 
-// Maps pages with their own donation panels to their anchor IDs
+// Maps pages with their own donation panels to their anchor IDs.
+// /qurbani is intentionally omitted — that route now redirects to
+// the homepage (campaign retired post-Eid 2026; see src/app/qurbani/page.tsx).
 const donateAnchors: Record<string, string> = {
   "/": "#donate",
   "/zakat": "#zakat-form",
-  "/qurbani": "#donate-form",
   "/palestine": "#donate-form",
   "/cancer-care": "#donate-form",
   "/orphan-sponsorship": "#sponsor-form",
@@ -29,14 +29,14 @@ export default function Header() {
   // On pages with a donation panel, scroll to it; otherwise go to homepage panel
   const donateHref = donateAnchors[pathname] ?? "/#donate";
 
-  // Computed per render (not at module load) so warm Vercel functions still
-  // drop the Qurbani link the first request after the deadline passes —
-  // see src/lib/qurbani.ts for the date.
+  // Qurbani entry intentionally omitted — campaign retired post-Eid 2026.
+  // To restore for Eid 2027, restore the `isQurbaniLive` import + the
+  // conditional spread that previously sat between "Pay Zakat" and
+  // "Prayer Times" (see git history at commit eaefc62 on main).
   const navLinks = [
     { label: "Home", href: "/" },
     { label: "Our Work", href: "/our-work" },
     { label: "Pay Zakat", href: "/zakat" },
-    ...(isQurbaniLive() ? [{ label: "Qurbani", href: "/qurbani" }] : []),
     { label: "Prayer Times", href: "/prayer-times" },
     { label: "About", href: "/about" },
     { label: "Blog", href: "/blog" },

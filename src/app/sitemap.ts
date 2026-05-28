@@ -15,7 +15,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/contact`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
   ];
 
-  // Campaign & giving pages — high priority (drive donations)
+  // Campaign & giving pages — high priority (drive donations).
+  // 'qurbani' intentionally omitted — campaign retired post-Eid 2026; the
+  // route still resolves but permanently redirects to /, so leaving it
+  // in the sitemap would advertise a redirect to crawlers. Restore for
+  // Eid 2027 by uncommenting the entry.
   const campaigns: MetadataRoute.Sitemap = [
     "palestine",
     "cancer-care",
@@ -25,7 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "uk-homeless",
     "zakat",
     "sadaqah",
-    "qurbani",
+    // "qurbani",
   ].map((slug) => ({
     url: `${BASE_URL}/${slug}`,
     lastModified: now,
