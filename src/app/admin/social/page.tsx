@@ -135,8 +135,9 @@ export default async function AdminSocialLandingPage() {
         {/* ─── Coming soon ─── */}
         <DashboardCard
           title="QR generator"
-          status="soon"
-          statusLabel="Coming in Phase 1"
+          href="/admin/social/qr"
+          status="available"
+          statusLabel="Available"
         >
           Brand-styled QR codes for any campaign link — drop into Stories,
           Reels, posters.
