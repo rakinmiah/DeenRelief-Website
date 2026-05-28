@@ -158,11 +158,13 @@ export default async function AdminSocialLandingPage() {
 
         <DashboardCard
           title="Per-post performance"
-          status="soon"
-          statusLabel="Coming in Phase 5"
+          href="/admin/social/performance"
+          status="available"
+          statusLabel="Available"
         >
-          Which posts actually raised money — not which got likes. Joins
-          your social UTMs to the donations table.
+          Which posts actually raised money — not which got likes. Log a
+          post, pick the short link you put in it, and the dashboard
+          shows clicks + donations + £ raised end-to-end.
         </DashboardCard>
       </div>
     </main>

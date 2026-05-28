@@ -1,0 +1,66 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-session";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import LogPostForm, { type ShortLinkOption } from "./LogPostForm";
+
+export const metadata: Metadata = {
+  title: "Log a post | Deen Relief Admin",
+  robots: { index: false, follow: false },
+};
+
+export const dynamic = "force-dynamic";
+
+/**
+ * /admin/social/posts/new — log a published post.
+ *
+ * The SMM submits this after she's already posted to Instagram /
+ * TikTok / etc. The form is built around the short link as the
+ * attribution anchor — pick the link you put in the post and the
+ * dashboard does the rest.
+ */
+export default async function NewPostPage() {
+  await requireAdminSession();
+
+  // Pre-load recent active short links for the dropdown. 50 is plenty
+  // for the SMM's most-recent options; older ones can be selected by
+  // creating the post and editing, or by searching.
+  const supabase = getSupabaseAdmin();
+  const { data: links } = await supabase
+    .from("short_links")
+    .select("id, slug, campaign_slug, platform, notes")
+    .is("archived_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const shortLinks: ShortLinkOption[] = (links ?? []).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    campaignSlug: l.campaign_slug,
+    platform: l.platform,
+    notes: l.notes,
+  }));
+
+  return (
+    <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <div className="mb-6 md:mb-8">
+        <Link
+          href="/admin/social/performance"
+          className="inline-block text-[12px] font-semibold uppercase tracking-[0.1em] text-amber-dark mb-2 hover:text-amber-darker"
+        >
+          ← Performance
+        </Link>
+        <h1 className="text-3xl md:text-4xl font-heading font-bold text-charcoal tracking-[-0.01em]">
+          Log a post
+        </h1>
+        <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
+          Tell DR Admin about a post you&apos;ve just published. Picking the
+          short link you put in the post is what makes the dashboard
+          attribute clicks and donations to it.
+        </p>
+      </div>
+
+      <LogPostForm shortLinks={shortLinks} />
+    </main>
+  );
+}
