@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   deleteDonation,
@@ -39,7 +39,7 @@ export async function sendDonationMessageAction(
   subject: string,
   body: string
 ): Promise<SendDonationMessageResult> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
 
   const trimmedSubject = subject.trim();
   const trimmedBody = body.trim();
@@ -153,7 +153,7 @@ export interface DeleteDonationResult {
 export async function deleteDonationAction(
   donationId: string
 ): Promise<DeleteDonationResult> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
 
   const donation = await fetchAdminDonationById(donationId);
   if (!donation) {

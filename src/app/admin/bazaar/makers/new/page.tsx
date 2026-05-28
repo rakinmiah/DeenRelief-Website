@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { createMakerAction } from "@/app/admin/bazaar/actions";
 import MakerFormFields from "../MakerFormFields";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function NewMakerPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

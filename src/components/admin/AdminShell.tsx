@@ -32,27 +32,60 @@ import AdminMobileDrawer from "./AdminMobileDrawer";
  * env(safe-area-inset-top) for padding so iPhone notch + status
  * bar don't clip when the admin is installed to the home screen.
  */
-const NAV_ITEMS = [
-  { href: "/admin/donations", label: "Donations" },
-  { href: "/admin/recurring", label: "Recurring" },
-  { href: "/admin/bazaar/orders", label: "Bazaar Orders" },
-  { href: "/admin/bazaar/inquiries", label: "Bazaar Inquiries" },
-  { href: "/admin/bazaar/catalog", label: "Bazaar Catalog" },
-  { href: "/admin/media", label: "Media" },
-  { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/audit-log", label: "Audit log" },
+/**
+ * Full nav set, tagged with the roles that should see each entry.
+ *
+ *   'admin' → trustee / staff (full DR Admin)
+ *   'social' → social media manager (Campaign Command Center, /now
+ *              spotlight, short links, First Response, per-post
+ *              performance — no donor PII, no bazaar, no financials)
+ *
+ * Items can list either or both roles. Defence in depth: the page
+ * itself ALSO calls requireRoleAdmin() for admin-only pages, so hiding
+ * here is UX-only and not the security boundary.
+ */
+type AdminRole = "admin" | "social";
+
+const NAV_ITEMS: { href: string; label: string; roles: AdminRole[] }[] = [
+  { href: "/admin/social", label: "Social", roles: ["admin", "social"] },
+  { href: "/admin/donations", label: "Donations", roles: ["admin"] },
+  { href: "/admin/recurring", label: "Recurring", roles: ["admin"] },
+  { href: "/admin/bazaar/orders", label: "Bazaar Orders", roles: ["admin"] },
+  { href: "/admin/bazaar/inquiries", label: "Bazaar Inquiries", roles: ["admin"] },
+  { href: "/admin/bazaar/catalog", label: "Bazaar Catalog", roles: ["admin"] },
+  { href: "/admin/media", label: "Media", roles: ["admin"] },
+  { href: "/admin/reports", label: "Reports", roles: ["admin"] },
+  { href: "/admin/audit-log", label: "Audit log", roles: ["admin"] },
 ];
 
 export default function AdminShell({
   children,
   signedInAs = "info@deenrelief.org",
+  role = "admin",
 }: {
   children: React.ReactNode;
   signedInAs?: string;
+  /**
+   * Role of the signed-in user. Controls which nav items are rendered
+   * and (via AdminMobileDrawer) which appear in the mobile slide-out.
+   * Defaults to 'admin' so any place that hasn't been updated to pass
+   * the role keeps working as before — backward compat.
+   */
+  role?: AdminRole;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Filter nav by role once per render. Cheap; avoids spreading the
+  // role check across every map() below.
+  const visibleNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  // The wordmark in both desktop + mobile headers links to a "home"
+  // route. Use the first nav item the current role can see — for
+  // admins that's /admin/social (the new section is first in the nav
+  // for both roles), for social-only users that's also /admin/social.
+  // Falls back if for some reason the list is empty.
+  const homeHref = visibleNav[0]?.href ?? "/admin/social";
 
   // The login page renders standalone without the admin chrome —
   // there's no session to sign out of and no nav to traverse.
@@ -82,7 +115,7 @@ export default function AdminShell({
           <div className="hidden md:flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <Link
-                href="/admin/donations"
+                href={homeHref}
                 className="block"
                 aria-label="Deen Relief Admin home"
               >
@@ -97,7 +130,7 @@ export default function AdminShell({
                 className="flex items-center gap-1"
                 aria-label="Admin sections"
               >
-                {NAV_ITEMS.map((item) => {
+                {visibleNav.map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   return (
                     <Link
@@ -161,7 +194,7 @@ export default function AdminShell({
               </svg>
             </button>
             <Link
-              href="/admin/donations"
+              href={homeHref}
               className="block text-center"
               aria-label="Deen Relief Admin home"
             >
@@ -186,6 +219,7 @@ export default function AdminShell({
         onClose={() => setDrawerOpen(false)}
         signedInAs={signedInAs}
         onSignOut={handleSignOut}
+        navItems={visibleNav}
       />
 
       <div className="flex-1">{children}</div>

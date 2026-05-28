@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   deleteMediaWithFile,
@@ -27,7 +27,7 @@ async function audit(
   targetId: string,
   metadata: Record<string, unknown>
 ) {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
   const h = await headers();
   const fauxRequest = new Request("http://server-action.local", {
     headers: {
@@ -54,7 +54,7 @@ export async function updateMediaMetadataAction(
   description: string,
   tagsRaw: string
 ): Promise<UpdateMediaResult> {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   // Tags input is a comma- or newline-separated string from the
   // form. Split, trim, dedupe, drop empties. The DB column is
@@ -100,7 +100,7 @@ export async function updateMediaMetadataAction(
  * 404 immediately after deletion.
  */
 export async function deleteMediaAction(mediaId: string): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   const media = await fetchMediaById(mediaId);
   if (!media) {

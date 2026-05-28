@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   computeDonationStats,
   fetchCampaignBreakdown,
@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
  * permanently invisible to trustees.
  */
 export default async function AdminReportsPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   const [stats, campaignRows] = await Promise.all([
     computeDonationStats(),

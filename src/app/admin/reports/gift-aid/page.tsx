@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchGiftAidEligible,
   formatAdminDateOnly,
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
  * want to file claims more frequently.
  */
 export default async function AdminGiftAidExportPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   // Compute the current UK tax-year window for display + the export
   // URL. Server-side so the trustee sees the resolved range.

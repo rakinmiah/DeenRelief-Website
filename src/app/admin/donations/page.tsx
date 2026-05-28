@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   computeDonationStats,
   fetchAdminDonations,
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Donations page reads cookies via requireAdminSession + queries
+// Donations page reads cookies via requireRoleAdmin + queries
 // Supabase — must be dynamic per request, never prerendered.
 export const dynamic = "force-dynamic";
 
@@ -119,7 +119,7 @@ function parseFilters(
 /**
  * Donations admin — primary daily surface.
  *
- * Auth gate: requireAdminSession() at the top redirects unauthenticated
+ * Auth gate: requireRoleAdmin() at the top redirects unauthenticated
  * users to /admin/login before any donor data is queried.
  *
  * Filters: parsed from URL search params and passed to both the row
@@ -134,7 +134,7 @@ function parseFilters(
  * empty-state row.
  */
 export default async function AdminDonationsPage({ searchParams }: RouteParams) {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   const rawParams = await searchParams;
   const filters = parseFilters(rawParams);

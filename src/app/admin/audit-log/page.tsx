@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchAdminAuditLog,
   type AdminAction,
@@ -115,7 +115,7 @@ const ACTION_STYLES: Record<AdminAction, string> = {
  * exceeds a few thousand rows.
  */
 export default async function AdminAuditLogPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const rows = await fetchAdminAuditLog(200);
 
   return (

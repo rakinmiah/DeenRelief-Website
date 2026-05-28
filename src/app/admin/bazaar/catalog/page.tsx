@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchAdminMakers,
   fetchAdminProducts,
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
  * each section has its own list page + create/edit flow.
  */
 export default async function AdminBazaarCatalogPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const [products, makers] = await Promise.all([
     fetchAdminProducts(),
     fetchAdminMakers(),

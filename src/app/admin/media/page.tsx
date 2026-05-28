@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchAllMediaTags,
   fetchMediaList,
@@ -38,7 +38,7 @@ export default async function AdminMediaPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const sp = await searchParams;
 
   const kind = parseKindFilter(sp.kind);

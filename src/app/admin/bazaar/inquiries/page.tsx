@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchInquiries,
   type BazaarInquiryRow,
@@ -36,7 +36,7 @@ export default async function AdminInquiriesListPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const sp = await searchParams;
   const statusFilter = parseStatusFilter(sp.status);
 

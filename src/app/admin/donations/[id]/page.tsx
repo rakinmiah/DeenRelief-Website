@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchAdminDonationById,
   fetchQurbaniOrderDetails,
@@ -50,7 +50,7 @@ const STATUS_LABEL: Record<AdminDonationStatus, string> = {
  * 404 rather than render an empty shell.
  */
 export default async function AdminDonationDetailPage({ params }: RouteParams) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const { id } = await params;
   const donation = await fetchAdminDonationById(id);
   if (!donation) notFound();

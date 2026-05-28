@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchFailedDonations,
   formatAdminDate,
@@ -33,7 +33,7 @@ export const dynamic = "force-dynamic";
  * Both filtered to livemode=true. Both sorted newest first.
  */
 export default async function AdminFailedPaymentsPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
 
   const [failedDonations, allRecurring] = await Promise.all([
     fetchFailedDonations(50),

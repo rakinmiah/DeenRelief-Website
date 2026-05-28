@@ -39,14 +39,33 @@ export async function getAdminSession(): Promise<AdminSessionPayload | null> {
 }
 
 /**
- * Require an admin session. Redirects to /admin/login if missing or
- * invalid (expired, tampered, malformed). Returns the verified payload
- * — guaranteed non-null on the success branch.
+ * Require an admin session — ANY role. Redirects to /admin/login if
+ * missing or invalid (expired, tampered, malformed). Returns the
+ * verified payload — guaranteed non-null on the success branch.
  *
- * Call this at the top of every protected page's server component.
+ * Call this at the top of pages accessible to BOTH 'admin' and
+ * 'social' roles (e.g. the new social tools section).
  */
 export async function requireAdminSession(): Promise<AdminSessionPayload> {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  return session;
+}
+
+/**
+ * Require an admin-role session. Redirects to /admin/login on missing
+ * session, and to /admin/social (the social-role landing page) when the
+ * session belongs to a 'social' user — they're already authenticated,
+ * just not authorised for this page, so the redirect should land them
+ * somewhere useful rather than back at login.
+ *
+ * Call this at the top of every page that exposes donor PII, financial
+ * data, bazaar orders, or any other admin-restricted surface — i.e.
+ * everything currently in /admin/* except the future /admin/social/*.
+ */
+export async function requireRoleAdmin(): Promise<AdminSessionPayload> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  if (session.role !== "admin") redirect("/admin/social");
   return session;
 }

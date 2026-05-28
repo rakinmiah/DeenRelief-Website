@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { fetchAdminMakers } from "@/lib/bazaar-catalog";
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default async function AdminMakersListPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const sp = await searchParams;
   const justDeleted = sp.deleted === "1";
   const makers = await fetchAdminMakers();

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { fetchAdminMakers } from "@/lib/bazaar-catalog";
 import { createProductAction } from "@/app/admin/bazaar/actions";
 import ProductFormFields from "../ProductFormFields";
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const makers = await fetchAdminMakers();
 
   return (

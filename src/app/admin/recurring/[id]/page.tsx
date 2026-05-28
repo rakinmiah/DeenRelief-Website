@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   cardBrandLabel,
   fetchAdminRecurringById,
@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<AdminRecurringStatus, string> = {
 };
 
 export default async function AdminRecurringDetailPage({ params }: RouteParams) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const { id } = await params;
   const sub = await fetchAdminRecurringById(id);
   if (!sub) notFound();

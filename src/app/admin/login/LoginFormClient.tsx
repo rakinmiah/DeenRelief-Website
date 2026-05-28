@@ -34,8 +34,13 @@ export default function LoginFormClient() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? "Invalid credentials.");
       }
-      // Cookie is now set by the server. Navigate into the admin.
-      router.push("/admin/donations");
+      // Cookie is now set by the server. Route based on the role
+      // returned in the response — social users land on /admin/social
+      // (their tools) rather than /admin/donations (where they'd be
+      // bounced away by the role guard).
+      const body = await res.json().catch(() => ({}));
+      const role = body?.role === "social" ? "social" : "admin";
+      router.push(role === "social" ? "/admin/social" : "/admin/donations");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed.");
       setSubmitting(false);
