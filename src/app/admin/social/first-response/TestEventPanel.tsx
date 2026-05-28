@@ -6,9 +6,8 @@ import Link from "next/link";
 import {
   clearTestEventsAction,
   createTestEventAction,
-  TEST_SCENARIOS,
-  type TestScenarioId,
 } from "./test-actions";
+import { TEST_SCENARIOS, type TestScenarioId } from "./test-scenarios";
 
 /**
  * Test-scenario panel — collapsed by default so it doesn't clutter
