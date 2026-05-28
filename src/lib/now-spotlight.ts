@@ -103,20 +103,30 @@ export interface SpotlightHistoryEntry {
   clearedAt: Date | null;
   /** Why it's no longer active: 'expired' | 'manual_reset' | 'superseded'. */
   endedReason: "expired" | "manual_reset" | "superseded" | "active";
+  /** social_posts.id this spotlight was launched from (Phase 1f linkage). */
+  socialPostId: string | null;
+  /** Post title for the history view, joined when socialPostId is set. */
+  socialPostTitle: string | null;
 }
 
 /**
  * Most recent N spotlights for the history view. Includes the
  * currently-active one at the top if any.
+ *
+ * Joins social_posts via the FK from migration 025 so the history can
+ * display which post triggered each spotlight (Phase 1f).
  */
 export async function getSpotlightHistory(
   limit = 10
 ): Promise<SpotlightHistoryEntry[]> {
   const supabase = getSupabaseAdmin();
+  // The "social_post:social_posts(title)" syntax is the PostgREST embed
+  // form — pulls the related row through the FK and flattens it via the
+  // returns<> cast below.
   const { data, error } = await supabase
     .from("now_spotlights")
     .select(
-      "id, campaign_slug, spotlighted_by_email, spotlighted_at, expires_at, cleared_at, cleared_reason"
+      "id, campaign_slug, spotlighted_by_email, spotlighted_at, expires_at, cleared_at, cleared_reason, social_post_id, social_post:social_posts(title)"
     )
     .order("spotlighted_at", { ascending: false })
     .limit(limit)
@@ -124,8 +134,11 @@ export async function getSpotlightHistory(
       Array<
         Pick<
           SpotlightRow,
-          "id" | "campaign_slug" | "spotlighted_by_email" | "spotlighted_at" | "expires_at" | "cleared_at"
-        > & { cleared_reason: string | null }
+          "id" | "campaign_slug" | "spotlighted_by_email" | "spotlighted_at" | "expires_at" | "cleared_at" | "social_post_id"
+        > & {
+          cleared_reason: string | null;
+          social_post: { title: string | null } | null;
+        }
       >
     >();
 
@@ -159,8 +172,124 @@ export async function getSpotlightHistory(
       expiresAt,
       clearedAt,
       endedReason,
+      socialPostId: row.social_post_id,
+      socialPostTitle: row.social_post?.title ?? null,
     };
   });
+}
+
+/**
+ * Per-post spotlight status — surfaces "did this post trigger any
+ * spotlights, and is one of them currently live?" on the performance
+ * dashboard (Phase 1f).
+ *
+ * status:
+ *   'active'   — at least one spotlight from this post is currently live
+ *   'ended'    — past spotlights exist but none are active
+ *   'none'     — no spotlight has ever been launched from this post
+ *
+ * Latest fields refer to the most recent spotlight (active first, else
+ * most recently ended). Used to render the "Active 2d 4h" pill etc.
+ */
+export interface PostSpotlightSummary {
+  status: "active" | "ended" | "none";
+  totalCount: number;
+  latestId: string | null;
+  latestStartedAt: Date | null;
+  latestExpiresAt: Date | null;
+  latestEndedReason: "expired" | "manual_reset" | "superseded" | "active" | null;
+}
+
+const EMPTY_POST_SPOTLIGHT_SUMMARY: PostSpotlightSummary = {
+  status: "none",
+  totalCount: 0,
+  latestId: null,
+  latestStartedAt: null,
+  latestExpiresAt: null,
+  latestEndedReason: null,
+};
+
+/**
+ * Bulk lookup of spotlight status per post id. Returns a Map keyed by
+ * social_post_id so the performance dashboard can render one column
+ * across the whole posts table from a single DB read. Posts with no
+ * spotlights are simply absent from the map — callers should fall back
+ * to EMPTY_POST_SPOTLIGHT_SUMMARY (exported helper below).
+ */
+export async function getSpotlightSummaryByPostIds(
+  postIds: string[]
+): Promise<Map<string, PostSpotlightSummary>> {
+  if (postIds.length === 0) return new Map();
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("now_spotlights")
+    .select(
+      "id, social_post_id, spotlighted_at, expires_at, cleared_at, cleared_reason"
+    )
+    .in("social_post_id", postIds)
+    .order("spotlighted_at", { ascending: false })
+    .returns<
+      Array<{
+        id: string;
+        social_post_id: string;
+        spotlighted_at: string;
+        expires_at: string;
+        cleared_at: string | null;
+        cleared_reason: string | null;
+      }>
+    >();
+
+  if (error) {
+    console.error("[now-spotlight] summary-by-posts read failed:", error);
+    return new Map();
+  }
+
+  const now = Date.now();
+  // Group rows by post id; rows are already sorted spotlighted_at desc.
+  const grouped = new Map<string, typeof data>();
+  for (const row of data ?? []) {
+    const list = grouped.get(row.social_post_id);
+    if (list) list.push(row);
+    else grouped.set(row.social_post_id, [row]);
+  }
+
+  const result = new Map<string, PostSpotlightSummary>();
+  for (const [postId, rows] of grouped) {
+    if (!rows || rows.length === 0) continue;
+    // Find the currently-active row if any; otherwise the most recent.
+    const active = rows.find(
+      (r) => !r.cleared_at && new Date(r.expires_at).getTime() > now
+    );
+    const latest = active ?? rows[0];
+    if (!latest) continue;
+
+    const expiresAt = new Date(latest.expires_at);
+    const clearedAt = latest.cleared_at ? new Date(latest.cleared_at) : null;
+    let endedReason: PostSpotlightSummary["latestEndedReason"];
+    if (clearedAt) {
+      endedReason =
+        latest.cleared_reason === "superseded" ? "superseded" : "manual_reset";
+    } else if (expiresAt.getTime() < now) {
+      endedReason = "expired";
+    } else {
+      endedReason = "active";
+    }
+
+    result.set(postId, {
+      status: active ? "active" : "ended",
+      totalCount: rows.length,
+      latestId: latest.id,
+      latestStartedAt: new Date(latest.spotlighted_at),
+      latestExpiresAt: expiresAt,
+      latestEndedReason: endedReason,
+    });
+  }
+  return result;
+}
+
+/** Convenience for callers that need a default when a post isn't in the map. */
+export function emptyPostSpotlightSummary(): PostSpotlightSummary {
+  return EMPTY_POST_SPOTLIGHT_SUMMARY;
 }
 
 export interface CreateSpotlightInput {
