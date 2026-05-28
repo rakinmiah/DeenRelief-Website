@@ -253,9 +253,8 @@ function Composition({
                 objectFit: "cover",
               }}
             />
-            {/* Brand chip on photo — framed (cream chip + green logo)
-                for guaranteed contrast against arbitrary photo content. */}
-            <BrandChip logoDataUri={logoOnLight} framed />
+            {/* White logo sits directly on the photo — no chip. */}
+            <BrandChip logoDataUri={logoOnDark} />
           </div>
 
           {/* ─── Right half — text panel ─── */}
@@ -450,20 +449,10 @@ function titleSize(length: number, centered: boolean): number {
 
 /* ─── Brand chip (compact variant) ──────────────────────────────── */
 
-function BrandChip({
-  logoDataUri,
-  framed = false,
-}: {
-  logoDataUri: string | null;
-  /** Wrap the logo in a cream chip — used when the background it sits
-   *  on is an unpredictable photo. False (default) renders the logo
-   *  directly on the slide bg; the caller must pass the correct
-   *  colour variant. */
-  framed?: boolean;
-}) {
-  // Direct mode: logo on background, no chip wrapper.
+function BrandChip({ logoDataUri }: { logoDataUri: string | null }) {
+  // Logo directly on background, no chip wrapper.
   // Satori-critical: width AND height both explicit (auto = invisible).
-  if (logoDataUri && !framed) {
+  if (logoDataUri) {
     return (
       <div
         style={{
@@ -482,42 +471,6 @@ function BrandChip({
           style={{
             width: 300,
             height: 100,
-            objectFit: "contain",
-            objectPosition: "left center",
-          }}
-        />
-      </div>
-    );
-  }
-
-  // Framed mode: logo inside a cream chip — used on the photo half
-  // of the split-screen composition where the bg is variable imagery.
-  if (logoDataUri && framed) {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: 32,
-          left: 32,
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: DR.cream,
-          paddingTop: 10,
-          paddingBottom: 10,
-          paddingLeft: 18,
-          paddingRight: 18,
-          borderRadius: 6,
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={logoDataUri}
-          alt="Deen Relief"
-          width={210}
-          height={56}
-          style={{
-            width: 210,
-            height: 56,
             objectFit: "contain",
             objectPosition: "left center",
           }}
