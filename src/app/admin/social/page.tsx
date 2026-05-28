@@ -146,12 +146,12 @@ export default async function AdminSocialLandingPage() {
         <DashboardCard
           title="First Response"
           href="/admin/social/first-response"
-          status="soon"
-          statusLabel="Preview — coverage map only"
+          status="active"
+          statusLabel="Tier 1 ingesting"
         >
           Crisis intelligence tailored to Deen Relief&apos;s actual campaigns
-          and field regions. Coverage map is live; signal ingesters + scoring
-          + launch-packet generator land in Phases 3b–4.
+          and field regions. GDACS, USGS, and ReliefWeb feeds live. Scoring
+          engine + push alerts + launch-packet generator come in Phases 3c–4.
         </DashboardCard>
 
         <DashboardCard
