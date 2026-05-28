@@ -13,6 +13,18 @@
 
 import { getSupabaseAdmin } from "./supabase";
 
+/**
+ * User-Agent for every outbound request to a third-party imagery host.
+ * Wikimedia (upload.wikimedia.org + commons.wikimedia.org/w/api.php)
+ * 403s requests without a meaningful UA — their published policy
+ * (https://meta.wikimedia.org/wiki/User-Agent_policy) requires app
+ * identification and a contact route. Identifying ourselves here is
+ * polite + unblocks Wikimedia. Other hosts (NASA EO, USGS) don't
+ * care about UA but accept it fine.
+ */
+export const EXTERNAL_FETCH_UA =
+  "DeenReliefSocial/1.0 (https://deenrelief.org; tech@deenrelief.org)";
+
 export const EXTERNAL_SOURCES = [
   "wikimedia",
   "nasa_eonet",
@@ -221,7 +233,15 @@ export async function getExternalImageryDataUri(
   const item = await getImageryById(id);
   if (!item || item.archivedAt) return null;
   try {
-    const res = await fetch(item.url);
+    // Wikimedia (upload.wikimedia.org) returns HTTP 403 for any
+    // request without a meaningful User-Agent — per their policy
+    // https://meta.wikimedia.org/wiki/User-Agent_policy. Node's
+    // serverless fetch doesn't send a default UA, so the bare fetch
+    // 403'd silently and slides fell back to typography. Identifying
+    // UA here unblocks Wikimedia + is polite for every other host.
+    const res = await fetch(item.url, {
+      headers: { "User-Agent": EXTERNAL_FETCH_UA },
+    });
     if (!res.ok) {
       console.warn(
         `[external-imagery] fetch failed (${res.status}) for ${item.url}`
