@@ -11,11 +11,15 @@
  *
  * Free, no API key, no auth.
  *
- * Country resolution: EONET events include lat/lng coordinates but
- * not country codes. We bounding-box-match against DR's coverage
- * countries + adjacent diaspora geographies. Events outside these
- * bboxes get country_iso=null (no coverage match → score 0 →
- * filtered out by dashboard).
+ * Country resolution + source-side filter: EONET events include
+ * lat/lng coordinates but not country codes. We bounding-box-match
+ * against DR's coverage countries + adjacent diaspora geographies
+ * (PS, BD, GB, PK, SY, IN, AF, YE, SD, SO, EG, TR, ID, MA, IR, IQ,
+ * JO, LB, MM). Events whose coordinates fall OUTSIDE this bbox set
+ * are dropped at ingest time — they never reach the DB. This matches
+ * the source-side filtering ReliefWeb and Met Office already do, so
+ * the EONET stream stays DR-relevant by construction rather than
+ * relying on the dashboard read filter.
  */
 
 import type { EmergencyEventInput } from "../first-response-ingest";
@@ -174,6 +178,15 @@ export async function fetchEonetEvents(): Promise<EmergencyEventInput[]> {
 
     const point = extractFirstPoint(event.geometry);
     const countryIso = point ? bboxLookup(point[0], point[1]) : null;
+
+    // Source-side filter: only ingest EONET events whose coordinates
+    // fall inside a DR-coverage or diaspora-adjacent country box. Events
+    // outside (mid-ocean cyclones, Antarctic activity, Americas wildfires
+    // etc.) are dropped at ingest time rather than landing in the DB
+    // with score 0. Brings EONET in line with ReliefWeb + Met Office
+    // which already pre-filter by geography at the source.
+    if (!countryIso) continue;
+
     const region = point
       ? `${point[0].toFixed(2)},${point[1].toFixed(2)}`
       : null;
