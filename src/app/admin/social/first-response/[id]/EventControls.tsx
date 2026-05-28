@@ -63,17 +63,17 @@ export default function EventControls({
       {confirmingLaunch && !alreadyLaunched && (
         <div className="px-4 py-4 rounded-xl bg-red-50 border border-red-200">
           <p className="text-charcoal font-semibold text-[14px] mb-1">
-            Launch this appeal publicly?
+            Activate /now spotlight for this appeal?
           </p>
           <p className="text-charcoal/70 text-[13px] mb-3 leading-relaxed">
-            This will <strong>immediately</strong>: set the urgent site
-            banner with the drafted headline, switch the homepage featured
-            campaign to the matched campaign, point{" "}
+            This will <strong>only</strong>: point{" "}
             <span className="font-mono">deenrelief.org/now</span> at the
-            campaign page for 7 days, and push an OS-level alert to every
-            DR Admin user. Donors will see the banner on their next page
-            load. The status of this event will be marked{" "}
-            <span className="font-bold">launched</span>.
+            matched campaign page for 7 days, push an admin alert, and
+            mark this event{" "}
+            <span className="font-bold">launched</span>. The site banner
+            and homepage featured campaign are <strong>not</strong>{" "}
+            touched — flip those manually in Campaign Command Center if
+            you want them changed too.
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -131,7 +131,7 @@ export default function EventControls({
             className="px-5 py-2.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title={
               hasDraft
-                ? "One-click orchestrator: banner + featured campaign + /now spotlight + admin push"
+                ? "Activates /now spotlight to the matched campaign + admin push. Does NOT change the site banner or featured campaign."
                 : "Draft the packet first"
             }
           >
@@ -169,8 +169,10 @@ export default function EventControls({
       <p className="text-[12px] text-charcoal/50 leading-snug">
         Drafting calls Claude Opus 4.7 with the Deen Relief brand voice
         spec. <span className="font-semibold text-charcoal/70">Launching</span>{" "}
-        is one click after drafting — banner, featured campaign, /now
-        spotlight, and admin push fire in ~3 seconds.
+        activates the <span className="font-mono">/now</span> spotlight
+        (bio-link redirect) for 7 days + fires an admin push. The site
+        banner and featured campaign are controlled separately in
+        Campaign Command Center.
       </p>
     </div>
   );
