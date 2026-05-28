@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
+import { getLatestBrandAssetStamp } from "@/lib/brand-assets";
 import { getEmergencyEventById } from "@/lib/first-response";
 import {
   LaunchPacketSchema,
@@ -38,7 +39,13 @@ export default async function EmergencyEventPage({
 }) {
   await requireAdminSession();
   const { id } = await params;
-  const event = await getEmergencyEventById(id);
+  const [event, brandStamp] = await Promise.all([
+    getEmergencyEventById(id),
+    // Mix the latest brand-asset upload time into the cache-buster
+    // below so uploading new logos invalidates the slide/social-image
+    // PNG cache without needing a packet redraft.
+    getLatestBrandAssetStamp(),
+  ]);
   if (!event) notFound();
 
   // Defensive parse of the stored packet — in normal flow this matches the
@@ -213,7 +220,14 @@ export default async function EmergencyEventPage({
         <PacketView
           packet={packet}
           eventId={event.id}
-          draftStamp={event.draftPacketGeneratedAt?.getTime() ?? 0}
+          // Combine packet draft time + latest brand-asset upload time
+          // into one cache-buster value. Either changing forces fresh
+          // PNG fetches in the browser, so newly uploaded logos appear
+          // immediately without requiring a packet redraft.
+          draftStamp={Math.max(
+            event.draftPacketGeneratedAt?.getTime() ?? 0,
+            brandStamp
+          )}
           matchedCampaigns={event.matchedCampaigns}
         />
       )}

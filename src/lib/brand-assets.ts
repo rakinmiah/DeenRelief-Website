@@ -166,6 +166,26 @@ export async function listActiveBrandAssets(): Promise<
   return result;
 }
 
+/**
+ * Returns the latest `uploaded_at` across all active brand assets, as
+ * a millisecond epoch (or 0 when no assets exist). Used by the event
+ * detail page to mix into the slide/social-image URL cache-buster so
+ * uploading new logos invalidates the browser-cached PNGs without
+ * requiring a packet redraft.
+ */
+export async function getLatestBrandAssetStamp(): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("brand_assets")
+    .select("uploaded_at")
+    .is("archived_at", null)
+    .order("uploaded_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ uploaded_at: string }>();
+  if (error || !data) return 0;
+  return new Date(data.uploaded_at).getTime();
+}
+
 /** History of past + current assets per variant (archived included). */
 export async function listAllBrandAssets(
   variant?: BrandVariant
