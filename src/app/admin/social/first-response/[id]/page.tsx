@@ -237,13 +237,6 @@ function PacketView({
 }) {
   return (
     <div className="space-y-6">
-      {/* Page hero — headline / sub / body */}
-      <Section title="Appeal page — headline & body">
-        <PacketField label="Headline" text={packet.headline} />
-        <PacketField label="Subheadline" text={packet.subheadline} />
-        <PacketField label="Body" text={packet.body} multiline />
-      </Section>
-
       {/* Tiers */}
       <Section title="Donation tiers">
         <ul className="divide-y divide-charcoal/5">
