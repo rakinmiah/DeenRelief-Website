@@ -65,7 +65,11 @@ export type AdminAction =
   // Media library
   | "upload_media"
   | "delete_media"
-  | "update_media_metadata";
+  | "update_media_metadata"
+  // Social Operations Platform — short links
+  | "short_link_created"
+  | "short_link_archived"
+  | "short_link_restored";
 
 interface LogAdminActionOpts {
   action: AdminAction;

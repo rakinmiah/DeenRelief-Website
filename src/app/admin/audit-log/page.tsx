@@ -56,6 +56,9 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   upload_media: "Media uploaded",
   delete_media: "Media deleted",
   update_media_metadata: "Media metadata updated",
+  short_link_created: "Short link created",
+  short_link_archived: "Short link archived",
+  short_link_restored: "Short link restored",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -100,6 +103,9 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   upload_media: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   delete_media: "bg-red-50 text-red-700 border-red-200",
   update_media_metadata: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  short_link_created: "bg-green/10 text-green-dark border-green/30",
+  short_link_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  short_link_restored: "bg-green/10 text-green-dark border-green/30",
 };
 
 /**

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-session";
 
 export const metadata: Metadata = {
@@ -32,17 +33,23 @@ export const metadata: Metadata = {
 export default async function AdminSocialLandingPage() {
   const session = await requireAdminSession();
 
-  const sections = [
-    {
-      title: "/now spotlight",
-      summary:
-        "Point deenrelief.org/now at the campaign page for whatever you're posting about. Auto-resets to the homepage after 3 days.",
-      status: "Coming in Phase 1",
-    },
+  const sections: {
+    title: string;
+    summary: string;
+    status: string;
+    href?: string;
+  }[] = [
     {
       title: "Short links",
       summary:
         "Generate branded short URLs (deenrelief.org/r/q, /r/orphans-tiktok) for any social post. Tracks clicks + donations end-to-end.",
+      status: "Available",
+      href: "/admin/social/links",
+    },
+    {
+      title: "/now spotlight",
+      summary:
+        "Point deenrelief.org/now at the campaign page for whatever you're posting about. Auto-resets to the homepage after 3 days.",
       status: "Coming in Phase 1",
     },
     {
@@ -91,24 +98,45 @@ export default async function AdminSocialLandingPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
-        {sections.map((section) => (
-          <div
-            key={section.title}
-            className="bg-white rounded-2xl border border-charcoal/10 p-5 md:p-6"
-          >
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <h2 className="text-charcoal font-heading font-semibold text-[17px] leading-tight">
-                {section.title}
-              </h2>
-              <span className="shrink-0 text-[10px] font-bold tracking-[0.1em] uppercase text-amber-dark bg-amber-light px-2 py-0.5 rounded-full">
-                {section.status}
-              </span>
+        {sections.map((section) => {
+          const available = !!section.href;
+          const card = (
+            <>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h2 className="text-charcoal font-heading font-semibold text-[17px] leading-tight">
+                  {section.title}
+                </h2>
+                <span
+                  className={`shrink-0 text-[10px] font-bold tracking-[0.1em] uppercase px-2 py-0.5 rounded-full ${
+                    available
+                      ? "text-green-dark bg-green-light/60"
+                      : "text-amber-dark bg-amber-light"
+                  }`}
+                >
+                  {section.status}
+                </span>
+              </div>
+              <p className="text-charcoal/70 text-sm leading-relaxed">
+                {section.summary}
+              </p>
+            </>
+          );
+          const baseClasses =
+            "bg-white rounded-2xl border border-charcoal/10 p-5 md:p-6 block";
+          return section.href ? (
+            <Link
+              key={section.title}
+              href={section.href}
+              className={`${baseClasses} hover:border-charcoal/25 hover:shadow-sm transition-all`}
+            >
+              {card}
+            </Link>
+          ) : (
+            <div key={section.title} className={baseClasses}>
+              {card}
             </div>
-            <p className="text-charcoal/70 text-sm leading-relaxed">
-              {section.summary}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </main>
   );
