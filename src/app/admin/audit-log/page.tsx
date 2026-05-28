@@ -64,6 +64,9 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   spotlight_created: "/now spotlight set",
   spotlight_extended: "/now spotlight extended",
   spotlight_cleared: "/now spotlight cleared",
+  first_response_packet_drafted: "Launch packet drafted",
+  first_response_event_reviewed: "Emergency event reviewed",
+  first_response_event_dismissed: "Emergency event dismissed",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -116,6 +119,9 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   spotlight_created: "bg-green/10 text-green-dark border-green/30",
   spotlight_extended: "bg-green/10 text-green-dark border-green/30",
   spotlight_cleared: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  first_response_packet_drafted: "bg-green/10 text-green-dark border-green/30",
+  first_response_event_reviewed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  first_response_event_dismissed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
 /**

@@ -147,11 +147,13 @@ export default async function AdminSocialLandingPage() {
           title="First Response"
           href="/admin/social/first-response"
           status="active"
-          statusLabel="Tier 1 ingesting"
+          statusLabel="Live · launch-packet drafting"
         >
-          Crisis intelligence tailored to Deen Relief&apos;s actual campaigns
-          and field regions. GDACS, USGS, and ReliefWeb feeds live. Scoring
-          engine + push alerts + launch-packet generator come in Phases 3c–4.
+          Crisis intelligence + AI-drafted launch packets. GDACS / USGS /
+          ReliefWeb feeds, multi-factor priority scoring, push alerts on
+          high-priority events. Click any event to draft a full launch
+          packet (page copy, donation tiers, social posts, email, press
+          release) in the Deen Relief voice via Claude.
         </DashboardCard>
 
         <DashboardCard
