@@ -63,16 +63,18 @@ function loadGoogleFont(family: string, weight: number): Promise<ArrayBuffer> {
     // The Google Fonts CSS API serves us a tiny CSS file containing
     // the actual TTF/WOFF URL — extract and fetch it.
     const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}`;
-    const css = await fetch(cssUrl, {
-      headers: {
-        // Without a modern UA, Google Fonts serves WOFF — Satori needs TTF.
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-      },
-    }).then((r) => r.text());
+    // Counter-intuitive but verified: sending a MODERN User-Agent makes
+    // Google Fonts return WOFF, which Satori can't decode. Sending NO
+    // User-Agent (or an old/unknown one) triggers the TTF fallback. The
+    // Node fetch default UA is unidentified by Google, so omitting any
+    // explicit UA header gets us TTF.
+    const css = await fetch(cssUrl).then((r) => r.text());
     const match = css.match(/src:\s*url\(([^)]+)\)\s*format\('(?:truetype|opentype)'\)/);
     if (!match || !match[1]) {
-      throw new Error(`Could not extract font URL for ${family} ${weight}`);
+      throw new Error(
+        `Could not extract TTF font URL for ${family} ${weight} from Google Fonts CSS. ` +
+          `Response preview: ${css.slice(0, 200)}`
+      );
     }
     const fontRes = await fetch(match[1]);
     if (!fontRes.ok) {
