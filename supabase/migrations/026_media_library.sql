@@ -9,7 +9,7 @@
 -- by metadata; the slide renderer composites the photo as a full-
 -- bleed background under the dark-green gradient + typography.
 --
--- Storage: actual image bytes live in the 'dr-media-library' bucket
+-- Storage: actual image bytes live in the 'dr-media' bucket
 -- in Supabase Storage (created manually in the dashboard — see the
 -- README block at the bottom of this file). This table is metadata
 -- only; storage_path joins the two together.
@@ -97,13 +97,13 @@ create index if not exists idx_media_library_uploaded_at
 alter table media_library enable row level security;
 
 comment on table media_library is
-  'Sorted DR photo + media inventory. SMM uploads + tags; the launch packet generator queries by event metadata (country, event_type, campaigns) to pick imagery for carousel slides. Image bytes live in the dr-media-library Supabase Storage bucket; storage_path joins the two.';
+  'Sorted DR photo + media inventory. SMM uploads + tags; the launch packet generator queries by event metadata (country, event_type, campaigns) to pick imagery for carousel slides. Image bytes live in the dr-media Supabase Storage bucket; storage_path joins the two.';
 
 -- ─────────────────────────────────────────────────────────────────
 -- README — manual one-time setup steps (run AFTER applying this SQL):
 --
 --   1. Go to Supabase Dashboard → Storage → Create new bucket
---   2. Name: dr-media-library
+--   2. Name: dr-media
 --   3. Public: YES (so the slide renderer can fetch images by URL
 --      without service-role auth — Claude vision/sat. needs URL access)
 --   4. File size limit: 10 MB

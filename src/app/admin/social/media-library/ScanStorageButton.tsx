@@ -42,7 +42,7 @@ export default function ScanStorageButton() {
             Bulk-uploaded directly to Supabase?
           </p>
           <p className="text-charcoal/70 text-[13px] leading-relaxed max-w-2xl">
-            Click to scan the <span className="font-mono">dr-media-library</span>{" "}
+            Click to scan the <span className="font-mono">dr-media</span>{" "}
             bucket for files that don&apos;t yet have library rows. Each
             orphan gets Claude Vision auto-tagging and shows up in the grid
             below. Processes up to 20 per scan — click again until done.

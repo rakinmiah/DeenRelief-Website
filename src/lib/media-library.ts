@@ -8,7 +8,7 @@
  * (we never send image bytes to Claude — that'd cost ~£0.05 per
  * image; metadata-only selection is essentially free).
  *
- * Storage: image bytes live in the 'dr-media-library' Supabase Storage
+ * Storage: image bytes live in the 'dr-media' Supabase Storage
  * bucket, which is public-read. The full public URL is constructed
  * from NEXT_PUBLIC_SUPABASE_URL + the bucket path so the slide
  * renderer can fetch the photo with no auth dance.
@@ -16,7 +16,9 @@
 
 import { getSupabaseAdmin } from "./supabase";
 
-export const MEDIA_BUCKET = "dr-media-library";
+// Bucket name set during DR's Supabase project setup. Case-sensitive
+// — Supabase treats 'DR-MEDIA' and 'dr-media' as distinct buckets.
+export const MEDIA_BUCKET = "dr-media";
 
 export const MEDIA_TONES = [
   "dignified",
@@ -440,7 +442,7 @@ export interface StorageFile {
 }
 
 /**
- * Recursively list every file in the dr-media-library bucket. Supabase
+ * Recursively list every file in the dr-media bucket. Supabase
  * Storage's list() is non-recursive — folders return as entries with
  * null metadata, files have metadata. Walk both, capped at depth 3
  * (covers our YYYY-MM/uuid.ext convention + any SMM-created subfolders).
