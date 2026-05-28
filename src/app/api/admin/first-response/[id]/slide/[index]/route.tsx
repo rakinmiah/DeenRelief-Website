@@ -586,9 +586,13 @@ function BrandChip({
   // line. Caller is responsible for passing the correct colour
   // variant for the slide background.
   //
-  // Logo height ≈ 10% of slide (108px on 1080) — matches the visual
-  // weight of DR's actual brand chip on real Instagram posts. Width
-  // is auto so wordmarks scale naturally to their intrinsic ratio.
+  // Satori-critical: both width AND height MUST be explicit pixel
+  // values. Auto / percentage / unset = the image renders at zero
+  // width, invisibly. objectFit:'contain' inside the explicit box
+  // preserves the logo's intrinsic aspect ratio.
+  //
+  // Box sized for a typical wide wordmark (~6:1 ratio) — wider than
+  // it'd ever need but contain prevents overflow on tall icons.
   if (logoDataUri && !framed) {
     return (
       <div
@@ -603,8 +607,14 @@ function BrandChip({
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          height={108}
-          style={{ height: 108, width: "auto", objectFit: "contain" }}
+          width={360}
+          height={120}
+          style={{
+            width: 360,
+            height: 120,
+            objectFit: "contain",
+            objectPosition: "left center",
+          }}
         />
       </div>
     );
@@ -613,8 +623,7 @@ function BrandChip({
   // ─── Framed mode: logo inside a cream/forest chip ──────────────
   // Used by photo slides where the background image colour is not
   // predictable. The chip guarantees high contrast for the logo
-  // against any photo content. Logo is slightly smaller here since
-  // the chip frame adds visual weight around it.
+  // against any photo content.
   if (logoDataUri && framed) {
     return (
       <div
@@ -625,10 +634,10 @@ function BrandChip({
           display: "flex",
           flexDirection: "column",
           backgroundColor: cardBg,
-          paddingTop: 16,
-          paddingBottom: 16,
-          paddingLeft: 26,
-          paddingRight: 26,
+          paddingTop: 14,
+          paddingBottom: 14,
+          paddingLeft: 22,
+          paddingRight: 22,
           borderRadius: 8,
         }}
       >
@@ -636,8 +645,14 @@ function BrandChip({
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          height={64}
-          style={{ height: 64, width: "auto", objectFit: "contain" }}
+          width={260}
+          height={70}
+          style={{
+            width: 260,
+            height: 70,
+            objectFit: "contain",
+            objectPosition: "left center",
+          }}
         />
       </div>
     );
