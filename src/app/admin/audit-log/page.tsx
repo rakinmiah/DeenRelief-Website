@@ -77,6 +77,8 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   media_edited: "Media library item edited",
   media_archived_from_library: "Media library item archived",
   media_storage_scan: "Storage orphan scan run",
+  first_response_test_event_created: "Test emergency event created",
+  first_response_test_events_cleared: "Test emergency events cleared",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -142,6 +144,8 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   media_edited: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   media_archived_from_library: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   media_storage_scan: "bg-amber-light text-amber-dark border-amber/30",
+  first_response_test_event_created: "bg-amber-light text-amber-dark border-amber/30",
+  first_response_test_events_cleared: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
 /**
