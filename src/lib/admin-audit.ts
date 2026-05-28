@@ -79,7 +79,8 @@ export type AdminAction =
   // First Response (crisis intelligence)
   | "first_response_packet_drafted"
   | "first_response_event_reviewed"
-  | "first_response_event_dismissed";
+  | "first_response_event_dismissed"
+  | "first_response_appeal_launched";
 
 interface LogAdminActionOpts {
   action: AdminAction;
