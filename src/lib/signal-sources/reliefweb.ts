@@ -3,9 +3,22 @@
  *
  * ReliefWeb is OCHA's (UN humanitarian affairs) open data platform —
  * the authoritative feed of humanitarian situation reports, appeals,
- * and assessments. Free, no API key required for basic usage.
+ * and assessments.
  *
- * API: https://api.reliefweb.int/v1/reports
+ * API: https://api.reliefweb.int/v2/reports
+ *
+ * Important — appname approval:
+ *   v1 was decommissioned (returns 410 Gone). v2 requires `appname`
+ *   as a URL query parameter. From 1 November 2025, that appname must
+ *   be PRE-APPROVED by ReliefWeb — unapproved appnames get 403. We
+ *   handle this gracefully (warn + return [], no throw) so the cron
+ *   stays green while waiting on approval.
+ *
+ *   Register at: https://apidoc.reliefweb.int/parameters#appname
+ *
+ *   Once approved, set RELIEFWEB_APPNAME in env (Vercel + .env.local).
+ *   The default value ("deenrelief.org") is the registration the SMM
+ *   needs to request.
  *
  * We query for the most recent reports tagged as alerts or appeals
  * affecting our coverage countries (and adjacent regions we might
@@ -87,16 +100,23 @@ interface ReliefWebResponse {
   data?: ReliefWebReport[];
 }
 
-const API_URL = "https://api.reliefweb.int/v1/reports";
+const API_BASE_URL = "https://api.reliefweb.int/v2/reports";
+const DEFAULT_APPNAME = "deenrelief.org";
+
+/** Read appname from env with a sensible fallback. See file header. */
+function getAppname(): string {
+  return (process.env.RELIEFWEB_APPNAME ?? DEFAULT_APPNAME).trim();
+}
 
 /**
  * Build a POST body asking ReliefWeb for the 50 most recent reports
- * of relevant types affecting our monitored countries. We use POST
- * (per their docs) so the query payload can be JSON.
+ * of relevant types affecting our monitored countries.
+ *
+ * Note: in v2 the `appname` lives in the URL query string, NOT the
+ * body. Don't include it here.
  */
 function buildQuery() {
   return {
-    appname: "deenrelief.org",
     limit: 50,
     sort: ["date.created:desc"],
     fields: {
@@ -142,12 +162,38 @@ function classifyEventType(title: string): string | null {
 }
 
 export async function fetchReliefWebEvents(): Promise<EmergencyEventInput[]> {
-  const res = await fetch(API_URL, {
+  const appname = getAppname();
+  const url = `${API_BASE_URL}?appname=${encodeURIComponent(appname)}`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(buildQuery()),
     cache: "no-store",
   });
+
+  // 403 means the appname isn't on ReliefWeb's approved list (post
+  // 2025-11-01 enforcement). Treat as a soft outage — the cron stays
+  // green, but we surface a clear console warning so the operator
+  // knows to register. Returning [] means ingestBatch reports
+  // total:0 / inserted:0 which is correct.
+  if (res.status === 403) {
+    console.warn(
+      `[reliefweb] 403 from ReliefWeb v2 API — appname "${appname}" is not pre-approved. ` +
+        "Register at https://apidoc.reliefweb.int/parameters#appname then set RELIEFWEB_APPNAME in Vercel env."
+    );
+    return [];
+  }
+
+  // 410 (Gone) — shouldn't happen with v2, but if ReliefWeb deprecates
+  // v2 too we'd rather log it loudly than silently churn.
+  if (res.status === 410) {
+    console.error(
+      "[reliefweb] 410 Gone from ReliefWeb API — endpoint deprecated. " +
+        "Check https://apidoc.reliefweb.int/ for the current base URL."
+    );
+    return [];
+  }
+
   if (!res.ok) {
     throw new Error(`ReliefWeb API HTTP ${res.status}`);
   }

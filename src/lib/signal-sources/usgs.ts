@@ -4,14 +4,19 @@
  * USGS publishes a GeoJSON feed of every significant earthquake
  * worldwide, updated every minute. Free, no API key.
  *
- * We pull the "significant — past day" tier — earthquakes large enough
- * to warrant attention, which keeps the ingest volume reasonable while
- * catching every event worth a humanitarian response.
+ * We pull the "M4.5+ past day" tier rather than USGS's "significant"
+ * algorithm — significant_day was returning 0 events on quiet days
+ * (their algorithm requires shaking-felt reports, which are sparse for
+ * quakes in remote regions where DR's beneficiaries live). M4.5 catches
+ * every meaningful event without spamming us with M2/M3 nuisance
+ * shakes. ~10-30 events/day globally; coverage_map filtering then
+ * narrows to the few relevant to our campaigns.
  *
- * Feed: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson
+ * Feed: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson
  *
- * Severity = the moment magnitude (`mag`). 5.5+ is the "significant"
- * cutoff; 7.0+ is major; 8.0+ is catastrophic.
+ * Severity = the moment magnitude (`mag`). 5.5+ is large; 7.0+ is
+ * major; 8.0+ is catastrophic. Scoring engine (Phase 3c) downweights
+ * sub-5.0 quakes automatically.
  *
  * USGS reports country in `feature.properties.place` as free text
  * ("32km W of Khash, Iran"). We extract the country name and map to
@@ -24,7 +29,7 @@
 import type { EmergencyEventInput } from "../first-response-ingest";
 
 const FEED_URL =
-  "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson";
+  "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson";
 
 interface UsgsFeature {
   id: string;
