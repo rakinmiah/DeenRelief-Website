@@ -82,13 +82,18 @@ export const LaunchPacketSchema = z.object({
   social_post: z.object({
     // One caption that works identically on Instagram, Facebook, and X.
     // X's 280-char ceiling is the binding constraint; IG and FB tolerate
-    // anything shorter so a single text fits all three. No inline URL —
-    // ends with "Link in bio to donate" so it's IG-safe.
+    // anything shorter. No inline URL — ends with "Link in bio to
+    // donate" so it's IG-safe.
+    //
+    // No .max() constraint: LLMs can't reliably count characters, and
+    // a hard cap here causes the whole structured-output parse to
+    // fail when Claude goes 5-10 chars over. We do graceful post-hoc
+    // truncation in code (truncateCaptionForX below) — safer than
+    // failing the entire packet generation.
     caption: z
       .string()
-      .max(280)
       .describe(
-        "ONE caption used identically across Instagram, Facebook, and X. HARD LIMIT 280 characters — count carefully, the structured-output validator REJECTS anything longer and the entire packet generation FAILS. Aim for ~240 to leave safety margin. Warm Deen Relief voice in UK English. NO inline URL (Instagram suppresses links). End with 'Link in bio to donate 🤍' or close variant. Lead with the situation, name the geography, mention the matched campaign loosely (e.g. 'our partners are deploying support'). The 🤍 sign-off is the closing flourish."
+        "ONE caption used identically across Instagram, Facebook, and X. Target ~240 characters, MUST be readable on X (280-char limit) — we'll truncate gracefully if you go over but aim short. Warm Deen Relief voice in UK English. NO inline URL (Instagram suppresses links). End with 'Link in bio to donate 🤍' or close variant. Lead with the situation, name the geography, mention the matched campaign loosely (e.g. 'our partners are deploying support'). The 🤍 sign-off is the closing flourish."
       ),
     hashtags: z
       .array(z.string())
@@ -501,6 +506,57 @@ on-brand, and dignified.`;
  * the error to the caller — the SMM sees a useful message rather
  * than the system silently swallowing it.
  */
+/**
+ * Truncate a caption to X's 280-char limit, gracefully — prefer a
+ * sentence boundary, then a word boundary, only break mid-word as a
+ * last resort. Appends '…' if truncation happened so it's visually
+ * obvious the SMM should review.
+ *
+ * Why this rather than a Zod .max(): structured-output validation
+ * fails the entire packet generation when a string is over-cap, and
+ * LLMs can't reliably count characters. Better to accept whatever
+ * Claude produces and clean up here.
+ */
+function truncateCaptionForX(caption: string): string {
+  const LIMIT = 280;
+  if (caption.length <= LIMIT) return caption;
+
+  console.warn(
+    `[first-response-packet] caption ${caption.length} chars > ${LIMIT}, truncating gracefully`
+  );
+
+  // Reserve 1 char for the ellipsis.
+  const cap = LIMIT - 1;
+  const head = caption.slice(0, cap);
+
+  // Try sentence-boundary truncation: find the last sentence-ender
+  // in the candidate region. Scan from the end backwards.
+  const sentenceEnders = [".", "!", "?"];
+  let bestSentenceCut = -1;
+  for (let i = head.length - 1; i >= LIMIT * 0.6; i -= 1) {
+    if (sentenceEnders.includes(head[i] ?? "")) {
+      // Followed by space, end of string, or another punctuation —
+      // that's a real sentence boundary, not a decimal or abbreviation.
+      const next = head[i + 1] ?? "";
+      if (next === "" || next === " " || next === "\n") {
+        bestSentenceCut = i + 1;
+        break;
+      }
+    }
+  }
+  if (bestSentenceCut > 0) {
+    return head.slice(0, bestSentenceCut).trimEnd() + "…";
+  }
+
+  // Otherwise try word-boundary: cut at the last space before the cap.
+  const lastSpace = head.lastIndexOf(" ");
+  if (lastSpace > LIMIT * 0.6) {
+    return head.slice(0, lastSpace).trimEnd() + "…";
+  }
+  // Last resort: hard cut.
+  return head.trimEnd() + "…";
+}
+
 async function generateWithRetry(client: Anthropic, brief: string) {
   const sharedRequest = {
     model: MODEL,
@@ -593,9 +649,10 @@ export async function generateLaunchPacket(
     );
   }
 
-  // Safety pass: ensure any media_id Claude picked actually exists in
-  // our candidate set. Confabulated IDs would render as broken images;
-  // forcing them to null lets the renderer fall back to typography.
+  // Safety pass 1: ensure any media_id Claude picked actually exists
+  // in our candidate set. Confabulated IDs would render as broken
+  // images; forcing them to null lets the renderer fall back to
+  // typography.
   const candidateIds = new Set(candidateMedia.map((m) => m.id));
   const sanitisedSlides = response.parsed_output.carousel_slides.map(
     (slide) => {
@@ -608,9 +665,20 @@ export async function generateLaunchPacket(
     }
   );
 
+  // Safety pass 2: cap the social post caption at 280 chars for X.
+  // No .max() in the schema (would cause hard parse failures) — we
+  // truncate gracefully here at a sentence/word boundary instead.
+  const cappedCaption = truncateCaptionForX(
+    response.parsed_output.social_post.caption
+  );
+
   return {
     packet: {
       ...response.parsed_output,
+      social_post: {
+        ...response.parsed_output.social_post,
+        caption: cappedCaption,
+      },
       carousel_slides: sanitisedSlides,
     },
     model: response.model,
