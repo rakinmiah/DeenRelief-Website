@@ -207,7 +207,7 @@ export default async function EmergencyEventPage({
       </section>
 
       {/* ─── Launch packet ─── */}
-      {packet && <PacketView packet={packet} />}
+      {packet && <PacketView packet={packet} eventId={event.id} />}
 
       {!packet && parsed && !parsed.success && (
         <div className="bg-amber-light/60 border border-amber/30 rounded-2xl p-5 text-[13px] text-charcoal/80">
@@ -228,7 +228,13 @@ function scoreClasses(score: number): string {
 
 /* ─── Packet view (server component) ─── */
 
-function PacketView({ packet }: { packet: LaunchPacket }) {
+function PacketView({
+  packet,
+  eventId,
+}: {
+  packet: LaunchPacket;
+  eventId: string;
+}) {
   return (
     <div className="space-y-6">
       {/* Page hero — headline / sub / body */}
@@ -279,33 +285,21 @@ function PacketView({ packet }: { packet: LaunchPacket }) {
       </Section>
 
       {/* Social */}
-      <Section title="Social posts">
-        <PlatformBlock
-          label="Instagram"
-          text={packet.social_posts.instagram.caption}
-          hashtags={packet.social_posts.instagram.hashtags}
+      <Section title="Social post (Instagram · Facebook · X)">
+        <SocialPostBlock
+          caption={packet.social_post.caption}
+          hashtags={packet.social_post.hashtags}
         />
-        <PlatformBlock
-          label="TikTok — voiceover"
-          text={packet.social_posts.tiktok.voiceover_script}
-          extras={[
-            {
-              label: "On-screen text",
-              items: packet.social_posts.tiktok.on_screen_text,
-            },
-          ]}
-          hashtags={packet.social_posts.tiktok.hashtags}
-        />
-        <PlatformBlock
-          label="TikTok — caption"
-          text={packet.social_posts.tiktok.caption}
-        />
-        <PlatformBlock label="X" text={packet.social_posts.x} />
-        <PlatformBlock label="Threads" text={packet.social_posts.threads} />
-        <PlatformBlock
-          label="WhatsApp Channel"
-          text={packet.social_posts.whatsapp_channel}
-        />
+      </Section>
+
+      {/* Carousel slides — server-rendered PNGs ready to upload */}
+      <Section title="Carousel slides">
+        <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
+          Five 1080×1080 brand-styled slides. Right-click any to copy, or
+          use the download button to save individually. Upload as an
+          Instagram/Facebook carousel in this order.
+        </p>
+        <CarouselGrid eventId={eventId} count={packet.carousel_slides.length} />
       </Section>
 
       {/* Email */}
@@ -389,56 +383,98 @@ function PacketField({
   );
 }
 
-function PlatformBlock({
-  label,
-  text,
+/**
+ * Single unified social post — shown once, posts identically to IG/FB/X.
+ * Two copy buttons: caption-only, and caption+hashtags appended.
+ */
+function SocialPostBlock({
+  caption,
   hashtags,
-  extras,
 }: {
-  label: string;
-  text: string;
-  hashtags?: string[];
-  extras?: { label: string; items: string[] }[];
+  caption: string;
+  hashtags: string[];
 }) {
-  // For copy: include hashtags appended on a new line so the copy is
-  // ready to paste straight into the platform.
-  const copyText = hashtags
-    ? `${text}\n\n${hashtags.map((h) => `#${h}`).join(" ")}`
-    : text;
-
+  const withHashtags = `${caption}\n\n${hashtags.map((h) => `#${h}`).join(" ")}`;
   return (
-    <div className="mb-4 pb-4 border-b border-charcoal/5 last:border-b-0 last:mb-0 last:pb-0">
-      <div className="flex items-center justify-between mb-1.5">
+    <div>
+      <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55">
-          {label}
+          Caption · {caption.length}/270 chars
         </p>
-        <CopyButton text={copyText} />
-      </div>
-      <p className="text-charcoal/85 text-sm leading-relaxed whitespace-pre-line">
-        {text}
-      </p>
-      {extras?.map((extra, i) => (
-        <div key={i} className="mt-3">
-          <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55 mb-1.5">
-            {extra.label}
-          </p>
-          <ul className="space-y-1">
-            {extra.items.map((item, j) => (
-              <li
-                key={j}
-                className="text-[13px] text-charcoal/85 bg-cream/60 rounded-md px-2.5 py-1.5"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
+        <div className="flex items-center gap-2">
+          <CopyButton text={caption} />
+          <CopyButton text={withHashtags} />
         </div>
-      ))}
-      {hashtags && hashtags.length > 0 && (
-        <p className="mt-2 text-[12px] text-charcoal/55 font-mono leading-relaxed">
-          {hashtags.map((h) => `#${h}`).join("  ")}
-        </p>
-      )}
+      </div>
+      <p className="text-charcoal/85 text-sm leading-relaxed whitespace-pre-line bg-cream/40 rounded-lg px-4 py-3">
+        {caption}
+      </p>
+      <p className="mt-3 text-[12px] text-charcoal/55 font-mono leading-relaxed">
+        {hashtags.map((h) => `#${h}`).join("  ")}
+      </p>
+      <p className="mt-3 text-[11px] text-charcoal/45 leading-relaxed">
+        The same caption posts identically on Instagram, Facebook, and X
+        (≤270 chars covers X&apos;s ceiling). Right-hand copy button
+        includes hashtags appended — paste straight into any platform.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Carousel slide previews. Each <img> hits the
+ * /api/admin/first-response/{id}/slide/{index} route which server-renders
+ * the PNG via next/og. Browser caches the image once loaded so the
+ * download button hits the same cached PNG.
+ *
+ * The HTML `download` attribute on the link forces a save dialog with
+ * the explicit filename, regardless of the route's inline disposition.
+ */
+function CarouselGrid({
+  eventId,
+  count,
+}: {
+  eventId: string;
+  count: number;
+}) {
+  const slides = Array.from({ length: count }, (_, i) => i);
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {slides.map((i) => {
+        const src = `/api/admin/first-response/${eventId}/slide/${i}`;
+        return (
+          <div
+            key={i}
+            className="flex flex-col gap-2 bg-cream/30 rounded-xl p-3"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element --
+                  using <img> rather than next/image because the source
+                  is a dynamic API route returning a PNG, not a static
+                  optimisable asset. next/image's loader would add
+                  unhelpful overhead here. */}
+            <img
+              src={src}
+              alt={`Carousel slide ${i + 1}`}
+              width={1080}
+              height={1080}
+              className="w-full aspect-square rounded-lg border border-charcoal/10 bg-white"
+              loading="lazy"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55">
+                Slide {i + 1}
+              </span>
+              <a
+                href={src}
+                download={`deenrelief-slide-${i + 1}.png`}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-charcoal text-white hover:bg-charcoal/85 transition-colors"
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
