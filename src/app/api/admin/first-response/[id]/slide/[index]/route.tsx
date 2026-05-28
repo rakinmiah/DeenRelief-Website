@@ -30,6 +30,10 @@
 import { ImageResponse } from "next/og";
 import { requireAdminSession } from "@/lib/admin-session";
 import { getLogoDataUri } from "@/lib/brand-assets";
+import {
+  getExternalImageryDataUri,
+  markImagerySelected,
+} from "@/lib/external-imagery";
 import { getEmergencyEventById } from "@/lib/first-response";
 import {
   LaunchPacketSchema,
@@ -129,47 +133,53 @@ export async function GET(
     return new Response("Slide missing from packet.", { status: 422 });
   }
 
-  // Resolve the slide's chosen media item (if any) — slides on hero or
-  // response layouts can carry a media_id pointing at media_library.
-  // Non-fatal if the media has been archived since the draft: we fall
-  // back to typography-only.
-  //
-  // We fetch the image bytes ourselves and inline as a base64 data URI
-  // rather than passing the public URL to Satori. Two reasons:
-  //   (1) Satori's image fetcher silently fails on some hosts/URLs
-  //       with no error surfaced — observed live with Supabase Storage
-  //       URLs not rendering on slides despite the route reporting OK.
-  //   (2) Inline data URIs guarantee the bytes are present at render
-  //       time. Adds one HTTP hop per slide (Vercel → Supabase) but
-  //       it's a few hundred ms — well within the 60s function budget.
-  const media = slide.media_id ? await getMediaById(slide.media_id) : null;
+  // Resolve the slide's chosen media. media_id is prefixed:
+  //   • 'dr:<uuid>'   → DR's media_library
+  //   • 'ext:<uuid>'  → external_imagery (third-party verified)
+  // Either path inlines the image bytes as a data URI (Satori
+  // workaround) and exposes a creditText when the source is external.
   let mediaDataUri: string | null = null;
-  if (media && !media.archivedAt) {
-    try {
-      const imgRes = await fetch(media.publicUrl);
-      if (imgRes.ok) {
-        const buf = await imgRes.arrayBuffer();
-        const mimeType =
-          imgRes.headers.get("content-type") ?? media.mimeType ?? "image/jpeg";
-        const base64 = Buffer.from(buf).toString("base64");
-        mediaDataUri = `data:${mimeType};base64,${base64}`;
-        console.log(
-          `[slide ${index}] inlined media ${media.id} (${buf.byteLength}B, ${mimeType})`
-        );
-      } else {
-        console.warn(
-          `[slide ${index}] media fetch failed (${imgRes.status}) for ${media.publicUrl}`
-        );
+  let creditText: string | null = null;
+
+  if (slide.media_id?.startsWith("dr:")) {
+    const drId = slide.media_id.slice(3);
+    const media = await getMediaById(drId);
+    if (media && !media.archivedAt) {
+      try {
+        const imgRes = await fetch(media.publicUrl);
+        if (imgRes.ok) {
+          const buf = await imgRes.arrayBuffer();
+          const mimeType =
+            imgRes.headers.get("content-type") ??
+            media.mimeType ??
+            "image/jpeg";
+          mediaDataUri = `data:${mimeType};base64,${Buffer.from(buf).toString("base64")}`;
+          console.log(
+            `[slide ${index}] inlined DR media ${drId} (${buf.byteLength}B)`
+          );
+        }
+      } catch (err) {
+        console.error(`[slide ${index}] DR media fetch exception:`, err);
       }
-    } catch (err) {
-      console.error(
-        `[slide ${index}] media fetch exception for ${media.publicUrl}:`,
-        err
+    }
+  } else if (slide.media_id?.startsWith("ext:")) {
+    const extId = slide.media_id.slice(4);
+    const ext = await getExternalImageryDataUri(extId);
+    if (ext) {
+      mediaDataUri = ext.dataUri;
+      creditText = ext.creditText;
+      // Mark as selected so we can analytics-track which sources
+      // produce the most-used imagery vs noise.
+      await markImagerySelected(extId);
+      console.log(
+        `[slide ${index}] inlined external imagery ${extId} · "${ext.creditText.slice(0, 40)}"`
       );
     }
-  } else if (slide.media_id) {
+  }
+
+  if (slide.media_id && !mediaDataUri) {
     console.warn(
-      `[slide ${index}] slide.media_id=${slide.media_id} but media resolved to ${media ? "archived" : "null"}`
+      `[slide ${index}] slide.media_id=${slide.media_id} did not resolve to bytes`
     );
   }
 
@@ -206,6 +216,7 @@ export async function GET(
       slide={slide}
       packet={packet}
       mediaUrl={mediaDataUri}
+      creditText={creditText}
       logoOnLight={logoOnLight?.dataUri ?? null}
       logoOnDark={logoOnDark?.dataUri ?? null}
     />,
@@ -234,12 +245,19 @@ function SlideContent({
   slide,
   packet,
   mediaUrl,
+  creditText,
   logoOnLight,
   logoOnDark,
 }: {
   slide: Slide;
   packet: LaunchPacket;
   mediaUrl: string | null;
+  /** Attribution string when the resolved media is external (Wikimedia,
+   *  NASA, etc.). Null for DR-library media (no extra credit required —
+   *  it's our own imagery). Rendered as a small italic line bottom-right
+   *  of the slide so the legal/license obligation is always visible but
+   *  doesn't compete with the headline. */
+  creditText: string | null;
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
@@ -261,6 +279,7 @@ function SlideContent({
       <PhotoSlide
         slide={slide}
         mediaUrl={mediaUrl}
+        creditText={creditText}
         slideIndex={slideIndex}
         slideTotal={slideTotal}
         // White logo sits directly on the photo — no chip wrapper.
@@ -331,12 +350,17 @@ function SlideContent({
 function PhotoSlide({
   slide,
   mediaUrl,
+  creditText,
   slideIndex,
   slideTotal,
   logoOnDark,
 }: {
   slide: Slide;
   mediaUrl: string;
+  /** Non-null only when this photo came from an external (third-party)
+   *  source — we render a discreet attribution strip along the bottom
+   *  edge of the photo. CC-BY licensing mandates visible credit. */
+  creditText: string | null;
   slideIndex: number;
   slideTotal: number;
   logoOnDark: string | null;
@@ -413,6 +437,44 @@ function PhotoSlide({
             />
           ))}
         </div>
+
+        {/* Attribution strip — only when the photo is third-party.
+            CC-BY/CC0/Public Domain licensing requires visible credit on
+            display. Rendered along the bottom edge of the photo as a
+            slim translucent pill so it reads cleanly without competing
+            with the headline below. */}
+        {creditText && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 14,
+              right: 18,
+              display: "flex",
+              backgroundColor: "rgba(22, 56, 39, 0.78)",
+              paddingTop: 6,
+              paddingBottom: 6,
+              paddingLeft: 12,
+              paddingRight: 12,
+              borderRadius: 4,
+              maxWidth: 760,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: 14,
+                color: DR.cream,
+                opacity: 0.92,
+                letterSpacing: 0.3,
+              }}
+            >
+              {creditText}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── Text panel (bottom) — solid dark green ─── */}
