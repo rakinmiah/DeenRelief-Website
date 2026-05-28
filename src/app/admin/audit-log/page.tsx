@@ -68,6 +68,9 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   first_response_event_reviewed: "Emergency event reviewed",
   first_response_event_dismissed: "Emergency event dismissed",
   first_response_appeal_launched: "Emergency appeal launched",
+  social_post_logged: "Social post logged",
+  social_post_archived: "Social post archived",
+  social_post_restored: "Social post restored",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -124,6 +127,9 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   first_response_event_reviewed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   first_response_event_dismissed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   first_response_appeal_launched: "bg-red-100 text-red-800 border-red-200",
+  social_post_logged: "bg-green/10 text-green-dark border-green/30",
+  social_post_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  social_post_restored: "bg-green/10 text-green-dark border-green/30",
 };
 
 /**
