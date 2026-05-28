@@ -132,8 +132,45 @@ export async function GET(
   // response layouts can carry a media_id pointing at media_library.
   // Non-fatal if the media has been archived since the draft: we fall
   // back to typography-only.
+  //
+  // We fetch the image bytes ourselves and inline as a base64 data URI
+  // rather than passing the public URL to Satori. Two reasons:
+  //   (1) Satori's image fetcher silently fails on some hosts/URLs
+  //       with no error surfaced — observed live with Supabase Storage
+  //       URLs not rendering on slides despite the route reporting OK.
+  //   (2) Inline data URIs guarantee the bytes are present at render
+  //       time. Adds one HTTP hop per slide (Vercel → Supabase) but
+  //       it's a few hundred ms — well within the 60s function budget.
   const media = slide.media_id ? await getMediaById(slide.media_id) : null;
-  const mediaUrl = media && !media.archivedAt ? media.publicUrl : null;
+  let mediaDataUri: string | null = null;
+  if (media && !media.archivedAt) {
+    try {
+      const imgRes = await fetch(media.publicUrl);
+      if (imgRes.ok) {
+        const buf = await imgRes.arrayBuffer();
+        const mimeType =
+          imgRes.headers.get("content-type") ?? media.mimeType ?? "image/jpeg";
+        const base64 = Buffer.from(buf).toString("base64");
+        mediaDataUri = `data:${mimeType};base64,${base64}`;
+        console.log(
+          `[slide ${index}] inlined media ${media.id} (${buf.byteLength}B, ${mimeType})`
+        );
+      } else {
+        console.warn(
+          `[slide ${index}] media fetch failed (${imgRes.status}) for ${media.publicUrl}`
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[slide ${index}] media fetch exception for ${media.publicUrl}:`,
+        err
+      );
+    }
+  } else if (slide.media_id) {
+    console.warn(
+      `[slide ${index}] slide.media_id=${slide.media_id} but media resolved to ${media ? "archived" : "null"}`
+    );
+  }
 
   // Four fonts in parallel — every slide uses at least three of them.
   //   Bowlby One SC 400  → chunky uppercase display titles
@@ -148,7 +185,7 @@ export async function GET(
   ]);
 
   return new ImageResponse(
-    <SlideContent slide={slide} packet={packet} mediaUrl={mediaUrl} />,
+    <SlideContent slide={slide} packet={packet} mediaUrl={mediaDataUri} />,
     {
     width: SLIDE_SIZE,
     height: SLIDE_SIZE,
@@ -203,35 +240,41 @@ function SlideContent({
       {/* Photo background (hero/response slides with media_id set).
           Renders as a full-bleed image absolutely positioned beneath
           everything else, with a dark green gradient overlay so the
-          typography remains legible regardless of underlying contrast. */}
+          typography remains legible regardless of underlying contrast.
+          Notes for Satori compatibility:
+            • Explicit pixel dimensions, not percentages
+            • rgba() not 8-char hex (Satori treats #RRGGBBAA as opaque)
+            • Image src is a data URI (inlined in the route) so Satori
+              doesn't need to do its own fetch */}
       {hasPhoto && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={mediaUrl}
             alt=""
-            width={1080}
-            height={1080}
+            width={SLIDE_SIZE}
+            height={SLIDE_SIZE}
             style={{
               position: "absolute",
               top: 0,
               left: 0,
-              width: "100%",
-              height: "100%",
+              width: SLIDE_SIZE,
+              height: SLIDE_SIZE,
               objectFit: "cover",
             }}
           />
-          {/* Dark green gradient on top — bottom 60% of the slide gets
-              heavy opacity to anchor the title block, top fades to
-              partial green for legibility of the brand chip + pip. */}
+          {/* Dark green gradient overlay. Heavy at top + bottom to
+              anchor the brand chip + footer, lighter in the middle so
+              the underlying photo reads through behind the title. */}
           <div
             style={{
               position: "absolute",
               top: 0,
               left: 0,
-              width: "100%",
-              height: "100%",
-              backgroundImage: `linear-gradient(180deg, ${DR.forestDeep}E6 0%, ${DR.forest}99 35%, ${DR.forestDeep}F2 100%)`,
+              width: SLIDE_SIZE,
+              height: SLIDE_SIZE,
+              backgroundImage:
+                "linear-gradient(180deg, rgba(22, 56, 39, 0.88) 0%, rgba(31, 77, 59, 0.55) 35%, rgba(31, 77, 59, 0.55) 65%, rgba(22, 56, 39, 0.92) 100%)",
               display: "flex",
             }}
           />
