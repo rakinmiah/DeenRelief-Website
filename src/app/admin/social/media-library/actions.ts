@@ -25,6 +25,8 @@ import { logAdminAction } from "@/lib/admin-audit";
 import {
   archiveMedia,
   createMedia,
+  getAllKnownStoragePaths,
+  listAllStorageFiles,
   MEDIA_BUCKET,
   publicUrlForPath,
   updateMedia,
@@ -275,6 +277,152 @@ export async function archiveMediaAction(
   });
   revalidatePath("/admin/social/media-library");
   return { ok: true };
+}
+
+/* ─── Bulk-import: scan Storage + auto-tag orphans ──────────────── */
+
+export interface ScanResult {
+  totalInStorage: number;
+  alreadyInLibrary: number;
+  orphansFound: number;
+  orphansProcessed: number;
+  tagged: number;
+  taggingFailed: number;
+  errors: string[];
+  /** True when there are more orphans than the batch limit allowed — SMM clicks again. */
+  moreToProcess: boolean;
+}
+
+/** Hard ceiling per scan call. ~5s per Vision call × 20 = ~100s (Vercel maxDuration is 60s on Hobby; we use a generous safety margin). */
+const SCAN_BATCH_LIMIT = 20;
+
+/**
+ * Scan dr-media-library bucket for files that have no media_library row,
+ * run Claude Vision on each orphan, and create rows with the auto-tagged
+ * metadata. Batch-limited so the action fits under Vercel function
+ * timeouts.
+ *
+ * Workflow target: SMM bulk-uploads via the Supabase Dashboard (fast,
+ * familiar UI for moving many files), then clicks this button in DR
+ * Social. Each scan eats ~20 orphans; she clicks again until
+ * moreToProcess is false.
+ *
+ * Failure isolation: if Vision fails on a specific image, we still
+ * create the row with empty tag fields — the file appears in the
+ * library so the SMM can tag it manually via the edit form. Better
+ * than leaving an orphan in Storage indefinitely.
+ */
+export async function scanStorageOrphansAction(): Promise<
+  MediaActionResult<ScanResult>
+> {
+  const session = await requireAdminSession();
+
+  // 1. List everything in the bucket.
+  const allStorageFiles = await listAllStorageFiles();
+  const totalInStorage = allStorageFiles.length;
+
+  // 2. Subtract files we already have rows for.
+  const knownPaths = await getAllKnownStoragePaths();
+  const orphans = allStorageFiles.filter((f) => !knownPaths.has(f.path));
+
+  // 3. Process up to SCAN_BATCH_LIMIT of them.
+  const batch = orphans.slice(0, SCAN_BATCH_LIMIT);
+  let tagged = 0;
+  let taggingFailed = 0;
+  const errors: string[] = [];
+
+  for (const file of batch) {
+    try {
+      // Skip non-image files defensively (someone might have dropped a
+      // PDF into the bucket by accident).
+      if (file.mimeType && !file.mimeType.startsWith("image/")) {
+        errors.push(`${file.path}: skipped non-image (${file.mimeType})`);
+        continue;
+      }
+
+      const publicUrl = publicUrlForPath(file.path);
+      let suggestions: MediaTagSuggestions | null = null;
+      let aiTagging: {
+        model: string;
+        inputTokens: number;
+        outputTokens: number;
+      } | null = null;
+
+      try {
+        const result = await suggestMediaTags({ imageUrl: publicUrl });
+        suggestions = result.suggestions;
+        aiTagging = {
+          model: result.model,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+        };
+        tagged += 1;
+      } catch (err) {
+        taggingFailed += 1;
+        errors.push(
+          `${file.path}: vision tagging failed — ${err instanceof Error ? err.message : "unknown"}`
+        );
+        // Continue — we'll still create the row below with empty tags.
+      }
+
+      // Create the row whether or not Vision succeeded. An empty-tags
+      // row is better than an orphan: the file shows up in the library
+      // and the SMM can fill the form manually.
+      const created = await createMedia({
+        storagePath: file.path,
+        caption: suggestions?.caption ?? null,
+        tags: suggestions?.tags ?? [],
+        campaignSlugs: suggestions?.campaign_slugs ?? [],
+        countryIso: suggestions?.country_iso ?? null,
+        eventTypes: suggestions?.event_types ?? [],
+        tone: suggestions?.tone ?? null,
+        useCases: suggestions?.use_cases ?? [],
+        peopleVisible: suggestions?.people_visible ?? false,
+        identifiableMinors: suggestions?.identifiable_minors ?? false,
+        uploadedByEmail: session.email,
+        bytes: file.size > 0 ? file.size : null,
+        mimeType: file.mimeType,
+        aiTagged: aiTagging ?? undefined,
+      });
+
+      if (!created) {
+        errors.push(`${file.path}: row creation failed`);
+      }
+    } catch (err) {
+      errors.push(
+        `${file.path}: unexpected error — ${err instanceof Error ? err.message : "unknown"}`
+      );
+    }
+  }
+
+  await logAdminAction({
+    action: "media_storage_scan",
+    userEmail: session.email,
+    metadata: {
+      totalInStorage,
+      alreadyInLibrary: knownPaths.size,
+      orphansFound: orphans.length,
+      orphansProcessed: batch.length,
+      tagged,
+      taggingFailed,
+    },
+  });
+
+  revalidatePath("/admin/social/media-library");
+
+  return {
+    ok: true,
+    data: {
+      totalInStorage,
+      alreadyInLibrary: knownPaths.size,
+      orphansFound: orphans.length,
+      orphansProcessed: batch.length,
+      tagged,
+      taggingFailed,
+      errors: errors.slice(0, 10), // truncate so the JSON response stays compact
+      moreToProcess: orphans.length > batch.length,
+    },
+  };
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────── */

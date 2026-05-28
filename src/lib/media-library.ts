@@ -429,3 +429,92 @@ export async function archiveMedia(id: string): Promise<boolean> {
   }
   return true;
 }
+
+/* ─── Storage reconciliation (bulk-upload support) ───────────────── */
+
+export interface StorageFile {
+  path: string;
+  size: number;
+  mimeType: string | null;
+  lastModified: Date | null;
+}
+
+/**
+ * Recursively list every file in the dr-media-library bucket. Supabase
+ * Storage's list() is non-recursive — folders return as entries with
+ * null metadata, files have metadata. Walk both, capped at depth 3
+ * (covers our YYYY-MM/uuid.ext convention + any SMM-created subfolders).
+ *
+ * Used by the "Scan Storage" admin button to find files that exist on
+ * disk but have no media_library row — i.e. files the SMM uploaded
+ * directly via the Supabase Dashboard rather than through the in-app
+ * upload form.
+ */
+export async function listAllStorageFiles(): Promise<StorageFile[]> {
+  const supabase = getSupabaseAdmin();
+  const results: StorageFile[] = [];
+
+  async function recurse(prefix: string, depth: number) {
+    if (depth > 3) return;
+    const { data, error } = await supabase.storage
+      .from(MEDIA_BUCKET)
+      .list(prefix, { limit: 1000, sortBy: { column: "name", order: "asc" } });
+    if (error) {
+      console.error("[media-library] storage list failed:", error);
+      return;
+    }
+    for (const item of data ?? []) {
+      const isFolder = item.metadata == null;
+      const fullPath = prefix ? `${prefix}/${item.name}` : item.name;
+      if (isFolder) {
+        await recurse(fullPath, depth + 1);
+      } else {
+        // Some Supabase versions surface .placeholder marker files when
+        // a folder is empty — skip them. Real images are JPEG/PNG/WebP.
+        if (item.name === ".emptyFolderPlaceholder") continue;
+        const meta = item.metadata as Record<string, unknown> | null;
+        results.push({
+          path: fullPath,
+          size: typeof meta?.size === "number" ? meta.size : 0,
+          mimeType:
+            typeof meta?.mimetype === "string" ? meta.mimetype : null,
+          lastModified: item.updated_at
+            ? new Date(item.updated_at)
+            : null,
+        });
+      }
+    }
+  }
+
+  await recurse("", 0);
+  return results;
+}
+
+/**
+ * Return the set of storage_path values already represented in the
+ * media_library table — so the orphan scan can subtract this set
+ * from the list of all storage files to find untagged uploads.
+ */
+export async function getAllKnownStoragePaths(): Promise<Set<string>> {
+  const supabase = getSupabaseAdmin();
+  const known = new Set<string>();
+  // Pull in pages of 1000 — defensive in case the library ever grows
+  // beyond Supabase's default page size.
+  let offset = 0;
+  const pageSize = 1000;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("media_library")
+      .select("storage_path")
+      .range(offset, offset + pageSize - 1);
+    if (error) {
+      console.error("[media-library] known-paths read failed:", error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    for (const row of data) known.add(row.storage_path);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return known;
+}

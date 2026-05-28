@@ -76,6 +76,7 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   media_saved_to_library: "Media saved to library",
   media_edited: "Media library item edited",
   media_archived_from_library: "Media library item archived",
+  media_storage_scan: "Storage orphan scan run",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -140,6 +141,7 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   media_saved_to_library: "bg-green/10 text-green-dark border-green/30",
   media_edited: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   media_archived_from_library: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  media_storage_scan: "bg-amber-light text-amber-dark border-amber/30",
 };
 
 /**
