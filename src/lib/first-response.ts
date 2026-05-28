@@ -151,6 +151,13 @@ function rowToEvent(row: EmergencyEventRow): EmergencyEvent {
 export interface GetEmergencyEventsOptions {
   status?: EmergencyEventStatus | EmergencyEventStatus[];
   limit?: number;
+  /**
+   * Filter to events with score > 0 (i.e. at least one matched
+   * campaign + non-zero normalised severity). Defaults true for
+   * dashboard reads — events DR can't action stay hidden. Set false
+   * to include zero-score events (forensic / audit views).
+   */
+  onlyActionable?: boolean;
 }
 
 /**
@@ -244,6 +251,13 @@ export async function getEmergencyEvents(
       ? options.status
       : [options.status];
     query = query.in("status", statuses);
+  }
+
+  // Hide events DR can't action (no coverage match or below severity
+  // floor → score 0). Default-on for dashboard reads; the caller can
+  // opt out for audit / forensic views.
+  if (options.onlyActionable !== false) {
+    query = query.gt("dr_priority_score", 0);
   }
 
   const { data, error } = await query.returns<EmergencyEventRow[]>();

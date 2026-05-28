@@ -103,8 +103,10 @@ export default async function FirstResponsePage() {
               severity × coverage weight × UK Muslim diaspora × Muslim-majority
             </span>{" "}
             and pushed to your DR Admin bell when the score crosses 10 (amber)
-            or 20 (critical, audible). Click any alert to draft a Claude-written
-            launch packet + one-click emergency launch.
+            or 20 (critical, audible). Events DR has no field presence to
+            action are hidden from this list so the alerts stay relevant.
+            Click any alert to draft a Claude-written launch packet +
+            one-click emergency launch.
           </p>
         </div>
       </div>

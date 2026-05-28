@@ -144,6 +144,7 @@ export async function ingestEmergencyEvent(
     severityRaw: input.severityRaw,
     matchedCoverage,
     countryIso: input.countryIso,
+    source: input.source,
   });
   const tier = getPushTier(score);
 
