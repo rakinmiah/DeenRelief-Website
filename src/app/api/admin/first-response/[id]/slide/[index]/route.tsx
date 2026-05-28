@@ -34,6 +34,7 @@ import {
   LaunchPacketSchema,
   type LaunchPacket,
 } from "@/lib/first-response-packet";
+import { getMediaById } from "@/lib/media-library";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +128,13 @@ export async function GET(
     return new Response("Slide missing from packet.", { status: 422 });
   }
 
+  // Resolve the slide's chosen media item (if any) — slides on hero or
+  // response layouts can carry a media_id pointing at media_library.
+  // Non-fatal if the media has been archived since the draft: we fall
+  // back to typography-only.
+  const media = slide.media_id ? await getMediaById(slide.media_id) : null;
+  const mediaUrl = media && !media.archivedAt ? media.publicUrl : null;
+
   // Four fonts in parallel — every slide uses at least three of them.
   //   Bowlby One SC 400  → chunky uppercase display titles
   //   DM Sans 700        → bold uppercase body
@@ -139,7 +147,9 @@ export async function GET(
     loadGoogleFont("Caveat", 600),
   ]);
 
-  return new ImageResponse(<SlideContent slide={slide} packet={packet} />, {
+  return new ImageResponse(
+    <SlideContent slide={slide} packet={packet} mediaUrl={mediaUrl} />,
+    {
     width: SLIDE_SIZE,
     height: SLIDE_SIZE,
     fonts: [
@@ -148,11 +158,12 @@ export async function GET(
       { name: "DM Sans", data: dmReg, weight: 400, style: "normal" },
       { name: "Caveat", data: caveat, weight: 600, style: "normal" },
     ],
-    headers: {
-      "Cache-Control": "private, no-store",
-      "Content-Disposition": `inline; filename="slide-${index + 1}.png"`,
-    },
-  });
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Content-Disposition": `inline; filename="slide-${index + 1}.png"`,
+      },
+    }
+  );
 }
 
 /* ─── Slide composition ───────────────────────────────────────────── */
@@ -162,9 +173,11 @@ type Slide = LaunchPacket["carousel_slides"][number];
 function SlideContent({
   slide,
   packet,
+  mediaUrl,
 }: {
   slide: Slide;
   packet: LaunchPacket;
+  mediaUrl: string | null;
 }) {
   // CTA slide flips to a cream canvas with green type + red emphasis,
   // mirroring the Eid Mubarak / festival treatment — gives the closing
@@ -172,6 +185,7 @@ function SlideContent({
   const isCta = slide.layout === "cta";
   const bg = isCta ? DR.cream : DR.forest;
   const fg = isCta ? DR.forest : DR.cream;
+  const hasPhoto = !isCta && mediaUrl != null;
 
   return (
     <div
@@ -186,6 +200,44 @@ function SlideContent({
         position: "relative",
       }}
     >
+      {/* Photo background (hero/response slides with media_id set).
+          Renders as a full-bleed image absolutely positioned beneath
+          everything else, with a dark green gradient overlay so the
+          typography remains legible regardless of underlying contrast. */}
+      {hasPhoto && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={mediaUrl}
+            alt=""
+            width={1080}
+            height={1080}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+          {/* Dark green gradient on top — bottom 60% of the slide gets
+              heavy opacity to anchor the title block, top fades to
+              partial green for legibility of the brand chip + pip. */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundImage: `linear-gradient(180deg, ${DR.forestDeep}E6 0%, ${DR.forest}99 35%, ${DR.forestDeep}F2 100%)`,
+              display: "flex",
+            }}
+          />
+        </>
+      )}
+
       {/* Brand chip — top-left. Pinned to every slide for identity. */}
       <BrandChip inverted={isCta} />
 
@@ -197,8 +249,10 @@ function SlideContent({
       />
 
       {/* Decorative sparkles bracketing the title — DR uses these
-          liberally as visual rhythm on the educational series. */}
-      <SparkleField inverted={isCta} />
+          liberally as visual rhythm on the educational series. Skip
+          them on photo slides where the imagery carries the visual
+          weight already. */}
+      {!hasPhoto && <SparkleField inverted={isCta} />}
 
       {/* Main composition switches on layout. */}
       <SlideBody slide={slide} fg={fg} isCta={isCta} />

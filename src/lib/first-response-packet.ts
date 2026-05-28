@@ -25,6 +25,10 @@ import { z } from "zod";
 import type { CoverageEntry, EmergencyEvent } from "./first-response";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "./campaigns";
 import { CAMPAIGN_LANDING_PATHS } from "./short-links";
+import {
+  getCandidateMediaForEvent,
+  type MediaItem,
+} from "./media-library";
 
 const MODEL = "claude-opus-4-7";
 
@@ -146,6 +150,12 @@ export const LaunchPacketSchema = z.object({
           .nullable()
           .describe(
             "Small italic source line at the bottom — used by the 'fact' slide (e.g. 'Source: USGS'). null elsewhere."
+          ),
+        media_id: z
+          .string()
+          .nullable()
+          .describe(
+            "Optional ID of a media_library item to render as the slide's photo background (full-bleed, with a dark green gradient overlay underneath the typography). Pick ONLY from the CANDIDATE MEDIA list in the prompt, by matching the slide's intent to the candidate's tags/caption/use_cases. Suitable layouts: hero (use 'emergency-hero' candidates), response (use 'response-illustration' or 'team-coverage' candidates). For 'fact', 'tiers', 'cta' layouts: ALWAYS null — these slides are typography-only. If no candidate suits the slide, set null (typography-only fallback is fine)."
           ),
       })
     )
@@ -379,8 +389,17 @@ export interface GenerateLaunchPacketResult {
 /**
  * Build the per-event user message — variable content that comes AFTER
  * the cached system prefix. Kept compact: only the facts the model needs.
+ *
+ * Candidate media: a pre-queried shortlist of media_library items
+ * relevant to this event's geography/type/campaigns. Passed as text
+ * metadata (id + caption + tags + use_cases). Claude returns chosen
+ * IDs in the slides' media_id fields. We never ship image pixels to
+ * Claude — that'd be ~£0.05/image; metadata-only selection is ~free.
  */
-function buildEventBrief(input: GenerateLaunchPacketInput): string {
+function buildEventBrief(
+  input: GenerateLaunchPacketInput,
+  candidateMedia: MediaItem[]
+): string {
   const { event, matchedCoverage, rawPayload } = input;
 
   const campaignLines = matchedCoverage
@@ -410,6 +429,28 @@ function buildEventBrief(input: GenerateLaunchPacketInput): string {
     }
   }
 
+  // Candidate media list — passed as compact text. Each row gives
+  // Claude enough metadata to pick which slide each image fits, by ID.
+  const candidateMediaLines =
+    candidateMedia.length === 0
+      ? "  • (no matching media in the library — set every slide's media_id to null)"
+      : candidateMedia
+          .map((m) => {
+            const bits = [
+              `id=${m.id}`,
+              m.caption ? `caption="${m.caption}"` : null,
+              m.countryIso ? `country=${m.countryIso}` : null,
+              m.eventTypes.length ? `events=${m.eventTypes.join(",")}` : null,
+              m.tone ? `tone=${m.tone}` : null,
+              m.useCases.length ? `use=${m.useCases.join(",")}` : null,
+              m.tags.length ? `tags=${m.tags.slice(0, 5).join(",")}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return `  • ${bits}`;
+          })
+          .join("\n");
+
   return `EMERGENCY EVENT — DRAFT A LAUNCH PACKET
 
   Title:       ${event.title}
@@ -430,6 +471,12 @@ strongest recommendation):
 
 ${campaignLines || "  • (no matched campaigns — Deen Relief has no specific coverage for this geography)"}
 
+CANDIDATE MEDIA from DR's library (PICK media_id BY ID FROM THIS LIST
+ONLY — never invent IDs. ONLY use 'hero' and 'response' slides; for
+'fact', 'tiers', 'cta' always set media_id to null):
+
+${candidateMediaLines}
+
 RAW SOURCE PAYLOAD (for verified facts — never invent numbers not present here):
 \`\`\`json
 ${rawPayloadSummary}
@@ -443,7 +490,20 @@ export async function generateLaunchPacket(
   input: GenerateLaunchPacketInput
 ): Promise<GenerateLaunchPacketResult> {
   const client = getClient();
-  const brief = buildEventBrief(input);
+
+  // Pre-fetch candidate media before composing the prompt. Limited to
+  // 12 candidates so the prompt stays compact; selection is metadata-
+  // only (no vision tokens spent). Returns [] if the library is empty
+  // — Claude then sets every media_id to null and slides render
+  // typography-only (the Phase 4d aesthetic).
+  const candidateMedia = await getCandidateMediaForEvent({
+    countryIso: input.event.countryIso,
+    eventType: input.event.eventType,
+    campaignSlugs: input.matchedCoverage.map((c) => c.campaignSlug),
+    limit: 12,
+  });
+
+  const brief = buildEventBrief(input, candidateMedia);
 
   // messages.parse() runs the request, validates the structured response
   // against the schema, and returns a typed object. The brand voice
@@ -472,8 +532,26 @@ export async function generateLaunchPacket(
     );
   }
 
+  // Safety pass: ensure any media_id Claude picked actually exists in
+  // our candidate set. Confabulated IDs would render as broken images;
+  // forcing them to null lets the renderer fall back to typography.
+  const candidateIds = new Set(candidateMedia.map((m) => m.id));
+  const sanitisedSlides = response.parsed_output.carousel_slides.map(
+    (slide) => {
+      if (!slide.media_id) return slide;
+      if (candidateIds.has(slide.media_id)) return slide;
+      console.warn(
+        `[first-response-packet] Claude returned media_id=${slide.media_id} not in candidate set — coercing to null.`
+      );
+      return { ...slide, media_id: null };
+    }
+  );
+
   return {
-    packet: response.parsed_output,
+    packet: {
+      ...response.parsed_output,
+      carousel_slides: sanitisedSlides,
+    },
     model: response.model,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,

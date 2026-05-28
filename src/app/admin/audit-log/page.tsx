@@ -72,6 +72,10 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   social_post_logged: "Social post logged",
   social_post_archived: "Social post archived",
   social_post_restored: "Social post restored",
+  media_uploaded: "Media uploaded to library",
+  media_saved_to_library: "Media saved to library",
+  media_edited: "Media library item edited",
+  media_archived_from_library: "Media library item archived",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -132,6 +136,10 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   social_post_logged: "bg-green/10 text-green-dark border-green/30",
   social_post_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   social_post_restored: "bg-green/10 text-green-dark border-green/30",
+  media_uploaded: "bg-amber-light text-amber-dark border-amber/30",
+  media_saved_to_library: "bg-green/10 text-green-dark border-green/30",
+  media_edited: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  media_archived_from_library: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
 /**

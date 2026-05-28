@@ -85,7 +85,12 @@ export type AdminAction =
   // Social posts registry (per-post performance)
   | "social_post_logged"
   | "social_post_archived"
-  | "social_post_restored";
+  | "social_post_restored"
+  // DR media library (Phase 4e — image inventory for slide generation)
+  | "media_uploaded"
+  | "media_saved_to_library"
+  | "media_edited"
+  | "media_archived_from_library";
 
 interface LogAdminActionOpts {
   action: AdminAction;

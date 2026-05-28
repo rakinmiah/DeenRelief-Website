@@ -166,6 +166,18 @@ export default async function AdminSocialLandingPage() {
           post, pick the short link you put in it, and the dashboard
           shows clicks + donations + £ raised end-to-end.
         </DashboardCard>
+
+        <DashboardCard
+          title="Media library"
+          href="/admin/social/media-library"
+          status="available"
+          statusLabel="Available"
+        >
+          DR&apos;s sorted photo inventory. Upload once, Claude auto-tags
+          on the way in, and the launch-packet generator pulls relevant
+          imagery into carousel slides automatically. Pure-typography
+          slides become photo-backed slides when matching media exists.
+        </DashboardCard>
       </div>
     </main>
   );
