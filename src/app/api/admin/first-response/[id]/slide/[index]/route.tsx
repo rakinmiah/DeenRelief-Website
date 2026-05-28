@@ -100,6 +100,72 @@ function loadGoogleFont(family: string, weight: number): Promise<ArrayBuffer> {
   return promise;
 }
 
+/**
+ * Same shape as loadGoogleFont but fetches the italic variant.
+ * Google Fonts encodes italic in the URL as `ital,wght@1,{weight}`.
+ * Used for Lora Italic (the secondary display face introduced in
+ * Phase 4p for contemplative arcs).
+ */
+function loadGoogleFontItalic(
+  family: string,
+  weight: number
+): Promise<ArrayBuffer> {
+  const key = `${family}:${weight}:italic`;
+  const cached = fontCache.get(key);
+  if (cached) return cached;
+  const promise = (async () => {
+    const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:ital,wght@1,${weight}`;
+    const css = await fetch(cssUrl).then((r) => r.text());
+    const match = css.match(
+      /src:\s*url\(([^)]+)\)\s*format\('(?:truetype|opentype)'\)/
+    );
+    if (!match || !match[1]) {
+      throw new Error(
+        `Could not extract TTF italic URL for ${family} ${weight}. ` +
+          `Response preview: ${css.slice(0, 200)}`
+      );
+    }
+    const fontRes = await fetch(match[1]);
+    if (!fontRes.ok) {
+      throw new Error(
+        `Italic font fetch failed (${family} ${weight}): ${fontRes.status}`
+      );
+    }
+    return fontRes.arrayBuffer();
+  })();
+  fontCache.set(key, promise);
+  return promise;
+}
+
+/**
+ * Phase 4p — pick the display font per slide based on the packet's
+ * narrative arc + the slide's layout. Bowlby is the chunky factual
+ * default; Lora Italic is the contemplative / witness / quote
+ * register sourced from the social audit (Islamic Relief's Eid
+ * prayers cover slide, Charity:Water's manifesto chapter type).
+ *
+ *   • Layout-driven (always wins): testimony + chapter slides → Lora
+ *   • Arc-driven: quiet_dignity + manifesto packets → Lora across
+ *     all non-tiers / non-cta slides
+ *   • Everything else → Bowlby
+ *
+ * Returns the inline `fontFamily` string the body components write
+ * into their style props.
+ */
+function displayFontFor(
+  arc: LaunchPacket["strategy_brief"]["arc"],
+  layout: LaunchPacket["carousel_slides"][number]["layout"]
+): "Bowlby One SC" | "Lora" {
+  if (layout === "testimony" || layout === "chapter") return "Lora";
+  if (arc === "quiet_dignity" || arc === "manifesto") {
+    // Tiers + CTA stay on Bowlby — those are price-ladder + headline
+    // moments where the chunky register still reads better.
+    if (layout === "tiers" || layout === "cta") return "Bowlby One SC";
+    return "Lora";
+  }
+  return "Bowlby One SC";
+}
+
 /* ─── Route handler ───────────────────────────────────────────────── */
 
 export async function GET(
@@ -186,19 +252,19 @@ export async function GET(
     );
   }
 
-  // Four fonts + both brand logo variants in parallel. The chip
-  // background depends on slide type (cream for non-CTA, forest for
-  // CTA), and we want the LOGO to contrast with the chip background:
-  //   cream chip   → logo-on-light variant (dark/green logo)
-  //   forest chip  → logo-on-dark variant (white logo)
-  // Either may be null if the SMM hasn't uploaded that variant yet —
-  // BrandChip falls back to the inline SVG approximation.
-  const [bowlby, dmBold, dmReg, caveat, logoOnLight, logoOnDark] =
+  // Five fonts + both brand logo variants in parallel. Lora Italic
+  // was added in Phase 4p (audit findings) for contemplative arcs
+  // (quiet_dignity, testimony, manifesto chapters) where Bowlby's
+  // chunky display register is wrong. The renderer picks per-slide
+  // between Bowlby and Lora Italic based on arc + layout — see
+  // displayFontFor().
+  const [bowlby, dmBold, dmReg, caveat, loraItalic, logoOnLight, logoOnDark] =
     await Promise.all([
       loadGoogleFont("Bowlby One SC", 400),
       loadGoogleFont("DM Sans", 700),
       loadGoogleFont("DM Sans", 400),
       loadGoogleFont("Caveat", 600),
+      loadGoogleFontItalic("Lora", 600),
       getLogoDataUri("logo-on-light"),
       getLogoDataUri("logo-on-dark"),
     ]);
@@ -232,6 +298,7 @@ export async function GET(
           { name: "DM Sans", data: dmBold, weight: 700, style: "normal" },
           { name: "DM Sans", data: dmReg, weight: 400, style: "normal" },
           { name: "Caveat", data: caveat, weight: 600, style: "normal" },
+          { name: "Lora", data: loraItalic, weight: 600, style: "italic" },
         ],
         headers: {
           "Cache-Control": "private, no-store",
@@ -344,8 +411,15 @@ function SlideContent({
           liberally as visual rhythm on the educational series. */}
       <SparkleField inverted={isCta} />
 
-      {/* Main composition switches on layout. */}
-      <SlideBody slide={slide} fg={fg} isCta={isCta} />
+      {/* Main composition switches on layout. displayFont comes from
+          packet.strategy_brief.arc + slide.layout — Bowlby for chunky
+          factual slides, Lora Italic for contemplative ones. */}
+      <SlideBody
+        slide={slide}
+        fg={fg}
+        isCta={isCta}
+        displayFont={displayFontFor(packet.strategy_brief.arc, slide.layout)}
+      />
 
       {/* Footer — source attribution, URL on CTA, hairline divider. */}
       <SlideFooter slide={slide} fg={fg} isCta={isCta} />
@@ -836,23 +910,41 @@ function SlideBody({
   slide,
   fg,
   isCta,
+  displayFont,
 }: {
   slide: Slide;
   fg: string;
   isCta: boolean;
+  /** Computed by displayFontFor() — Bowlby for chunky factual register,
+   *  Lora for contemplative / quote / chapter register. Threaded down
+   *  to each body component so titles render in the right voice. */
+  displayFont: "Bowlby One SC" | "Lora";
 }) {
   if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} />;
   if (isCta) return <CtaBody slide={slide} />;
+  if (slide.layout === "chapter")
+    return <ChapterBody slide={slide} fg={fg} />;
   if (slide.layout === "testimony")
-    return <TestimonyBody slide={slide} fg={fg} />;
-  return <DisplayBody slide={slide} fg={fg} />;
+    return <TestimonyBody slide={slide} fg={fg} displayFont={displayFont} />;
+  return <DisplayBody slide={slide} fg={fg} displayFont={displayFont} />;
 }
 
 /** Testimony slide — quote-styled. The title is the quote itself,
- *  rendered in a slightly more humane register than the chunky fact
- *  display, with a leading quotation mark in DR's amber. The
- *  source_attribution becomes the speaker line. */
-function TestimonyBody({ slide, fg }: { slide: Slide; fg: string }) {
+ *  rendered in Lora Italic (sourced from the social audit — quoted
+ *  testimony reads as voice, not declaration). Amber quotation mark
+ *  opens the quote, source_attribution closes it. */
+function TestimonyBody({
+  slide,
+  fg,
+  displayFont,
+}: {
+  slide: Slide;
+  fg: string;
+  /** Always 'Lora' for testimony slides, but plumbed through for
+   *  consistency with the broader SlideBody contract. */
+  displayFont: "Bowlby One SC" | "Lora";
+}) {
+  const useLora = displayFont === "Lora";
   return (
     <div
       style={{
@@ -886,11 +978,12 @@ function TestimonyBody({ slide, fg }: { slide: Slide; fg: string }) {
       <div
         style={{
           display: "flex",
-          fontFamily: "Bowlby One SC",
-          fontWeight: 400,
-          fontSize: 56,
+          fontFamily: useLora ? "Lora" : "Bowlby One SC",
+          fontStyle: useLora ? "italic" : "normal",
+          fontWeight: useLora ? 600 : 400,
+          fontSize: 96,
           color: DR.amber,
-          marginBottom: 6,
+          marginBottom: useLora ? -10 : 6,
           lineHeight: 1,
         }}
       >
@@ -899,14 +992,15 @@ function TestimonyBody({ slide, fg }: { slide: Slide; fg: string }) {
       <div
         style={{
           display: "flex",
-          fontFamily: "Bowlby One SC",
-          fontWeight: 400,
-          fontSize: titleSizeFor("fact", slide.title.length),
+          fontFamily: useLora ? "Lora" : "Bowlby One SC",
+          fontStyle: useLora ? "italic" : "normal",
+          fontWeight: useLora ? 600 : 400,
+          fontSize: titleSizeFor("fact", slide.title.length, useLora),
           color: fg,
           textAlign: "center",
-          textTransform: "uppercase",
-          lineHeight: 1.1,
-          letterSpacing: 0.5,
+          textTransform: useLora ? "none" : "uppercase",
+          lineHeight: useLora ? 1.2 : 1.1,
+          letterSpacing: useLora ? 0 : 0.5,
           maxWidth: 880,
           alignSelf: "center",
         }}
@@ -933,8 +1027,102 @@ function TestimonyBody({ slide, fg }: { slide: Slide; fg: string }) {
   );
 }
 
-/** Hero / fact / response — eyebrow + chunky title + supporting body. */
-function DisplayBody({ slide, fg }: { slide: Slide; fg: string }) {
+/** Manifesto chapter slide — "We believe X. That means Y." pattern.
+ *  Title is the claim (sentence case, Lora Italic medium-large);
+ *  body is the proof line (DM Sans, smaller, ~70% opacity). Visual
+ *  reference: Charity:Water's brand identity carousel where each
+ *  chapter sits as its own slide. */
+function ChapterBody({ slide, fg }: { slide: Slide; fg: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "flex-start",
+        textAlign: "left",
+        paddingTop: 110,
+        paddingBottom: 70,
+        paddingLeft: 48,
+        paddingRight: 48,
+      }}
+    >
+      {slide.eyebrow && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 700,
+            fontSize: 16,
+            color: DR.amber,
+            textTransform: "uppercase",
+            letterSpacing: 3,
+            marginBottom: 18,
+          }}
+        >
+          {slide.eyebrow}
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Lora",
+          fontStyle: "italic",
+          fontWeight: 600,
+          fontSize: slide.title.length > 32 ? 84 : 104,
+          color: fg,
+          lineHeight: 1.1,
+          maxWidth: 880,
+          marginBottom: 28,
+        }}
+      >
+        {slide.title}
+      </div>
+      {/* Thin amber accent rule between claim and proof — a typographic
+          beat to mirror Charity:Water's chapter layout. */}
+      <div
+        style={{
+          display: "flex",
+          width: 56,
+          height: 3,
+          backgroundColor: DR.amber,
+          marginBottom: 22,
+        }}
+      />
+      {slide.body && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 400,
+            fontSize: 28,
+            color: fg,
+            opacity: 0.78,
+            lineHeight: 1.45,
+            maxWidth: 820,
+          }}
+        >
+          {slide.body}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Hero / fact / response — eyebrow + chunky title + supporting body.
+ *  displayFont decides whether the title runs in chunky Bowlby (default)
+ *  or Lora Italic (quiet_dignity / manifesto arcs — Phase 4p). */
+function DisplayBody({
+  slide,
+  fg,
+  displayFont,
+}: {
+  slide: Slide;
+  fg: string;
+  displayFont: "Bowlby One SC" | "Lora";
+}) {
+  const useLora = displayFont === "Lora";
   return (
     <div
       style={{
@@ -966,17 +1154,19 @@ function DisplayBody({ slide, fg }: { slide: Slide; fg: string }) {
       <div
         style={{
           display: "flex",
-          fontFamily: "Bowlby One SC",
-          fontWeight: 400,
-          fontSize: titleSizeFor(slide.layout, slide.title.length),
+          fontFamily: useLora ? "Lora" : "Bowlby One SC",
+          fontStyle: useLora ? "italic" : "normal",
+          fontWeight: useLora ? 600 : 400,
+          fontSize: titleSizeFor(slide.layout, slide.title.length, useLora),
           color: fg,
           textAlign: "center",
-          textTransform: "uppercase",
-          lineHeight: 1.05,
-          letterSpacing: 1,
+          // Lora-Italic is sentence case, not uppercase — that's what
+          // gives it the contemplative editorial register vs Bowlby's
+          // chunky declarative voice.
+          textTransform: useLora ? "none" : "uppercase",
+          lineHeight: useLora ? 1.15 : 1.05,
+          letterSpacing: useLora ? 0 : 1,
           maxWidth: 900,
-          // Satori sometimes drops vertical centering when long titles
-          // wrap to 3 lines — explicit alignSelf keeps the block tight.
           alignSelf: "center",
         }}
       >
@@ -1270,7 +1460,11 @@ function SlideFooter({
  * (8 words) need a smaller size to fit on 2 lines without overflowing
  * the brand chip / pip clearances at top.
  */
-function titleSizeFor(layout: Slide["layout"], titleLength: number): number {
+function titleSizeFor(
+  layout: Slide["layout"],
+  titleLength: number,
+  useLora = false
+): number {
   const base = (() => {
     switch (layout) {
       case "hero":
@@ -1284,7 +1478,11 @@ function titleSizeFor(layout: Slide["layout"], titleLength: number): number {
     }
   })();
   // Long titles step down once past ~24 chars, again past ~40.
-  if (titleLength > 40) return Math.round(base * 0.7);
-  if (titleLength > 24) return Math.round(base * 0.82);
-  return base;
+  let size = base;
+  if (titleLength > 40) size = Math.round(base * 0.7);
+  else if (titleLength > 24) size = Math.round(base * 0.82);
+  // Lora's lowercase / italic metrics render lighter than Bowlby's
+  // chunky uppercase. Step UP ~8% so the visual weight is comparable
+  // at the same slide scale.
+  return useLora ? Math.round(size * 1.08) : size;
 }
