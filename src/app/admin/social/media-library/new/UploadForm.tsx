@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   saveMediaAction,
   uploadMediaAction,
+  type MediaActionResult,
   type UploadMediaResult,
 } from "../actions";
 
@@ -37,6 +38,26 @@ import {
 const MAX_CONCURRENT = 5;
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/** Auto-retry settings — backs off exponentially between attempts. */
+const MAX_RETRIES = 2; // total tries = 1 + MAX_RETRIES = 3
+const RETRY_BACKOFF_MS = [1000, 3000]; // 1s, then 3s
+
+/**
+ * Errors we shouldn't retry — these are permanent problems with the file
+ * itself or the user's input, not transient infrastructure issues.
+ * Anything else (network blip, rate limit, 5xx) gets retried.
+ */
+function isPermanentError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("only jpeg") ||
+    lower.includes("must be between") ||
+    lower.includes("payload could not be decoded") ||
+    lower.includes("empty file payload") ||
+    lower.includes("invalid_image")
+  );
+}
 
 type Status =
   | "queued"
@@ -128,12 +149,22 @@ export default function UploadForm() {
       updateItem(item.id, { status: "uploading" });
       const fileBase64 = await readAsDataUrl(item.file);
 
-      const uploadRes = await uploadMediaAction({
-        fileBase64,
-        fileName: item.file.name,
-        mimeType: item.file.type,
-        bytes: item.file.size,
-      });
+      // Upload step — retry on transient failures.
+      const uploadRes = await retry(
+        () =>
+          uploadMediaAction({
+            fileBase64,
+            fileName: item.file.name,
+            mimeType: item.file.type,
+            bytes: item.file.size,
+          }),
+        (attempt, err) => {
+          updateItem(item.id, {
+            status: "uploading",
+            error: `Retry ${attempt}/${MAX_RETRIES} — ${err}`,
+          });
+        }
+      );
       if (!uploadRes.ok) {
         updateItem(item.id, { status: "error", error: uploadRes.error });
         return;
@@ -141,6 +172,7 @@ export default function UploadForm() {
       updateItem(item.id, {
         status: "analysing",
         uploadResult: uploadRes.data,
+        error: null, // clear any retry-warning text now that we succeeded
       });
 
       // AI tagging already happened inside uploadMediaAction; the
@@ -148,32 +180,67 @@ export default function UploadForm() {
       // window before saving. Apply suggestions as-is.
       const s = uploadRes.data.suggestions;
       updateItem(item.id, { status: "saving" });
-      const saveRes = await saveMediaAction({
-        storagePath: uploadRes.data.storagePath,
-        caption: s?.caption ?? "",
-        tags: s?.tags ?? [],
-        campaignSlugs: s?.campaign_slugs ?? [],
-        countryIso: s?.country_iso ?? null,
-        eventTypes: s?.event_types ?? [],
-        tone: s?.tone ?? null,
-        useCases: s?.use_cases ?? [],
-        peopleVisible: s?.people_visible ?? false,
-        identifiableMinors: s?.identifiable_minors ?? false,
-        bytes: item.file.size,
-        mimeType: item.file.type,
-        aiTagging: uploadRes.data.aiTagging ?? undefined,
-      });
+
+      const saveRes = await retry(
+        () =>
+          saveMediaAction({
+            storagePath: uploadRes.data.storagePath,
+            caption: s?.caption ?? "",
+            tags: s?.tags ?? [],
+            campaignSlugs: s?.campaign_slugs ?? [],
+            countryIso: s?.country_iso ?? null,
+            eventTypes: s?.event_types ?? [],
+            tone: s?.tone ?? null,
+            useCases: s?.use_cases ?? [],
+            peopleVisible: s?.people_visible ?? false,
+            identifiableMinors: s?.identifiable_minors ?? false,
+            bytes: item.file.size,
+            mimeType: item.file.type,
+            aiTagging: uploadRes.data.aiTagging ?? undefined,
+          }),
+        (attempt, err) => {
+          updateItem(item.id, {
+            status: "saving",
+            error: `Retry ${attempt}/${MAX_RETRIES} — ${err}`,
+          });
+        }
+      );
       if (!saveRes.ok) {
         updateItem(item.id, { status: "error", error: saveRes.error });
         return;
       }
-      updateItem(item.id, { status: "done" });
+      updateItem(item.id, { status: "done", error: null });
     } catch (err) {
       updateItem(item.id, {
         status: "error",
         error: err instanceof Error ? err.message : "unexpected error",
       });
     }
+  }
+
+  /**
+   * Run an action with exponential backoff retry. Bails immediately on
+   * permanent errors (validation failures the file itself caused — no
+   * point retrying those). Notifies on each retry via the onRetry
+   * callback so the UI can show "Retry 1/2" to the SMM.
+   */
+  async function retry<T>(
+    action: () => Promise<MediaActionResult<T>>,
+    onRetry: (attempt: number, message: string) => void
+  ): Promise<MediaActionResult<T>> {
+    let last: MediaActionResult<T> = await action();
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+      if (last.ok) return last;
+      if (isPermanentError(last.error)) return last;
+      onRetry(attempt, last.error);
+      await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 3000);
+      last = await action();
+    }
+    return last;
+  }
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   function updateItem(id: string, patch: Partial<QueueItem>) {
