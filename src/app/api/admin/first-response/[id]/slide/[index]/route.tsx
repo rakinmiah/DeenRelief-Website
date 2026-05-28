@@ -220,9 +220,30 @@ function SlideContent({
   // mirroring the Eid Mubarak / festival treatment — gives the closing
   // beat emotional warmth instead of more dark intensity.
   const isCta = slide.layout === "cta";
+  const hasPhoto = !isCta && mediaUrl != null;
+  const slideIndex = packet.carousel_slides.indexOf(slide) + 1;
+  const slideTotal = packet.carousel_slides.length;
+
+  // Photo slides get a fundamentally different layout — magazine-cover
+  // style with the photo full-bleed on top and a solid green text
+  // panel anchoring the bottom. Far more legible + visually striking
+  // than tinting the photo with a green overlay, which washes out the
+  // imagery and makes text hard to read against arbitrary backgrounds.
+  if (hasPhoto) {
+    return (
+      <PhotoSlide
+        slide={slide}
+        mediaUrl={mediaUrl}
+        slideIndex={slideIndex}
+        slideTotal={slideTotal}
+      />
+    );
+  }
+
+  // Typography-only path (the original Phase 4d design): full dark
+  // green canvas with chunky uppercase title + sparkles + brand chip.
   const bg = isCta ? DR.cream : DR.forest;
   const fg = isCta ? DR.forest : DR.cream;
-  const hasPhoto = !isCta && mediaUrl != null;
 
   return (
     <div
@@ -237,65 +258,15 @@ function SlideContent({
         position: "relative",
       }}
     >
-      {/* Photo background (hero/response slides with media_id set).
-          Renders as a full-bleed image absolutely positioned beneath
-          everything else, with a dark green gradient overlay so the
-          typography remains legible regardless of underlying contrast.
-          Notes for Satori compatibility:
-            • Explicit pixel dimensions, not percentages
-            • rgba() not 8-char hex (Satori treats #RRGGBBAA as opaque)
-            • Image src is a data URI (inlined in the route) so Satori
-              doesn't need to do its own fetch */}
-      {hasPhoto && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={mediaUrl}
-            alt=""
-            width={SLIDE_SIZE}
-            height={SLIDE_SIZE}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: SLIDE_SIZE,
-              height: SLIDE_SIZE,
-              objectFit: "cover",
-            }}
-          />
-          {/* Dark green gradient overlay. Heavy at top + bottom to
-              anchor the brand chip + footer, lighter in the middle so
-              the underlying photo reads through behind the title. */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: SLIDE_SIZE,
-              height: SLIDE_SIZE,
-              backgroundImage:
-                "linear-gradient(180deg, rgba(22, 56, 39, 0.88) 0%, rgba(31, 77, 59, 0.55) 35%, rgba(31, 77, 59, 0.55) 65%, rgba(22, 56, 39, 0.92) 100%)",
-              display: "flex",
-            }}
-          />
-        </>
-      )}
-
       {/* Brand chip — top-left. Pinned to every slide for identity. */}
       <BrandChip inverted={isCta} />
 
       {/* Slide-number pip top-right. Tiny visual progress indicator. */}
-      <SlidePip
-        current={packet.carousel_slides.indexOf(slide) + 1}
-        total={packet.carousel_slides.length}
-        fg={fg}
-      />
+      <SlidePip current={slideIndex} total={slideTotal} fg={fg} />
 
       {/* Decorative sparkles bracketing the title — DR uses these
-          liberally as visual rhythm on the educational series. Skip
-          them on photo slides where the imagery carries the visual
-          weight already. */}
-      {!hasPhoto && <SparkleField inverted={isCta} />}
+          liberally as visual rhythm on the educational series. */}
+      <SparkleField inverted={isCta} />
 
       {/* Main composition switches on layout. */}
       <SlideBody slide={slide} fg={fg} isCta={isCta} />
@@ -304,6 +275,245 @@ function SlideContent({
       <SlideFooter slide={slide} fg={fg} isCta={isCta} />
     </div>
   );
+}
+
+/* ─── Photo slide (magazine-cover layout) ────────────────────────── */
+
+/**
+ * Used for hero + response slides that have a media_id selected.
+ * Layout: photo full-bleed on top (~62% of slide height), solid dark
+ * green text panel anchoring the bottom (~38%). No overlay on the
+ * photo — clean imagery as DR uses on their actual Instagram posts.
+ *
+ * The text panel hosts the eyebrow + title + body, sized to fit the
+ * shorter vertical space (Title font scaled down vs the typography-
+ * only hero). Footer info (source/URL/charity#) sits inside the panel
+ * too rather than at slide-edge.
+ */
+function PhotoSlide({
+  slide,
+  mediaUrl,
+  slideIndex,
+  slideTotal,
+}: {
+  slide: Slide;
+  mediaUrl: string;
+  slideIndex: number;
+  slideTotal: number;
+}) {
+  const PHOTO_HEIGHT = 670; // ~62% of 1080
+  const PANEL_HEIGHT = SLIDE_SIZE - PHOTO_HEIGHT;
+
+  return (
+    <div
+      style={{
+        width: SLIDE_SIZE,
+        height: SLIDE_SIZE,
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: DR.forest,
+        fontFamily: "DM Sans",
+        position: "relative",
+      }}
+    >
+      {/* ─── Photo half (top) — clean, no overlay ─── */}
+      <div
+        style={{
+          width: SLIDE_SIZE,
+          height: PHOTO_HEIGHT,
+          display: "flex",
+          position: "relative",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaUrl}
+          alt=""
+          width={SLIDE_SIZE}
+          height={PHOTO_HEIGHT}
+          style={{
+            width: SLIDE_SIZE,
+            height: PHOTO_HEIGHT,
+            objectFit: "cover",
+          }}
+        />
+        {/* BrandChip uses its own absolute positioning (top:48, left:48)
+            relative to this photo-half container — same brand stamp
+            position as the typography-only slides. */}
+        <BrandChip inverted={false} />
+        {/* Slide pip — wrapped in a small dark green chip for legibility
+            against arbitrary photo backgrounds. The existing SlidePip
+            component assumes a single foreground colour; the wrap gives
+            us a guaranteed dark background to put cream pips on. */}
+        <div
+          style={{
+            position: "absolute",
+            top: 44,
+            right: 44,
+            display: "flex",
+            backgroundColor: "rgba(22, 56, 39, 0.85)",
+            paddingTop: 8,
+            paddingBottom: 8,
+            paddingLeft: 14,
+            paddingRight: 14,
+            borderRadius: 999,
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {Array.from({ length: slideTotal }, (_, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                width: i + 1 === slideIndex ? 20 : 8,
+                height: 8,
+                backgroundColor: DR.cream,
+                opacity: i + 1 === slideIndex ? 1 : 0.45,
+                borderRadius: 4,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Text panel (bottom) — solid dark green ─── */}
+      <div
+        style={{
+          width: SLIDE_SIZE,
+          height: PANEL_HEIGHT,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: DR.forest,
+          paddingTop: 36,
+          paddingBottom: 32,
+          paddingLeft: 56,
+          paddingRight: 56,
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {slide.eyebrow && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "Caveat",
+                fontWeight: 600,
+                fontSize: 38,
+                color: DR.amber,
+                fontStyle: "italic",
+                marginBottom: 10,
+              }}
+            >
+              {slide.eyebrow.toLowerCase()}…
+            </div>
+          )}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: photoSlideTitleSize(slide.title.length),
+              color: DR.cream,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              lineHeight: 1.0,
+            }}
+          >
+            {slide.title}
+          </div>
+          {slide.body && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 700,
+                fontSize: 22,
+                color: DR.cream,
+                opacity: 0.82,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                lineHeight: 1.3,
+                marginTop: 14,
+                maxWidth: 920,
+              }}
+            >
+              {slide.body}
+            </div>
+          )}
+        </div>
+
+        {/* Footer line — source/URL/charity number, single horizontal row. */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            marginTop: 12,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontStyle: "italic",
+              fontWeight: 400,
+              fontSize: 18,
+              color: DR.cream,
+              opacity: 0.55,
+            }}
+          >
+            {slide.source_attribution ?? ""}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 2,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 700,
+                fontSize: 18,
+                color: DR.cream,
+                opacity: 0.7,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+              }}
+            >
+              deenrelief.org
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 400,
+                fontSize: 13,
+                color: DR.cream,
+                opacity: 0.45,
+                letterSpacing: 1,
+              }}
+            >
+              Charity No. 1158608
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Slightly more aggressive size-down for photo-slide titles since
+ *  the available vertical real-estate is smaller than the typography-
+ *  only layout. */
+function photoSlideTitleSize(titleLength: number): number {
+  if (titleLength > 40) return 52;
+  if (titleLength > 24) return 64;
+  return 80;
 }
 
 /* ─── Brand chip ──────────────────────────────────────────────────── */
