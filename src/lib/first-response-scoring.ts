@@ -6,52 +6,54 @@
  * "actual revenue potential for Deen Relief" rather than raw
  * severity. The same score gates push notifications.
  *
- *   dr_priority_score = severity_raw
- *                     × coverage_weight       (0–3)
- *                     × diaspora_multiplier   (1.0–2.0)
- *                     × muslim_multiplier     (1.0 or 1.5)
+ *   dr_priority_score = humanitarian_severity      (source-normalised)
+ *                     × coverage_weight            (0–3)
+ *                     × diaspora_multiplier        (1.0–2.0)
+ *                     × muslim_multiplier          (1.0 or 1.5)
  *
  * Why these factors:
- *   - severity_raw: how big the event is (USGS magnitude, GDACS
- *     alert level, ReliefWeb baseline 2 for qualitative reports).
+ *   - humanitarian_severity: raw severity transformed to reflect
+ *     real-world humanitarian impact. USGS magnitudes get shifted
+ *     so M4.5 contributes 0 (barely felt) and the scale climbs
+ *     non-trivially from M5.5 upwards — better matches the actual
+ *     damage curve. GDACS / ReliefWeb pass through unchanged
+ *     (already calibrated).
  *   - coverage_weight: the MAX strategic-importance weight across
  *     matched coverage_map rows. Strategic field-presence (Palestine,
- *     Orphan Sponsorship in Bangladesh) = 3; partner = 2; catch-all = 1.
+ *     Orphan Sponsorship in Bangladesh) = 3; partner = 2.
  *   - diaspora_multiplier: how much the UK Muslim diaspora cares
  *     about events in this country. Bangladesh / Pakistan diaspora
- *     in the UK is huge (multi-hundred-thousand each) — events there
- *     move donations disproportionately.
+ *     in the UK is huge (multi-hundred-thousand each).
  *   - muslim_multiplier: Muslim-majority countries are higher-priority
  *     for an Islamic charity's donor base by default.
  *
- * Three signals deliberately NOT scored yet (Phase 3c v1):
- *   - Media velocity (would need an event-frequency tracker over
- *     time; trivial to add later)
- *   - Competitor activity (needs the Tier 4 scraper from Task #11)
- *   - Historical pattern match (needs comparable-event archive)
+ * Three signals deliberately NOT scored yet (tracked as Phase 3d/3e/3f):
+ *   - Media velocity (event-frequency tracker over time)
+ *   - Competitor activity (Tier 4 signal source)
+ *   - Historical pattern match (comparable-event archive)
  *
  * Push tier thresholds:
  *   ≥ 20 → CRITICAL — immediate audible push (urgent)
  *   ≥ 10 → HIGH     — silent push in the bell (warning)
- *   < 10 → none     — dashboard only
+ *   < 10 → none     — dashboard only (or hidden if no coverage match)
  *
- * Calibration examples:
- *   - M6.5 BD quake matched to orphan-sponsorship:
- *       6.5 × 3 × 2.0 × 1.5 = 58.5 → CRITICAL
- *   - GDACS Red BD flood matched to orphan-sponsorship:
+ * Calibration examples (post-sharpening, no Zakat/Sadaqah catch-all):
+ *   - M7.5 BD quake matched to orphan-sponsorship:
+ *       3 × 3 × 2.0 × 1.5 = 27 → CRITICAL
+ *   - M6.5 BD quake:
+ *       2 × 3 × 2.0 × 1.5 = 18 → HIGH
+ *   - M5.5 BD quake:
+ *       1 × 3 × 2.0 × 1.5 = 9 → dashboard only (correct — minor quake)
+ *   - M4.5 BD quake:
+ *       0 × 3 × 2.0 × 1.5 = 0 → hidden (correct — barely felt)
+ *   - GDACS Red BD flood:
  *       3 × 3 × 2.0 × 1.5 = 27 → CRITICAL
  *   - GDACS Orange BD flood:
  *       2 × 3 × 2.0 × 1.5 = 18 → HIGH
- *   - GDACS Red PK flood (partner network):
- *       3 × 2 × 2.0 × 1.5 = 18 → HIGH
  *   - ReliefWeb Gaza conflict update:
  *       2 × 3 × 1.5 × 1.5 = 13.5 → HIGH
- *   - M5.5 Sudan quake matched to Zakat (catch-all):
- *       5.5 × 2 × 1.5 × 1.5 = 24.75 → CRITICAL
- *   - M5.5 UK quake matched to Zakat (catch-all):
- *       5.5 × 2 × 1.0 × 1.0 = 11 → HIGH (SMM can dismiss)
- *   - M4.0 random event matched to catch-all:
- *       4 × 2 × 1.0 × 1.0 = 8 → none (silent, dashboard only)
+ *   - Anything in Pakistan/Syria/Indonesia/etc. with NO coverage row:
+ *       score 0 → hidden from dashboard (no field presence to action)
  */
 
 import type { CoverageEntry } from "./first-response";
@@ -126,16 +128,55 @@ export function maxCoverageWeight(
   return Math.max(...matchedCoverage.map((c) => c.weight));
 }
 
+/**
+ * Source-aware severity normalisation. Different signal sources
+ * express severity on incomparable scales — USGS magnitudes 4.5–9.0
+ * are logarithmic (each whole unit = ~32× more energy), GDACS
+ * Green/Orange/Red is a calibrated 1/2/3 step, ReliefWeb is a
+ * qualitative baseline of 2. Multiplying these directly distorts
+ * comparisons (M4.5 quake ranking above GDACS Red flood).
+ *
+ * Transform per source:
+ *
+ *   • usgs (earthquakes): max(0, magnitude - 4.5)
+ *       M4.5 → 0   (barely felt — humanitarian impact ~zero)
+ *       M5.0 → 0.5 (small quake — felt but rarely damaging)
+ *       M5.5 → 1   (moderate — local damage)
+ *       M6.5 → 2   (strong — significant damage)
+ *       M7.5 → 3   (major — widespread destruction)
+ *       M8.5 → 4   (great — catastrophic)
+ *     The 4.5 baseline matches the USGS feed cutoff we ingest from.
+ *
+ *   • gdacs: pass-through (already calibrated 1/2/3)
+ *
+ *   • reliefweb: pass-through (qualitative baseline of 2)
+ *
+ *   • anything else: pass-through (no transform applied)
+ */
+export function normaliseSeverity(
+  severityRaw: number,
+  source: string
+): number {
+  if (source === "usgs") {
+    return Math.max(0, severityRaw - 4.5);
+  }
+  return severityRaw;
+}
+
 export interface ScoreInputs {
   severityRaw: number | null;
   matchedCoverage: CoverageEntry[];
   countryIso: string | null;
+  /** Signal source — drives severity normalisation. */
+  source: string;
 }
 
 /**
  * Compute the priority score. Returns null when severity is unknown —
  * a null score sorts to the bottom of the dashboard (via NULLS LAST
- * in the index) and is gated out of push notifications.
+ * in the index) and is gated out of push notifications. Score 0
+ * means severity normalised to nothing OR no coverage match — both
+ * lead to dashboard exclusion via the Active alerts filter.
  */
 export function computeDrPriorityScore(input: ScoreInputs): number | null {
   if (input.severityRaw === null || input.severityRaw === undefined) {
@@ -143,12 +184,12 @@ export function computeDrPriorityScore(input: ScoreInputs): number | null {
   }
   const weight = maxCoverageWeight(input.matchedCoverage);
   if (weight === 0) return 0;
+  const severity = normaliseSeverity(input.severityRaw, input.source);
+  if (severity === 0) return 0;
   const diaspora = diasporaMultiplierFor(input.countryIso);
   const muslim = muslimMultiplierFor(input.countryIso);
   // Round to 1dp for compact display.
-  return (
-    Math.round(input.severityRaw * weight * diaspora * muslim * 10) / 10
-  );
+  return Math.round(severity * weight * diaspora * muslim * 10) / 10;
 }
 
 export function getPushTier(score: number | null): PushTier {
