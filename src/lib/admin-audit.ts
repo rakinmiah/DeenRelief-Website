@@ -91,7 +91,10 @@ export type AdminAction =
   | "media_saved_to_library"
   | "media_edited"
   | "media_archived_from_library"
-  | "media_storage_scan";
+  | "media_storage_scan"
+  // First Response — manual test events for demo / QA (Phase 3i)
+  | "first_response_test_event_created"
+  | "first_response_test_events_cleared";
 
 interface LogAdminActionOpts {
   action: AdminAction;

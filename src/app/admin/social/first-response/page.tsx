@@ -8,6 +8,7 @@ import {
   getEmergencyEvents,
   type CoverageEntry,
 } from "@/lib/first-response";
+import TestEventPanel from "./TestEventPanel";
 
 export const metadata: Metadata = {
   title: "First Response | Deen Relief Admin",
@@ -277,6 +278,11 @@ export default async function FirstResponsePage() {
           />
         )}
       </section>
+
+      {/* Test scenarios — collapsed by default. Lets the SMM spin up
+          realistic test emergencies on demand for demos / QA without
+          waiting for a real cron tick. */}
+      <TestEventPanel />
     </main>
   );
 }
