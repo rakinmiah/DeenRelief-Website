@@ -21,8 +21,13 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import sharp from "sharp";
 import { z } from "zod";
+// NB: `sharp` is lazy-imported INSIDE toVisionThumbnail (below). It's
+// a native binary dependency with a non-trivial cold-start cost and
+// occasional load failures on Vercel; importing it at module init
+// would propagate that cost to every consumer of LaunchPacketSchema
+// (e.g. the slide route + social-image route) which never actually
+// resize images. Lazy load keeps those routes lean.
 import type { CoverageEntry, EmergencyEvent } from "./first-response";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "./campaigns";
 import { CAMPAIGN_LANDING_PATHS } from "./short-links";
@@ -55,6 +60,9 @@ async function toVisionThumbnail(input: Buffer): Promise<{
   data: string;
   mediaType: "image/jpeg";
 }> {
+  // Lazy load — see top-of-file note. Dynamic import keeps sharp out
+  // of the slide-route + social-image-route bundle.
+  const { default: sharp } = await import("sharp");
   const out = await sharp(input)
     .resize(512, 512, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 70 })

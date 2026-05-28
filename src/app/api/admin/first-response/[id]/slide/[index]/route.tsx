@@ -214,30 +214,42 @@ export async function GET(
     } · slide.layout=${slide.layout}`
   );
 
-  return new ImageResponse(
-    <SlideContent
-      slide={slide}
-      packet={packet}
-      mediaUrl={mediaDataUri}
-      creditText={creditText}
-      logoOnLight={logoOnLight?.dataUri ?? null}
-      logoOnDark={logoOnDark?.dataUri ?? null}
-    />,
-    {
-    width: SLIDE_SIZE,
-    height: SLIDE_SIZE,
-    fonts: [
-      { name: "Bowlby One SC", data: bowlby, weight: 400, style: "normal" },
-      { name: "DM Sans", data: dmBold, weight: 700, style: "normal" },
-      { name: "DM Sans", data: dmReg, weight: 400, style: "normal" },
-      { name: "Caveat", data: caveat, weight: 600, style: "normal" },
-    ],
-      headers: {
-        "Cache-Control": "private, no-store",
-        "Content-Disposition": `inline; filename="slide-${index + 1}.png"`,
-      },
-    }
-  );
+  try {
+    return new ImageResponse(
+      <SlideContent
+        slide={slide}
+        packet={packet}
+        mediaUrl={mediaDataUri}
+        creditText={creditText}
+        logoOnLight={logoOnLight?.dataUri ?? null}
+        logoOnDark={logoOnDark?.dataUri ?? null}
+      />,
+      {
+        width: SLIDE_SIZE,
+        height: SLIDE_SIZE,
+        fonts: [
+          { name: "Bowlby One SC", data: bowlby, weight: 400, style: "normal" },
+          { name: "DM Sans", data: dmBold, weight: 700, style: "normal" },
+          { name: "DM Sans", data: dmReg, weight: 400, style: "normal" },
+          { name: "Caveat", data: caveat, weight: 600, style: "normal" },
+        ],
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Content-Disposition": `inline; filename="slide-${index + 1}.png"`,
+        },
+      }
+    );
+  } catch (err) {
+    // Surface render errors as a plain-text 500 with the message so
+    // they show up in Vercel function logs AND as a debuggable hint
+    // when the SMM right-clicks the broken image. Without this Satori
+    // failures get swallowed and the slot just shows alt text.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[slide ${index}] ImageResponse threw: layout=${slide.layout} logo_variant=${slide.logo_variant} media_id=${slide.media_id ?? "null"} — ${message}`
+    );
+    return new Response(`Slide render failed: ${message}`, { status: 500 });
+  }
 }
 
 /* ─── Slide composition ───────────────────────────────────────────── */
