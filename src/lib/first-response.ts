@@ -166,6 +166,8 @@ export interface EmergencyEventDetail extends EmergencyEvent {
   draftPacketModel: string | null;
   draftPacketInputTokens: number | null;
   draftPacketOutputTokens: number | null;
+  appealLaunchedAt: Date | null;
+  appealLaunchedByEmail: string | null;
 }
 
 export async function getEmergencyEventById(
@@ -175,7 +177,7 @@ export async function getEmergencyEventById(
   const { data, error } = await supabase
     .from("emergency_events")
     .select(
-      "id, external_id, source, event_type, country_iso, region, title, summary, severity_raw, dr_priority_score, matched_campaigns, status, detected_at, reviewed_by_email, reviewed_at, source_url, raw_payload, draft_packet_json, draft_packet_generated_at, draft_packet_generated_by_email, draft_packet_model, draft_packet_input_tokens, draft_packet_output_tokens"
+      "id, external_id, source, event_type, country_iso, region, title, summary, severity_raw, dr_priority_score, matched_campaigns, status, detected_at, reviewed_by_email, reviewed_at, source_url, raw_payload, draft_packet_json, draft_packet_generated_at, draft_packet_generated_by_email, draft_packet_model, draft_packet_input_tokens, draft_packet_output_tokens, appeal_launched_at, appeal_launched_by_email"
     )
     .eq("id", id)
     .maybeSingle();
@@ -212,6 +214,10 @@ export async function getEmergencyEventById(
     draftPacketModel: data.draft_packet_model,
     draftPacketInputTokens: data.draft_packet_input_tokens,
     draftPacketOutputTokens: data.draft_packet_output_tokens,
+    appealLaunchedAt: data.appeal_launched_at
+      ? new Date(data.appeal_launched_at)
+      : null,
+    appealLaunchedByEmail: data.appeal_launched_by_email,
   };
 }
 

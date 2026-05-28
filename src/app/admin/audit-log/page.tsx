@@ -67,6 +67,7 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   first_response_packet_drafted: "Launch packet drafted",
   first_response_event_reviewed: "Emergency event reviewed",
   first_response_event_dismissed: "Emergency event dismissed",
+  first_response_appeal_launched: "Emergency appeal launched",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -122,6 +123,7 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   first_response_packet_drafted: "bg-green/10 text-green-dark border-green/30",
   first_response_event_reviewed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
   first_response_event_dismissed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  first_response_appeal_launched: "bg-red-100 text-red-800 border-red-200",
 };
 
 /**

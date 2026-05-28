@@ -4,32 +4,38 @@ import { useState, useTransition } from "react";
 import {
   dismissEventAction,
   draftLaunchPacketAction,
+  launchAppealAction,
   markEventReviewedAction,
 } from "./actions";
 
+type ActionKind = "draft" | "launch" | "review" | "dismiss";
+
 /**
- * Per-event action buttons — drafts the launch packet via Claude, or
- * marks the event reviewed / dismissed. The detail page reloads via
- * revalidatePath after each action so we don't need local state for
- * the packet itself.
+ * Per-event action buttons.
+ *
+ * Two-stage Launch button: first click reveals a confirm panel; second
+ * click actually fires the orchestrator. Other actions fire immediately
+ * — Draft is cheap and Redraft is reversible; Review/Dismiss are
+ * trivial to undo.
  */
 export default function EventControls({
   eventId,
   hasDraft,
   status,
+  alreadyLaunched,
 }: {
   eventId: string;
   hasDraft: boolean;
   status: "detected" | "reviewed" | "launched" | "dismissed";
+  alreadyLaunched: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [action, setAction] = useState<"draft" | "review" | "dismiss" | null>(
-    null
-  );
+  const [action, setAction] = useState<ActionKind | null>(null);
+  const [confirmingLaunch, setConfirmingLaunch] = useState(false);
 
   function run(
-    kind: "draft" | "review" | "dismiss",
+    kind: ActionKind,
     fn: () => Promise<{ ok: boolean; error?: string }>
   ) {
     setError(null);
@@ -38,6 +44,7 @@ export default function EventControls({
       const result = await fn();
       setAction(null);
       if (!result.ok) setError(result.error ?? "Action failed.");
+      else if (kind === "launch") setConfirmingLaunch(false);
     });
   }
 
@@ -51,13 +58,54 @@ export default function EventControls({
           {error}
         </div>
       )}
+
+      {/* ─── Launch confirmation panel ─── */}
+      {confirmingLaunch && !alreadyLaunched && (
+        <div className="px-4 py-4 rounded-xl bg-red-50 border border-red-200">
+          <p className="text-charcoal font-semibold text-[14px] mb-1">
+            Launch this appeal publicly?
+          </p>
+          <p className="text-charcoal/70 text-[13px] mb-3 leading-relaxed">
+            This will <strong>immediately</strong>: set the urgent site
+            banner with the drafted headline, switch the homepage featured
+            campaign to the matched campaign, point{" "}
+            <span className="font-mono">deenrelief.org/now</span> at the
+            campaign page for 7 days, and push an OS-level alert to every
+            DR Admin user. Donors will see the banner on their next page
+            load. The status of this event will be marked{" "}
+            <span className="font-bold">launched</span>.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() =>
+                run("launch", () => launchAppealAction(eventId))
+              }
+              disabled={pending}
+              className="px-4 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {pending && action === "launch" ? "Launching…" : "Yes, launch now"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingLaunch(false)}
+              disabled={pending}
+              className="px-4 py-2 rounded-full text-sm font-medium text-charcoal/70 hover:text-charcoal hover:bg-charcoal/5 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
+        {/* ─── Draft / redraft ─── */}
         <button
           type="button"
           onClick={() =>
             run("draft", () => draftLaunchPacketAction(eventId))
           }
-          disabled={pending}
+          disabled={pending || alreadyLaunched}
           className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/85 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {pending && action === "draft"
@@ -67,7 +115,32 @@ export default function EventControls({
               : "Draft launch packet"}
         </button>
 
-        {status === "detected" && (
+        {/* ─── Launch ─── */}
+        {!alreadyLaunched && (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              if (!hasDraft) {
+                setError("Draft the launch packet before launching the appeal.");
+                return;
+              }
+              setConfirmingLaunch(true);
+            }}
+            disabled={pending}
+            className="px-5 py-2.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title={
+              hasDraft
+                ? "One-click orchestrator: banner + featured campaign + /now spotlight + admin push"
+                : "Draft the packet first"
+            }
+          >
+            🚀 Launch appeal
+          </button>
+        )}
+
+        {/* ─── Review (only when still 'detected') ─── */}
+        {status === "detected" && !alreadyLaunched && (
           <button
             type="button"
             onClick={() =>
@@ -80,7 +153,8 @@ export default function EventControls({
           </button>
         )}
 
-        {status !== "dismissed" && status !== "launched" && (
+        {/* ─── Dismiss ─── */}
+        {status !== "dismissed" && !alreadyLaunched && (
           <button
             type="button"
             onClick={() => run("dismiss", () => dismissEventAction(eventId))}
@@ -91,10 +165,12 @@ export default function EventControls({
           </button>
         )}
       </div>
+
       <p className="text-[12px] text-charcoal/50 leading-snug">
-        Drafting calls Claude Opus 4.7 with the Deen Relief brand voice spec.
-        Takes ~30–60 seconds. The result is editable — this is a starting
-        point, not a finished post.
+        Drafting calls Claude Opus 4.7 with the Deen Relief brand voice
+        spec. <span className="font-semibold text-charcoal/70">Launching</span>{" "}
+        is one click after drafting — banner, featured campaign, /now
+        spotlight, and admin push fire in ~3 seconds.
       </p>
     </div>
   );

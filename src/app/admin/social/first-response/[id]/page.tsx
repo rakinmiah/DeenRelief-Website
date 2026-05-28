@@ -156,12 +156,38 @@ export default async function EmergencyEventPage({
         </section>
       )}
 
+      {/* ─── Launched banner (if already launched) ─── */}
+      {event.appealLaunchedAt && (
+        <section className="mb-6 bg-red-50 border border-red-200 rounded-2xl px-5 md:px-6 py-4 flex items-start gap-3">
+          <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-800 mt-0.5 text-base">
+            🚀
+          </span>
+          <div>
+            <p className="text-red-900 font-semibold text-[14px]">
+              Appeal launched —{" "}
+              {event.appealLaunchedAt.toLocaleString("en-GB", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              by {event.appealLaunchedByEmail ?? "—"}
+            </p>
+            <p className="text-red-900/70 text-[13px] mt-0.5 leading-relaxed">
+              Banner, featured campaign, /now spotlight, and admin push were
+              fired. To roll back, edit Campaign Command Center directly.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* ─── Controls ─── */}
       <section className="mb-8 bg-white border border-charcoal/10 rounded-2xl p-5 md:p-6">
         <EventControls
           eventId={event.id}
           hasDraft={packet !== null}
           status={event.status}
+          alreadyLaunched={event.appealLaunchedAt !== null}
         />
         {event.draftPacketGeneratedAt && (
           <p className="mt-3 pt-3 border-t border-charcoal/5 text-[12px] text-charcoal/55">
