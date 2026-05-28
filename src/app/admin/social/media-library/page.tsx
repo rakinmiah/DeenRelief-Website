@@ -66,12 +66,20 @@ export default async function MediaLibraryPage({
             type, and campaign match.
           </p>
         </div>
-        <Link
-          href="/admin/social/media-library/new"
-          className="shrink-0 px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/85 transition-colors"
-        >
-          + Upload media
-        </Link>
+        <div className="shrink-0 flex flex-col sm:flex-row gap-2">
+          <Link
+            href="/admin/social/media-library/re-tag"
+            className="px-5 py-2.5 rounded-full bg-cream-soft border border-charcoal/15 text-charcoal text-sm font-semibold hover:bg-cream transition-colors"
+          >
+            ↻ Re-tag with AI
+          </Link>
+          <Link
+            href="/admin/social/media-library/new"
+            className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/85 transition-colors"
+          >
+            + Upload media
+          </Link>
+        </div>
       </div>
 
       {/* ─── Bulk-import scanner ─── */}

@@ -297,6 +297,49 @@ export async function editMediaAction(
   return { ok: true, data: item };
 }
 
+/* ─── Vision-grounded re-tag ─────────────────────────────────────
+ *
+ * Used by the batch re-tag tool at /admin/social/media-library/re-tag.
+ * The SMM eyeballs library items that look mis-categorised (after
+ * spotting them in the First Response debug panel or by browsing the
+ * library), clicks 'Re-tag', and Claude Vision proposes fresh metadata
+ * for the SMM to accept/reject as a diff.
+ *
+ * Separated from the upload flow's suggestMediaTags wrapper so the
+ * caller surface is purpose-built — propose returns the suggestions
+ * + the current item's metadata so the client can render a diff.
+ */
+
+export interface RetagProposal {
+  item: MediaItem;
+  proposed: import("@/lib/media-library-vision").MediaTagSuggestions;
+}
+
+export async function proposeRetagAction(
+  id: string
+): Promise<MediaActionResult<RetagProposal>> {
+  const session = await requireAdminSession();
+  const { getMediaById } = await import("@/lib/media-library");
+  const item = await getMediaById(id);
+  if (!item) return { ok: false, error: "Media item not found." };
+
+  try {
+    const result = await suggestMediaTags({ imageUrl: item.publicUrl });
+    await logAdminAction({
+      action: "media_retag_proposed",
+      userEmail: session.email,
+      targetId: id,
+    });
+    return { ok: true, data: { item, proposed: result.suggestions } };
+  } catch (err) {
+    console.error("[media-library] re-tag propose failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Vision tagger failed.",
+    };
+  }
+}
+
 export async function archiveMediaAction(
   id: string
 ): Promise<MediaActionResult> {
