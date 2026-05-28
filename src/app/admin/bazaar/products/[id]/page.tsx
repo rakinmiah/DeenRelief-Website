@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchAdminMakers,
   fetchAdminProductById,
@@ -27,7 +27,7 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const { id } = await params;
   const sp = await searchParams;
   const justSaved = sp.saved === "1";

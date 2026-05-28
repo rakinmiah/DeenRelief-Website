@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   createMaker,
@@ -31,7 +31,7 @@ import type { ProductCategory, ProductOriginCountry } from "@/lib/bazaar-types";
  * care of it. Tradeoff: actions can't be called from outside the
  * Next.js process (e.g. Stripe webhooks still use API routes).
  *
- * Auth: requireAdminSession() reads the dr_admin_session cookie
+ * Auth: requireRoleAdmin() reads the dr_admin_session cookie
  * and throws (which Next surfaces as a 500) when missing. Forms
  * are only reachable from /admin/bazaar/* pages which themselves
  * require the session, so the check is belt-and-braces.
@@ -51,7 +51,7 @@ async function audit(action: Parameters<typeof logAdminAction>[0]["action"], opt
   targetId?: string | null;
   metadata?: Record<string, unknown>;
 }) {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
   const h = await headers();
   const fauxRequest = new Request("http://server-action.local", {
     headers: {
@@ -94,7 +94,7 @@ function parseMakerForm(data: FormData): MakerInput {
 }
 
 export async function createMakerAction(data: FormData): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const input = parseMakerForm(data);
   const newId = await createMaker(input);
   await audit("create_bazaar_maker", {
@@ -110,7 +110,7 @@ export async function updateMakerAction(
   id: string,
   data: FormData
 ): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const input = parseMakerForm(data);
   await updateMaker(id, input);
   await audit("update_bazaar_maker", {
@@ -144,7 +144,7 @@ export async function updateMakerAction(
  * rendering correctly.
  */
 export async function deleteMakerAction(id: string): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const result = await deleteMakerAndPhoto(id);
   await audit("delete_bazaar_maker", {
     targetId: id,
@@ -217,7 +217,7 @@ function parseProductForm(data: FormData): ProductInput {
 }
 
 export async function createProductAction(data: FormData): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const input = parseProductForm(data);
   const newId = await createProduct(input);
   await audit("create_bazaar_product", {
@@ -233,7 +233,7 @@ export async function updateProductAction(
   id: string,
   data: FormData
 ): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const input = parseProductForm(data);
   await updateProduct(id, input);
   await audit("update_bazaar_product", {
@@ -269,7 +269,7 @@ export async function updateProductAction(
  * page no longer exists).
  */
 export async function deleteProductAction(id: string): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const result = await deleteProductAndImages(id);
   await audit("delete_bazaar_product", {
     targetId: id,
@@ -306,7 +306,7 @@ export async function createVariantAction(
   productId: string,
   data: FormData
 ): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const input = parseVariantForm(data);
   const newId = await createVariant(productId, input);
   await audit("create_bazaar_variant", {
@@ -328,7 +328,7 @@ export async function updateVariantAction(
   productId: string,
   data: FormData
 ): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const input = parseVariantForm(data);
   await updateVariant(variantId, input);
   await audit("update_bazaar_variant", {
@@ -347,7 +347,7 @@ export async function deleteVariantAction(
   variantId: string,
   productId: string
 ): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   await deleteVariant(variantId);
   await audit("delete_bazaar_variant", {
     targetId: variantId,
@@ -366,7 +366,7 @@ export async function adjustStockAction(
   productId: string,
   data: FormData
 ): Promise<void> {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const variantId = String(data.get("variantId") ?? "").trim() || null;
   const deltaRaw = String(data.get("delta") ?? "");
   const delta = Number(deltaRaw);

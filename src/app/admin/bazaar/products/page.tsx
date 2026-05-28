@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { fetchAdminProducts } from "@/lib/bazaar-catalog";
 import { formatPence } from "@/lib/bazaar-format";
 
@@ -21,7 +21,7 @@ export default async function AdminProductsListPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const sp = await searchParams;
   const justDeleted = sp.deleted === "1";
   const products = await fetchAdminProducts();

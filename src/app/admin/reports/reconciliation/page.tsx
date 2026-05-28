@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   applySubsetFilter,
   defaultReconciliationDateRange,
@@ -45,7 +45,7 @@ export default async function AdminReconciliationPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const params = await searchParams;
   const fromParam = Array.isArray(params.from) ? params.from[0] : params.from;
   const toParam = Array.isArray(params.to) ? params.to[0] : params.to;

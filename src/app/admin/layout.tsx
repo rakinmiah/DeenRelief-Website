@@ -114,7 +114,7 @@ export default async function AdminLayout({
           we've lost connectivity — gives the trustee context for
           why their save actions might be failing. */}
       <OfflineIndicator />
-      <AdminShell signedInAs={session?.email}>
+      <AdminShell signedInAs={session?.email} role={session?.role ?? "admin"}>
         {/* Wrap children in PageTransition so a subtle fade-up
             fires on every admin route change. Keyed off pathname
             internally — pure CSS animation, ~250ms, respects

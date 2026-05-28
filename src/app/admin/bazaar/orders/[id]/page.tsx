@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchAdminBazaarOrderById,
   type BazaarOrderRow,
@@ -81,7 +81,7 @@ const STATUS_LABEL: Record<BazaarOrderRow["status"], string> = {
  * for handwritten thank-yous on premium orders.
  */
 export default async function AdminBazaarOrderDetailPage({ params }: RouteParams) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const { id } = await params;
 
   const result = await fetchAdminBazaarOrderById(id);

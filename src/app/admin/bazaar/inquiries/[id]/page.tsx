@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchInquiryById,
   type BazaarInquiryMessageRow,
@@ -30,7 +30,7 @@ export default async function AdminInquiryDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const { id } = await params;
   const detail = await fetchInquiryById(id);
   if (!detail) notFound();

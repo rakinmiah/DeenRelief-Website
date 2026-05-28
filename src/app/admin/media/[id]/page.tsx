@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchMediaById,
   formatFileSize,
@@ -42,7 +42,7 @@ export default async function AdminMediaDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const { id } = await params;
   const media = await fetchMediaById(id);
   if (!media) notFound();

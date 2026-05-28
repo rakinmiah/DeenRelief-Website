@@ -29,7 +29,17 @@ import { timingSafeEqual } from "node:crypto";
 import { verifyAdminSession } from "./signed-token";
 
 export type AdminAuthResult =
-  | { ok: true; email: string | null; method: "session" | "bearer" }
+  | {
+      ok: true;
+      email: string | null;
+      method: "session" | "bearer";
+      /**
+       * Role of the authenticated caller. Bearer-token access is treated
+       * as 'admin' (it's used by trusted scripts/CI). Session-based
+       * access carries the role from the signed payload.
+       */
+      role: "admin" | "social";
+    }
   | { ok: false; response: Response };
 
 const COOKIE_NAME = "dr_admin_session";
@@ -68,24 +78,53 @@ export function requireAdminAuth(request: Request): AdminAuthResult {
   if (cookieValue) {
     const session = verifyAdminSession(cookieValue);
     if (session) {
-      return { ok: true, email: session.email, method: "session" };
+      // verifyAdminSession backfills role='admin' for legacy sessions.
+      const role = session.role === "social" ? "social" : "admin";
+      return { ok: true, email: session.email, method: "session", role };
     }
     // Cookie present but invalid/expired — fall through to bearer
     // check rather than 401 immediately, so a curl request that
     // happens to carry a stale browser cookie still works.
   }
 
-  // 2. Try bearer token (scripted path)
+  // 2. Try bearer token (scripted path) — trusted, treated as admin role.
   const expected = process.env.ADMIN_API_TOKEN;
   if (expected) {
     const header = request.headers.get("authorization") ?? "";
     const match = header.match(/^Bearer\s+(.+)$/i);
     if (match && secureCompare(match[1], expected)) {
-      return { ok: true, email: null, method: "bearer" };
+      return { ok: true, email: null, method: "bearer", role: "admin" };
     }
   }
 
   return { ok: false, response: unauthorizedResponse() };
+}
+
+/**
+ * Like requireAdminAuth, but rejects sessions with role='social'. Use
+ * on API routes that expose donor PII, financial data, bazaar orders,
+ * or any other admin-restricted surface — anything mirrored to an
+ * admin-only page should also be admin-only here.
+ *
+ * Returns 403 (not 401) when authenticated-but-unauthorised, so the
+ * caller can distinguish from "not signed in".
+ */
+export function requireRoleAdminAuth(request: Request): AdminAuthResult {
+  const result = requireAdminAuth(request);
+  if (!result.ok) return result;
+  if (result.role !== "admin") {
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({ error: "Admin role required." }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      ),
+    };
+  }
+  return result;
 }
 
 /**

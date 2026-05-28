@@ -117,6 +117,14 @@ export function verifyManageToken(token: string): ManageTokenPayload | null {
 export interface AdminSessionPayload {
   /** Email address of the admin (audit-trail purposes). */
   email: string;
+  /**
+   * Role for this session — drives sidebar gating + per-page access
+   * checks. Optional in the type because sessions minted before the
+   * role-based access migration (#019) don't carry it; the verifier
+   * defaults to 'admin' in that case so existing trustees keep working
+   * without a forced re-login.
+   */
+  role?: "admin" | "social";
   /** Unix seconds at which the session expires. 8h default. */
   exp: number;
   iat: number;
@@ -131,11 +139,13 @@ const DEFAULT_ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
  */
 export function signAdminSession(
   email: string,
+  role: "admin" | "social" = "admin",
   ttlSeconds: number = DEFAULT_ADMIN_TTL_SECONDS
 ): string {
   const now = Math.floor(Date.now() / 1000);
   const payload: AdminSessionPayload = {
     email: email.toLowerCase().trim(),
+    role,
     exp: now + ttlSeconds,
     iat: now,
   };
@@ -190,6 +200,14 @@ export function verifyAdminSession(
 
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp < now) return null;
+
+  // Backward compat: legacy sessions minted before migration 019 don't
+  // carry a `role` field. Treat those as 'admin' so existing trustees
+  // keep working without a forced re-login. New sessions always carry
+  // the role explicitly.
+  if (payload.role !== "admin" && payload.role !== "social") {
+    payload.role = "admin";
+  }
 
   return payload;
 }

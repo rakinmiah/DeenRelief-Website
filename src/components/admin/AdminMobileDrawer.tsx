@@ -45,6 +45,19 @@ const ICON_PROPS = {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    href: "/admin/social",
+    label: "Social",
+    icon: (
+      <svg {...ICON_PROPS}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46"
+        />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/donations",
     label: "Donations",
     icon: (
@@ -160,11 +173,23 @@ export default function AdminMobileDrawer({
   onClose,
   signedInAs,
   onSignOut,
+  navItems,
 }: {
   open: boolean;
   onClose: () => void;
   signedInAs: string;
   onSignOut: () => void;
+  /**
+   * The role-filtered nav set chosen by AdminShell. We render the
+   * drawer's own NAV_ITEMS (which carry the icon SVGs) intersected
+   * with this list — so AdminShell stays the single source of truth
+   * for which nav entries each role sees, while the drawer keeps
+   * full control of how each entry looks.
+   *
+   * Optional: when omitted, the drawer falls back to its full
+   * NAV_ITEMS list (backward compat).
+   */
+  navItems?: { href: string; label: string }[];
 }) {
   const pathname = usePathname();
   const drawerRef = useRef<HTMLElement>(null);
@@ -187,6 +212,20 @@ export default function AdminMobileDrawer({
 
   const SWIPE_CLOSE_THRESHOLD_PX = 64; // ~16% of a 384px drawer width
   const SWIPE_CLOSE_VELOCITY_PX_PER_MS = 0.4; // fast flick
+
+  // Intersect the drawer's icon-rich nav with the role-filtered list
+  // from AdminShell. When the parent doesn't pass a list, render the
+  // full set (backward compat).
+  const allowedHrefs = navItems
+    ? new Set(navItems.map((i) => i.href))
+    : null;
+  const visibleNavItems = allowedHrefs
+    ? NAV_ITEMS.filter((item) => allowedHrefs.has(item.href))
+    : NAV_ITEMS;
+  // First visible item's href doubles as the role-appropriate "home"
+  // link in the drawer header — the old hardcoded /admin/donations
+  // would dead-end a social user.
+  const homeHref = visibleNavItems[0]?.href ?? "/admin/social";
 
   // Escape key closes.
   useEffect(() => {
@@ -316,7 +355,7 @@ export default function AdminMobileDrawer({
         {/* Drawer header — DR Admin wordmark + close button. */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-charcoal/10">
           <Link
-            href="/admin/donations"
+            href={homeHref}
             onClick={onClose}
             className="block"
           >
@@ -353,7 +392,7 @@ export default function AdminMobileDrawer({
         {/* Nav list */}
         <nav className="flex-1 overflow-y-auto py-2" aria-label="Admin sections">
           <ul>
-            {NAV_ITEMS.map((item, idx) => {
+            {visibleNavItems.map((item, idx) => {
               const isActive = pathname.startsWith(item.href);
               return (
                 <li key={item.href}>

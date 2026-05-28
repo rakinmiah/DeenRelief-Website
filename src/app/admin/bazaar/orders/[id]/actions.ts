@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   attachClickAndDropOrderId,
@@ -42,7 +42,7 @@ export async function sendBazaarOrderMessageAction(
   subject: string,
   body: string
 ): Promise<SendBazaarOrderMessageResult> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
 
   const trimmedSubject = subject.trim();
   const trimmedBody = body.trim();
@@ -151,7 +151,7 @@ export interface PushToClickAndDropResult {
 export async function pushToClickAndDropAction(
   orderId: string
 ): Promise<PushToClickAndDropResult> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
 
   const result = await fetchAdminBazaarOrderById(orderId);
   if (!result) {
@@ -256,7 +256,7 @@ export async function pushToClickAndDropAction(
 export async function deleteBazaarOrderAction(
   orderId: string
 ): Promise<void> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
 
   const detail = await fetchAdminBazaarOrderById(orderId);
   if (!detail) {

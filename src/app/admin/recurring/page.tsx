@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   cardBrandLabel,
   fetchAdminRecurring,
@@ -53,7 +53,7 @@ const STATUS_LABEL: Record<AdminRecurringStatus, string> = {
  * without active-table noise.
  */
 export default async function AdminRecurringPage() {
-  await requireAdminSession();
+  await requireRoleAdmin();
   const rows = await fetchAdminRecurring();
 
   const active = rows.filter((r) =>

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { requireAdminSession } from "@/lib/admin-session";
+import { requireRoleAdmin } from "@/lib/admin-session";
 import { logAdminAction, type AdminAction } from "@/lib/admin-audit";
 import {
   appendInquiryMessage,
@@ -25,7 +25,7 @@ import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
  *                              reply into the chat log (the Option-A
  *                              "manual inbound capture" workflow).
  *
- * All three: requireAdminSession at entry, audit on success,
+ * All three: requireRoleAdmin at entry, audit on success,
  * revalidate the inquiry detail + list pages so the UI redraws.
  */
 
@@ -33,7 +33,7 @@ async function audit(
   action: AdminAction,
   opts: { targetId?: string | null; metadata?: Record<string, unknown> } = {}
 ) {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
   const h = await headers();
   const fauxRequest = new Request("http://server-action.local", {
     headers: {
@@ -73,7 +73,7 @@ export async function sendReplyAction(
   inquiryId: string,
   body: string
 ): Promise<SendReplyResult> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
 
   const trimmed = body.trim();
   if (!trimmed) {
@@ -195,7 +195,7 @@ export async function addManualMessageAction(
   body: string,
   authorEmail?: string | null
 ): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireAdminSession();
+  const session = await requireRoleAdmin();
   const trimmed = body.trim();
   if (!trimmed) return { ok: false, error: "Message body can't be empty." };
 

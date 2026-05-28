@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { signAdminSession } from "@/lib/signed-token";
+import { resolveAdminRoleForLogin } from "@/lib/admin-roles";
 import {
   clientIpFromRequest,
   countRecentLoginFailures,
@@ -14,12 +15,15 @@ import {
  * Validates admin credentials and sets the `dr_admin_session` cookie.
  *
  * Validation strategy (interim, pre-Supabase-Auth):
- *   - Server holds an allow-list of admin emails + a single shared
- *     passphrase, both via env vars:
- *       ADMIN_ALLOWED_EMAILS   = "alice@deenrelief.org,bob@deenrelief.org"
+ *   - Server holds a shared passphrase via env var:
  *       ADMIN_LOGIN_PASSPHRASE = "long-random-string-from-1password"
- *   - Email must be in the allow-list AND passphrase must match.
+ *   - Email must EITHER be in ADMIN_ALLOWED_EMAILS env (legacy admin
+ *     bootstrap) OR have a row in the admin_users table (the new
+ *     role-aware allowlist — see migration 019). Admin role is
+ *     resolved by resolveAdminRoleForLogin().
  *   - Constant-time compare on the passphrase.
+ *   - Session payload carries the resolved role; sidebar + page
+ *     guards branch on it.
  *
  * Production swap (when Supabase Auth is wired):
  *   - Replace this body with `supabase.auth.signInWithPassword({...})`
@@ -93,18 +97,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const allowedEmails = (process.env.ADMIN_ALLOWED_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.toLowerCase().trim())
-    .filter(Boolean);
   const expectedPassphrase = process.env.ADMIN_LOGIN_PASSPHRASE ?? "";
 
-  // Fail closed if not configured. We DO log to server console so the
-  // sysadmin can spot the misconfig, but we don't leak it to the client.
-  if (allowedEmails.length === 0 || !expectedPassphrase) {
+  // Fail closed if passphrase not configured. We DO log to server
+  // console so the sysadmin can spot the misconfig, but we don't leak
+  // it to the client.
+  if (!expectedPassphrase) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        "[admin login] ADMIN_ALLOWED_EMAILS or ADMIN_LOGIN_PASSPHRASE not set — all logins rejected."
+        "[admin login] ADMIN_LOGIN_PASSPHRASE not set — all logins rejected."
       );
     }
     return NextResponse.json(
@@ -113,10 +114,16 @@ export async function POST(request: Request) {
     );
   }
 
-  // Validate. Compare the passphrase even when the email is wrong, so
-  // the timing of failure doesn't reveal whether the email exists.
-  const emailMatch = allowedEmails.includes(email);
+  // Validate the passphrase first (constant-time). Doing this BEFORE
+  // the role lookup ensures wrong-passphrase requests cost no DB query
+  // and timing doesn't reveal whether the email is known.
   const passphraseMatch = secureCompare(passphrase, expectedPassphrase);
+
+  // Resolve role (DB lookup + env-allowlist bootstrap). null = unknown
+  // email. We still call this on wrong-passphrase attempts so timing
+  // stays constant relative to email validity.
+  const role = await resolveAdminRoleForLogin(email);
+  const emailMatch = role !== null;
 
   if (!emailMatch || !passphraseMatch) {
     // Audit log the failure. The next-attempts-until-rate-limit count
@@ -138,10 +145,11 @@ export async function POST(request: Request) {
     );
   }
 
-  // Mint signed session token + set cookie.
+  // Mint signed session token + set cookie. Role is baked into the
+  // payload so page guards don't need a DB round-trip on every render.
   let token: string;
   try {
-    token = signAdminSession(email);
+    token = signAdminSession(email, role);
   } catch {
     // signAdminSession throws if APP_SECRET is missing.
     return NextResponse.json(
@@ -167,9 +175,10 @@ export async function POST(request: Request) {
     action: "sign_in",
     userEmail: email,
     request,
+    metadata: { role },
   });
 
-  return new NextResponse(JSON.stringify({ ok: true, email }), {
+  return new NextResponse(JSON.stringify({ ok: true, email, role }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",
