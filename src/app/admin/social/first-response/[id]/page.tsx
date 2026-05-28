@@ -208,7 +208,13 @@ export default async function EmergencyEventPage({
       </section>
 
       {/* ─── Launch packet ─── */}
-      {packet && <PacketView packet={packet} eventId={event.id} />}
+      {packet && (
+        <PacketView
+          packet={packet}
+          eventId={event.id}
+          draftStamp={event.draftPacketGeneratedAt?.getTime() ?? 0}
+        />
+      )}
 
       {!packet && parsed && !parsed.success && (
         <div className="bg-amber-light/60 border border-amber/30 rounded-2xl p-5 text-[13px] text-charcoal/80">
@@ -237,9 +243,11 @@ function scoreClasses(score: number): string {
 function PacketView({
   packet,
   eventId,
+  draftStamp,
 }: {
   packet: LaunchPacket;
   eventId: string;
+  draftStamp: number;
 }) {
   return (
     <div className="space-y-6">
@@ -298,7 +306,11 @@ function PacketView({
           use the download button to save individually. Upload as an
           Instagram/Facebook carousel in this order.
         </p>
-        <CarouselGrid eventId={eventId} count={packet.carousel_slides.length} />
+        <CarouselGrid
+          eventId={eventId}
+          count={packet.carousel_slides.length}
+          draftStamp={draftStamp}
+        />
       </Section>
 
       {/* Email */}
@@ -432,15 +444,20 @@ function SocialPostBlock({
 function CarouselGrid({
   eventId,
   count,
+  draftStamp,
 }: {
   eventId: string;
   count: number;
+  draftStamp: number;
 }) {
   const slides = Array.from({ length: count }, (_, i) => i);
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
       {slides.map((i) => {
-        const src = `/api/admin/first-response/${eventId}/slide/${i}`;
+        // draftStamp = packet's generation timestamp; included as ?v= so
+        // each redraft gets a fresh URL and the browser doesn't serve a
+        // stale typography-only PNG from cache when imagery is added.
+        const src = `/api/admin/first-response/${eventId}/slide/${i}?v=${draftStamp}`;
         return (
           <div
             key={i}
