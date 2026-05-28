@@ -297,7 +297,7 @@ export interface ScanResult {
 const SCAN_BATCH_LIMIT = 20;
 
 /**
- * Scan dr-media-library bucket for files that have no media_library row,
+ * Scan dr-media bucket for files that have no media_library row,
  * run Claude Vision on each orphan, and create rows with the auto-tagged
  * metadata. Batch-limited so the action fits under Vercel function
  * timeouts.
