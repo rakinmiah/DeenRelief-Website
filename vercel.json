@@ -13,6 +13,18 @@
     {
       "path": "/api/google-ads-csv-export?token=c34c1beac62e1c34a60a100c6d86c9b3edd7a95c8f6a4286da66b833f0d4998a&phase=commit",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/first-response/gdacs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/first-response/usgs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/first-response/reliefweb",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

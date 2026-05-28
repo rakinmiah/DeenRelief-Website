@@ -69,32 +69,37 @@ export default async function FirstResponsePage() {
       </div>
 
       {/* ─── Status banner ─── */}
-      <div className="mb-8 bg-amber-light/60 border border-amber/30 rounded-2xl px-5 md:px-6 py-4 flex items-start gap-3">
-        <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber/20 text-amber-dark mt-0.5">
+      <div className="mb-8 bg-green-light/40 border border-green/30 rounded-2xl px-5 md:px-6 py-4 flex items-start gap-3">
+        <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-green/20 text-green-dark mt-0.5">
           <svg
             className="w-4 h-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth={2.2}
+            strokeWidth={2.5}
             viewBox="0 0 24 24"
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+              d="M4.5 12.75l6 6 9-13.5"
             />
           </svg>
         </span>
         <div>
           <p className="text-charcoal font-semibold text-[14px]">
-            Signal monitoring is not yet active.
+            Signal monitoring is live — Tier 1 sources active.
           </p>
           <p className="text-charcoal/70 text-[13px] mt-0.5 leading-relaxed">
-            The coverage map below is in place and seeded with all 10 campaigns.
-            Phase 3b adds the signal ingesters (GDACS / USGS / news / competitor
-            scrapers / site search spikes). Phase 3c adds the scoring engine
-            and push alerts. Phase 4 adds the launch-packet generator and
-            emergency-launch button.
+            Ingesting from{" "}
+            <span className="font-semibold text-charcoal">GDACS</span> (every
+            15 min),{" "}
+            <span className="font-semibold text-charcoal">USGS earthquakes</span>{" "}
+            (every 15 min), and{" "}
+            <span className="font-semibold text-charcoal">ReliefWeb</span>{" "}
+            (every 30 min). Events are matched against the coverage map below
+            and ranked by raw severity for now — Phase 3c will layer
+            multi-factor priority scoring + push alerts on top, and Phase 4
+            adds the launch-packet generator.
           </p>
         </div>
       </div>
@@ -112,27 +117,86 @@ export default async function FirstResponsePage() {
         <div className="bg-white border border-charcoal/10 rounded-2xl">
           {events.length === 0 ? (
             <div className="px-6 py-10 text-center text-charcoal/50 text-sm">
-              No detected events yet. Once signal ingestion is live, ranked
-              alerts will appear here.
+              No events detected yet. The first cron run will populate this
+              within a few minutes of deployment — ranked by severity, with
+              matched campaigns alongside each entry.
             </div>
           ) : (
             <ul className="divide-y divide-charcoal/5">
               {events.map((ev) => (
-                <li key={ev.id} className="px-5 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-charcoal font-semibold text-[14px]">
-                        {ev.title}
+                <li key={ev.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-charcoal font-semibold text-[14px] leading-snug">
+                        {ev.sourceUrl ? (
+                          <a
+                            href={ev.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="hover:underline"
+                          >
+                            {ev.title}
+                          </a>
+                        ) : (
+                          ev.title
+                        )}
                       </p>
-                      <p className="text-charcoal/60 text-[12px] mt-0.5">
-                        {ev.source}
-                        {ev.countryIso ? ` · ${ev.countryIso}` : ""}
-                        {ev.region ? ` · ${ev.region}` : ""}
+                      <p className="text-charcoal/60 text-[12px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="uppercase font-bold tracking-[0.08em]">
+                          {ev.source}
+                        </span>
+                        {ev.eventType && (
+                          <>
+                            <span className="text-charcoal/20">·</span>
+                            <span className="capitalize">
+                              {ev.eventType.replace(/_/g, " ")}
+                            </span>
+                          </>
+                        )}
+                        {ev.countryIso && (
+                          <>
+                            <span className="text-charcoal/20">·</span>
+                            <span>{ev.countryIso}</span>
+                          </>
+                        )}
+                        {ev.region && (
+                          <>
+                            <span className="text-charcoal/20">·</span>
+                            <span className="truncate">{ev.region}</span>
+                          </>
+                        )}
+                        <span className="text-charcoal/20">·</span>
+                        <span>{formatRelative(ev.detectedAt)}</span>
                       </p>
+                      {ev.matchedCampaigns.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {ev.matchedCampaigns.map((slug) => (
+                            <span
+                              key={slug}
+                              className="inline-block text-[11px] font-semibold text-charcoal/80 bg-charcoal/5 px-2 py-0.5 rounded-full"
+                            >
+                              {isValidCampaign(slug)
+                                ? CAMPAIGNS[slug as CampaignSlug]
+                                : slug}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal/60 bg-charcoal/5 px-2 py-1 rounded-full">
-                      {ev.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {ev.severityRaw !== null && (
+                        <span
+                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full ${severityClasses(
+                            ev.severityRaw
+                          )}`}
+                        >
+                          Sev {ev.severityRaw.toFixed(1)}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
+                        {ev.status}
+                      </span>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -182,6 +246,36 @@ export default async function FirstResponsePage() {
       </section>
     </main>
   );
+}
+
+/**
+ * Severity colour pill. Tuned for the two main numeric scales we feed in:
+ *   - USGS magnitude (raw value 0–10, with 5.5+ being significant)
+ *   - GDACS alert level mapped to 1/2/3 (Green/Orange/Red)
+ *   - ReliefWeb baseline 2
+ *
+ * The thresholds work for both: ≥7 = serious quake or GDACS red,
+ * 4.5–7 = moderate, below = minor.
+ */
+function severityClasses(severity: number): string {
+  if (severity >= 7) return "bg-red-100 text-red-800";
+  if (severity >= 4.5) return "bg-amber-light text-amber-dark";
+  return "bg-charcoal/8 text-charcoal/70";
+}
+
+function formatRelative(d: Date): string {
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.round(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 function CoverageGroup({
