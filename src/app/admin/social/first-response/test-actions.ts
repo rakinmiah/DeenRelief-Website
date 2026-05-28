@@ -23,41 +23,17 @@ import {
   type EmergencyEventInput,
 } from "@/lib/first-response-ingest";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { TEST_SCENARIOS, type TestScenarioId } from "./test-scenarios";
+
+// IMPORTANT: this file has "use server" at the top — Next.js only
+// allows async function exports here. The TEST_SCENARIOS const +
+// TestScenarioId type live in ./test-scenarios.ts. Client components
+// must import them directly from there (this file's "use server"
+// boundary strips non-async exports at the wire).
 
 export type TestActionResult =
   | { ok: true; eventId: string | null; score: number | null; tier: string }
   | { ok: false; error: string };
-
-/* ─── Scenarios ───────────────────────────────────────────────────── */
-
-export const TEST_SCENARIOS = {
-  "bd-earthquake": {
-    label: "Bangladesh M7.0 earthquake (Sylhet)",
-    description:
-      "CRITICAL push — strategic field presence + 2.0× UK Bangladeshi diaspora",
-    expectedTier: "CRITICAL",
-  },
-  "ps-gaza-escalation": {
-    label: "Palestine — Gaza conflict escalation",
-    description:
-      "CRITICAL push — strategic Palestine campaign matched",
-    expectedTier: "CRITICAL",
-  },
-  "bd-flood": {
-    label: "Bangladesh severe monsoon flood (Sylhet)",
-    description:
-      "CRITICAL push — matches orphan-sponsorship + build-a-school + clean-water",
-    expectedTier: "CRITICAL",
-  },
-  "uk-cold-snap": {
-    label: "Brighton — severe cold snap warning",
-    description:
-      "Dashboard only — uk-homeless intensification trigger, no push",
-    expectedTier: "none",
-  },
-} as const;
-
-export type TestScenarioId = keyof typeof TEST_SCENARIOS;
 
 /**
  * Build an EmergencyEventInput for a given scenario. Pre-tuned
