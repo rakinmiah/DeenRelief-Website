@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-session";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import { listMedia } from "@/lib/media-library";
+import ScanStorageButton from "./ScanStorageButton";
 
 export const metadata: Metadata = {
   title: "Media library | Deen Relief Admin",
@@ -10,6 +11,10 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+// The scan-Storage server action invoked from this page can take up
+// to ~100s for a full batch (20 photos × ~5s Vision call each). Pro
+// plan allows up to 300s — 180s is a sensible cap with safety margin.
+export const maxDuration = 180;
 
 /**
  * /admin/social/media-library — the sorted DR image inventory.
@@ -68,6 +73,9 @@ export default async function MediaLibraryPage({
           + Upload media
         </Link>
       </div>
+
+      {/* ─── Bulk-import scanner ─── */}
+      <ScanStorageButton />
 
       {/* ─── Filter strip ─── */}
       <form

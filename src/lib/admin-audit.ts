@@ -90,7 +90,8 @@ export type AdminAction =
   | "media_uploaded"
   | "media_saved_to_library"
   | "media_edited"
-  | "media_archived_from_library";
+  | "media_archived_from_library"
+  | "media_storage_scan";
 
 interface LogAdminActionOpts {
   action: AdminAction;
