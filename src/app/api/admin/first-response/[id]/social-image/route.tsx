@@ -20,6 +20,7 @@
 
 import { ImageResponse } from "next/og";
 import { requireAdminSession } from "@/lib/admin-session";
+import { getLogoDataUri } from "@/lib/brand-assets";
 import { getEmergencyEventById } from "@/lib/first-response";
 import { LaunchPacketSchema } from "@/lib/first-response-packet";
 import { getMediaById } from "@/lib/media-library";
@@ -150,11 +151,13 @@ export async function GET(
   const title = heroSlide?.title ?? packet.headline;
   const body = heroSlide?.body ?? null;
 
-  const [bowlby, dmBold, dmReg, caveat] = await Promise.all([
+  const [bowlby, dmBold, dmReg, caveat, logoOnLight] = await Promise.all([
     loadGoogleFont("Bowlby One SC", 400),
     loadGoogleFont("DM Sans", 700),
     loadGoogleFont("DM Sans", 400),
     loadGoogleFont("Caveat", 600),
+    // The cream chip on this layout always wants the light-bg variant.
+    getLogoDataUri("logo-on-light"),
   ]);
 
   return new ImageResponse(
@@ -169,6 +172,7 @@ export async function GET(
           : null
       }
       mediaUrl={mediaDataUri}
+      logoDataUri={logoOnLight?.dataUri ?? null}
     />,
     {
       width: WIDTH,
@@ -196,6 +200,7 @@ function Composition({
   ctaUrl,
   campaignLabel,
   mediaUrl,
+  logoDataUri,
 }: {
   title: string;
   eyebrow: string | null;
@@ -203,6 +208,7 @@ function Composition({
   ctaUrl: string;
   campaignLabel: string | null;
   mediaUrl: string | null;
+  logoDataUri: string | null;
 }) {
   const hasPhoto = mediaUrl != null;
 
@@ -242,7 +248,7 @@ function Composition({
               }}
             />
             {/* Brand chip floats top-left on the photo. */}
-            <BrandChip />
+            <BrandChip logoDataUri={logoDataUri} />
           </div>
 
           {/* ─── Right half — text panel ─── */}
@@ -266,7 +272,7 @@ function Composition({
               display: "flex",
             }}
           >
-            <BrandChip />
+            <BrandChip logoDataUri={logoDataUri} />
           </div>
           <TextPanel
             title={title}
@@ -435,7 +441,52 @@ function titleSize(length: number, centered: boolean): number {
 
 /* ─── Brand chip (compact variant) ──────────────────────────────── */
 
-function BrandChip() {
+function BrandChip({ logoDataUri }: { logoDataUri: string | null }) {
+  // Same fallback pattern as the slide route's BrandChip — render the
+  // uploaded logo when available, otherwise fall back to the inline
+  // SVG approximation so layout is consistent during onboarding.
+  if (logoDataUri) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 32,
+          left: 32,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: DR.cream,
+          paddingTop: 10,
+          paddingBottom: 10,
+          paddingLeft: 18,
+          paddingRight: 18,
+          borderRadius: 5,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoDataUri}
+          alt="Deen Relief"
+          height={30}
+          style={{ height: 30, width: "auto", objectFit: "contain" }}
+        />
+        <span
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 700,
+            fontSize: 8,
+            color: DR.forest,
+            opacity: 0.7,
+            letterSpacing: 1.5,
+            marginTop: 4,
+            textTransform: "uppercase",
+          }}
+        >
+          Helping vulnerable communities globally
+        </span>
+      </div>
+    );
+  }
   return (
     <div
       style={{

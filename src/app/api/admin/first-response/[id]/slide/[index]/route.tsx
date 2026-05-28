@@ -29,6 +29,7 @@
 
 import { ImageResponse } from "next/og";
 import { requireAdminSession } from "@/lib/admin-session";
+import { getLogoDataUri } from "@/lib/brand-assets";
 import { getEmergencyEventById } from "@/lib/first-response";
 import {
   LaunchPacketSchema,
@@ -172,20 +173,31 @@ export async function GET(
     );
   }
 
-  // Four fonts in parallel — every slide uses at least three of them.
-  //   Bowlby One SC 400  → chunky uppercase display titles
-  //   DM Sans 700        → bold uppercase body
-  //   DM Sans 400        → ordinary cream-on-green prose
-  //   Caveat 600         → italic brush eyebrow (the "INTRODUCING…" voice)
-  const [bowlby, dmBold, dmReg, caveat] = await Promise.all([
-    loadGoogleFont("Bowlby One SC", 400),
-    loadGoogleFont("DM Sans", 700),
-    loadGoogleFont("DM Sans", 400),
-    loadGoogleFont("Caveat", 600),
-  ]);
+  // Four fonts + both brand logo variants in parallel. The chip
+  // background depends on slide type (cream for non-CTA, forest for
+  // CTA), and we want the LOGO to contrast with the chip background:
+  //   cream chip   → logo-on-light variant (dark/green logo)
+  //   forest chip  → logo-on-dark variant (white logo)
+  // Either may be null if the SMM hasn't uploaded that variant yet —
+  // BrandChip falls back to the inline SVG approximation.
+  const [bowlby, dmBold, dmReg, caveat, logoOnLight, logoOnDark] =
+    await Promise.all([
+      loadGoogleFont("Bowlby One SC", 400),
+      loadGoogleFont("DM Sans", 700),
+      loadGoogleFont("DM Sans", 400),
+      loadGoogleFont("Caveat", 600),
+      getLogoDataUri("logo-on-light"),
+      getLogoDataUri("logo-on-dark"),
+    ]);
 
   return new ImageResponse(
-    <SlideContent slide={slide} packet={packet} mediaUrl={mediaDataUri} />,
+    <SlideContent
+      slide={slide}
+      packet={packet}
+      mediaUrl={mediaDataUri}
+      logoOnLight={logoOnLight?.dataUri ?? null}
+      logoOnDark={logoOnDark?.dataUri ?? null}
+    />,
     {
     width: SLIDE_SIZE,
     height: SLIDE_SIZE,
@@ -211,10 +223,14 @@ function SlideContent({
   slide,
   packet,
   mediaUrl,
+  logoOnLight,
+  logoOnDark,
 }: {
   slide: Slide;
   packet: LaunchPacket;
   mediaUrl: string | null;
+  logoOnLight: string | null;
+  logoOnDark: string | null;
 }) {
   // CTA slide flips to a cream canvas with green type + red emphasis,
   // mirroring the Eid Mubarak / festival treatment — gives the closing
@@ -236,6 +252,7 @@ function SlideContent({
         mediaUrl={mediaUrl}
         slideIndex={slideIndex}
         slideTotal={slideTotal}
+        logoOnLight={logoOnLight}
       />
     );
   }
@@ -258,8 +275,13 @@ function SlideContent({
         position: "relative",
       }}
     >
-      {/* Brand chip — top-left. Pinned to every slide for identity. */}
-      <BrandChip inverted={isCta} />
+      {/* Brand chip — top-left. Pinned to every slide for identity.
+          CTA flips background to forest green → wants logo-on-dark.
+          Everything else has a cream chip → wants logo-on-light. */}
+      <BrandChip
+        inverted={isCta}
+        logoDataUri={isCta ? logoOnDark : logoOnLight}
+      />
 
       {/* Slide-number pip top-right. Tiny visual progress indicator. */}
       <SlidePip current={slideIndex} total={slideTotal} fg={fg} />
@@ -295,11 +317,13 @@ function PhotoSlide({
   mediaUrl,
   slideIndex,
   slideTotal,
+  logoOnLight,
 }: {
   slide: Slide;
   mediaUrl: string;
   slideIndex: number;
   slideTotal: number;
+  logoOnLight: string | null;
 }) {
   const PHOTO_HEIGHT = 670; // ~62% of 1080
   const PANEL_HEIGHT = SLIDE_SIZE - PHOTO_HEIGHT;
@@ -339,8 +363,9 @@ function PhotoSlide({
         />
         {/* BrandChip uses its own absolute positioning (top:48, left:48)
             relative to this photo-half container — same brand stamp
-            position as the typography-only slides. */}
-        <BrandChip inverted={false} />
+            position as the typography-only slides. Cream chip + green
+            logo (logo-on-light) — high contrast against any photo. */}
+        <BrandChip inverted={false} logoDataUri={logoOnLight} />
         {/* Slide pip — wrapped in a small dark green chip for legibility
             against arbitrary photo backgrounds. The existing SlidePip
             component assumes a single foreground colour; the wrap gives
@@ -518,12 +543,69 @@ function photoSlideTitleSize(titleLength: number): number {
 
 /* ─── Brand chip ──────────────────────────────────────────────────── */
 
-function BrandChip({ inverted }: { inverted: boolean }) {
+function BrandChip({
+  inverted,
+  logoDataUri,
+}: {
+  inverted: boolean;
+  logoDataUri: string | null;
+}) {
   // On the dark green slides the chip is a cream card (high contrast,
   // postage-stamp style). On the cream CTA slide we flip — the chip is
   // a green card so it still pops against the cream field.
   const cardBg = inverted ? DR.forest : DR.cream;
   const cardFg = inverted ? DR.cream : DR.forest;
+
+  // When an uploaded logo is available, render it instead of the
+  // inline-SVG approximation. The logo replaces both the mark AND
+  // the wordmark (since DR's real logo includes "Deen Relief" text).
+  // Tagline below remains in DM Sans either way.
+  if (logoDataUri) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: 48,
+          left: 48,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: cardBg,
+          paddingTop: 14,
+          paddingBottom: 14,
+          paddingLeft: 22,
+          paddingRight: 22,
+          borderRadius: 6,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoDataUri}
+          alt="Deen Relief"
+          height={36}
+          style={{ height: 36, width: "auto", objectFit: "contain" }}
+        />
+        <span
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 700,
+            fontSize: 9,
+            color: cardFg,
+            opacity: 0.7,
+            letterSpacing: 1.5,
+            marginTop: 4,
+            textTransform: "uppercase",
+          }}
+        >
+          Helping vulnerable communities globally
+        </span>
+      </div>
+    );
+  }
+
+  // Fallback: inline-SVG approximation when the SMM hasn't uploaded
+  // a logo asset yet. Same proportions + position so the layout is
+  // visually consistent during onboarding.
   return (
     <div
       style={{
@@ -540,15 +622,7 @@ function BrandChip({ inverted }: { inverted: boolean }) {
         borderRadius: 6,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        {/* Simple geometric mark — abstract family/tree silhouette. Pure
-            SVG so it scales cleanly at any density. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <svg
           width="32"
           height="32"
@@ -556,10 +630,7 @@ function BrandChip({ inverted }: { inverted: boolean }) {
           xmlns="http://www.w3.org/2000/svg"
         >
           <circle cx="16" cy="9" r="4.5" fill={cardFg} />
-          <path
-            d="M 7 28 Q 7 17 16 17 Q 25 17 25 28 Z"
-            fill={cardFg}
-          />
+          <path d="M 7 28 Q 7 17 16 17 Q 25 17 25 28 Z" fill={cardFg} />
         </svg>
         <span
           style={{

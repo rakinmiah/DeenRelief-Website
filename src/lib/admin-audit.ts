@@ -94,7 +94,10 @@ export type AdminAction =
   | "media_storage_scan"
   // First Response — manual test events for demo / QA (Phase 3i)
   | "first_response_test_event_created"
-  | "first_response_test_events_cleared";
+  | "first_response_test_events_cleared"
+  // Brand assets — uploadable logo variants (Phase 4k)
+  | "brand_asset_uploaded"
+  | "brand_asset_archived";
 
 interface LogAdminActionOpts {
   action: AdminAction;

@@ -79,6 +79,8 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   media_storage_scan: "Storage orphan scan run",
   first_response_test_event_created: "Test emergency event created",
   first_response_test_events_cleared: "Test emergency events cleared",
+  brand_asset_uploaded: "Brand asset uploaded",
+  brand_asset_archived: "Brand asset archived",
 };
 
 const ACTION_STYLES: Record<AdminAction, string> = {
@@ -146,6 +148,8 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   media_storage_scan: "bg-amber-light text-amber-dark border-amber/30",
   first_response_test_event_created: "bg-amber-light text-amber-dark border-amber/30",
   first_response_test_events_cleared: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
+  brand_asset_uploaded: "bg-green/10 text-green-dark border-green/30",
+  brand_asset_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
 };
 
 /**

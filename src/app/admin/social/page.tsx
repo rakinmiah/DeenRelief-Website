@@ -178,6 +178,19 @@ export default async function AdminSocialLandingPage() {
           imagery into carousel slides automatically. Pure-typography
           slides become photo-backed slides when matching media exists.
         </DashboardCard>
+
+        <DashboardCard
+          title="Brand assets"
+          href="/admin/social/brand-assets"
+          status="available"
+          statusLabel="Available"
+        >
+          Logo variants for the slide renderer. Upload your DR logo
+          in light and dark colour versions (PNG/SVG with transparent
+          backgrounds work best). The renderer auto-picks the right
+          variant per slide context — green logo on cream chips,
+          white logo on dark green chips.
+        </DashboardCard>
       </div>
     </main>
   );
