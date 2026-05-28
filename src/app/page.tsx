@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 import Hero from "@/components/Hero";
 import TrustBar from "@/components/TrustBar";
 import FeaturedCampaign from "@/components/FeaturedCampaign";
+import FeaturedCampaignCallout from "@/components/FeaturedCampaignCallout";
 import CancerCareCentres from "@/components/CancerCareCentres";
 import GivingPathways from "@/components/GivingPathways";
 import CampaignsGrid from "@/components/CampaignsGrid";
@@ -72,6 +73,11 @@ export default function Home() {
       <main id="main-content" className="flex-1">
         <Hero />
         <Partners background="cream" />
+        {/* SMM-controlled featured-campaign callout. Renders only when
+            an active campaign is set in /admin/social/featured.
+            Sits above the Palestine-specific FeaturedCampaign block so
+            it's the first thing donors see after the trust bar. */}
+        <FeaturedCampaignCallout />
         <FeaturedCampaign />
         <CancerCareCentres />
         <GivingPathways />

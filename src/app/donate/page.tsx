@@ -3,8 +3,14 @@ import { headers } from "next/headers";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutClient from "./CheckoutClient";
-import { getCampaignLabel, isValidCampaign, resolvePathway } from "@/lib/campaigns";
+import {
+  getCampaignLabel,
+  isValidCampaign,
+  resolvePathway,
+  type CampaignSlug,
+} from "@/lib/campaigns";
 import { getQurbaniShareCount } from "@/lib/qurbani";
+import { getFeaturedCampaign } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: "Donate | Deen Relief",
@@ -39,9 +45,20 @@ export default async function DonatePage({ searchParams }: DonatePageProps) {
 
   // Seed values from the query string. The client component owns mutation
   // from here — users can adjust amount in checkout without navigating back.
-  const campaign = params.campaign && isValidCampaign(params.campaign)
-    ? params.campaign
-    : "general";
+  //
+  // Fallback when no campaign is given in the URL: prefer the SMM's
+  // currently-featured campaign (set in /admin/social/featured) over the
+  // generic 'general' bucket. A donor who clicks "Donate" from the homepage
+  // header without picking a specific cause should land on whatever cause
+  // Deen Relief is actively pushing this week. Falls back to 'general' when
+  // nothing is featured.
+  let campaign: CampaignSlug = "general";
+  if (params.campaign && isValidCampaign(params.campaign)) {
+    campaign = params.campaign;
+  } else {
+    const featured = await getFeaturedCampaign();
+    if (featured) campaign = featured;
+  }
   const parsedAmount = Number(params.amount);
   const amountGbp = Number.isFinite(parsedAmount) && parsedAmount > 0
     ? Math.floor(parsedAmount)
