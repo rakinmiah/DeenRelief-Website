@@ -10,6 +10,7 @@ import {
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import EventControls from "./EventControls";
 import CopyButton from "./CopyButton";
+import DebugPanel from "./DebugPanel";
 
 export const metadata: Metadata = {
   title: "Emergency event | Deen Relief Admin",
@@ -216,6 +217,11 @@ export default async function EmergencyEventPage({
           &ldquo;Redraft packet&rdquo; to regenerate.
         </div>
       )}
+
+      {/* Debug panel — collapsed by default. Shows candidate query
+          inputs, candidates returned, and per-slide selection so the
+          SMM can diagnose why imagery is/isn't appearing. */}
+      <DebugPanel eventId={event.id} />
     </main>
   );
 }

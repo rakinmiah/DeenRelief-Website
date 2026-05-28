@@ -155,7 +155,7 @@ export const LaunchPacketSchema = z.object({
           .string()
           .nullable()
           .describe(
-            "Optional ID of a media_library item to render as the slide's photo background (full-bleed, with a dark green gradient overlay underneath the typography). Pick ONLY from the CANDIDATE MEDIA list in the prompt, by matching the slide's intent to the candidate's tags/caption/use_cases. Suitable layouts: hero (use 'emergency-hero' candidates), response (use 'response-illustration' or 'team-coverage' candidates). For 'fact', 'tiers', 'cta' layouts: ALWAYS null — these slides are typography-only. If no candidate suits the slide, set null (typography-only fallback is fine)."
+            "ID of a media_library item to render as the slide's photo background (full-bleed, dark green gradient overlay underneath the typography). MUST be picked from the CANDIDATE MEDIA list in the prompt — never invent IDs. Selection rules: (1) For 'hero' and 'response' layouts: USE A CANDIDATE if the list contains ANY photo matching the event's country, event_type, or campaign — typography-only is a last resort, only when the list is empty or every candidate is plainly irrelevant. Don't set null just because the candidates aren't perfectly tagged; pick the best available match. Prefer candidates with use_cases including 'emergency-hero' (hero slide) or 'response-illustration'/'team-coverage' (response slide), but use ANY relevant photo if those aren't tagged. (2) For 'fact', 'tiers', 'cta' layouts: ALWAYS null — typography-only by design."
           ),
       })
     )
