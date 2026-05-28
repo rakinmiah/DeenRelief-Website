@@ -154,8 +154,12 @@ function loadGoogleFontItalic(
  */
 function displayFontFor(
   arc: LaunchPacket["strategy_brief"]["arc"],
-  layout: LaunchPacket["carousel_slides"][number]["layout"]
+  layout: LaunchPacket["carousel_slides"][number]["layout"],
+  loraAvailable: boolean
 ): "Bowlby One SC" | "Lora" {
+  // Lora failed to load → degrade to Bowlby across the board. Renderer
+  // still works; aesthetics suffer slightly.
+  if (!loraAvailable) return "Bowlby One SC";
   if (layout === "testimony" || layout === "chapter") return "Lora";
   if (arc === "quiet_dignity" || arc === "manifesto") {
     // Tiers + CTA stay on Bowlby — those are price-ladder + headline
@@ -255,16 +259,27 @@ export async function GET(
   // Five fonts + both brand logo variants in parallel. Lora Italic
   // was added in Phase 4p (audit findings) for contemplative arcs
   // (quiet_dignity, testimony, manifesto chapters) where Bowlby's
-  // chunky display register is wrong. The renderer picks per-slide
-  // between Bowlby and Lora Italic based on arc + layout — see
-  // displayFontFor().
+  // chunky display register is wrong.
+  //
+  // CRITICAL: Lora is treated as OPTIONAL. The Google Fonts CSS2
+  // endpoint occasionally fails to expose a TTF for a specific
+  // ital,wght combination, which would throw in Promise.all and
+  // kill the entire slide render. We wrap Lora's load and fall back
+  // to null on failure — the body components see no Lora in the
+  // fonts list and Satori uses Bowlby (or its own default) instead.
+  // Strictly worse aesthetically but the route stays up.
   const [bowlby, dmBold, dmReg, caveat, loraItalic, logoOnLight, logoOnDark] =
     await Promise.all([
       loadGoogleFont("Bowlby One SC", 400),
       loadGoogleFont("DM Sans", 700),
       loadGoogleFont("DM Sans", 400),
       loadGoogleFont("Caveat", 600),
-      loadGoogleFontItalic("Lora", 600),
+      loadGoogleFontItalic("Lora", 600).catch((err) => {
+        console.warn(
+          `[slide] Lora italic load failed, falling back to Bowlby everywhere: ${err instanceof Error ? err.message : err}`
+        );
+        return null as ArrayBuffer | null;
+      }),
       getLogoDataUri("logo-on-light"),
       getLogoDataUri("logo-on-dark"),
     ]);
@@ -289,16 +304,26 @@ export async function GET(
         creditText={creditText}
         logoOnLight={logoOnLight?.dataUri ?? null}
         logoOnDark={logoOnDark?.dataUri ?? null}
+        loraAvailable={loraItalic != null}
       />,
       {
         width: SLIDE_SIZE,
         height: SLIDE_SIZE,
         fonts: [
-          { name: "Bowlby One SC", data: bowlby, weight: 400, style: "normal" },
-          { name: "DM Sans", data: dmBold, weight: 700, style: "normal" },
-          { name: "DM Sans", data: dmReg, weight: 400, style: "normal" },
-          { name: "Caveat", data: caveat, weight: 600, style: "normal" },
-          { name: "Lora", data: loraItalic, weight: 600, style: "italic" },
+          { name: "Bowlby One SC", data: bowlby, weight: 400, style: "normal" as const },
+          { name: "DM Sans", data: dmBold, weight: 700, style: "normal" as const },
+          { name: "DM Sans", data: dmReg, weight: 400, style: "normal" as const },
+          { name: "Caveat", data: caveat, weight: 600, style: "normal" as const },
+          ...(loraItalic
+            ? [
+                {
+                  name: "Lora",
+                  data: loraItalic,
+                  weight: 600 as const,
+                  style: "italic" as const,
+                },
+              ]
+            : []),
         ],
         headers: {
           "Cache-Control": "private, no-store",
@@ -330,6 +355,7 @@ function SlideContent({
   creditText,
   logoOnLight,
   logoOnDark,
+  loraAvailable,
 }: {
   slide: Slide;
   packet: LaunchPacket;
@@ -342,6 +368,10 @@ function SlideContent({
   creditText: string | null;
   logoOnLight: string | null;
   logoOnDark: string | null;
+  /** False when the Lora Italic load failed at the route entry point.
+   *  When false, displayFontFor returns Bowlby everywhere so the route
+   *  still renders something — graceful degradation. */
+  loraAvailable: boolean;
 }) {
   // CTA slide flips to a cream canvas with green type + red emphasis,
   // mirroring the Eid Mubarak / festival treatment — gives the closing
@@ -413,12 +443,17 @@ function SlideContent({
 
       {/* Main composition switches on layout. displayFont comes from
           packet.strategy_brief.arc + slide.layout — Bowlby for chunky
-          factual slides, Lora Italic for contemplative ones. */}
+          factual slides, Lora Italic for contemplative ones (when the
+          Lora font actually loaded). */}
       <SlideBody
         slide={slide}
         fg={fg}
         isCta={isCta}
-        displayFont={displayFontFor(packet.strategy_brief.arc, slide.layout)}
+        displayFont={displayFontFor(
+          packet.strategy_brief.arc,
+          slide.layout,
+          loraAvailable
+        )}
       />
 
       {/* Footer — source attribution, URL on CTA, hairline divider. */}
@@ -923,7 +958,7 @@ function SlideBody({
   if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} />;
   if (isCta) return <CtaBody slide={slide} />;
   if (slide.layout === "chapter")
-    return <ChapterBody slide={slide} fg={fg} />;
+    return <ChapterBody slide={slide} fg={fg} displayFont={displayFont} />;
   if (slide.layout === "testimony")
     return <TestimonyBody slide={slide} fg={fg} displayFont={displayFont} />;
   return <DisplayBody slide={slide} fg={fg} displayFont={displayFont} />;
@@ -1031,8 +1066,20 @@ function TestimonyBody({
  *  Title is the claim (sentence case, Lora Italic medium-large);
  *  body is the proof line (DM Sans, smaller, ~70% opacity). Visual
  *  reference: Charity:Water's brand identity carousel where each
- *  chapter sits as its own slide. */
-function ChapterBody({ slide, fg }: { slide: Slide; fg: string }) {
+ *  chapter sits as its own slide.
+ *
+ *  Falls back to Bowlby uppercase when Lora isn't loaded — strictly
+ *  worse aesthetically but keeps the slide rendering. */
+function ChapterBody({
+  slide,
+  fg,
+  displayFont,
+}: {
+  slide: Slide;
+  fg: string;
+  displayFont: "Bowlby One SC" | "Lora";
+}) {
+  const useLora = displayFont === "Lora";
   return (
     <div
       style={{
@@ -1067,12 +1114,14 @@ function ChapterBody({ slide, fg }: { slide: Slide; fg: string }) {
       <div
         style={{
           display: "flex",
-          fontFamily: "Lora",
-          fontStyle: "italic",
-          fontWeight: 600,
+          fontFamily: useLora ? "Lora" : "Bowlby One SC",
+          fontStyle: useLora ? "italic" : "normal",
+          fontWeight: useLora ? 600 : 400,
           fontSize: slide.title.length > 32 ? 84 : 104,
           color: fg,
-          lineHeight: 1.1,
+          lineHeight: useLora ? 1.1 : 1.05,
+          textTransform: useLora ? "none" : "uppercase",
+          letterSpacing: useLora ? 0 : 0.5,
           maxWidth: 880,
           marginBottom: 28,
         }}
