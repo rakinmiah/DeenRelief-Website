@@ -107,6 +107,64 @@ function buildScenarioInput(
         sourceUrl: null,
         rawPayload: { scenario: scenarioId, generatedAt: new Date().toISOString() },
       };
+
+    case "pk-flood-eonet":
+      // Source MUST be 'eonet' (not 'test') — the NASA imagery fetcher
+      // only runs when event.source === 'eonet'. The cleanup action
+      // also matches external_id LIKE 'test:%' so this still gets
+      // wiped by "Clear test events".
+      //
+      // raw_payload shape mirrors a real EONET API event so the
+      // src/lib/external-imagery-sources/nasa-eonet.ts fetcher reads
+      // sources[].url out of it identically to a real ingest. The image
+      // URL ends in .jpg → matches the imagery-fetcher's regex, fetcher
+      // upserts an external_imagery row, packet generator offers it to
+      // Claude as a candidate. Renderer credits NASA Earth Observatory
+      // bottom-right of the photo when Claude picks it.
+      return {
+        externalId,
+        source: "eonet",
+        eventType: "flood",
+        countryIso: "PK",
+        region: "Sindh province, southern Pakistan",
+        title: "Severe flooding across Sindh — NASA EONET satellite tracking",
+        summary:
+          "NASA EONET is tracking widespread flooding across multiple districts of Sindh province following heavy monsoon rainfall. Satellite imagery shows extensive inundation of farmland and infrastructure along the Indus river basin. (TEST EVENT — not a real alert.)",
+        severityRaw: 2,
+        sourceUrl:
+          "https://earthobservatory.nasa.gov/images/event/2022-pakistan-floods",
+        rawPayload: {
+          // Mirrors EONET API event shape (see src/lib/signal-sources/eonet.ts
+          // EonetEvent interface). The imagery fetcher pulls sources[].url.
+          id: `EONET_TEST_${uniqueSuffix}`,
+          title: "Severe flooding across Sindh — NASA EONET satellite tracking",
+          description:
+            "Test event — exercises the NASA EONET signal-source path + external imagery integration for the launch packet generator.",
+          link: "https://earthobservatory.nasa.gov/images/event/2022-pakistan-floods",
+          categories: [{ id: "floods", title: "Floods" }],
+          sources: [
+            {
+              id: "EO",
+              // NASA Earth Observatory direct-image URL — Public Domain
+              // (US Govt). Ends in .jpg → passes imagery-fetcher regex.
+              // If the specific image ID 404s the slide renderer falls
+              // back to typography gracefully (existing safety net).
+              url: "https://eoimages.gsfc.nasa.gov/images/imagerecords/150000/150148/pakistanflooding_oli_2022240_lrg.jpg",
+            },
+          ],
+          geometry: [
+            {
+              date: new Date().toISOString(),
+              type: "Point",
+              coordinates: [68.0, 26.5],
+            },
+          ],
+          // Tagged so the cleanup pass can identify test rows even
+          // though source='eonet' (real EONET pulls share that source).
+          scenario: scenarioId,
+          generatedAt: new Date().toISOString(),
+        },
+      };
   }
 }
 
@@ -172,10 +230,15 @@ export async function clearTestEventsAction(): Promise<
   try {
     const session = await requireAdminSession();
     const supabase = getSupabaseAdmin();
+    // Match BOTH paths: original tagged-source rows (source='test')
+    // and the newer NASA-EONET-shaped scenarios which use source='eonet'
+    // but always carry an external_id prefix of 'test:'. The latter
+    // exercise the real EONET imagery code path, so they can't safely
+    // use source='test'.
     const { data, error } = await supabase
       .from("emergency_events")
       .delete()
-      .eq("source", "test")
+      .or("source.eq.test,external_id.like.test:%")
       .select("id");
     if (error) {
       console.error("[test-event] clear failed:", error);
