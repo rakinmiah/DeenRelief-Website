@@ -131,9 +131,24 @@ export const StrategyBriefSchema = z.object({
       "The HUMAN angle in 1–2 sentences. Not '1.7M displaced' — 'families wading through chest-deep water carrying children + the documents that prove their citizenship'. What is the donor seeing, feeling, and remembering tomorrow."
     ),
   arc: z
-    .enum(["evidence", "before_after", "hero_image", "quiet_dignity", "testimony"])
+    .enum([
+      "evidence",
+      "before_after",
+      "hero_image",
+      "quiet_dignity",
+      "testimony",
+      "awareness_petition",
+      "manifesto",
+    ])
     .describe(
-      "Narrative shape. 'evidence' = facts stack toward urgency. 'before_after' = contrast yesterday vs today. 'hero_image' = single strong photo carries the post; copy is restrained. 'quiet_dignity' = no urgency theatre, witness-bearing. 'testimony' = ground-level voice (e.g. a field-team member, a survivor)."
+      "Narrative shape. Each arc maps to a distinct VISUAL MODE (the renderer picks fonts, layout and emphasis from this choice — don't pick arc just for vibes, the visual rendering follows it):\n" +
+        "  • 'evidence' → typography-led editorial (Bowlby chunky display, dark forest canvas, factual chapters building toward urgency)\n" +
+        "  • 'hero_image' → magazine cover (full-bleed photo, restrained Lora-italic title, photo carries the post)\n" +
+        "  • 'quiet_dignity' → witness photojournalism (photo dominant, small Lora-italic captions, no urgency, no theatre — bear witness)\n" +
+        "  • 'testimony' → quote-led (Lora-italic body, amber Caveat eyebrow, subject portrait, attribution)\n" +
+        "  • 'before_after' → comparison split (display sans, two-photo grid, contrasts yesterday vs today)\n" +
+        "  • 'awareness_petition' → activist (heavy uppercase, no donation tiers; CTA is comment-a-keyword OR share, not 'link in bio'). USE FOR signal/petition moments where action is non-monetary.\n" +
+        "  • 'manifesto' → numbered chapters ('We believe X. That means Y.' pattern, one chapter per slide; lowercase sans + accent colour). USE FOR brand-identity / mission-statement / introducing-DR moments."
     ),
   register_per_surface: z
     .object({
@@ -280,6 +295,22 @@ export const LaunchPacketSchema = z.object({
     .describe(
       "1–2 sentences mapping Deen Relief's existing field-team presence to this event. If DR has no field team in the affected region, say so plainly — the SMM can decide whether to launch."
     ),
+  cta_mechanism: z
+    .enum(["link_in_bio", "comment_keyword", "phone", "share"])
+    .describe(
+      "Primary call-to-action mechanism for this packet. Picked from the strategy_brief.arc:\n" +
+        "  • 'link_in_bio' = donor clicks the bio link → /donate. Default for evidence/hero_image/quiet_dignity/testimony/before_after.\n" +
+        "  • 'comment_keyword' = donor comments e.g. 'PETITION' → DR auto-DMs them a link. Use for 'awareness_petition' arc (engagement is itself reach).\n" +
+        "  • 'phone' = donor calls the charity hotline. Use when the audience skews older / less digital.\n" +
+        "  • 'share' = donor shares the post to amplify reach. Use for 'awareness_petition' or 'manifesto' brand-identity moments.\n" +
+        "The caption + cta slide must MATCH this mechanism — if comment_keyword, the caption tells donors what keyword to comment."
+    ),
+  cta_keyword: z
+    .string()
+    .nullable()
+    .describe(
+      "Required ONLY when cta_mechanism = 'comment_keyword'. The single uppercase keyword donors comment to trigger a DM (e.g. 'PETITION', 'GAZA', 'SUDAN'). null for every other mechanism."
+    ),
   social_post: z.object({
     // One caption that works identically on Instagram, Facebook, and X.
     // X's 280-char ceiling is the binding constraint; IG and FB tolerate
@@ -315,9 +346,12 @@ export const LaunchPacketSchema = z.object({
     .array(
       z.object({
         layout: z
-          .enum(["hero", "fact", "response", "tiers", "testimony", "cta"])
+          .enum(["hero", "fact", "response", "tiers", "testimony", "chapter", "cta"])
           .describe(
-            "Slide template to render. Order rules: slide 1 MUST be 'hero', the LAST slide MUST be 'cta'. Middle slides may be any combination of 'fact', 'response', 'tiers', 'testimony' — repeat them when the story warrants (e.g. two 'fact' slides for two distinct evidence beats). At most one 'tiers' slide per packet."
+            "Slide template to render. Order rules: slide 1 MUST be 'hero', the LAST slide MUST be 'cta'. Middle slides per arc:\n" +
+              "  • Most arcs use 'fact', 'response', 'tiers', 'testimony' in the middle. Repeat 'fact' for multiple evidence beats. At most one 'tiers' slide.\n" +
+              "  • 'manifesto' arc uses 'chapter' slides — one chapter per slide, each with title (the claim, e.g. 'We believe in showing up.') + body (the proof, e.g. 'Every week since 2013, our Brighton team...'). 3–5 chapter slides between hero and cta.\n" +
+              "  • 'awareness_petition' arc OMITS the 'tiers' slide (no donation amounts) — uses 'fact' and 'testimony' middle slides instead."
           ),
         eyebrow: z
           .string()
@@ -480,12 +514,35 @@ and FB tolerate anything shorter. Hashtags go AFTER the caption.
     FAILS — so aim for ~240 chars to leave a safety margin.
   • Lead with the SITUATION — what's happening, where, who's affected.
   • UK English. Warm but factual. First-person plural ("our team").
-  • NO inline URL — Instagram suppresses link-in-caption posts. Always
-    "Link in bio to donate" (works for IG, reads natural on FB and X).
   • Close with 🤍 — once, at the end.
   • Hashtags: 4–6, no # prefix in your output, lowercase.
   • DON'T mention TikTok, Threads, or WhatsApp formats — those are
     dropped from the packet.
+
+CTA mechanism dictates the call-to-action wording (cta_mechanism field):
+  • 'link_in_bio' (default) → caption ends "Link in bio to donate" or
+    similar. Works on IG (where inline URLs are suppressed), reads
+    natural on FB + X.
+  • 'comment_keyword' → caption ends "Comment '{KEYWORD}' and we'll
+    DM you a link to {action}". Use for awareness/petition moments;
+    DON'T ask for a donation here, ask for engagement.
+  • 'phone' → caption ends "Call our team on {phone number}". For
+    older-skewing audiences or breaking-news moments.
+  • 'share' → caption ends "Share this post to {amplify/raise awareness}".
+    For manifesto + awareness moments.
+
+POSSESSIVE-OPENER RULE (a senior-SMM finding):
+The most engaging Muslim-charity posts open in SECOND-PERSON POSSESSIVE
+— "Your Qurbani in Niger…", "Your sacrifices are feeding families…",
+"Your gift reached Sylhet last week…". This implicates the donor as
+the agent, not the passive recipient of an ask. Avoid the passive
+"Help families in need" or the third-person "Deen Relief is delivering
+aid". Where the situation fits, lead with YOUR.
+
+Exception: for 'awareness_petition' arc the lead should be the
+INJUSTICE not the donor's contribution — e.g. "Sudan is starving and
+the world looks away." Possessive framing fits donor-action arcs;
+witness/petition arcs need a different opener.
 
 ──────────────────────────────────────────────────────────────────────
 CAROUSEL SLIDE RULES — 3–8 slides, dynamic count, fixed bookends
@@ -882,6 +939,38 @@ with multiple evidence beats, a testimony, OR historical context
 = 6–8. DON'T default to 5 because that's what every charity does.
 Justify your count in slide_count_rationale.
 
+ARC → VISUAL MODE (the renderer obeys this; pick arc accordingly):
+  • 'evidence' → typography-led editorial. Chunky Bowlby display.
+    Best for: facts that need impact, scoring high on factual gravity.
+  • 'hero_image' → magazine cover layout. Lora-italic title overlaid
+    on a full-bleed photo. Best for: when one image carries the post.
+  • 'quiet_dignity' → witness photojournalism. Photo dominant, small
+    Lora-italic captions. Best for: famine, displacement, the
+    'no urgency theatre' moments where bearing witness IS the
+    response. Islamic Relief's 'Sudan is in Crisis' is a model.
+  • 'testimony' → quote-led. Field-team or survivor voice with named
+    attribution. Lora-italic body in a quote frame.
+  • 'before_after' → comparison split. Two photos contrasting time.
+    Best for: recovery stories, rebuilding, year-on-year impact.
+  • 'awareness_petition' → activist. Heavy uppercase, no donation
+    tiers. CTA is comment-a-keyword or share. Best for: signal
+    moments where engagement IS the action (petitions, awareness
+    days, ceasefire calls). Islamic Relief's 'All Eyes on Sudan'
+    is the canonical reference.
+  • 'manifesto' → numbered chapters. 'We believe X. That means Y.'
+    pattern, one chapter per slide. Best for: brand-identity posts,
+    'introducing DR' moments, year-in-review. Charity:Water's
+    'HI, WE'RE CHARITY: WATER' is the canonical reference.
+
+CAPTION LENGTH MUST MATCH ARC:
+  • 'evidence', 'awareness_petition' → short + punchy (~120-180 chars).
+    The slides carry the depth; the caption is the human hook.
+  • 'hero_image', 'before_after' → medium (~180-240 chars). One vivid
+    detail + one line of context + the ask.
+  • 'quiet_dignity', 'testimony', 'manifesto' → longform (~200-280
+    chars). Substantive prose with specifics. Chapter structure
+    encouraged for manifesto.
+
 REGISTER VARIATION — THE FOUR SURFACES MUST READ DIFFERENTLY:
   • caption: the human voice that introduces (intimate / restrained
     / first-person plural — NEVER a summary of the slides)
@@ -1144,6 +1233,52 @@ If yes, return a concrete revision.
     this slide, would the donor be missing anything? If no, the
     slide is padding. Propose dropping it OR repurposing its
     content into a stronger neighbour.
+
+  ☐ POSSESSIVE OPENER MISSING — The strongest Muslim-charity posts
+    open in SECOND-PERSON POSSESSIVE ('Your Qurbani in Niger…',
+    'Your gift reached Sylhet last week…'). The drafter often
+    defaults to passive 'Help families' or third-person 'Deen
+    Relief is delivering aid'. If the caption opens passively AND
+    the arc is donor-action-focused (evidence / hero_image /
+    testimony / before_after), propose a YOUR-led rewrite. Skip
+    this check for awareness_petition and quiet_dignity — those
+    should lead with the injustice, not the donor.
+
+  ☐ CAPTION LENGTH WRONG FOR ARC — Each arc has a target caption
+    length (see brief). evidence + awareness_petition should be
+    punchy (~120–180 chars); quiet_dignity + testimony +
+    manifesto should be longform (~200–280 chars). If the drafter
+    wrote 80 chars for a manifesto post or 270 chars for an
+    evidence post, the rhythm is wrong. Propose a length-matched
+    rewrite.
+
+  ☐ GENERIC CLAIM WITHOUT SPECIFICS — Strong charities back every
+    claim with granular proof. 'We're transparent' → 'donations come
+    with GPS coordinates, photos and project updates'. 'We respond
+    quickly' → 'first meals on the ground within 48 hours'. If
+    any sentence in the email body or press_release makes a vague
+    claim without immediate specifics, propose tightening.
+
+  ☐ ARC ↔ LAYOUT MISMATCH — The strategy_brief.arc dictates the
+    visual mode. Check:
+      - arc='manifesto' but no 'chapter' slides → propose converting
+        middle slides to chapter format ('We believe X. That means Y.')
+      - arc='awareness_petition' but 'tiers' slide present → propose
+        removing the tiers slide; awareness posts don't ask for money
+      - arc='testimony' but no testimony slide → propose adding one
+      - arc='quiet_dignity' but hero is typography-only → propose
+        moving the strongest available photo to the hero slot
+
+  ☐ CTA MECHANISM ↔ CAPTION ENDING MISMATCH — The packet's
+    cta_mechanism must match the caption's closing line:
+      - 'link_in_bio' → caption ends 'Link in bio to donate' or
+        similar (NEVER 'Comment X')
+      - 'comment_keyword' → caption ends 'Comment {KEYWORD}…'
+        and cta_keyword field is set
+      - 'share' → caption ends 'Share this post to…'
+      - 'phone' → caption ends 'Call our team on…'
+    If the mechanism and the caption ending don't agree, fix the
+    caption.
 
 Return a revisions list ranked by impact (most important first).
 Empty list = ship-as-is (rare; only when the draft is genuinely
