@@ -226,7 +226,22 @@ export async function GET(
   );
 }
 
-/* ─── Composition ────────────────────────────────────────────────── */
+/* ─── Composition — two editorial layouts ──────────────────────────
+ *
+ * Photo case → MagazineCover: photo full-bleed background, dark
+ *   gradient panel on the bottom 38% with the eyebrow / title / URL
+ *   pill / charity tag. Reads like an Economist cover or a Choose
+ *   Love editorial card — the photo is the post, the type frames it.
+ *
+ * No-photo case → EditorialType: dark forest canvas with a real
+ *   editorial type stack — date pip, large headline, supporting
+ *   strapline, amber separator rule, URL pill, charity microcopy.
+ *   Reads like a newspaper front-page lede block rather than a
+ *   "DONATE NOW" billboard.
+ *
+ * Both share DR's palette + type stack so brand identity is intact;
+ * the composition + hierarchy do the heavy lifting.
+ */
 
 function Composition({
   title,
@@ -246,18 +261,67 @@ function Composition({
   ctaUrl: string;
   campaignLabel: string | null;
   mediaUrl: string | null;
-  /** Non-null when the photo came from an external (third-party)
-   *  source. Drives the small italic attribution strip on the photo
-   *  half — required by CC-BY licensing. */
   creditText: string | null;
-  /** Per-slide logo_variant for the source carousel slide whose
-   *  photo we're reusing. 'green' = green wordmark, 'white' = white.
-   *  Stage 2 picked it based on the actual photo content. */
   photoLogoVariant: "white" | "green";
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
-  const hasPhoto = mediaUrl != null;
+  if (mediaUrl) {
+    return (
+      <MagazineCover
+        title={title}
+        eyebrow={eyebrow}
+        body={body}
+        ctaUrl={ctaUrl}
+        campaignLabel={campaignLabel}
+        mediaUrl={mediaUrl}
+        creditText={creditText}
+        photoLogoVariant={photoLogoVariant}
+        logoOnLight={logoOnLight}
+        logoOnDark={logoOnDark}
+      />
+    );
+  }
+  return (
+    <EditorialType
+      title={title}
+      eyebrow={eyebrow}
+      body={body}
+      ctaUrl={ctaUrl}
+      campaignLabel={campaignLabel}
+      logoOnDark={logoOnDark}
+    />
+  );
+}
+
+/* ─── Layout A — Magazine cover (photo case) ───────────────────── */
+
+function MagazineCover({
+  title,
+  eyebrow,
+  body,
+  ctaUrl,
+  campaignLabel,
+  mediaUrl,
+  creditText,
+  photoLogoVariant,
+  logoOnLight,
+  logoOnDark,
+}: {
+  title: string;
+  eyebrow: string | null;
+  body: string | null;
+  ctaUrl: string;
+  campaignLabel: string | null;
+  mediaUrl: string;
+  creditText: string | null;
+  photoLogoVariant: "white" | "green";
+  logoOnLight: string | null;
+  logoOnDark: string | null;
+}) {
+  const PANEL_H = Math.round(HEIGHT * 0.38);
+  const PHOTO_H = HEIGHT - PANEL_H;
+  const photoLogo = photoLogoVariant === "green" ? logoOnLight : logoOnDark;
 
   return (
     <div
@@ -265,162 +329,249 @@ function Composition({
         width: WIDTH,
         height: HEIGHT,
         display: "flex",
-        flexDirection: "row",
+        flexDirection: "column",
         backgroundColor: DR.forest,
         fontFamily: "DM Sans",
         position: "relative",
       }}
     >
-      {hasPhoto ? (
-        <>
-          {/* ─── Left half — photo, no overlay ─── */}
-          <div
-            style={{
-              width: WIDTH / 2,
-              height: HEIGHT,
-              display: "flex",
-              position: "relative",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={mediaUrl}
-              alt=""
-              width={WIDTH / 2}
-              height={HEIGHT}
-              style={{
-                width: WIDTH / 2,
-                height: HEIGHT,
-                objectFit: "cover",
-              }}
-            />
-            {/* Logo on photo — variant chosen by Stage 2 based on
-                actual photo content (Stage 3 may have swapped it). */}
-            <BrandChip
-              logoDataUri={
-                photoLogoVariant === "green" ? logoOnLight : logoOnDark
-              }
-            />
+      {/* ─── Photo zone (top) ─── */}
+      <div
+        style={{
+          width: WIDTH,
+          height: PHOTO_H,
+          display: "flex",
+          position: "relative",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaUrl}
+          alt=""
+          width={WIDTH}
+          height={PHOTO_H}
+          style={{ width: WIDTH, height: PHOTO_H, objectFit: "cover" }}
+        />
 
-            {/* Attribution strip — only when the photo is third-party.
-                CC-BY/CC0/Public Domain licensing requires visible
-                credit on display. Slim translucent pill along the
-                bottom edge of the photo half. */}
-            {creditText && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 12,
-                  right: 14,
-                  display: "flex",
-                  backgroundColor: "rgba(22, 56, 39, 0.78)",
-                  paddingTop: 5,
-                  paddingBottom: 5,
-                  paddingLeft: 10,
-                  paddingRight: 10,
-                  borderRadius: 3,
-                  maxWidth: WIDTH / 2 - 40,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    fontFamily: "DM Sans",
-                    fontStyle: "italic",
-                    fontWeight: 400,
-                    fontSize: 12,
-                    color: DR.cream,
-                    opacity: 0.92,
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  {creditText}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Top-left: DR wordmark sitting directly on the photo. */}
+        <SocialLogo logoDataUri={photoLogo} />
 
-          {/* ─── Right half — text panel ─── */}
-          <TextPanel
-            title={title}
-            eyebrow={eyebrow}
-            body={body}
-            ctaUrl={ctaUrl}
-            campaignLabel={campaignLabel}
-            width={WIDTH / 2}
-          />
-        </>
-      ) : (
-        <>
-          {/* Typography-only — single full-canvas dark green panel.
-              White logo (logo-on-dark) directly on the green field,
-              no chip wrapper. */}
+        {/* Top-right: a thin date pip — newspaper micro-detail. The
+            eyebrow string is e.g. 'EMERGENCY APPEAL · 28 MAY 2026';
+            we surface just the date half in the pip for a tighter
+            edit and let the bottom panel carry the full eyebrow. */}
+        <DatePip eyebrow={eyebrow} />
+
+        {/* Photo credit pill — only when third-party, sits at the
+            bottom edge of the photo zone (just above the panel). */}
+        {creditText && (
           <div
             style={{
               position: "absolute",
-              top: 36,
-              left: 36,
+              bottom: 14,
+              right: 16,
               display: "flex",
+              backgroundColor: "rgba(22, 56, 39, 0.78)",
+              paddingTop: 5,
+              paddingBottom: 5,
+              paddingLeft: 10,
+              paddingRight: 10,
+              borderRadius: 3,
+              maxWidth: WIDTH - 60,
             }}
           >
-            <BrandChip logoDataUri={logoOnDark} />
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: 12,
+                color: DR.cream,
+                opacity: 0.94,
+                letterSpacing: 0.3,
+              }}
+            >
+              {creditText}
+            </div>
           </div>
-          <TextPanel
-            title={title}
-            eyebrow={eyebrow}
-            body={body}
-            ctaUrl={ctaUrl}
-            campaignLabel={campaignLabel}
-            width={WIDTH}
-            centered
-          />
-        </>
-      )}
+        )}
+      </div>
+
+      {/* ─── Editorial panel (bottom) ─── */}
+      <div
+        style={{
+          width: WIDTH,
+          height: PANEL_H,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "stretch",
+          backgroundColor: DR.forest,
+          paddingTop: 22,
+          paddingBottom: 22,
+          paddingLeft: 44,
+          paddingRight: 44,
+        }}
+      >
+        {/* Left column: eyebrow + title + body */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            justifyContent: "center",
+            paddingRight: 28,
+          }}
+        >
+          {eyebrow && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "Caveat",
+                fontWeight: 600,
+                fontSize: 30,
+                color: DR.amber,
+                fontStyle: "italic",
+                marginBottom: 4,
+              }}
+            >
+              {eyebrow.toLowerCase()}…
+            </div>
+          )}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: coverTitleSize(title.length),
+              color: DR.cream,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              lineHeight: 1.02,
+            }}
+          >
+            {title}
+          </div>
+          {body && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 400,
+                fontSize: 18,
+                color: DR.cream,
+                opacity: 0.78,
+                lineHeight: 1.4,
+                marginTop: 12,
+                maxWidth: 720,
+              }}
+            >
+              {body}
+            </div>
+          )}
+        </div>
+
+        {/* Right column: vertical divider + URL pill + charity tag */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "flex-end",
+            paddingLeft: 28,
+            borderLeft: `1px solid ${DR.amber}55`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 11,
+              color: DR.cream,
+              opacity: 0.55,
+              textTransform: "uppercase",
+              letterSpacing: 2.5,
+              marginBottom: 10,
+            }}
+          >
+            Donate · respond
+          </div>
+          <UrlPill url={ctaUrl} />
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 400,
+              fontSize: 12,
+              color: DR.cream,
+              opacity: 0.55,
+              letterSpacing: 1,
+              marginTop: 12,
+              textAlign: "right",
+            }}
+          >
+            {campaignLabel ? `${campaignLabel} · ` : ""}Charity No. 1158608
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ─── Text panel ─────────────────────────────────────────────────── */
+/* ─── Layout B — Editorial typography (no-photo case) ────────── */
 
-function TextPanel({
+function EditorialType({
   title,
   eyebrow,
   body,
   ctaUrl,
   campaignLabel,
-  width,
-  centered = false,
+  logoOnDark,
 }: {
   title: string;
   eyebrow: string | null;
   body: string | null;
   ctaUrl: string;
   campaignLabel: string | null;
-  width: number;
-  centered?: boolean;
+  logoOnDark: string | null;
 }) {
   return (
     <div
       style={{
-        width,
+        width: WIDTH,
         height: HEIGHT,
         display: "flex",
         flexDirection: "column",
         backgroundColor: DR.forest,
-        paddingTop: 56,
-        paddingBottom: 48,
-        paddingLeft: centered ? 80 : 56,
-        paddingRight: centered ? 80 : 56,
-        justifyContent: "space-between",
-        alignItems: centered ? "center" : "flex-start",
+        fontFamily: "DM Sans",
+        position: "relative",
+        padding: 56,
       }}
     >
+      {/* ─── Top strip: logo + date pip ─── */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          height: 70,
+        }}
+      >
+        <SocialLogo logoDataUri={logoOnDark} inline />
+        <DatePip eyebrow={eyebrow} inline />
+      </div>
+
+      {/* ─── Centre: large editorial headline + supporting strap ─── */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: centered ? "center" : "flex-start",
-          textAlign: centered ? "center" : "left",
+          flex: 1,
+          justifyContent: "center",
+          paddingTop: 18,
+          paddingBottom: 18,
         }}
       >
         {eyebrow && (
@@ -429,7 +580,7 @@ function TextPanel({
               display: "flex",
               fontFamily: "Caveat",
               fontWeight: 600,
-              fontSize: 36,
+              fontSize: 38,
               color: DR.amber,
               fontStyle: "italic",
               marginBottom: 10,
@@ -443,12 +594,12 @@ function TextPanel({
             display: "flex",
             fontFamily: "Bowlby One SC",
             fontWeight: 400,
-            fontSize: titleSize(title.length, centered),
+            fontSize: editorialTitleSize(title.length),
             color: DR.cream,
             textTransform: "uppercase",
             letterSpacing: 0.5,
             lineHeight: 1.0,
-            maxWidth: width - 80,
+            maxWidth: WIDTH - 200,
           }}
         >
           {title}
@@ -458,15 +609,13 @@ function TextPanel({
             style={{
               display: "flex",
               fontFamily: "DM Sans",
-              fontWeight: 700,
-              fontSize: 20,
+              fontWeight: 400,
+              fontSize: 22,
               color: DR.cream,
-              opacity: 0.85,
-              textTransform: "uppercase",
-              letterSpacing: 1,
-              lineHeight: 1.35,
-              marginTop: 18,
-              maxWidth: width - 80,
+              opacity: 0.78,
+              lineHeight: 1.45,
+              marginTop: 20,
+              maxWidth: WIDTH - 280,
             }}
           >
             {body}
@@ -474,86 +623,212 @@ function TextPanel({
         )}
       </div>
 
-      {/* Footer: URL + campaign label + charity number. */}
+      {/* ─── Bottom strip: amber rule + URL pill + charity microcopy ─── */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: centered ? "center" : "flex-start",
-          gap: 4,
+          marginTop: 4,
         }}
       >
         <div
           style={{
             display: "flex",
-            fontFamily: "Bowlby One SC",
-            fontWeight: 400,
-            fontSize: centered ? 44 : 32,
-            color: DR.amber,
-            letterSpacing: 0.5,
+            width: 64,
+            height: 3,
+            backgroundColor: DR.amber,
+            marginBottom: 16,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
           }}
         >
-          {ctaUrl.toUpperCase()}
-        </div>
-        {campaignLabel && (
           <div
             style={{
               display: "flex",
               fontFamily: "DM Sans",
-              fontWeight: 700,
-              fontSize: 14,
+              fontWeight: 400,
+              fontSize: 13,
               color: DR.cream,
-              opacity: 0.7,
-              textTransform: "uppercase",
-              letterSpacing: 1.5,
-              marginTop: 2,
+              opacity: 0.55,
+              letterSpacing: 1,
             }}
           >
-            {campaignLabel} · Charity No. 1158608
+            {campaignLabel ? `${campaignLabel} · ` : ""}Charity No. 1158608 · Brighton, UK
           </div>
-        )}
+          <UrlPill url={ctaUrl} />
+        </div>
       </div>
     </div>
   );
 }
 
-/** Title scales by length AND layout — centered (typography-only)
- *  fits more characters per line, split-panel less. */
-function titleSize(length: number, centered: boolean): number {
-  if (centered) {
-    if (length > 40) return 72;
-    if (length > 24) return 92;
-    return 110;
-  }
-  if (length > 40) return 44;
-  if (length > 24) return 56;
+/* ─── Shared display elements ──────────────────────────────────── */
+
+/** Amber pill that reads as a clickable button — much stronger CTA
+ *  than the raw amber wordmark we shipped before. Used by both
+ *  layouts so the URL treatment is consistent. */
+function UrlPill({ url }: { url: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        backgroundColor: DR.amber,
+        paddingTop: 14,
+        paddingBottom: 14,
+        paddingLeft: 26,
+        paddingRight: 26,
+        borderRadius: 999,
+      }}
+    >
+      <span
+        style={{
+          display: "flex",
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: 26,
+          color: DR.forest,
+          letterSpacing: 1,
+          textTransform: "uppercase",
+        }}
+      >
+        {url}
+      </span>
+    </div>
+  );
+}
+
+/** Newspaper-style date pip — horizontal rule + date + rule. Used as
+ *  a top-right accent on both layouts so the post reads as dated
+ *  reportage, not generic appeal. Extracts the date half of the
+ *  eyebrow string (after the last '·' separator). */
+function DatePip({
+  eyebrow,
+  inline = false,
+}: {
+  eyebrow: string | null;
+  inline?: boolean;
+}) {
+  if (!eyebrow) return null;
+  const parts = eyebrow.split("·").map((s) => s.trim());
+  const date = parts.length > 1 ? parts[parts.length - 1]! : eyebrow;
+  const positionStyle = inline
+    ? { display: "flex" as const }
+    : {
+        position: "absolute" as const,
+        top: 28,
+        right: 32,
+        display: "flex" as const,
+      };
+  return (
+    <div
+      style={{
+        ...positionStyle,
+        alignItems: "center",
+        backgroundColor: "rgba(22, 56, 39, 0.82)",
+        paddingTop: 6,
+        paddingBottom: 6,
+        paddingLeft: 12,
+        paddingRight: 12,
+        borderRadius: 2,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          width: 14,
+          height: 1,
+          backgroundColor: DR.amber,
+          marginRight: 10,
+        }}
+      />
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "DM Sans",
+          fontWeight: 700,
+          fontSize: 12,
+          color: DR.cream,
+          textTransform: "uppercase",
+          letterSpacing: 2.5,
+        }}
+      >
+        {date}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          width: 14,
+          height: 1,
+          backgroundColor: DR.amber,
+          marginLeft: 10,
+        }}
+      />
+    </div>
+  );
+}
+
+/** Title size for the cover panel — runs at smaller scale than the
+ *  editorial layout because it shares vertical space with the photo. */
+function coverTitleSize(length: number): number {
+  if (length > 50) return 38;
+  if (length > 30) return 48;
+  if (length > 18) return 58;
   return 72;
 }
 
-/* ─── Brand chip (compact variant) ──────────────────────────────── */
+/** Title size for the editorial-typography layout — has the full
+ *  canvas to itself so it runs larger. */
+function editorialTitleSize(length: number): number {
+  if (length > 50) return 64;
+  if (length > 30) return 86;
+  if (length > 18) return 104;
+  return 124;
+}
 
-function BrandChip({ logoDataUri }: { logoDataUri: string | null }) {
-  // Logo directly on background, no chip wrapper.
-  // Satori-critical: width AND height both explicit (auto = invisible).
+/* ─── DR wordmark ──────────────────────────────────────────────── */
+
+/**
+ * Top-left brand wordmark. Two positioning modes:
+ *   - default (absolute): used on the magazine-cover photo zone, sits
+ *     over the image. Tighter sizing than the carousel slides because
+ *     the social image is 1200x675 not 1080x1080.
+ *   - inline: used in the editorial-type top strip alongside the
+ *     date pip, sits in flex flow.
+ */
+function SocialLogo({
+  logoDataUri,
+  inline = false,
+}: {
+  logoDataUri: string | null;
+  inline?: boolean;
+}) {
+  const wrapperStyle = inline
+    ? ({ display: "flex" } as const)
+    : ({
+        position: "absolute" as const,
+        top: 24,
+        left: 28,
+        display: "flex" as const,
+      } as const);
   if (logoDataUri) {
     return (
-      <div
-        style={{
-          position: "absolute",
-          top: 36,
-          left: 36,
-          display: "flex",
-        }}
-      >
+      <div style={wrapperStyle}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={logoDataUri}
           alt="Deen Relief"
-          width={300}
-          height={100}
+          width={220}
+          height={70}
           style={{
-            width: 300,
-            height: 100,
+            width: 220,
+            height: 70,
             objectFit: "contain",
             objectPosition: "left center",
           }}
@@ -561,13 +836,12 @@ function BrandChip({ logoDataUri }: { logoDataUri: string | null }) {
       </div>
     );
   }
+  // SVG fallback when no uploaded logo — same positioning mode as
+  // the uploaded-logo branch so the layout is stable.
   return (
     <div
       style={{
-        position: "absolute",
-        top: 32,
-        left: 32,
-        display: "flex",
+        ...wrapperStyle,
         flexDirection: "column",
         backgroundColor: DR.cream,
         paddingTop: 10,

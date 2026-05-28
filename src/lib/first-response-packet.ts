@@ -851,20 +851,48 @@ function buildStage1Prompt(
   candidateMedia: MediaItem[],
   externalImagery: ExternalImagery[]
 ): string {
+  const hasPhotos = candidateMedia.length > 0 || externalImagery.length > 0;
+  const photoNote = hasPhotos
+    ? `IMPORTANT — you have ${candidateMedia.length} DR-library + ${externalImagery.length} external-imagery candidates available. Your brief MUST address where the strongest photo goes. The HERO slide is where donors form their first impression — typography-only heroes are a fallback for when no fitting photo exists, NOT a default. If a fitting human/ground-level photo exists in DR's library, the hero takes it. If only satellite/aerial imagery exists (cold, abstract), consider whether it belongs on the hero or on a 'fact' slide.`
+    : "No photos available — the carousel will be typography-only.";
+
   return `${buildEventBrief(input, candidateMedia, externalImagery)}
 
 ── STAGE 1: STRATEGY BRIEF ──
 
 Do NOT write the packet yet. Write only the strategic brief: what's
 the human angle, what narrative arc fits, how many slides, what
-emotional register each surface (caption / slides / email / press)
-must carry. Treat this like a senior SMM's notebook BEFORE drafting.
+emotional register each surface must carry. Treat this like a senior
+SMM's notebook BEFORE drafting.
 
 The brief drives every subsequent decision — be specific. Vague briefs
-('warm and urgent') will produce templated packets. Concrete briefs
-('the caption is restrained and first-person, like a colleague telling
-a friend; the slides are factual and pace toward the appeal') produce
-the kind of work a 15-year SMM would ship.`;
+('warm and urgent') produce templated packets. Concrete briefs ('the
+caption is restrained and first-person, like a colleague telling a
+friend; the slides pace from one hard fact to a quiet testimony to
+the appeal; the email opens with a sensory detail') produce the kind
+of work a 15-year SMM would ship.
+
+PHOTO PLACEMENT (NON-NEGOTIABLE):
+${photoNote}
+
+SLIDE COUNT — THINK BEFORE PICKING:
+A simple story (one hard fact + ask) = 3 slides. The standard arc
+(hero → evidence → response → tiers → cta) = 5. A layered story
+with multiple evidence beats, a testimony, OR historical context
+= 6–8. DON'T default to 5 because that's what every charity does.
+Justify your count in slide_count_rationale.
+
+REGISTER VARIATION — THE FOUR SURFACES MUST READ DIFFERENTLY:
+  • caption: the human voice that introduces (intimate / restrained
+    / first-person plural — NEVER a summary of the slides)
+  • slides: the visual spine (factual, paced, building tension)
+  • email: the longform bridge (second-person, expansive, opens
+    with a sensory detail, narrows to the ask)
+  • press: institutional (third-person, on-record, journalistic
+    register that could run in The Guardian unchanged)
+
+If any two of those register strings sound interchangeable, rewrite
+them. Different surfaces, different jobs.`;
 }
 
 async function runStage1Strategy(
@@ -1049,39 +1077,79 @@ async function runStage3Critique(
   const content: Array<Anthropic.Messages.TextBlockParam | Anthropic.Messages.ImageBlockParam> = [
     {
       type: "text",
-      text: `You are the creative director at Deen Relief, reviewing a draft
-launch packet before publish. The drafter (a copywriter on your team)
-worked from a strategy brief; you're checking craft + brand fit +
-whether what was promised in the brief is what was delivered.
+      text: `You are the creative director at Deen Relief — 15 years agency,
+5 years client-side at a UK Muslim charity. You are reviewing a
+draft launch packet by a junior copywriter on your team before it
+ships. They have talent; they don't yet have judgement. Your job
+is to catch what they missed.
 
 You have:
-  • The strategy brief
-  • The full draft packet
-  • Vision thumbnails of every photo the drafter picked
+  • The strategy brief they were working from
+  • Their full draft packet
+  • Vision thumbnails of every photo they picked
 
-Be ruthless but specific. The drafter has 5 years; you have 15. You
-catch what they miss. Common patterns to watch for:
+WALK THROUGH THIS CHECKLIST. Each item below is a specific failure
+mode you've seen this writer (and every junior on your team) commit.
+For each item, look at the draft and ask: is this happening here?
+If yes, return a concrete revision.
 
-  1. SLIDE / CAPTION REPETITION — the caption should INTRODUCE the
-     slides, not summarise them. If the first sentence of the caption
-     could be a slide title, that's lazy.
-  2. LOGO CONTRAST — green wordmark disappears into green-foliage or
-     pale-vegetation photos. White wordmark disappears against pale
-     sky / sun-washed scenes. Look at each photo and check.
-  3. IMAGE FIT — the photo on a slide should embody the slide's
-     beat. Satellite imagery on a hero slide is cold/abstract — fine
-     for a 'fact' slide, weak for an emotional opening. Ground-level
-     human imagery belongs on the hero.
-  4. TONAL MONOTONY — if every slide reads in the same register
-     (all factual, or all emotional), the carousel flatlines.
-  5. SLIDE PADDING — does every slide earn its place, or did the
-     drafter pad to hit a count?
-  6. REGISTER DRIFT — the brief specified caption / slides / email /
-     press_release registers. Did the drafter respect them?
+  ☐ HERO PHOTO BAR — If a fitting photo exists in the candidate
+    pool but the hero slide is typography-only, that's a miss.
+    Donors form their first impression on the hero. Move the
+    strongest photo there unless the photo is genuinely wrong for
+    the hero beat (e.g. only candidates are satellite / abstract).
 
-Return a revisions list. Empty list = ship-as-is (rare; only when
-the draft is genuinely tight). Otherwise: each revision targets ONE
-field with a specific replacement value and a one-sentence reason.
+  ☐ RHYTHMIC MONOTONY — Read the slide titles aloud in order. If
+    three or more in a row are subject-verb-object declaratives in
+    the same staccato cadence, the carousel reads metronomic. Vary
+    one: turn it into a question, a fragment, a quote, a command.
+
+  ☐ GENERIC CHARITY-SPEAK IN TIERS — Tier descriptions like 'a week
+    of food for a family' are interchangeable with every other
+    charity. Push for sensory specifics — '14 days of rice, dahl
+    and cooking oil for six people' / 'a tarp shelter and bedding
+    until the monsoon ends'. Same money, different mental picture.
+
+  ☐ CAPTION REPEATS SLIDES — If the first sentence of the caption
+    could be a slide title (or vice versa), the surfaces have
+    collapsed into one voice. Rewrite the caption to INTRODUCE the
+    slides with a human-voice hook, not summarise them.
+
+  ☐ LOGO-PHOTO CONTRAST — Look at each photo + the chosen
+    logo_variant. Green wordmark on green-foliage = disappears.
+    Green wordmark on a mid-tone-green sky = poor contrast. White
+    wordmark on pale / sun-washed / sky-heavy photo = disappears.
+    Swap the variant where contrast is weak.
+
+  ☐ REGISTER DRIFT — The brief specified register_per_surface.
+    Does the caption sound restrained / first-person if the brief
+    said so? Does the email read longform / second-person? Does
+    the press release read like it could run in The Guardian
+    unchanged? Flag any surface whose voice has drifted toward
+    the others.
+
+  ☐ EYEBROW CLICHÉ — DR's recurring eyebrows are 'EMERGENCY APPEAL',
+    'THE FACTS', 'OUR RESPONSE', 'HOW YOUR GIFT HELPS'. They're fine
+    but tired. A more specific eyebrow ('FROM SINDH, THIS MORNING')
+    elevates the slide. Push for at least one specific eyebrow per
+    packet.
+
+  ☐ NO TESTIMONY WHEN ONE WOULD LAND — If the story has a real
+    on-the-ground voice (DR's field team, a local partner, a
+    survivor with named consent), and the carousel is all third-
+    person reportage, propose adding a testimony slide. A quote
+    elevates above abstraction.
+
+  ☐ PADDED SLIDE — Walk each middle slide and ask: if I removed
+    this slide, would the donor be missing anything? If no, the
+    slide is padding. Propose dropping it OR repurposing its
+    content into a stronger neighbour.
+
+Return a revisions list ranked by impact (most important first).
+Empty list = ship-as-is (rare; only when the draft is genuinely
+tight on every checklist item). Otherwise: each revision targets
+ONE field with a specific replacement value and a one-sentence
+reason naming the checklist item.
 
 ── STRATEGY BRIEF ──
 ${JSON.stringify(draft.strategy_brief, null, 2)}
