@@ -84,63 +84,84 @@ export const LaunchPacketSchema = z.object({
     .describe(
       "1–2 sentences mapping Deen Relief's existing field-team presence to this event. If DR has no field team in the affected region, say so plainly — the SMM can decide whether to launch."
     ),
-  social_posts: z.object({
-    instagram: z.object({
-      caption: z
-        .string()
-        .describe(
-          "Instagram feed caption. 60–120 words. Deen Relief voice: warm, conversational UK English, first-person plural ('our team', 'we'). NO inline URL (Instagram suppresses link-in-caption posts) — end with 'Visit our website (link in bio) to donate' or similar. End with the 🤍 emoji as the closing flourish."
-        ),
-      hashtags: z
-        .array(z.string())
-        .min(4)
-        .max(6)
-        .describe(
-          "4–6 hashtags. Mix of campaign-specific (e.g. #qurbani #qurbani2026), sector (#charity #muslimcharity), and location (#brighton). Each without the # prefix — we'll add it on render."
-        ),
-    }),
-    tiktok: z.object({
-      voiceover_script: z
-        .string()
-        .describe(
-          "30-second voiceover script for a vertical Reel/TikTok. Conversational, urgent but dignified. Mentions the deenrelief.org URL spoken aloud (NOT 'link in bio')."
-        ),
-      on_screen_text: z
-        .array(z.string())
-        .min(2)
-        .max(4)
-        .describe(
-          "2–4 short on-screen text overlays that punctuate the video. Bold, declarative. Max ~8 words each."
-        ),
-      caption: z
-        .string()
-        .describe(
-          "Short TikTok caption — 50 words max. More direct than Instagram. UK English."
-        ),
-      hashtags: z
-        .array(z.string())
-        .min(4)
-        .max(6)
-        .describe("4–6 hashtags without # prefix"),
-    }),
-    x: z
+  social_post: z.object({
+    // One caption that works identically on Instagram, Facebook, and X.
+    // X's 270-char ceiling is the binding constraint; IG and FB tolerate
+    // anything shorter so a single text fits all three. No inline URL —
+    // ends with "Link in bio to donate" so it's IG-safe.
+    caption: z
       .string()
       .max(270)
       .describe(
-        "Tweet/X post — strictly under 270 characters to leave room for a quoted URL. UK English. Can include the deenrelief.org URL directly (X doesn't penalise external links the way Instagram does)."
+        "ONE caption used identically across Instagram, Facebook, and X. STRICTLY ≤270 characters (X's hard limit). Warm Deen Relief voice in UK English. NO inline URL (Instagram suppresses links). End with 'Link in bio to donate 🤍' or close variant. Lead with the situation, name the geography, mention the matched campaign loosely (e.g. 'our partners are deploying support'). The 🤍 sign-off is the closing flourish."
       ),
-    threads: z
-      .string()
-      .max(500)
+    hashtags: z
+      .array(z.string())
+      .min(4)
+      .max(6)
       .describe(
-        "Threads post — longer than X but shorter than IG. Conversational. Can include URL."
-      ),
-    whatsapp_channel: z
-      .string()
-      .describe(
-        "WhatsApp Channel broadcast. Less polished, more direct ('Salaam — Bangladesh floods…'). Can include the deenrelief.org link directly (WhatsApp Channels don't suppress links). 80 words max. Ends with 🤍."
+        "4–6 hashtags appended below the caption. Mix campaign-specific (e.g. emergency-response, palestine), sector (charity, muslimcharity), and location (uk, brighton). NO # prefix — we add it on render."
       ),
   }),
+  // ─── Visual carousel — 5 slides, 1080×1080 each ──────────────────
+  // The packet renderer generates these as actual PNG images via Satori
+  // (Open Graph image generation). SMM uploads to IG/FB carousel with no
+  // editing — pure typography, brand-styled, cream + charcoal palette.
+  carousel_slides: z
+    .array(
+      z.object({
+        layout: z
+          .enum(["hero", "fact", "response", "tiers", "cta"])
+          .describe(
+            "Slide template to render. EXACT order required: slide 1 = 'hero', slide 2 = 'fact', slide 3 = 'response', slide 4 = 'tiers', slide 5 = 'cta'."
+          ),
+        eyebrow: z
+          .string()
+          .max(40)
+          .nullable()
+          .describe(
+            "Small uppercase tag at the top of the slide. e.g. 'EMERGENCY APPEAL · 28 MAY 2026' for hero, 'THE FACTS' for fact, 'OUR RESPONSE' for response, 'HOW YOUR GIFT HELPS' for tiers, null for cta."
+          ),
+        title: z
+          .string()
+          .describe(
+            "Main typographic line — large serif, 1–2 lines on screen. For hero: a 4–8 word headline drawn from the page headline. For fact: a single hard fact stated as one short line (e.g. 'M5.1 earthquake — West Timor'). For response: DR's action stated plainly. For tiers: 'How your gift helps' or similar. For cta: 'Donate now'."
+          ),
+        body: z
+          .string()
+          .nullable()
+          .describe(
+            "Supporting line beneath the title. 1 short sentence (≤120 chars), or null when the slide is title-only. For tiers slide use null here — the tier lines live in tier_lines."
+          ),
+        tier_lines: z
+          .array(
+            z.object({
+              amount_gbp: z.number().int().describe("Amount in pounds"),
+              short_description: z
+                .string()
+                .max(80)
+                .describe(
+                  "One short line — e.g. 'A week of emergency food for a family'. Stays on ONE display line at slide scale."
+                ),
+            })
+          )
+          .nullable()
+          .describe(
+            "Only used by the 'tiers' slide — exactly 3 ascending tiers (a tight subset of the 4 donation_tiers). null for every other slide."
+          ),
+        source_attribution: z
+          .string()
+          .max(60)
+          .nullable()
+          .describe(
+            "Small italic source line at the bottom — used by the 'fact' slide (e.g. 'Source: USGS'). null elsewhere."
+          ),
+      })
+    )
+    .length(5)
+    .describe(
+      "Exactly 5 slides in fixed order: hero, fact, response, tiers, cta. The renderer pairs each with its template — DO NOT reorder or omit slides."
+    ),
   email: z.object({
     subject_lines: z
       .array(z.string())
@@ -231,33 +252,84 @@ DON'T
   • DON'T overuse Islamic phrases. One 🤍 at the end of a post is plenty.
 
 ──────────────────────────────────────────────────────────────────────
-PLATFORM RULES
+SOCIAL POST RULES — single post for Instagram + Facebook + X
 ──────────────────────────────────────────────────────────────────────
 
-INSTAGRAM
-  • 60–120 words.
-  • CTA: "Visit our website (link in bio) to donate" — never an inline URL.
-  • End with 🤍.
-  • 4–6 hashtags AFTER the caption text. Mix campaign + sector + location.
+You write ONE caption (the social_post.caption field) used identically
+on all three platforms. The constraint is X's 270-char limit; IG and
+FB tolerate anything shorter. Hashtags go AFTER the caption.
 
-TIKTOK
-  • Voiceover script: spoken aloud — 30 seconds = ~75–80 words.
-  • On-screen text: declarative, ALL CAPS or sentence-case, NEVER more than 8 words per overlay.
-  • CTA: spoken aloud — "go to deenrelief dot org" — listeners can't tap "link in bio".
-  • Caption is shorter than IG, more direct.
+  • STRICTLY ≤270 characters in the caption itself (the renderer will
+    reject longer text — X's hard ceiling). Be ruthless.
+  • Lead with the SITUATION — what's happening, where, who's affected.
+  • UK English. Warm but factual. First-person plural ("our team").
+  • NO inline URL — Instagram suppresses link-in-caption posts. Always
+    "Link in bio to donate" (works for IG, reads natural on FB and X).
+  • Close with 🤍 — once, at the end.
+  • Hashtags: 4–6, no # prefix in your output, lowercase.
+  • DON'T mention TikTok, Threads, or WhatsApp formats — those are
+    dropped from the packet.
 
-X (TWITTER)
-  • Under 270 characters (leaves room for URL).
-  • Direct URL is fine — X doesn't penalise links the way Instagram does.
+──────────────────────────────────────────────────────────────────────
+CAROUSEL SLIDE RULES — 5 slides, fixed order
+──────────────────────────────────────────────────────────────────────
 
-THREADS
-  • Slightly longer than X, more conversational. Up to ~500 chars.
+The carousel renders as 5 typography-driven 1080×1080 PNG images, posted
+as an Instagram/Facebook carousel. Each slide has a layout, eyebrow,
+title, optional body, and (depending on layout) tier_lines or
+source_attribution.
 
-WHATSAPP CHANNEL
-  • Most informal. Opens with "Salaam — " or similar.
-  • Direct URL is fine (WhatsApp Channels don't suppress links).
-  • Up to 80 words. End with 🤍.
+  SLIDE 1 — layout: "hero"
+    • eyebrow: "EMERGENCY APPEAL · {DD MMM YYYY}" (uppercase, with the
+      detected date in long-form). If "EMERGENCY APPEAL" doesn't fit
+      the event tone, use a kinder label like "URGENT NEED".
+    • title: 4–8 word headline (echoes the page headline but tighter)
+    • body: ONE short sentence (≤100 chars) naming geography + stake.
+    • tier_lines, source_attribution: null
 
+  SLIDE 2 — layout: "fact"
+    • eyebrow: "THE FACTS"
+    • title: One hard verifiable fact stated tightly. e.g.
+      "M5.1 earthquake — West Timor" or "2,000+ families displaced".
+      Drawn from verified_facts. No invented numbers.
+    • body: One supporting context sentence (≤120 chars).
+    • source_attribution: "Source: USGS" / "Source: ReliefWeb" / etc.
+      Match the actual signal source.
+    • tier_lines: null
+
+  SLIDE 3 — layout: "response"
+    • eyebrow: "OUR RESPONSE"
+    • title: One short sentence on what DR is doing. e.g.
+      "Our Sylhet team is delivering emergency food and shelter."
+      If DR has NO field presence in this region, say so plainly:
+      "We are coordinating with local partners on the ground."
+    • body: One short sentence on the immediate next step or scale.
+    • tier_lines, source_attribution: null
+
+  SLIDE 4 — layout: "tiers"
+    • eyebrow: "HOW YOUR GIFT HELPS"
+    • title: "Every gift counts" (or similar 3-word reassurance)
+    • body: null
+    • tier_lines: EXACTLY 3 tiers ascending — typically £25 / £50 / £100
+      (a subset of the 4 donation_tiers). short_description ≤80 chars,
+      readable on ONE display line.
+    • source_attribution: null
+
+  SLIDE 5 — layout: "cta"
+    • eyebrow: null
+    • title: "Donate now" (or close variant)
+    • body: "Link in bio · deenrelief.org" (the URL is visible here for
+      Facebook/X; Instagram users tap the bio link)
+    • tier_lines, source_attribution: null
+
+Writing rules for slide text:
+  • Single-line titles where possible — they wrap at slide scale.
+  • No emojis on slides (renderer doesn't render colour emoji reliably).
+  • The 🤍 lives in the caption text, NOT on slides.
+  • Each slide stands alone — a donor seeing only slide 4 should still
+    understand what to do.
+
+──────────────────────────────────────────────────────────────────────
 EMAIL
   • Subject line: under 60 chars. Make 3 options for A/B testing.
        - One urgency-led ("Bangladesh floods — your help needed")
