@@ -131,10 +131,10 @@ export const DESIGN_REFERENCES: DesignReference[] = [
   },
   {
     id: "muslim-hands-qurbani",
-    source: "@muslimhandsuk · 'YOUR QURBANI in NIGER' portrait post",
+    source: "@muslimhandsuk · 'YOUR QURBANI in YEMEN' portrait post",
     metric: "Donor-action signature post — proof of delivery, restrained copy",
     conceit:
-      "Ground-level portrait of an elderly Niger man, white skullcap, blue shirt, gentle smile. Holding a Muslim Hands branded plastic bag (visible logo — proof of delivery). Terracotta wall background (cultural specificity). Display type 'YOUR QURBANI in NIGER' in all-caps condensed sans, white, top-third positioned, doesn't block face. Hierarchy: YOUR small, QURBANI huge, IN NIGER medium. Caption is TWO sentences. The image carries the post.",
+      "Ground-level portrait of two young Yemeni girls in leopard-print abayas, holding a Muslim Hands branded canvas bag (visible logo — proof of delivery). Display type 'YOUR QURBANI in YEMEN' in chunky white display caps, top-left positioned, with shadow drop. Hierarchy: YOUR small, QURBANI huge, IN YEMEN medium. Caption is exactly two sentences ('Your generosity helped spread the joy... May Allah accept your Qurbani and reward you immensely, amin'). The image carries the post.",
     steal: [
       "'YOUR' possessive opener — implicates the donor as agent ('YOUR sacrifices', 'YOUR Qurbani'). Much stronger than 'Help families'.",
       "Type positioned to RESPECT the subject's face — leave space.",
@@ -146,10 +146,10 @@ export const DESIGN_REFERENCES: DesignReference[] = [
   },
   {
     id: "unicef-restraint",
-    source: "@unicef · displacement / child-portrait series",
-    metric: "Institutional benchmark — restraint without losing emotional weight",
+    source: "@unicef · 'From Great Grandmother to Great Granddaughter' Darfur post",
+    metric: "1,400 likes — institutional benchmark for generational-impact framing",
     conceit:
-      "Photo-led posts where a SINGLE subject (child portrait, family in tent, pair of hands) is centred. Eyebrow tag with date + location. One short sentence of context as overlay. NO chunky headline. NO price ladder. The photo IS the post and the caption carries one verifiable fact + the call to act.",
+      "Multi-generational family portrait in Darfur, Sudan — grandmother, mother, and children seated together on a colourful traditional rug, makeshift textile backdrop. UNICEF photo credit small bottom-left. Below the photo, a cream panel with cyan headline 'FROM GREAT GRANDMOTHER TO GREAT GRANDDAUGHTER' + black body 'The stories of four generations of a family that has been impacted by war in Darfur, Sudan' + UNICEF for every child logo. Caption opens 'Twenty years ago, a great grandmother witnessed violence and displacement in Darfur, Sudan. Today, her great granddaughter is seeing the same.' The two-line then/now framing IS the emotional architecture.",
     steal: [
       "ONE subject per frame. Tight crop. The viewer's eye has somewhere to rest.",
       "Eyebrow tag (date + location) at the top — anchors the photo in time and place.",
@@ -223,34 +223,42 @@ export async function buildReferenceVisionBlocks(
   return blocks;
 }
 
-/** Try to load /public/social-references/<id>.png as a base64
- *  image block. Returns null if the file doesn't exist or can't be
- *  read — non-fatal so the reference text still flows through. */
+/** Try to load /public/social-references/<id>.{png|jpg|jpeg|webp}
+ *  as a base64 image block. Returns null if no matching file exists
+ *  — non-fatal so the reference text still flows through. */
 async function tryLoadReferencePng(
   id: string
 ): Promise<Anthropic.Messages.ImageBlockParam | null> {
   // Resolve via cwd() — works in Next.js server context (route
   // handlers run with cwd set to the project root in both dev and
   // production builds).
-  const pngPath = path.join(
-    process.cwd(),
-    "public",
-    "social-references",
-    `${id}.png`
-  );
-  try {
-    const buf = await fs.readFile(pngPath);
-    const base64 = buf.toString("base64");
-    return {
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: "image/png",
-        data: base64,
-      },
-    };
-  } catch {
-    // PNG not present — that's fine, ship the text brief alone.
-    return null;
+  const dir = path.join(process.cwd(), "public", "social-references");
+
+  // Anthropic's image block accepts image/jpeg, image/png, image/gif,
+  // and image/webp. We try the common extensions in priority order;
+  // first hit wins. PNG is preferred for the brand assets but JPG is
+  // what Instagram serves, so most captured references will be JPG.
+  const variants: Array<{ ext: string; mime: Anthropic.Messages.Base64ImageSource["media_type"] }> = [
+    { ext: "png", mime: "image/png" },
+    { ext: "jpg", mime: "image/jpeg" },
+    { ext: "jpeg", mime: "image/jpeg" },
+    { ext: "webp", mime: "image/webp" },
+  ];
+
+  for (const { ext, mime } of variants) {
+    try {
+      const buf = await fs.readFile(path.join(dir, `${id}.${ext}`));
+      return {
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: mime,
+          data: buf.toString("base64"),
+        },
+      };
+    } catch {
+      // Try next extension.
+    }
   }
+  return null;
 }
