@@ -305,6 +305,15 @@ export const LaunchPacketSchema = z.object({
     .describe(
       "1–2 sentences mapping Deen Relief's existing field-team presence to this event. If DR has no field team in the affected region, say so plainly — the SMM can decide whether to launch."
     ),
+  cta_kind: z
+    .enum(["donate", "witness", "engage"])
+    .default("donate")
+    .describe(
+      "Phase 4y — drives the CTA SLIDE rendering and the overall ask register. Sourced from the MSF-327K-likes 'Remember Us' research finding: witness posts that suppress the URL pill earn more engagement than poster-style donation asks.\n" +
+        "  • 'donate' (default for evidence / hero_image / before_after arcs) → CTA slide renders the amber URL pill, caption ends in 'Link in bio to donate'.\n" +
+        "  • 'witness' (default for quiet_dignity / testimony arcs) → CTA slide DROPS the URL pill and renders a hashtag pair instead ('#ceasefirenow · #muststopnow'). Caption ends with the same hashtag-CTA. Use when the moment is reverent and a donation pitch would cheapen it.\n" +
+        "  • 'engage' (default for awareness_petition arc) → CTA slide shows the comment-keyword prompt. Caption ends 'Comment {KEYWORD}…'."
+    ),
   cta_mechanism: z
     .enum(["link_in_bio", "comment_keyword", "phone", "share"])
     .describe(
@@ -561,6 +570,56 @@ CTA mechanism dictates the call-to-action wording (cta_mechanism field):
     older-skewing audiences or breaking-news moments.
   • 'share' → caption ends "Share this post to {amplify/raise awareness}".
     For manifesto + awareness moments.
+
+CAPTION OPENER PRIORITY (Phase 4y research finding — anchored by
+MSF's "Remember Us" Gaza post which earned 327K likes opening with
+a pulled quote):
+
+In priority order, OPEN the caption with the highest available:
+  1. QUOTE IN QUOTATION MARKS — when the raw_payload contains an
+     attributed quote (a hospital whiteboard, a survivor statement,
+     a field-team note, a partner spokesperson), open with the
+     quote verbatim in quotation marks. Attribute in the next
+     sentence. This is the single highest-engagement opener.
+     Example: '"We did what we could. Remember us." — These words
+     were written by Dr. Mahmoud Abu Nujaila on October 20th...'
+  2. NAMED VOICE ATTRIBUTION — when a named staff member, partner,
+     or beneficiary is in the source data, open with their voice:
+     'Our MSF colleague Renan sent us a message and told us what
+     happened the night of May 26, 2026...'.
+  3. SPECIFIC DATED EVENT — 'On 18 May 2026, OCHA reported...'
+  4. HARD NUMBER LEAD — '1.7 million people are now sheltering...'
+  5. PROVOCATION — 'Sudan. The world's largest humanitarian crisis,
+     actively ignored by the world.' (Islamic Relief 9K likes).
+
+DR's previous captions used pattern 4 (numbers) which is mid-tier.
+Try patterns 1 or 2 first when source supports them.
+
+CAPTION STRUCTURE (5-beat pattern from high-engagement posts):
+  Beat 1 — opener (see priority above)
+  Beat 2 — one sentence context (who / when / where)
+  Beat 3 — the harm / the news
+  Beat 4 — expansion (name others affected, scale, additional context)
+  Beat 5 — echo the opener fragment + hashtag-CTA
+
+HASHTAG INTENTIONALITY (Phase 4y research finding):
+  • Use 2–4 hashtags max on serious emergency posts. Not 5–6.
+  • LEAD with movement / political hashtags when relevant:
+      ✓ #ceasefirenow #freepalestine #allEyesOnSudan #muststopnow
+      ✓ #GazaUnderAttack #BringThemHome
+  • Use AT MOST ONE generic charity hashtag, and only when truly
+    relevant:
+      ✗ #muslimcharity #ukcharity #emergencyrelief #charity
+        — these signal CHARITY MARKETING and the audience scrolls.
+  • DOUBLE-USE at least one hashtag as a word in the prose:
+      'He was killed... in #Gaza' — counts twice.
+
+NO URL CTA ON WITNESS POSTS:
+For 'quiet_dignity' and 'testimony' arcs, set cta_kind='witness'.
+The CTA slide will render a hashtag pair instead of the URL pill.
+The caption ends with the hashtag-CTA pair, NOT 'Link in bio to
+donate'. Reverent posts that ask for engagement (not money) earn
+much higher reach because the audience doesn't feel sold to.
 
 POSSESSIVE-OPENER RULE (a senior-SMM finding):
 The most engaging Muslim-charity posts open in SECOND-PERSON POSSESSIVE
@@ -1218,12 +1277,20 @@ DR's own library photos take priority over external imagery when both could work
 
 TARGET: at least 3–4 slides with photos in a 6–8-slide packet. 'Two photos in a 5-slide packet' is the old templated low-water mark; we're moving past it.
 
-NO IMAGE REUSE:
-Each photo (each media_id) may appear on AT MOST ONE slide in the
-carousel. A 7-slide packet with the same DR-branded photo on the
-hero AND the testimony slide is a wasted slot — DR has more than
-one Gaza photo, more than one Sylhet photo, more than one Brighton
-photo. Use them.
+NO IMAGE REUSE AND NO VISUAL REDUNDANCY:
+Each photo (each media_id) may appear on AT MOST ONE slide. Beyond
+that, AVOID PICKING TWO PHOTOS FROM THE SAME SHOOT — even when the
+media_ids differ. If two candidates show the same subject (same
+person, same DR sack, same room, same outfit, same lighting), pick
+ONE and use a visually-different candidate for the other slot. The
+SMM can tell when the carousel reuses a shoot — it reads as low
+effort even if the IDs are different.
+
+  ✓ slide 1: woman receiving DR aid · slide 4: aid worker on the
+    truck · slide 5: family in tent — three distinct visual beats
+  ✗ slide 1: woman + DR sack (wide) · slide 4: same woman + same
+    sack (tighter crop) · slide 5: third photo
+    — slide 4 is wasted; pick something visually different.
 
   ✓ hero gets photo A · response gets photo B · testimony gets photo C
   ✗ hero gets photo A · slide 5 ALSO gets photo A (cropped differently)
@@ -1432,6 +1499,31 @@ If yes, return a concrete revision.
     wordmark disappears — propose logo_variant='green'. Green is
     the default DR colour; white is the exception reserved for
     genuinely dark photos.
+
+  ☐ CAPTION OPENER WEAK — If the caption opens with a number when
+    raw_payload contains a quote, named voice, or named individual,
+    that's a weak opener. Propose a quote-opener or attribution-
+    opener rewrite. (MSF's 'Remember Us' Gaza post earned 327K
+    likes via this pattern — see Phase 4y findings.)
+
+  ☐ HASHTAGS GENERIC — If the hashtag list is mostly generic
+    charity tags (muslimcharity, ukcharity, emergencyrelief), it
+    will tank engagement. Propose a hashtag list that LEADS with
+    movement / political hashtags (ceasefirenow, freepalestine,
+    allEyesOnSudan, muststopnow) and keeps at most one generic
+    charity tag.
+
+  ☐ WITNESS POST HAS URL CTA — If the arc is quiet_dignity or
+    testimony and the cta_kind is 'donate' (URL pill), propose
+    switching to cta_kind='witness' (hashtag pair). Reverent
+    moments earn higher reach when the donation pitch is
+    suppressed — the engagement IS the message.
+
+  ☐ VISUAL REDUNDANCY (SAME SHOOT) — Look at picked photos. If
+    two are from the same shoot / show the same subject / same
+    DR-branded prop / same outfit, that's wasted slot space.
+    Propose replacing the second one with a visually different
+    candidate from the unused pool.
 
   ☐ RHYTHMIC MONOTONY — Read the slide titles aloud in order. If
     three or more in a row are subject-verb-object declaratives in
@@ -1710,7 +1802,10 @@ export function overrideLogoVariantIfMismatched(
   const g = parseInt(hex.slice(2, 4), 16) / 255;
   const b = parseInt(hex.slice(4, 6), 16) / 255;
   const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  if (claudeChoice === "white" && luminance > 0.45) return "green";
+  // Phase 4y — threshold tightened from 0.45 to 0.38 after observed
+  // miss on a tan/sandy background photo. Anything lighter than dark-
+  // mid now forces green.
+  if (claudeChoice === "white" && luminance > 0.38) return "green";
   if (claudeChoice === "green" && luminance < 0.18) return "white";
   return claudeChoice;
 }

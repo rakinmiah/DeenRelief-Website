@@ -444,6 +444,11 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
             : event.countryIso === "PS"
               ? "We work with local partners across Gaza to keep aid moving."
               : "Coordinating with local partners on the ground.",
+    cta_kind: isPetition
+      ? "engage"
+      : c.arc === "quiet_dignity" || c.arc === "testimony"
+        ? "witness"
+        : "donate",
     cta_mechanism: isPetition ? "comment_keyword" : "link_in_bio",
     cta_keyword: isPetition ? "GAZA" : null,
     social_post: {

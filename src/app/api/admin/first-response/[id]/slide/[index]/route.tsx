@@ -553,6 +553,7 @@ function SlideContent({
           loraAvailable
         )}
         arc={packet.strategy_brief.arc}
+        ctaKind={packet.cta_kind ?? "donate"}
       />
 
       {/* Footer — source attribution, URL on CTA, hairline divider. */}
@@ -1555,6 +1556,7 @@ function SlideBody({
   isCta,
   displayFont,
   arc,
+  ctaKind,
 }: {
   slide: Slide;
   fg: string;
@@ -1567,10 +1569,15 @@ function SlideBody({
    *  keeps the warm Caveat-brush ornamentation; everything else
    *  gets the editorial briefing treatment. */
   arc: LaunchPacket["strategy_brief"]["arc"];
+  /** Phase 4y — CTA slide picks one of three registers based on
+   *  arc + kind. donate=URL pill, witness=hashtag pair, engage=
+   *  comment-keyword prompt. */
+  ctaKind: "donate" | "witness" | "engage";
 }) {
   const briefing = arc !== "manifesto";
   if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} briefing={briefing} />;
-  if (isCta) return <CtaBody slide={slide} briefing={briefing} />;
+  if (isCta)
+    return <CtaBody slide={slide} briefing={briefing} ctaKind={ctaKind} />;
   if (slide.layout === "stat")
     return <StatBody slide={slide} fg={fg} />;
   if (slide.layout === "chapter")
@@ -2128,7 +2135,75 @@ function StatBody({ slide, fg }: { slide: Slide; fg: string }) {
  *  The parent SlideContent paints the canvas bg differently per mode
  *  (cream for manifesto/festival, forest otherwise) — this body just
  *  fills the appropriate composition. */
-function CtaBody({ slide, briefing }: { slide: Slide; briefing: boolean }) {
+function CtaBody({
+  slide,
+  briefing,
+  ctaKind,
+}: {
+  slide: Slide;
+  briefing: boolean;
+  ctaKind: "donate" | "witness" | "engage";
+}) {
+  // Phase 4y — witness mode replaces the URL pill with a hashtag pair.
+  // For quiet_dignity / testimony arcs where reverence beats
+  // transactional asks (MSF "Remember Us" pattern). Sources the
+  // hashtags from slide.body, expected as 'tag1 · tag2'.
+  if (briefing && ctaKind === "witness") {
+    // Title is expected to be a short witness statement; body is the
+    // hashtag pair separated by ' · '.
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+          paddingTop: 90,
+          paddingBottom: 80,
+          paddingLeft: 56,
+          paddingRight: 56,
+        }}
+      >
+        <Eyebrow text="REMEMBER" briefing={true} />
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bowlby One SC",
+            fontWeight: 400,
+            fontSize: slide.title.length > 30 ? 76 : 110,
+            color: DR.cream,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            lineHeight: 1.0,
+            maxWidth: 880,
+            marginBottom: 40,
+            textAlign: "center",
+            alignSelf: "center",
+          }}
+        >
+          {slide.title}
+        </div>
+        {slide.body && (
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 32,
+              color: DR.amber,
+              letterSpacing: 1.5,
+              textTransform: "lowercase",
+              textAlign: "center",
+            }}
+          >
+            {slide.body}
+          </div>
+        )}
+      </div>
+    );
+  }
   if (briefing) {
     return (
       <div
