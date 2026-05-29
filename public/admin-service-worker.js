@@ -23,7 +23,7 @@
  * the strategy is improved.
  */
 
-const CACHE_VERSION = "v2"; // v2: added push + notificationclick handlers
+const CACHE_VERSION = "v3"; // v3: invalidate cached admin shell so the Blog nav (migration 030) appears
 const STATIC_CACHE = `dr-admin-static-${CACHE_VERSION}`;
 const HTML_CACHE = `dr-admin-html-${CACHE_VERSION}`;
 const OFFLINE_URL = "/admin/offline";
