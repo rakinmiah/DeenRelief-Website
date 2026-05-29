@@ -5,8 +5,12 @@ import { getAllPosts } from "@/lib/blog";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
 
-export default function BlogPage() {
-  const posts = getAllPosts();
+// Statically generated; on-demand revalidation fires when a post is
+// published/unpublished. This is a safety-net refresh interval.
+export const revalidate = 300;
+
+export default async function BlogPage() {
+  const posts = await getAllPosts();
 
   const blogListSchema = {
     "@context": "https://schema.org",

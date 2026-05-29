@@ -66,6 +66,58 @@ export async function requireAdminSession(): Promise<AdminSessionPayload> {
 export async function requireRoleAdmin(): Promise<AdminSessionPayload> {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
-  if (session.role !== "admin") redirect("/admin/social");
+  if (session.role !== "admin") {
+    // Authenticated but not authorised — land them on a page they can
+    // actually use rather than bouncing back to login.
+    redirect(landingForNonAdmin(session.role));
+  }
+  return session;
+}
+
+/**
+ * Where to send an authenticated-but-not-admin user who lands on an
+ * admin-only page: their own section, not back to login.
+ */
+function landingForNonAdmin(role: AdminSessionPayload["role"]): string {
+  if (role === "writer") return "/admin/blog";
+  if (role === "sponsorship") return "/admin/sponsorship";
+  return "/admin/social";
+}
+
+/**
+ * Require a session that can access the blog CMS — 'admin' OR 'writer'.
+ * Redirects to /admin/login when unauthenticated, and to /admin/social
+ * when a 'social' user (who has no blog access) lands here.
+ *
+ * Call this at the top of every /admin/blog/* page. Admin-only actions
+ * within the CMS (publishing, managing writers) call requireRoleAdmin()
+ * on top of this for the stricter check.
+ */
+export async function requireBlogAccess(): Promise<AdminSessionPayload> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  if (session.role !== "admin" && session.role !== "writer") {
+    redirect(landingForNonAdmin(session.role));
+  }
+  return session;
+}
+
+/**
+ * Require a session that can access the orphan-sponsorship area —
+ * 'admin' OR the dedicated 'sponsorship' coordinator role. Redirects to
+ * /admin/login when unauthenticated, and to the user's own section when
+ * another role lands here.
+ *
+ * Call this at the top of every /admin/sponsorship/* page and inside the
+ * sponsorship server actions before any mutation. Because this surface
+ * handles children's media, the page guard AND the action guard both
+ * call it — defence in depth.
+ */
+export async function requireSponsorshipAccess(): Promise<AdminSessionPayload> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  if (session.role !== "admin" && session.role !== "sponsorship") {
+    redirect(landingForNonAdmin(session.role));
+  }
   return session;
 }

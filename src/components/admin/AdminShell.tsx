@@ -44,10 +44,12 @@ import AdminMobileDrawer from "./AdminMobileDrawer";
  * itself ALSO calls requireRoleAdmin() for admin-only pages, so hiding
  * here is UX-only and not the security boundary.
  */
-type AdminRole = "admin" | "social";
+type AdminRole = "admin" | "social" | "writer" | "sponsorship";
 
 const NAV_ITEMS: { href: string; label: string; roles: AdminRole[] }[] = [
   { href: "/admin/social", label: "Social", roles: ["admin", "social"] },
+  { href: "/admin/blog", label: "Blog", roles: ["admin", "writer"] },
+  { href: "/admin/sponsorship", label: "Sponsorship", roles: ["admin", "sponsorship"] },
   { href: "/admin/donations", label: "Donations", roles: ["admin"] },
   { href: "/admin/recurring", label: "Recurring", roles: ["admin"] },
   { href: "/admin/bazaar/orders", label: "Bazaar Orders", roles: ["admin"] },

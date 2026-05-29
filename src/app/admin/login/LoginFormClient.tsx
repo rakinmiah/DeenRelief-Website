@@ -39,8 +39,13 @@ export default function LoginFormClient() {
       // (their tools) rather than /admin/donations (where they'd be
       // bounced away by the role guard).
       const body = await res.json().catch(() => ({}));
-      const role = body?.role === "social" ? "social" : "admin";
-      router.push(role === "social" ? "/admin/social" : "/admin/donations");
+      const landingByRole: Record<string, string> = {
+        social: "/admin/social",
+        writer: "/admin/blog",
+        sponsorship: "/admin/sponsorship",
+        admin: "/admin/donations",
+      };
+      router.push(landingByRole[body?.role] ?? "/admin/donations");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed.");
       setSubmitting(false);

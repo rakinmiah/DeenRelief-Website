@@ -108,10 +108,17 @@ export async function POST(request: Request) {
   // is fine — it just means that role can't sign in.
   const adminPassphrase = process.env.ADMIN_LOGIN_PASSPHRASE ?? "";
   const socialPassphrase = process.env.SOCIAL_LOGIN_PASSPHRASE ?? "";
-  if (!adminPassphrase && !socialPassphrase) {
+  const writerPassphrase = process.env.WRITER_LOGIN_PASSPHRASE ?? "";
+  const sponsorshipPassphrase = process.env.SPONSORSHIP_LOGIN_PASSPHRASE ?? "";
+  if (
+    !adminPassphrase &&
+    !socialPassphrase &&
+    !writerPassphrase &&
+    !sponsorshipPassphrase
+  ) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        "[admin login] Neither ADMIN_LOGIN_PASSPHRASE nor SOCIAL_LOGIN_PASSPHRASE set — all logins rejected."
+        "[admin login] None of ADMIN_LOGIN_PASSPHRASE / SOCIAL_LOGIN_PASSPHRASE / WRITER_LOGIN_PASSPHRASE / SPONSORSHIP_LOGIN_PASSPHRASE set — all logins rejected."
       );
     }
     return NextResponse.json(
@@ -126,13 +133,20 @@ export async function POST(request: Request) {
   // adminPassphrase so the request timing doesn't reveal whether the
   // email is in the allowlist — uniform DB hit + uniform compare for
   // every request.
-  const role: "admin" | "social" | null = await resolveAdminRoleForLogin(email);
+  const role: "admin" | "social" | "writer" | "sponsorship" | null =
+    await resolveAdminRoleForLogin(email);
 
   // Pick the expected passphrase by role. For unknown emails we still
   // compare against adminPassphrase (or empty string fallback) so the
   // compare cost is constant.
   const expectedPassphrase =
-    role === "social" ? socialPassphrase : adminPassphrase;
+    role === "social"
+      ? socialPassphrase
+      : role === "writer"
+      ? writerPassphrase
+      : role === "sponsorship"
+      ? sponsorshipPassphrase
+      : adminPassphrase;
 
   // Guard against the per-role passphrase being unset — treat as
   // rejection. This keeps the error generic (still "Invalid credentials")

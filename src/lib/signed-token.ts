@@ -123,8 +123,13 @@ export interface AdminSessionPayload {
    * role-based access migration (#019) don't carry it; the verifier
    * defaults to 'admin' in that case so existing trustees keep working
    * without a forced re-login.
+   *
+   * 'writer' (migration #030) authors blog drafts in /admin/blog but
+   * cannot publish or see donor/financial data. 'sponsorship'
+   * (migration #031) manages orphan profiles, updates, child media,
+   * and sponsor links in /admin/sponsorship — no donor financials.
    */
-  role?: "admin" | "social";
+  role?: "admin" | "social" | "writer" | "sponsorship";
   /** Unix seconds at which the session expires. 8h default. */
   exp: number;
   iat: number;
@@ -139,7 +144,7 @@ const DEFAULT_ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
  */
 export function signAdminSession(
   email: string,
-  role: "admin" | "social" = "admin",
+  role: "admin" | "social" | "writer" | "sponsorship" = "admin",
   ttlSeconds: number = DEFAULT_ADMIN_TTL_SECONDS
 ): string {
   const now = Math.floor(Date.now() / 1000);
@@ -202,10 +207,15 @@ export function verifyAdminSession(
   if (payload.exp < now) return null;
 
   // Backward compat: legacy sessions minted before migration 019 don't
-  // carry a `role` field. Treat those as 'admin' so existing trustees
-  // keep working without a forced re-login. New sessions always carry
-  // the role explicitly.
-  if (payload.role !== "admin" && payload.role !== "social") {
+  // carry a `role` field. Treat any unknown/missing role as 'admin' so
+  // existing trustees keep working without a forced re-login. New
+  // sessions always carry one of the known roles explicitly.
+  if (
+    payload.role !== "admin" &&
+    payload.role !== "social" &&
+    payload.role !== "writer" &&
+    payload.role !== "sponsorship"
+  ) {
     payload.role = "admin";
   }
 

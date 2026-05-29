@@ -4,7 +4,7 @@ import { cities } from "@/lib/cities";
 
 const BASE_URL = "https://deenrelief.org";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date().toISOString();
 
   // Core pages — highest priority
@@ -50,9 +50,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
   ];
 
-  const blogPosts: MetadataRoute.Sitemap = getAllPosts().map((post) => ({
+  const blogPosts: MetadataRoute.Sitemap = (await getAllPosts()).map((post) => ({
     url: `${BASE_URL}/blog/${post.slug}`,
-    lastModified: post.date,
+    lastModified: post.date || now,
     changeFrequency: "monthly" as const,
     priority: 0.7,
   }));

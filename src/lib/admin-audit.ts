@@ -98,7 +98,35 @@ export type AdminAction =
   | "first_response_test_events_cleared"
   // Brand assets — uploadable logo variants (Phase 4k)
   | "brand_asset_uploaded"
-  | "brand_asset_archived";
+  | "brand_asset_archived"
+  // Blog CMS (migration 030)
+  | "blog_post_created"
+  | "blog_post_updated"
+  | "blog_post_submitted"
+  | "blog_post_published"
+  | "blog_post_unpublished"
+  | "blog_post_returned_to_draft"
+  | "blog_post_archived"
+  | "blog_writer_added"
+  | "blog_writer_removed"
+  // Orphan sponsorship (migration 031)
+  | "orphan_created"
+  | "orphan_updated"
+  | "orphan_status_changed"
+  | "orphan_deleted"
+  | "orphan_update_created"
+  | "orphan_update_updated"
+  | "orphan_update_published"
+  | "orphan_update_unpublished"
+  | "orphan_media_uploaded"
+  | "orphan_media_deleted"
+  | "sponsor_invited"
+  | "sponsorship_linked"
+  | "sponsorship_paused"
+  | "sponsorship_ended"
+  | "sponsor_suspended"
+  | "sponsor_data_export_fulfilled"
+  | "sponsor_erasure_fulfilled";
 
 interface LogAdminActionOpts {
   action: AdminAction;

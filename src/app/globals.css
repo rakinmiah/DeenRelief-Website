@@ -197,3 +197,180 @@ main {
     animation: page-transition-enter 250ms ease-out;
   }
 }
+
+/* ============================================
+   BLOG CMS — shared prose + form input styles
+   ============================================
+   .dr-prose styles the rendered article body. It's applied BOTH to the
+   public post page (dangerouslySetInnerHTML of the stored HTML) and to
+   the TipTap editor surface in /admin/blog, so writers see roughly what
+   readers will get. Mirrors the look of the old MDX component map. */
+
+.dr-prose {
+  color: var(--color-grey);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+}
+
+.dr-prose > :first-child {
+  margin-top: 0;
+}
+
+.dr-prose h2 {
+  font-family: var(--font-heading), Georgia, serif;
+  color: var(--color-charcoal);
+  font-weight: 700;
+  font-size: 1.875rem;
+  line-height: 1.25;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.dr-prose h3 {
+  font-family: var(--font-heading), Georgia, serif;
+  color: var(--color-charcoal);
+  font-weight: 600;
+  font-size: 1.375rem;
+  line-height: 1.3;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.dr-prose h4 {
+  font-family: var(--font-heading), Georgia, serif;
+  color: var(--color-charcoal);
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.dr-prose p {
+  margin-bottom: 1.25rem;
+}
+
+.dr-prose a {
+  color: var(--color-green);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--color-green) 30%, transparent);
+  transition: color 0.2s, text-decoration-color 0.2s;
+}
+
+.dr-prose a:hover {
+  color: var(--color-green-dark);
+  text-decoration-color: var(--color-green);
+}
+
+.dr-prose strong {
+  color: var(--color-charcoal);
+  font-weight: 600;
+}
+
+.dr-prose ul,
+.dr-prose ol {
+  margin: 0 0 1.5rem;
+  padding-left: 1.5rem;
+}
+
+.dr-prose ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.dr-prose ul li {
+  position: relative;
+  padding-left: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.dr-prose ul li::before {
+  content: "";
+  position: absolute;
+  left: 0.1rem;
+  top: 0.62em;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--color-green);
+}
+
+.dr-prose ol {
+  list-style: decimal;
+}
+
+.dr-prose ol li {
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.dr-prose ol li::marker {
+  color: var(--color-green);
+  font-weight: 600;
+}
+
+.dr-prose blockquote {
+  border-left: 4px solid color-mix(in srgb, var(--color-green) 30%, transparent);
+  background: color-mix(in srgb, var(--color-green-light) 50%, transparent);
+  padding: 0.75rem 1.25rem;
+  margin: 1.5rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+  font-style: italic;
+}
+
+.dr-prose blockquote p {
+  margin: 0;
+}
+
+.dr-prose img {
+  border-radius: 0.75rem;
+  margin: 1.75rem 0;
+  max-width: 100%;
+  height: auto;
+}
+
+.dr-prose hr {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--color-charcoal) 8%, transparent);
+  margin: 2rem 0;
+}
+
+.dr-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--color-grey-light);
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+}
+
+/* Placeholder text for the empty TipTap editor. */
+.dr-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: color-mix(in srgb, var(--color-charcoal) 35%, transparent);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Shared admin form input look used across the blog CMS forms. */
+.dr-input {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--color-charcoal) 15%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--color-charcoal);
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.dr-input::placeholder {
+  color: color-mix(in srgb, var(--color-charcoal) 35%, transparent);
+}
+
+.dr-input:focus {
+  outline: none;
+  border-color: var(--color-green);
+}

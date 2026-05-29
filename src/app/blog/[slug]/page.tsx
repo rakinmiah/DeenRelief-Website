@@ -5,23 +5,28 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Button from "@/components/Button";
 import { getPostBySlug, getAllSlugs, getAllPosts } from "@/lib/blog";
-import { blogFaqs } from "@/lib/blog-faqs";
-import { compileMDX } from "next-mdx-remote/rsc";
-import { useMDXComponents } from "@/components/mdx-components";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+
+// Statically generated per published slug; on-demand revalidation fires
+// when a post is published, edited-while-live, or unpublished.
+export const revalidate = 300;
+// Allow rendering of posts published after the last build (slugs not in
+// generateStaticParams) instead of 404-ing them.
+export const dynamicParams = true;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
-  return getAllSlugs().map((slug) => ({ slug }));
+  const slugs = await getAllSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPostBySlug(slug);
   if (!post) return {};
 
   return {
@@ -59,17 +64,11 @@ function formatDate(dateStr: string): string {
 
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPostBySlug(slug);
   if (!post) notFound();
 
-  const { content } = await compileMDX({
-    source: post.content,
-    options: { parseFrontmatter: false },
-    components: useMDXComponents({}),
-  });
-
   // Related posts: same category, excluding current post, max 3
-  const allPosts = getAllPosts();
+  const allPosts = await getAllPosts();
   const relatedPosts = allPosts
     .filter((p) => p.category === post.category && p.slug !== slug)
     .slice(0, 3);
@@ -85,8 +84,8 @@ export default async function BlogPostPage({ params }: PageProps) {
   // Category-aware CTA: Zakat posts lead with Zakat, Sadaqah posts lead with Sadaqah
   const isZakatPost = post.category === "Zakat";
 
-  // Post-specific FAQs for rich results
-  const faqs = blogFaqs[slug] ?? [];
+  // Post-specific FAQs for rich results (author-editable, stored on the post)
+  const faqs = post.faqs;
 
   const faqSchema = faqs.length > 0 ? {
     "@context": "https://schema.org",
@@ -170,7 +169,10 @@ export default async function BlogPostPage({ params }: PageProps) {
         {/* Article Body */}
         <section className="py-16 md:py-24 bg-white">
           <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            {content}
+            <div
+              className="dr-prose"
+              dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
+            />
           </article>
         </section>
 

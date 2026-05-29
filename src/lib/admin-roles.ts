@@ -25,11 +25,16 @@
 
 import { getSupabaseAdmin } from "./supabase";
 
-export type AdminRole = "admin" | "social";
+export type AdminRole = "admin" | "social" | "writer" | "sponsorship";
 
 /** True if the value is a known role string. */
 export function isValidRole(value: unknown): value is AdminRole {
-  return value === "admin" || value === "social";
+  return (
+    value === "admin" ||
+    value === "social" ||
+    value === "writer" ||
+    value === "sponsorship"
+  );
 }
 
 /**
@@ -116,9 +121,14 @@ export async function resolveAdminRoleForLogin(
  * Default landing path for a role after sign-in. Used by the login
  * client to route the user to a page they can actually access.
  *
- *   admin  → /admin/donations  (current default for trustees)
- *   social → /admin/social     (Campaign Command Center entry point)
+ *   admin       → /admin/donations  (current default for trustees)
+ *   social      → /admin/social     (Campaign Command Center entry point)
+ *   writer      → /admin/blog         (blog CMS — their only section)
+ *   sponsorship → /admin/sponsorship  (orphan profiles + updates + sponsors)
  */
 export function defaultLandingPathForRole(role: AdminRole): string {
-  return role === "social" ? "/admin/social" : "/admin/donations";
+  if (role === "social") return "/admin/social";
+  if (role === "writer") return "/admin/blog";
+  if (role === "sponsorship") return "/admin/sponsorship";
+  return "/admin/donations";
 }
