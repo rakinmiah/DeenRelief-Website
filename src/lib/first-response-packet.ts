@@ -170,7 +170,7 @@ export const StrategyBriefSchema = z.object({
       press: z
         .string()
         .describe(
-          "Register of the press release — e.g. 'institutional, on-record, factual'. Should read as if a different writer drafted it from the caption."
+          "DEPRECATED (kept for back-compat). Press release is no longer rendered. Return an empty string."
         ),
     })
     .describe(
@@ -427,8 +427,9 @@ export const LaunchPacketSchema = z.object({
   }),
   press_release: z
     .string()
+    .default("")
     .describe(
-      "Press release for UK Muslim media outlets (5Pillars, Hyphen, Islam Channel, local imam networks). 200–300 words. Includes: dateline, situation summary, Deen Relief's response, a quote from 'Shabek Ali, founder of Deen Relief' (a generic but on-brand quote — the SMM can polish), and a boilerplate paragraph about DR (Charity No. 1158608)."
+      "DEPRECATED — press release is no longer rendered. Return an empty string. The 'press' register on strategy_brief.register_per_surface is also vestigial."
     ),
 });
 
@@ -624,10 +625,9 @@ EMAIL
   • Body: 150–250 words. No "Dear Valued Supporter" — open with the situation.
 
 PRESS RELEASE
-  • For UK Muslim media outlets (5Pillars, Hyphen, Islam Channel, mosque newsletters).
-  • 200–300 words.
-  • Includes: dateline, situation, response, on-record quote from "Shabek Ali, founder of Deen Relief", boilerplate paragraph (Charity No. 1158608, founded 2013, field operations in [countries]).
-  • Tone: factual, journalistic — slightly more formal than social posts, but still recognisable as Deen Relief.
+  • DEPRECATED — no longer rendered. Return an empty string for the
+    press_release field. The 'press' register on strategy_brief is also
+    vestigial; you can still write it, but it has no downstream effect.
 
 ──────────────────────────────────────────────────────────────────────
 TASK
