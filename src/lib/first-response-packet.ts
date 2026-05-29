@@ -38,6 +38,10 @@ import {
 } from "./media-library";
 import { fetchExternalImageryForEvent } from "./external-imagery-fetch";
 import {
+  buildFixturePacket,
+  isTestEvent,
+} from "./first-response-packet-fixture";
+import {
   EXTERNAL_FETCH_UA,
   getImageryById,
   type ExternalImagery,
@@ -1585,6 +1589,26 @@ function applyRevisions(
 export async function generateLaunchPacket(
   input: GenerateLaunchPacketInput
 ): Promise<GenerateLaunchPacketResult> {
+  // FIXTURE FAST-PATH — test events skip Claude entirely so the SMM
+  // can re-draft a test scenario 50 times during demo prep without
+  // burning credits (each live generation is ~$0.30 with vision).
+  // Set FORCE_LIVE_PACKET_GEN=1 in the env to bypass this and call
+  // Claude on test events too (useful when verifying prompt changes).
+  if (isTestEvent(input.event) && process.env.FORCE_LIVE_PACKET_GEN !== "1") {
+    console.log(
+      `[first-response-packet] test event detected (${input.event.externalId ?? input.event.id}) — returning fixture, skipping Claude`
+    );
+    const packet = buildFixturePacket(input.event);
+    return {
+      packet,
+      model: "fixture",
+      inputTokens: 0,
+      outputTokens: 0,
+      strategyBrief: packet.strategy_brief,
+      revisions: { overall_verdict: "ship_as_is", revisions: [] },
+    };
+  }
+
   const client = getClient();
 
   // Pre-fetch BOTH candidate pools in parallel — metadata first
