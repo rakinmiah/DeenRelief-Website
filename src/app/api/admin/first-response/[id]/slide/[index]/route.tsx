@@ -229,9 +229,13 @@ export async function GET(
       const best = pickBestCandidateForEvent(event, drCands, extCands);
       if (best) {
         console.warn(
-          `[slide ${index}] render-time hero enforcement: stored media_id was null, assigning ${best.id} (${best.reason})`
+          `[slide ${index}] render-time hero enforcement: stored media_id was null, assigning ${best.id} (${best.reason}) with logo=${best.logoVariant}`
         );
-        slide = { ...slide, media_id: best.id, logo_variant: "white" };
+        slide = {
+          ...slide,
+          media_id: best.id,
+          logo_variant: best.logoVariant,
+        };
       }
     } catch (err) {
       console.warn(
@@ -423,13 +427,43 @@ function SlideContent({
   // imagery and makes text hard to read against arbitrary backgrounds.
   if (hasPhoto) {
     // Per-slide logo variant comes from Claude's Stage 2 choice
-    // (reviewed in Stage 3) — based on actually LOOKING at the photo:
+    // (reviewed in Stage 3) OR from the render-time enforcement's
+    // luminance-derived pick (Phase 4t):
     //   'green' = logo-on-light variant (green wordmark)
     //   'white' = logo-on-dark variant (white wordmark)
-    // No more global "always green on photos" rule — that produced
-    // green-on-green disappearances on foliage scenes.
     const photoLogo =
       slide.logo_variant === "green" ? logoOnLight : logoOnDark;
+    // Composition mode (Phase 4t) — Claude picks based on photo
+    // aspect + subject placement. Defaults to panel_below.
+    const composition = slide.photo_composition ?? "panel_below";
+    const focalPoint = slide.photo_focal_point ?? "center";
+
+    if (composition === "panel_right") {
+      return (
+        <PhotoSlideRightPanel
+          slide={slide}
+          mediaUrl={mediaUrl}
+          creditText={creditText}
+          slideIndex={slideIndex}
+          slideTotal={slideTotal}
+          logoOnPhoto={photoLogo}
+          focalPoint={focalPoint}
+        />
+      );
+    }
+    if (composition === "full_bleed_overlay") {
+      return (
+        <PhotoSlideFullBleed
+          slide={slide}
+          mediaUrl={mediaUrl}
+          creditText={creditText}
+          slideIndex={slideIndex}
+          slideTotal={slideTotal}
+          logoOnPhoto={photoLogo}
+          focalPoint={focalPoint}
+        />
+      );
+    }
     return (
       <PhotoSlide
         slide={slide}
@@ -438,6 +472,7 @@ function SlideContent({
         slideIndex={slideIndex}
         slideTotal={slideTotal}
         logoOnPhoto={photoLogo}
+        focalPoint={focalPoint}
       />
     );
   }
@@ -517,6 +552,7 @@ function PhotoSlide({
   slideIndex,
   slideTotal,
   logoOnPhoto,
+  focalPoint,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -529,9 +565,13 @@ function PhotoSlide({
   /** Green/dark logo variant — used directly on the photo (no chip).
    *  DR uses the green wordmark on their own photo posts. */
   logoOnPhoto: string | null;
+  /** Vertical anchor for object-position so cropping doesn't cut off
+   *  faces. Phase 4t — picked by Claude from the vision thumbnail. */
+  focalPoint: "top" | "center" | "bottom";
 }) {
   const PHOTO_HEIGHT = 670; // ~62% of 1080
   const PANEL_HEIGHT = SLIDE_SIZE - PHOTO_HEIGHT;
+  const objPos = `center ${focalPoint}`;
 
   return (
     <div
@@ -564,6 +604,7 @@ function PhotoSlide({
             width: SLIDE_SIZE,
             height: PHOTO_HEIGHT,
             objectFit: "cover",
+            objectPosition: objPos,
           }}
         />
         {/* Green logo directly on the photo — no chip wrapper. */}
@@ -779,6 +820,475 @@ function photoSlideTitleSize(titleLength: number): number {
   if (titleLength > 40) return 52;
   if (titleLength > 24) return 64;
   return 80;
+}
+
+/* ─── Photo slide — right-panel composition (Phase 4t) ─────────── */
+
+/**
+ * Used when slide.photo_composition='panel_right' — typically for tall
+ * portrait photos and shots where the subject's head/feet would be
+ * cropped by a horizontal split. Photo fills the left 60%, dark green
+ * text panel takes the right 40%.
+ */
+function PhotoSlideRightPanel({
+  slide,
+  mediaUrl,
+  creditText,
+  slideIndex,
+  slideTotal,
+  logoOnPhoto,
+  focalPoint,
+}: {
+  slide: Slide;
+  mediaUrl: string;
+  creditText: string | null;
+  slideIndex: number;
+  slideTotal: number;
+  logoOnPhoto: string | null;
+  focalPoint: "top" | "center" | "bottom";
+}) {
+  const PHOTO_WIDTH = 648; // 60% of 1080
+  const PANEL_WIDTH = SLIDE_SIZE - PHOTO_WIDTH;
+  const objPos = `center ${focalPoint}`;
+
+  return (
+    <div
+      style={{
+        width: SLIDE_SIZE,
+        height: SLIDE_SIZE,
+        display: "flex",
+        flexDirection: "row",
+        backgroundColor: DR.forest,
+        fontFamily: "DM Sans",
+        position: "relative",
+      }}
+    >
+      {/* ── Photo column (left) ── */}
+      <div
+        style={{
+          width: PHOTO_WIDTH,
+          height: SLIDE_SIZE,
+          display: "flex",
+          position: "relative",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaUrl}
+          alt=""
+          width={PHOTO_WIDTH}
+          height={SLIDE_SIZE}
+          style={{
+            width: PHOTO_WIDTH,
+            height: SLIDE_SIZE,
+            objectFit: "cover",
+            objectPosition: objPos,
+          }}
+        />
+        {/* Logo top-left on the photo. */}
+        <div
+          style={{
+            position: "absolute",
+            top: 56,
+            left: 56,
+            display: "flex",
+          }}
+        >
+          {logoOnPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoOnPhoto}
+              alt="Deen Relief"
+              width={300}
+              height={100}
+              style={{
+                width: 300,
+                height: 100,
+                objectFit: "contain",
+                objectPosition: "left center",
+              }}
+            />
+          ) : null}
+        </div>
+        {creditText && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 16,
+              right: 16,
+              display: "flex",
+              backgroundColor: "rgba(22, 56, 39, 0.78)",
+              paddingTop: 6,
+              paddingBottom: 6,
+              paddingLeft: 12,
+              paddingRight: 12,
+              borderRadius: 4,
+              maxWidth: PHOTO_WIDTH - 60,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: 14,
+                color: DR.cream,
+                opacity: 0.92,
+              }}
+            >
+              {creditText}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Text panel (right) ── */}
+      <div
+        style={{
+          width: PANEL_WIDTH,
+          height: SLIDE_SIZE,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: DR.forest,
+          paddingTop: 56,
+          paddingBottom: 48,
+          paddingLeft: 36,
+          paddingRight: 36,
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Slide pip top-right inside the panel. */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 24,
+          }}
+        >
+          {Array.from({ length: slideTotal }, (_, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                width: i + 1 === slideIndex ? 18 : 8,
+                height: 8,
+                backgroundColor: DR.cream,
+                opacity: i + 1 === slideIndex ? 1 : 0.4,
+                borderRadius: 4,
+              }}
+            />
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
+          {slide.eyebrow && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "Caveat",
+                fontWeight: 600,
+                fontSize: 32,
+                color: DR.amber,
+                fontStyle: "italic",
+                marginBottom: 12,
+              }}
+            >
+              {slide.eyebrow.toLowerCase()}…
+            </div>
+          )}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: slide.title.length > 30 ? 48 : 64,
+              color: DR.cream,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              lineHeight: 1.0,
+            }}
+          >
+            {slide.title}
+          </div>
+          {slide.body && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 400,
+                fontSize: 18,
+                color: DR.cream,
+                opacity: 0.78,
+                lineHeight: 1.45,
+                marginTop: 18,
+              }}
+            >
+              {slide.body}
+            </div>
+          )}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 16,
+              color: DR.amber,
+              letterSpacing: 1.5,
+              textTransform: "uppercase",
+            }}
+          >
+            deenrelief.org
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 400,
+              fontSize: 12,
+              color: DR.cream,
+              opacity: 0.55,
+              letterSpacing: 1,
+            }}
+          >
+            Charity No. 1158608
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Photo slide — full-bleed-overlay composition (Phase 4t) ──── */
+
+/**
+ * Used when slide.photo_composition='full_bleed_overlay' — for dramatic
+ * environmental / landscape photos where breaking the frame would hurt
+ * the composition. Photo fills the slide; a dark forest gradient
+ * occupies the bottom ~40% with the text on top.
+ */
+function PhotoSlideFullBleed({
+  slide,
+  mediaUrl,
+  creditText,
+  slideIndex,
+  slideTotal,
+  logoOnPhoto,
+  focalPoint,
+}: {
+  slide: Slide;
+  mediaUrl: string;
+  creditText: string | null;
+  slideIndex: number;
+  slideTotal: number;
+  logoOnPhoto: string | null;
+  focalPoint: "top" | "center" | "bottom";
+}) {
+  const objPos = `center ${focalPoint}`;
+
+  return (
+    <div
+      style={{
+        width: SLIDE_SIZE,
+        height: SLIDE_SIZE,
+        display: "flex",
+        position: "relative",
+        backgroundColor: DR.forest,
+        fontFamily: "DM Sans",
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={mediaUrl}
+        alt=""
+        width={SLIDE_SIZE}
+        height={SLIDE_SIZE}
+        style={{
+          width: SLIDE_SIZE,
+          height: SLIDE_SIZE,
+          objectFit: "cover",
+          objectPosition: objPos,
+        }}
+      />
+      {/* Bottom gradient overlay — transparent → forest. Satori
+          requires rgba() (not 8-char hex) for alpha; using a solid
+          dark band with a soft top edge approximated by a second
+          translucent band on top. */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          width: SLIDE_SIZE,
+          height: 420,
+          display: "flex",
+          background:
+            "linear-gradient(to top, rgba(22, 56, 39, 0.95) 0%, rgba(22, 56, 39, 0.85) 60%, rgba(22, 56, 39, 0) 100%)",
+        }}
+      />
+
+      {/* Logo top-left. */}
+      <div
+        style={{
+          position: "absolute",
+          top: 56,
+          left: 56,
+          display: "flex",
+        }}
+      >
+        {logoOnPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoOnPhoto}
+            alt="Deen Relief"
+            width={300}
+            height={100}
+            style={{
+              width: 300,
+              height: 100,
+              objectFit: "contain",
+              objectPosition: "left center",
+            }}
+          />
+        ) : null}
+      </div>
+
+      {/* Slide pip top-right against a dark chip. */}
+      <div
+        style={{
+          position: "absolute",
+          top: 60,
+          right: 60,
+          display: "flex",
+          backgroundColor: "rgba(22, 56, 39, 0.78)",
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 14,
+          paddingRight: 14,
+          borderRadius: 999,
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        {Array.from({ length: slideTotal }, (_, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              width: i + 1 === slideIndex ? 20 : 8,
+              height: 8,
+              backgroundColor: DR.cream,
+              opacity: i + 1 === slideIndex ? 1 : 0.45,
+              borderRadius: 4,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Text overlay on the gradient. */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 56,
+          left: 56,
+          right: 56,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {slide.eyebrow && (
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Caveat",
+              fontWeight: 600,
+              fontSize: 40,
+              color: DR.amber,
+              fontStyle: "italic",
+              marginBottom: 12,
+            }}
+          >
+            {slide.eyebrow.toLowerCase()}…
+          </div>
+        )}
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bowlby One SC",
+            fontWeight: 400,
+            fontSize: photoSlideTitleSize(slide.title.length),
+            color: DR.cream,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            lineHeight: 1.0,
+            maxWidth: SLIDE_SIZE - 120,
+          }}
+        >
+          {slide.title}
+        </div>
+        {slide.body && (
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 22,
+              color: DR.cream,
+              opacity: 0.85,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              lineHeight: 1.3,
+              marginTop: 16,
+              maxWidth: SLIDE_SIZE - 120,
+            }}
+          >
+            {slide.body}
+          </div>
+        )}
+      </div>
+
+      {creditText && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 14,
+            right: 18,
+            display: "flex",
+            backgroundColor: "rgba(0, 0, 0, 0.45)",
+            paddingTop: 6,
+            paddingBottom: 6,
+            paddingLeft: 12,
+            paddingRight: 12,
+            borderRadius: 4,
+            maxWidth: 700,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontStyle: "italic",
+              fontWeight: 400,
+              fontSize: 13,
+              color: DR.cream,
+              opacity: 0.92,
+            }}
+          >
+            {creditText}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─── Brand chip ──────────────────────────────────────────────────── */

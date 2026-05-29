@@ -143,10 +143,10 @@ export async function GET(
       const best = pickBestCandidateForEvent(event, drCands, extCands);
       if (best) {
         console.warn(
-          `[social-image] render-time hero enforcement: stored media_id was null, assigning ${best.id} (${best.reason})`
+          `[social-image] render-time hero enforcement: stored media_id was null, assigning ${best.id} (${best.reason}) with logo=${best.logoVariant}`
         );
         mediaId = best.id;
-        photoLogoVariant = "white";
+        photoLogoVariant = best.logoVariant;
       }
     } catch (err) {
       console.warn(

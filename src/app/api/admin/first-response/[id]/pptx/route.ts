@@ -163,7 +163,7 @@ export async function GET(
       if (best) {
         enforcedSlides = enforcedSlides.map((s, i) =>
           i === heroIndex
-            ? { ...s, media_id: best.id, logo_variant: "white" }
+            ? { ...s, media_id: best.id, logo_variant: best.logoVariant }
             : s
         );
       }
