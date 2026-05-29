@@ -28,6 +28,14 @@ import igStatHeadline from "./templates/ig-stat-headline";
 import igTiersLadder from "./templates/ig-tiers-ladder";
 import igCtaDonate from "./templates/ig-cta-donate";
 import igCtaWitness from "./templates/ig-cta-witness";
+import igHeroPanelRight from "./templates/ig-hero-panel-right";
+import igFactTypography from "./templates/ig-fact-typography";
+import igFactPhoto from "./templates/ig-fact-photo";
+import igResponsePhoto from "./templates/ig-response-photo";
+import igTestimonyQuote from "./templates/ig-testimony-quote";
+import igTestimonyPortrait from "./templates/ig-testimony-portrait";
+import igChapterNumbered from "./templates/ig-chapter-numbered";
+import igCtaEngage from "./templates/ig-cta-engage";
 
 /** Every template the deck builder knows about. Order matters —
  *  this is the default sort within a category in the gallery. */
@@ -38,6 +46,14 @@ const TEMPLATES: Template[] = [
   igTiersLadder,
   igCtaDonate,
   igCtaWitness,
+  igHeroPanelRight,
+  igFactTypography,
+  igFactPhoto,
+  igResponsePhoto,
+  igTestimonyQuote,
+  igTestimonyPortrait,
+  igChapterNumbered,
+  igCtaEngage,
 ];
 
 /** Build a lookup map once at module init. */
