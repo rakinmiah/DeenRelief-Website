@@ -13,6 +13,7 @@ import { CAMPAIGN_LANDING_PATHS } from "@/lib/short-links";
 import EventControls from "./EventControls";
 import CopyButton from "./CopyButton";
 import DebugPanel from "./DebugPanel";
+import PacketAssets from "./PacketAssets";
 
 export const metadata: Metadata = {
   title: "Emergency event | Deen Relief Admin",
@@ -380,21 +381,24 @@ function PacketView({
         />
       </Section>
 
-      {/* Carousel slides — Instagram's native multi-image format. */}
-      <Section title="Carousel slides — for Instagram">
+      {/* Carousel slides + single-image post — both render with the
+          click-to-zoom lightbox via PacketAssets (Phase 4z). Single
+          client component so the lightbox can navigate across all
+          assets in the packet without state coordination. */}
+      <Section title="Carousel slides + single-image post">
         <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
-          {packet.carousel_slides.length} 1080×1080 brand-styled slides — Claude
-          chose this count based on the story&apos;s shape{showStrategyBrief ? " (see strategy brief above for rationale)" : ""}. Right-click any to copy, or use the
-          download button to save individually. Upload as an Instagram
-          carousel in this order.
+          {packet.carousel_slides.length} carousel slides (1080×1080) plus
+          one 1200×675 single-image post for Facebook + X. Click any
+          thumbnail to zoom — use arrow keys to walk the set. Download
+          buttons save the PNG directly.
         </p>
-        <CarouselGrid
+        <PacketAssets
           eventId={eventId}
-          count={packet.carousel_slides.length}
+          carouselCount={packet.carousel_slides.length}
           draftStamp={draftStamp}
         />
         {/* Editable export — Canva / PowerPoint round-trip. */}
-        <div className="mt-5 bg-amber-light/40 border border-amber/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="mt-6 bg-amber-light/40 border border-amber/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-bold tracking-[0.12em] uppercase text-amber-dark mb-0.5">
               Need to edit a slide?
@@ -421,18 +425,6 @@ function PacketView({
             ↓ Download .pptx (editable)
           </a>
         </div>
-      </Section>
-
-      {/* Single-image post — for Facebook + X (where 5-slide carousels
-          don't translate well; X caps at 4 images per tweet). */}
-      <Section title="Single-image post — for Facebook & X">
-        <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
-          1200×675 (16:9) landscape — the optimal aspect ratio for both
-          Facebook feed and X (Twitter) image posts. Condenses the
-          carousel into one striking image with the donation URL
-          prominent.
-        </p>
-        <SocialImagePreview eventId={eventId} draftStamp={draftStamp} />
       </Section>
 
       {/* Email */}
@@ -599,105 +591,3 @@ function SocialPostBlock({
   );
 }
 
-/**
- * Single-image post preview for Facebook / X. Hits the
- * /api/admin/first-response/{id}/social-image route which server-
- * renders a 1200×675 PNG.
- */
-function SocialImagePreview({
-  eventId,
-  draftStamp,
-}: {
-  eventId: string;
-  draftStamp: number;
-}) {
-  const src = `/api/admin/first-response/${eventId}/social-image?v=${draftStamp}`;
-  return (
-    <div className="flex flex-col gap-3 bg-cream/30 rounded-xl p-3 max-w-2xl">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt="Single-image post for Facebook and X"
-        width={1200}
-        height={675}
-        className="w-full aspect-[16/9] rounded-lg border border-charcoal/10 bg-white"
-        loading="lazy"
-      />
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55">
-          1200×675 · PNG
-        </span>
-        <a
-          href={src}
-          download="deenrelief-social-post.png"
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-charcoal text-white hover:bg-charcoal/85 transition-colors"
-        >
-          Download
-        </a>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Carousel slide previews. Each <img> hits the
- * /api/admin/first-response/{id}/slide/{index} route which server-renders
- * the PNG via next/og. Browser caches the image once loaded so the
- * download button hits the same cached PNG.
- *
- * The HTML `download` attribute on the link forces a save dialog with
- * the explicit filename, regardless of the route's inline disposition.
- */
-function CarouselGrid({
-  eventId,
-  count,
-  draftStamp,
-}: {
-  eventId: string;
-  count: number;
-  draftStamp: number;
-}) {
-  const slides = Array.from({ length: count }, (_, i) => i);
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-      {slides.map((i) => {
-        // draftStamp = packet's generation timestamp; included as ?v= so
-        // each redraft gets a fresh URL and the browser doesn't serve a
-        // stale typography-only PNG from cache when imagery is added.
-        const src = `/api/admin/first-response/${eventId}/slide/${i}?v=${draftStamp}`;
-        return (
-          <div
-            key={i}
-            className="flex flex-col gap-2 bg-cream/30 rounded-xl p-3"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element --
-                  using <img> rather than next/image because the source
-                  is a dynamic API route returning a PNG, not a static
-                  optimisable asset. next/image's loader would add
-                  unhelpful overhead here. */}
-            <img
-              src={src}
-              alt={`Carousel slide ${i + 1}`}
-              width={1080}
-              height={1080}
-              className="w-full aspect-square rounded-lg border border-charcoal/10 bg-white"
-              loading="lazy"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55">
-                Slide {i + 1}
-              </span>
-              <a
-                href={src}
-                download={`deenrelief-slide-${i + 1}.png`}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-charcoal text-white hover:bg-charcoal/85 transition-colors"
-              >
-                Download
-              </a>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
