@@ -44,6 +44,7 @@ import {
   type DonationFunnelStep,
 } from "@/lib/analytics";
 import { convertGbpForDisplay, isUKDonor } from "@/lib/geo";
+import MonthlyCommitmentModal from "./MonthlyCommitmentModal";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -102,6 +103,16 @@ export default function CheckoutClient({
   // donor country prop. Used down in the JSX to gate Gift Aid +
   // emit the local-currency hint.
   const isUK = isUKDonor(donorCountry);
+
+  // Monthly orphan sponsorships carry an ethical commitment: a child comes to
+  // depend on the recurring gift, so we ask the donor to acknowledge an
+  // intended 6–12 month commitment (ticking a box) before they reach the
+  // details form. Required only for this campaign + frequency; all other
+  // checkouts skip the gate entirely (agreed defaults to true).
+  const commitmentRequired =
+    initialCampaign === "orphan-sponsorship" && initialFrequency === "monthly";
+  const [commitmentAgreed, setCommitmentAgreed] = useState(!commitmentRequired);
+
   const [amountGbp, setAmountGbp] = useState<number>(initialAmountGbp);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
@@ -310,6 +321,13 @@ export default function CheckoutClient({
         <span className="text-charcoal/15">|</span>
         <span>100% pledge on direct relief</span>
       </div>
+
+      {commitmentRequired && !commitmentAgreed && (
+        <MonthlyCommitmentModal
+          oneTimeHref={`/donate?campaign=orphan-sponsorship&amount=${initialAmountGbp}&frequency=one-time`}
+          onAgree={() => setCommitmentAgreed(true)}
+        />
+      )}
     </div>
   );
 }
