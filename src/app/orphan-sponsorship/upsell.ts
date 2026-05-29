@@ -10,9 +10,10 @@
  *     A full family food pack runs ~4,500 BDT / £32. → food-month ≈ £20.
  *   - Winter blankets: ~600 BDT (£4–5) per thick blanket; £10 = two blankets.
  *   - Winter clothing (hoodie + wool cap + sweater): ~850–1,150 BDT → ~£7–8.
- *   - Eid gift (new clothes + treats for a child): UK charities price £15–35.
+ *   - A month of schooling (lessons + learning support): year-round
+ *     education sponsorship is widely sold at ~£25/month ($1/day), so £15
+ *     for a month of lessons is conservative.
  *   - School / education kit (2 uniforms, books, bag, stationery): ~£20.
- *     Year-round education sponsorship is widely sold at £25/month.
  *   - Full child care for a month (food + shelter + schooling + healthcare):
  *     the sector benchmark — and Deen Relief's own price — is ~£30/month.
  *
@@ -38,7 +39,7 @@ const UPSELL_UNITS: UpsellChip[] = [
   { add: 5, outcome: "a week of hot, nutritious meals" },
   { add: 8, outcome: "a warm winter clothing set" },
   { add: 10, outcome: "two thick blankets for the cold season" },
-  { add: 15, outcome: "new clothes and a gift for Eid" },
+  { add: 15, outcome: "a month of lessons and learning support" },
   { add: 20, outcome: "a full month of nutritious food" },
   { add: 25, outcome: "a complete school kit — uniform, books & bag" },
   { add: 30, outcome: "a full month of care for another child" },
