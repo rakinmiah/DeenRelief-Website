@@ -184,9 +184,9 @@ export const StrategyBriefSchema = z.object({
     .number()
     .int()
     .min(3)
-    .max(8)
+    .max(10)
     .describe(
-      "How many slides this story needs. 3 = single hard fact + tiers + appeal (the story is sharp and obvious). 5 = standard hero + evidence + response + tiers + appeal. 7–8 = the story has historical context, multiple facets, or multiple testimonies. Don't pad — every slide must earn its place."
+      "How many slides this story needs. 3 = single hard fact + tiers + appeal (only when the story is genuinely sharp and obvious). 5 = thin coverage of a basic event. 6–8 = LAYERED coverage — the standard for serious disaster stories (hero + 2 facts + stat + response + testimony + tiers + appeal). 9–10 = full briefing dossier for major ongoing crises with historical context, multiple stat beats, multiple field updates, and a quote. DEFAULT EXPECTATION for emergency packets: 6–8 slides. 3–4 is too thin to build the trust that drives donations; 5 is the old templated default we're moving past."
     ),
   slide_count_rationale: z
     .string()
@@ -283,18 +283,22 @@ export const LaunchPacketSchema = z.object({
   verified_facts: z
     .array(
       z.object({
-        fact: z.string().describe("One concrete factual claim about the event"),
+        fact: z
+          .string()
+          .describe(
+            "One concrete factual claim about the event — should include a SPECIFIC number, magnitude, source agency, location coordinate, or named institution. Vague 'widespread damage' is not a verified fact; 'M 7.0 at 12km depth' is."
+          ),
         source: z
           .string()
           .describe(
-            "Source name or URL — GDACS, USGS, ReliefWeb, etc. Don't fabricate; only cite sources from the event payload."
+            "Source name or URL — USGS, OCHA, GDACS, Met Office, ReliefWeb, IFRC. Don't fabricate; only cite sources whose data appears in the raw_payload."
           ),
       })
     )
-    .min(2)
-    .max(5)
+    .min(3)
+    .max(8)
     .describe(
-      "2–5 verified facts the SMM can quote with confidence. Drawn from the event payload's raw data — don't invent figures."
+      "3–8 verified facts the SMM can quote with confidence. Mine the raw_payload AGGRESSIVELY for specifics — magnitudes, depths, counts, dates, source agencies. The more numeric and granular, the more trust the packet builds with donors. Vague claims fail the verification bar."
     ),
   field_operations_note: z
     .string()
@@ -405,7 +409,10 @@ export const LaunchPacketSchema = z.object({
           .string()
           .nullable()
           .describe(
-            "ID of a photo to render. MUST come from CANDIDATE MEDIA or EXTERNAL VERIFIED IMAGERY — never invent IDs. Format: 'dr:<uuid>' or 'ext:<uuid>'. PREFER DR library when relevant. Use for hero / response / testimony slides when a fitting photo exists. ALWAYS null for fact / tiers / cta (typography-only by design)."
+            "ID of a photo to render. MUST come from CANDIDATE MEDIA or EXTERNAL VERIFIED IMAGERY — never invent IDs. Format: 'dr:<uuid>' or 'ext:<uuid>'. PREFER DR library when relevant.\n" +
+              "  • 'hero' + 'response' + 'testimony': SHOULD use media_id when any candidate fits. Typography-only on these is a fallback.\n" +
+              "  • 'fact': MAY use media_id when supporting imagery exists (a satellite view of the flooding, a photo of the affected region). The photo backs up the fact. PREFERRED over typography-only for fact slides — DR has DR-library photos AND external news imagery to draw from; use them.\n" +
+              "  • 'tiers' + 'cta' + 'stat' + 'chapter': ALWAYS null — these are typography-only by design (the number/tier-ladder IS the focal point)."
           ),
         logo_variant: z
           .enum(["white", "green"])
@@ -1149,7 +1156,11 @@ async function buildStage2Content(
   // Cap vision thumbnails to keep token cost predictable. Top 6 from
   // each pool is plenty — Claude rarely needs more than 3–4 photos
   // in a packet, so giving it ~12 choices is generous.
-  const TOP_PER_POOL = 6;
+  // Phase 4v — bumped from 6 to 10 per pool. Vision tokens cost
+  // ~$0.01 per thumbnail; 20 thumbnails total is ~$0.20 added per
+  // packet, easily worth it for the substantive image use the user
+  // explicitly asked for.
+  const TOP_PER_POOL = 10;
   const drTop = candidateMedia.slice(0, TOP_PER_POOL);
   const extTop = externalImagery.slice(0, TOP_PER_POOL);
 
@@ -1188,12 +1199,30 @@ Middle slides per the brief's arc.
 
 ${
   heroMustHavePhoto
-    ? `HARD RULE — HERO SLIDE MUST USE A PHOTO:
-The DR library has ${candidateMedia.length} matching photo${candidateMedia.length === 1 ? "" : "s"} and there are ${externalImagery.length} external candidate${externalImagery.length === 1 ? "" : "s"}. You MUST put a photo on the hero slide. Pick the strongest-fitting candidate from the vision thumbnails below — typography-only hero is RESERVED for the case where genuinely nothing fits, which is NOT this case.
+    ? `HARD RULE — USE PHOTOS AGGRESSIVELY:
+The DR library has ${candidateMedia.length} matching photo${candidateMedia.length === 1 ? "" : "s"} and there are ${externalImagery.length} external candidate${externalImagery.length === 1 ? "" : "s"}. The audience is trying to assess whether this is a real, photographed disaster — your slides need visual evidence at MULTIPLE beats, not just on the hero.
 
-DR's own library photos take priority over external imagery when both could work. A DR-library photo of someone in the event's country (BD, PK, SY, PS, IN, GB) with documentary tone or response-illustration use-case is almost always the right hero choice. If the hero is appeal-led and the response slide has a ground-level field photo, the response slide can take a second photo too.
+  • HERO MUST have a photo. (Post-pass will enforce this anyway, so pick the BEST one.)
+  • RESPONSE SHOULD have a photo when a ground-level field-team shot exists.
+  • FACT slides CAN AND SHOULD have photos. A fact about flood depth pairs with a satellite/aerial photo of the inundation; a fact about displacement pairs with a photo of camp / sheltering families; a casualty fact pairs with a hospital / triage scene. The photo backs up the claim. Typography-only fact is a fallback when no fitting photo exists.
+  • TESTIMONY SHOULD have a portrait when one exists in the candidate pool.
+  • TIERS / STAT / CTA / CHAPTER stay typography-only by design (the number / price ladder / claim IS the focal element).
 
-If you leave the hero with media_id=null while a fitting candidate is visible in the thumbnails, the post-processing pass will OVERRIDE your choice and assign one anyway — so spend your judgement picking the BEST one, not whether to use one.`
+DR's own library photos take priority over external imagery when both could work, but DON'T leave external news imagery unused if it backs up a fact better than DR's library can. A NASA satellite of the actual flooding on a fact slide is more substantive than a generic field-team photo.
+
+TARGET: at least 3–4 slides with photos in a 6–8-slide packet. 'Two photos in a 5-slide packet' is the old templated low-water mark; we're moving past it.
+
+FACTUAL DEPTH — MINE THE RAW PAYLOAD:
+Every fact slide and stat slide MUST quote a SPECIFIC NUMBER, MAGNITUDE, COORDINATE, AGENCY, OR NAMED INSTITUTION from the raw_payload below. Vague claims fail the verification bar.
+
+  ✓ "M 7.0 earthquake at 12km depth · USGS"
+  ✓ "33M people displaced across Sindh · OCHA Initial Assessments"
+  ✓ "Amber cold-weather warning across Sussex, overnight -5°C forecast · Met Office"
+  ✗ "Widespread structural damage" (no number)
+  ✗ "Many families affected" (no count or source)
+  ✗ "Severe impact on the region" (no specificity at all)
+
+If the raw_payload doesn't have the specific number you want, DON'T invent one — but DO surface the specifics that ARE there. Coordinates, dates, source URLs, distances, magnitudes are all extractable. Use them.`
     : `No DR-library or external candidates match this event — typography-only hero is acceptable here. Note this in your composition.`
 }
 
@@ -1328,6 +1357,21 @@ If yes, return a concrete revision.
     Donors form their first impression on the hero. Move the
     strongest photo there unless the photo is genuinely wrong for
     the hero beat (e.g. only candidates are satellite / abstract).
+
+  ☐ FACT SLIDES UNDER-IMAGED — A fact slide with a verified claim
+    is much more credible when paired with a supporting photo. If
+    multiple unused candidates exist (especially external news
+    imagery like satellite views, ReliefWeb situation photos), and
+    a fact slide is typography-only, propose assigning a photo to
+    that fact slide via slide.media_id. Aim for 3–4 photos across
+    a 6–8-slide packet, not just 1–2.
+
+  ☐ VAGUE FACT — Walk each fact + stat slide. The title or body
+    MUST contain a specific number, magnitude, coordinate, agency,
+    or named institution. 'Widespread damage' / 'many affected' /
+    'severe impact' fail the verification bar. Propose a rewrite
+    sourcing a specific from the raw_payload — magnitude, depth,
+    coordinates, agency name, dated assessment.
 
   ☐ RHYTHMIC MONOTONY — Read the slide titles aloud in order. If
     three or more in a row are subject-verb-object declaratives in
@@ -1781,12 +1825,15 @@ export async function generateLaunchPacket(
 
   // Pre-fetch BOTH candidate pools in parallel — metadata first
   // (we'll fetch vision thumbnails in Stage 2 for only the top N).
+  // Phase 4v — bumped DR library pool from 12 to 20 candidates so
+  // Claude has more material to spread across more slides (the user's
+  // explicit ask: "the more images the better, not just 2").
   const [candidateMedia, externalImagery] = await Promise.all([
     getCandidateMediaForEvent({
       countryIso: input.event.countryIso,
       eventType: input.event.eventType,
       campaignSlugs: input.matchedCoverage.map((c) => c.campaignSlug),
-      limit: 12,
+      limit: 20,
     }),
     fetchExternalImageryForEvent(input.event),
   ]);
