@@ -159,16 +159,14 @@ function displayFontFor(
   layout: LaunchPacket["carousel_slides"][number]["layout"],
   loraAvailable: boolean
 ): "Bowlby One SC" | "Lora" {
-  // Lora failed to load → degrade to Bowlby across the board. Renderer
-  // still works; aesthetics suffer slightly.
+  // Lora failed to load → degrade to Bowlby across the board.
   if (!loraAvailable) return "Bowlby One SC";
+  // Phase 5a — Lora is restricted to slides DESIGNED for it. The
+  // arc-driven propagation to fact / response slides was causing
+  // Lora italic to surface where Bowlby's chunky declarative voice
+  // belongs (e.g. "4,000 PEOPLE AT RISK" on a fact slide). Now
+  // testimony + chapter are the only layouts that use Lora.
   if (layout === "testimony" || layout === "chapter") return "Lora";
-  if (arc === "quiet_dignity" || arc === "manifesto") {
-    // Tiers + CTA stay on Bowlby — those are price-ladder + headline
-    // moments where the chunky register still reads better.
-    if (layout === "tiers" || layout === "cta") return "Bowlby One SC";
-    return "Lora";
-  }
   return "Bowlby One SC";
 }
 
@@ -1972,10 +1970,13 @@ function TiersBody({ slide, fg, briefing }: { slide: Slide; fg: string; briefing
           key={i}
           style={{
             display: "flex",
-            alignItems: "baseline",
-            gap: 36,
-            paddingTop: 22,
-            paddingBottom: 22,
+            // Phase 5a — vertical center, not baseline. Multi-line
+            // descriptions were misaligning against the amount column
+            // because baseline anchored to the first line only.
+            alignItems: "center",
+            gap: 32,
+            paddingTop: 24,
+            paddingBottom: 24,
             borderTop: i === 0 ? `1px solid ${DR.hairlineLight}` : "none",
             borderBottom: `1px solid ${DR.hairlineLight}`,
           }}
@@ -1985,10 +1986,13 @@ function TiersBody({ slide, fg, briefing }: { slide: Slide; fg: string; briefing
               display: "flex",
               fontFamily: "Bowlby One SC",
               fontWeight: 400,
-              fontSize: 76,
+              fontSize: 72,
               color: DR.amber,
-              width: 220,
+              width: 200,
               flexShrink: 0,
+              // Anchor the £ amount to baseline of its own typography
+              // (still chunky display) but the whole row is centred.
+              lineHeight: 1,
             }}
           >
             £{tier.amount_gbp}
@@ -1998,11 +2002,11 @@ function TiersBody({ slide, fg, briefing }: { slide: Slide; fg: string; briefing
               display: "flex",
               fontFamily: "DM Sans",
               fontWeight: 700,
-              fontSize: 30,
+              fontSize: 26,
               color: fg,
               textTransform: "uppercase",
               letterSpacing: 0.8,
-              lineHeight: 1.3,
+              lineHeight: 1.35,
               flex: 1,
               alignItems: "center",
             }}

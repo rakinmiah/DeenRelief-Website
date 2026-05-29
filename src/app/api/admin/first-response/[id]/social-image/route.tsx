@@ -261,6 +261,9 @@ export async function GET(
       // can render a small stat strip. A senior SMM packs the
       // single post with substantive numbers, not just a headline.
       verifiedFacts={packet.verified_facts.slice(0, 3).map((f) => f.fact)}
+      // Phase 5a — composition picker. Falls back to panel_below for
+      // packets generated before the schema added the field.
+      composition={packet.social_image_composition ?? "panel_below"}
       logoOnLight={logoOnLight?.dataUri ?? null}
       logoOnDark={logoOnDark?.dataUri ?? null}
     />,
@@ -309,6 +312,7 @@ function Composition({
   photoLogoVariant,
   photoFocalPoint,
   verifiedFacts,
+  composition,
   logoOnLight,
   logoOnDark,
 }: {
@@ -326,10 +330,32 @@ function Composition({
   /** Phase 4x — top verified facts surfaced as a stat strip on the
    *  X/FB image so it reads like a briefing, not a poster. */
   verifiedFacts: string[];
+  /** Phase 5a — picks panel_below vs panel_right based on hero
+   *  photo's aspect. Portrait photos use panel_right so they aren't
+   *  centre-cropped awful. */
+  composition: "panel_below" | "panel_right";
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
   if (mediaUrl) {
+    if (composition === "panel_right") {
+      return (
+        <MagazineCoverPanelRight
+          title={title}
+          eyebrow={eyebrow}
+          body={body}
+          ctaUrl={ctaUrl}
+          campaignLabel={campaignLabel}
+          mediaUrl={mediaUrl}
+          creditText={creditText}
+          photoLogoVariant={photoLogoVariant}
+          photoFocalPoint={photoFocalPoint}
+          verifiedFacts={verifiedFacts}
+          logoOnLight={logoOnLight}
+          logoOnDark={logoOnDark}
+        />
+      );
+    }
     return (
       <MagazineCover
         title={title}
@@ -482,8 +508,10 @@ function MagazineCover({
           flexDirection: "row",
           alignItems: "stretch",
           backgroundColor: DR.forest,
+          // Phase 5a — bumped paddingBottom 22 → 36 because the URL
+          // pill was rendering flush against the slide bottom edge.
           paddingTop: 22,
-          paddingBottom: 22,
+          paddingBottom: 36,
           paddingLeft: 44,
           paddingRight: 44,
         }}
@@ -650,6 +678,299 @@ function MagazineCover({
             >
               {campaignLabel ? `${campaignLabel} · ` : ""}Charity No. 1158608
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Layout A2 — Magazine cover with right panel (Phase 5a) ──── */
+
+/**
+ * Used when the hero photo is PORTRAIT (taller than wide). The
+ * panel_below layout would centre-crop the subject's head or feet;
+ * panel_right gives the photo its natural vertical proportions and
+ * puts the text alongside on the right.
+ *
+ * Photo fills left 55% (660 × 675). Right panel fills 45% (540 × 675)
+ * with eyebrow / title / body / stat-strip / URL pill stacked.
+ */
+function MagazineCoverPanelRight({
+  title,
+  eyebrow,
+  body,
+  ctaUrl,
+  campaignLabel,
+  mediaUrl,
+  creditText,
+  photoLogoVariant,
+  photoFocalPoint,
+  verifiedFacts,
+  logoOnLight,
+  logoOnDark,
+}: {
+  title: string;
+  eyebrow: string | null;
+  body: string | null;
+  ctaUrl: string;
+  campaignLabel: string | null;
+  mediaUrl: string;
+  creditText: string | null;
+  photoLogoVariant: "white" | "green";
+  photoFocalPoint: "top" | "center" | "bottom";
+  verifiedFacts: string[];
+  logoOnLight: string | null;
+  logoOnDark: string | null;
+}) {
+  const PHOTO_W = Math.round(WIDTH * 0.55);
+  const PANEL_W = WIDTH - PHOTO_W;
+  const photoLogo = photoLogoVariant === "green" ? logoOnLight : logoOnDark;
+  const objPos = `center ${photoFocalPoint}`;
+
+  return (
+    <div
+      style={{
+        width: WIDTH,
+        height: HEIGHT,
+        display: "flex",
+        flexDirection: "row",
+        backgroundColor: DR.forest,
+        fontFamily: "DM Sans",
+        position: "relative",
+      }}
+    >
+      {/* ─── Photo column (left) ─── */}
+      <div
+        style={{
+          width: PHOTO_W,
+          height: HEIGHT,
+          display: "flex",
+          position: "relative",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaUrl}
+          alt=""
+          width={PHOTO_W}
+          height={HEIGHT}
+          style={{
+            width: PHOTO_W,
+            height: HEIGHT,
+            objectFit: "cover",
+            objectPosition: objPos,
+          }}
+        />
+        {/* Logo top-left on the photo. */}
+        {photoLogo ? (
+          <div
+            style={{
+              position: "absolute",
+              top: 28,
+              left: 32,
+              display: "flex",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoLogo}
+              alt="Deen Relief"
+              width={220}
+              height={70}
+              style={{
+                width: 220,
+                height: 70,
+                objectFit: "contain",
+                objectPosition: "left center",
+              }}
+            />
+          </div>
+        ) : null}
+        {/* Photo credit chip. */}
+        {creditText && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 14,
+              right: 14,
+              display: "flex",
+              backgroundColor: "rgba(22, 56, 39, 0.78)",
+              paddingTop: 5,
+              paddingBottom: 5,
+              paddingLeft: 10,
+              paddingRight: 10,
+              borderRadius: 3,
+              maxWidth: PHOTO_W - 40,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: 12,
+                color: DR.cream,
+                opacity: 0.92,
+              }}
+            >
+              {creditText}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Text panel (right) ─── */}
+      <div
+        style={{
+          width: PANEL_W,
+          height: HEIGHT,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: DR.forest,
+          paddingTop: 36,
+          paddingBottom: 36,
+          paddingLeft: 32,
+          paddingRight: 32,
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Top block: eyebrow + headline + supporting body. */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {eyebrow && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 12,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  width: 22,
+                  height: 2,
+                  backgroundColor: DR.amber,
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  fontFamily: "DM Sans",
+                  fontWeight: 700,
+                  fontSize: 11,
+                  color: DR.amber,
+                  textTransform: "uppercase",
+                  letterSpacing: 3,
+                }}
+              >
+                {eyebrow}
+              </div>
+            </div>
+          )}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: title.length > 30 ? 40 : 52,
+              color: DR.cream,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              lineHeight: 1.0,
+              marginBottom: 14,
+            }}
+          >
+            {title}
+          </div>
+          {body && (
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 400,
+                fontSize: 15,
+                color: DR.cream,
+                opacity: 0.78,
+                lineHeight: 1.4,
+                maxWidth: PANEL_W - 64,
+              }}
+            >
+              {body}
+            </div>
+          )}
+        </div>
+
+        {/* Stat strip — top 3 verified facts. */}
+        {verifiedFacts.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              paddingTop: 16,
+              paddingBottom: 16,
+              borderTop: `1px solid ${DR.amber}55`,
+              borderBottom: `1px solid ${DR.amber}55`,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 700,
+                fontSize: 10,
+                color: DR.amber,
+                textTransform: "uppercase",
+                letterSpacing: 3,
+                marginBottom: 4,
+              }}
+            >
+              By the numbers
+            </div>
+            {verifiedFacts.slice(0, 3).map((f, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  fontFamily: "DM Sans",
+                  fontWeight: 400,
+                  fontSize: 12,
+                  color: DR.cream,
+                  opacity: 0.92,
+                  lineHeight: 1.4,
+                }}
+              >
+                {f}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Bottom block: URL pill + charity tag. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+          }}
+        >
+          <UrlPill url={ctaUrl} />
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 400,
+              fontSize: 11,
+              color: DR.cream,
+              opacity: 0.55,
+              letterSpacing: 1,
+              marginTop: 10,
+            }}
+          >
+            {campaignLabel ? `${campaignLabel} · ` : ""}Charity No. 1158608
           </div>
         </div>
       </div>

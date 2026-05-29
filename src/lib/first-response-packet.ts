@@ -305,6 +305,15 @@ export const LaunchPacketSchema = z.object({
     .describe(
       "1–2 sentences mapping Deen Relief's existing field-team presence to this event. If DR has no field team in the affected region, say so plainly — the SMM can decide whether to launch."
     ),
+  social_image_composition: z
+    .enum(["panel_below", "panel_right"])
+    .default("panel_below")
+    .describe(
+      "Phase 5a — layout for the 1200×675 single-image X/FB post.\n" +
+        "  • 'panel_below' (default): photo top 62%, text panel bottom 38%. Best when the hero photo is LANDSCAPE (wider than tall) and the subject sits in the upper half. Original layout.\n" +
+        "  • 'panel_right': photo fills left 55%, text panel right 45%. Best when the hero photo is PORTRAIT (taller than wide) — the panel_below variant would crop the subject's head or feet awkwardly. PREFER this when in doubt; portrait photos of beneficiaries are common in DR's library.\n" +
+        "Pick based on the hero photo's actual aspect ratio as seen in the vision thumbnail."
+    ),
   cta_kind: z
     .enum(["donate", "witness", "engage"])
     .default("donate")
@@ -438,6 +447,17 @@ export const LaunchPacketSchema = z.object({
               "  • 'full_bleed_overlay': photo fills 100% of the slide, dark gradient at the bottom 35% with text on top. Best for dramatic landscape shots / wide scenes where breaking the photo would hurt the composition. The headline reads against the gradient.\n" +
               "IGNORED on typography-only slides (fact, tiers, cta, testimony, chapter without a media_id) — these always use the typography layout."
           ),
+        logo_position: z
+          .enum(["top_left", "top_right", "bottom_left", "bottom_right"])
+          .default("top_left")
+          .describe(
+            "Phase 5a — where the DR logo sits on this slide. Default is top-left (DR's traditional placement), but you can override when the photo's composition makes another corner work better. Look at the photo:\n" +
+              "  • Subject's face / main focus is in the top-LEFT third → place logo TOP-RIGHT or BOTTOM-LEFT to avoid covering them.\n" +
+              "  • Subject is in the top-RIGHT → TOP-LEFT (default).\n" +
+              "  • Subject is in the bottom half → top-left or top-right work.\n" +
+              "  • Photo is busy / detail in the top → consider bottom-left or bottom-right for the logo.\n" +
+              "Remember: green logo is the default brand colour (Phase 4y); we want it placed where it READS, not just where the template puts it."
+          ),
         photo_focal_point: z
           .enum(["top", "center", "bottom"])
           .default("center")
@@ -570,6 +590,23 @@ CTA mechanism dictates the call-to-action wording (cta_mechanism field):
     older-skewing audiences or breaking-news moments.
   • 'share' → caption ends "Share this post to {amplify/raise awareness}".
     For manifesto + awareness moments.
+
+X / FACEBOOK POST FACT DEDUPLICATION (Phase 5a):
+The 1200×675 social image renders a 'BY THE NUMBERS' stat strip on
+the right that surfaces the TOP THREE verified_facts. The hero slide's
+BODY also surfaces a key number. DO NOT repeat the same fact in
+both. If verified_facts[0] is '1.7 million people now sheltering in
+1,600 sites in Gaza', the hero body should pick a DIFFERENT angle:
+testimony, response, sensory detail, on-the-ground update — not the
+same number restated. Reading the X post should feel like 1 + 1 = 2
+distinct beats, not the same fact twice.
+
+  ✓ stats: '1.7M people · 1,600 sites · 881 killed since Oct ceasefire'
+    body: 'Our partners are still moving food parcels where the
+           bombardment allows.'
+  ✗ stats: '1.7M people · 1,600 sites · 881 killed'
+    body: '1.7 million people in Gaza are living across 1,600 sites.'
+    — same fact twice.
 
 CAPTION OPENER PRIORITY (Phase 4y research finding — anchored by
 MSF's "Remember Us" Gaza post which earned 327K likes opening with
@@ -1277,6 +1314,48 @@ DR's own library photos take priority over external imagery when both could work
 
 TARGET: at least 3–4 slides with photos in a 6–8-slide packet. 'Two photos in a 5-slide packet' is the old templated low-water mark; we're moving past it.
 
+IMAGE-CONTENT MATCH (CRITICAL — failure mode breaks donor trust):
+A photo on a slide MUST visually relate to the SLIDE'S OWN TITLE
+AND BODY — not just the event's country. If the slide is about
+deaths, settler violence, demolitions, or displacement, an aid-
+distribution photo on that slide is a dissonant trust-break.
+
+The semantic match hierarchy:
+
+  ✓ slide about DEATHS / VIOLENCE → photos of mourning, damaged
+    buildings, injured people, hospital scenes, funeral / vigil
+    imagery, makeshift triage
+  ✓ slide about AID DELIVERY → photos of DR (or partner) staff
+    distributing parcels, water, hygiene kits, beneficiary
+    receiving aid
+  ✓ slide about DISPLACEMENT → photos of camps, tents, families
+    walking, abandoned/destroyed homes, shelter scenes
+  ✓ slide about MEDICAL CRISIS → hospital interiors, doctors,
+    patients, medical equipment
+  ✓ slide about DESTRUCTION → rubble, collapsed buildings,
+    cratered streets
+
+  ✗ slide titled 'SIX SETTLER ATTACKS A DAY' + body about killed
+    Palestinians → photo of aid worker bagging food parcels.
+    Dissonant. Donor reads the headline, sees the photo, feels
+    manipulated. This is the failure mode that broke trust on
+    the OCHA Palestine packet.
+
+FALLBACK HIERARCHY when no DR-library photo matches the slide's
+specific content (in priority order):
+
+  1. Check EXTERNAL imagery candidates (Wikimedia, NASA EONET,
+     ReliefWeb) for a content-matched alternative.
+  2. If still no match, ask: can this photo be USED ON A
+     DIFFERENT slide where it does match? Swap.
+  3. If still no fit anywhere, set media_id=null on this slide
+     and accept typography-only. Better an empty slide than a
+     mismatched one.
+
+DO NOT force a DR-library photo onto a slide just to hit the
+'3-4 photos per packet' target if the photo doesn't fit. Quality
+of match > raw count.
+
 NO IMAGE REUSE AND NO VISUAL REDUNDANCY:
 Each photo (each media_id) may appear on AT MOST ONE slide. Beyond
 that, AVOID PICKING TWO PHOTOS FROM THE SAME SHOOT — even when the
@@ -1524,6 +1603,17 @@ If yes, return a concrete revision.
     DR-branded prop / same outfit, that's wasted slot space.
     Propose replacing the second one with a visually different
     candidate from the unused pool.
+
+  ☐ IMAGE-CONTENT MISMATCH (TRUST-BREAKER) — Walk each photo
+    slide. Compare the slide's title + body to the photo. If
+    they don't align semantically — e.g. a slide about
+    settler attacks paired with an aid-distribution photo, a
+    slide about deaths paired with a smiling-volunteer photo —
+    that's a trust-break. Propose either: (a) swapping in a
+    content-matched candidate from unused pool, (b) moving the
+    mismatched photo to a slide where it fits, or (c) setting
+    slide.media_id=null and accepting typography-only. Better
+    an empty slide than a dissonant one.
 
   ☐ RHYTHMIC MONOTONY — Read the slide titles aloud in order. If
     three or more in a row are subject-verb-object declaratives in

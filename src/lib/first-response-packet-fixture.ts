@@ -286,7 +286,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null, // Render-time enforcement fills this in.
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "fact",
@@ -296,7 +296,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: c.factSource,
           media_id: null,
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "response",
@@ -306,7 +306,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "cta",
@@ -316,7 +316,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "green", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "green", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
       ]
     : [
@@ -328,7 +328,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null, // Render-time enforcement fills this in.
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "fact",
@@ -338,7 +338,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: c.factSource,
           media_id: null,
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           // Phase 4u — stat slide demonstrates the news-infographic
@@ -350,7 +350,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: c.statSource,
           media_id: null,
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "response",
@@ -360,7 +360,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "tiers",
@@ -374,7 +374,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           ],
           source_attribution: null,
           media_id: null,
-          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
         {
           layout: "cta",
@@ -384,7 +384,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "green", photo_composition: "panel_below", photo_focal_point: "center",
+          logo_variant: "green", photo_composition: "panel_below", photo_focal_point: "center", logo_position: "top_left",
         },
       ];
 
@@ -444,6 +444,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
             : event.countryIso === "PS"
               ? "We work with local partners across Gaza to keep aid moving."
               : "Coordinating with local partners on the ground.",
+    social_image_composition: "panel_below",
     cta_kind: isPetition
       ? "engage"
       : c.arc === "quiet_dignity" || c.arc === "testimony"
