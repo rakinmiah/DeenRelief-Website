@@ -22,6 +22,12 @@ import type { LaunchPacket } from "./first-response-packet";
 
 /* ─── Test-event detection ─────────────────────────────────────── */
 
+/**
+ * Test events that should use the local fixture (NO Claude call).
+ * Excludes 'realtest:' prefixed events — those are crafted from real
+ * news sources (OCHA, ReliefWeb) specifically TO exercise Claude on
+ * substantive content. They cost ~$0.30 each, which is the point.
+ */
 export function isTestEvent(event: EmergencyEvent): boolean {
   return (
     event.source === "test" || (event.externalId?.startsWith("test:") ?? false)
