@@ -477,10 +477,14 @@ function SlideContent({
     );
   }
 
-  // Typography-only path (the original Phase 4d design): full dark
-  // green canvas with chunky uppercase title + sparkles + brand chip.
-  const bg = isCta ? DR.cream : DR.forest;
-  const fg = isCta ? DR.forest : DR.cream;
+  // Typography-only path. CTA flips to cream only on the warmer
+  // 'manifesto' arc (preserves the festival-style Eid Mubarak treatment
+  // DR uses on brand-identity posts); emergency arcs keep the forest
+  // canvas so the carousel reads as one continuous news briefing.
+  const briefingMode = packet.strategy_brief.arc !== "manifesto";
+  const ctaCream = isCta && !briefingMode;
+  const bg = ctaCream ? DR.cream : DR.forest;
+  const fg = ctaCream ? DR.forest : DR.cream;
 
   return (
     <div
@@ -500,16 +504,20 @@ function SlideContent({
           Typography-only slides default to white on forest, green on
           cream (CTA), matching the slide bg colour. */}
       <BrandChip
-        inverted={isCta}
+        inverted={ctaCream}
         logoDataUri={slide.logo_variant === "green" ? logoOnLight : logoOnDark}
       />
 
       {/* Slide-number pip top-right. Tiny visual progress indicator. */}
       <SlidePip current={slideIndex} total={slideTotal} fg={fg} />
 
-      {/* Decorative sparkles bracketing the title — DR uses these
-          liberally as visual rhythm on the educational series. */}
-      <SparkleField inverted={isCta} />
+      {/* Phase 4u — sparkles dropped on emergency arcs (the audit
+          captured them from the educational INTRODUCING series; on
+          actual disaster coverage they read as charity-event-flyer).
+          Manifesto arc keeps the warmer ornamental treatment. */}
+      {packet.strategy_brief.arc === "manifesto" && (
+        <SparkleField inverted={isCta} />
+      )}
 
       {/* Main composition switches on layout. displayFont comes from
           packet.strategy_brief.arc + slide.layout — Bowlby for chunky
@@ -524,6 +532,7 @@ function SlideContent({
           slide.layout,
           loraAvailable
         )}
+        arc={packet.strategy_brief.arc}
       />
 
       {/* Footer — source attribution, URL on CTA, hairline divider. */}
@@ -1491,6 +1500,7 @@ function SlideBody({
   fg,
   isCta,
   displayFont,
+  arc,
 }: {
   slide: Slide;
   fg: string;
@@ -1499,14 +1509,28 @@ function SlideBody({
    *  Lora for contemplative / quote / chapter register. Threaded down
    *  to each body component so titles render in the right voice. */
   displayFont: "Bowlby One SC" | "Lora";
+  /** Drives the eyebrow + CTA register branch (Phase 4u). Manifesto
+   *  keeps the warm Caveat-brush ornamentation; everything else
+   *  gets the editorial briefing treatment. */
+  arc: LaunchPacket["strategy_brief"]["arc"];
 }) {
-  if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} />;
-  if (isCta) return <CtaBody slide={slide} />;
+  const briefing = arc !== "manifesto";
+  if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} briefing={briefing} />;
+  if (isCta) return <CtaBody slide={slide} briefing={briefing} />;
+  if (slide.layout === "stat")
+    return <StatBody slide={slide} fg={fg} />;
   if (slide.layout === "chapter")
     return <ChapterBody slide={slide} fg={fg} displayFont={displayFont} />;
   if (slide.layout === "testimony")
-    return <TestimonyBody slide={slide} fg={fg} displayFont={displayFont} />;
-  return <DisplayBody slide={slide} fg={fg} displayFont={displayFont} />;
+    return <TestimonyBody slide={slide} fg={fg} displayFont={displayFont} briefing={briefing} />;
+  return (
+    <DisplayBody
+      slide={slide}
+      fg={fg}
+      displayFont={displayFont}
+      briefing={briefing}
+    />
+  );
 }
 
 /** Testimony slide — quote-styled. The title is the quote itself,
@@ -1517,12 +1541,14 @@ function TestimonyBody({
   slide,
   fg,
   displayFont,
+  briefing,
 }: {
   slide: Slide;
   fg: string;
   /** Always 'Lora' for testimony slides, but plumbed through for
    *  consistency with the broader SlideBody contract. */
   displayFont: "Bowlby One SC" | "Lora";
+  briefing: boolean;
 }) {
   const useLora = displayFont === "Lora";
   return (
@@ -1540,21 +1566,7 @@ function TestimonyBody({
         paddingRight: 24,
       }}
     >
-      {slide.eyebrow && (
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Caveat",
-            fontWeight: 600,
-            fontSize: 48,
-            color: DR.amber,
-            marginBottom: 14,
-            fontStyle: "italic",
-          }}
-        >
-          {slide.eyebrow.toLowerCase()}…
-        </div>
-      )}
+      {slide.eyebrow && <Eyebrow text={slide.eyebrow} briefing={briefing} />}
       <div
         style={{
           display: "flex",
@@ -1704,6 +1716,87 @@ function ChapterBody({
   );
 }
 
+/** Phase 4u — editorial small-caps eyebrow for emergency arcs.
+ *  Replaces the Caveat brush script on briefing content; manifesto
+ *  arcs still get the warmer ornamental Caveat treatment.
+ *
+ *  Visually: thin amber rule + tracked-out tiny sans label. Reads as
+ *  "BBC News" / "Reuters dispatch" rather than charity-event-flyer. */
+function Eyebrow({
+  text,
+  briefing,
+  inverted = false,
+  centered = true,
+}: {
+  text: string;
+  briefing: boolean;
+  /** When true (CTA / cream slides) flip the amber on the rule to
+   *  forest so it reads against the lighter background. */
+  inverted?: boolean;
+  centered?: boolean;
+}) {
+  if (!briefing) {
+    // Manifesto / warm register — keep the existing brush style.
+    return (
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Caveat",
+          fontWeight: 600,
+          fontSize: 56,
+          color: DR.amber,
+          marginBottom: 16,
+          fontStyle: "italic",
+        }}
+      >
+        {text.toLowerCase()}…
+      </div>
+    );
+  }
+  const ruleColor = inverted ? DR.forest : DR.amber;
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        marginBottom: 22,
+        alignSelf: centered ? "center" : "flex-start",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          width: 32,
+          height: 2,
+          backgroundColor: ruleColor,
+        }}
+      />
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "DM Sans",
+          fontWeight: 700,
+          fontSize: 16,
+          color: ruleColor,
+          textTransform: "uppercase",
+          letterSpacing: 4,
+        }}
+      >
+        {text}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          width: 32,
+          height: 2,
+          backgroundColor: ruleColor,
+        }}
+      />
+    </div>
+  );
+}
+
 /** Hero / fact / response — eyebrow + chunky title + supporting body.
  *  displayFont decides whether the title runs in chunky Bowlby (default)
  *  or Lora Italic (quiet_dignity / manifesto arcs — Phase 4p). */
@@ -1711,10 +1804,13 @@ function DisplayBody({
   slide,
   fg,
   displayFont,
+  briefing,
 }: {
   slide: Slide;
   fg: string;
   displayFont: "Bowlby One SC" | "Lora";
+  /** Phase 4u — true for non-manifesto arcs; flips eyebrow style. */
+  briefing: boolean;
 }) {
   const useLora = displayFont === "Lora";
   return (
@@ -1730,21 +1826,7 @@ function DisplayBody({
         paddingBottom: 60,
       }}
     >
-      {slide.eyebrow && (
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Caveat",
-            fontWeight: 600,
-            fontSize: 56,
-            color: DR.amber,
-            marginBottom: 16,
-            fontStyle: "italic",
-          }}
-        >
-          {slide.eyebrow.toLowerCase()}…
-        </div>
-      )}
+      {slide.eyebrow && <Eyebrow text={slide.eyebrow} briefing={briefing} />}
       <div
         style={{
           display: "flex",
@@ -1791,7 +1873,7 @@ function DisplayBody({
 }
 
 /** Tiers slide — 3 amount/description rows with amber prices. */
-function TiersBody({ slide, fg }: { slide: Slide; fg: string }) {
+function TiersBody({ slide, fg, briefing }: { slide: Slide; fg: string; briefing: boolean }) {
   return (
     <div
       style={{
@@ -1806,20 +1888,7 @@ function TiersBody({ slide, fg }: { slide: Slide; fg: string }) {
       }}
     >
       {slide.eyebrow && (
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Caveat",
-            fontWeight: 600,
-            fontSize: 48,
-            color: DR.amber,
-            marginBottom: 8,
-            alignSelf: "center",
-            fontStyle: "italic",
-          }}
-        >
-          {slide.eyebrow.toLowerCase()}…
-        </div>
+        <Eyebrow text={slide.eyebrow} briefing={briefing} />
       )}
       <div
         style={{
@@ -1886,7 +1955,208 @@ function TiersBody({ slide, fg }: { slide: Slide; fg: string }) {
 }
 
 /** CTA slide — inverted cream canvas with green type + red emphasis. */
-function CtaBody({ slide }: { slide: Slide }) {
+/** Phase 4u — stat slide. News-infographic style: tiny editorial
+ *  eyebrow, MASSIVE focal number (the title), one-line context (the
+ *  body), source chip bottom-right (source_attribution).
+ *
+ *  Shifts the carousel from "fundraising poster" into "news briefing
+ *  graphic". Title is treated as a short numeric / magnitude string
+ *  ('33M', 'M 7.0', '£0.40 per meal') — not a sentence. */
+function StatBody({ slide, fg }: { slide: Slide; fg: string }) {
+  // Stat title is intentionally large. Step down only for very long
+  // strings (e.g. "2,000+ families"). Use Bowlby's chunky display for
+  // numeric weight.
+  const len = slide.title.length;
+  const statSize = len > 12 ? 200 : len > 8 ? 260 : 320;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        textAlign: "center",
+        paddingTop: 90,
+        paddingBottom: 90,
+        paddingLeft: 48,
+        paddingRight: 48,
+        position: "relative",
+      }}
+    >
+      {slide.eyebrow && <Eyebrow text={slide.eyebrow} briefing={true} />}
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Bowlby One SC",
+          fontWeight: 400,
+          fontSize: statSize,
+          color: DR.amber,
+          lineHeight: 0.95,
+          letterSpacing: -2,
+          marginBottom: 24,
+        }}
+      >
+        {slide.title}
+      </div>
+      {slide.body && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 700,
+            fontSize: 30,
+            color: fg,
+            opacity: 0.88,
+            textTransform: "uppercase",
+            letterSpacing: 1,
+            lineHeight: 1.3,
+            maxWidth: 860,
+            textAlign: "center",
+          }}
+        >
+          {slide.body}
+        </div>
+      )}
+      {/* Source chip — anchored bottom centre. Wire-service tag feel. */}
+      {slide.source_attribution && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 32,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            backgroundColor: "rgba(247, 243, 232, 0.08)",
+            paddingTop: 10,
+            paddingBottom: 10,
+            paddingLeft: 18,
+            paddingRight: 18,
+            borderRadius: 4,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              width: 18,
+              height: 2,
+              backgroundColor: DR.amber,
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 700,
+              fontSize: 13,
+              color: DR.cream,
+              opacity: 0.85,
+              textTransform: "uppercase",
+              letterSpacing: 3,
+            }}
+          >
+            {slide.source_attribution.replace(/^source:\s*/i, "")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Phase 4u — CTA has two registers now:
+ *    • Manifesto / festival (briefing=false): inverted cream canvas
+ *      with red Bowlby 'DONATE NOW' (the original DR brand moment
+ *      from Eid Mubarak posts).
+ *    • Emergency briefing (briefing=true): forest canvas, restrained
+ *      'Support the response' + URL pill. Reads as the end of a news
+ *      briefing, not a charity event flyer.
+ *
+ *  The parent SlideContent paints the canvas bg differently per mode
+ *  (cream for manifesto/festival, forest otherwise) — this body just
+ *  fills the appropriate composition. */
+function CtaBody({ slide, briefing }: { slide: Slide; briefing: boolean }) {
+  if (briefing) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+          paddingTop: 80,
+          paddingBottom: 60,
+        }}
+      >
+        <Eyebrow text="ACT NOW" briefing={true} />
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bowlby One SC",
+            fontWeight: 400,
+            fontSize: 96,
+            color: DR.cream,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            lineHeight: 1.0,
+            maxWidth: 880,
+            marginBottom: 36,
+            textAlign: "center",
+            alignSelf: "center",
+          }}
+        >
+          {slide.title}
+        </div>
+        {slide.body && (
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "DM Sans",
+              fontWeight: 400,
+              fontSize: 26,
+              color: DR.cream,
+              opacity: 0.78,
+              lineHeight: 1.4,
+              maxWidth: 740,
+              marginBottom: 40,
+              textAlign: "center",
+            }}
+          >
+            {slide.body}
+          </div>
+        )}
+        {/* URL pill — amber rounded, dark forest text, real button feel. */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            backgroundColor: DR.amber,
+            paddingTop: 22,
+            paddingBottom: 22,
+            paddingLeft: 44,
+            paddingRight: 44,
+            borderRadius: 999,
+          }}
+        >
+          <span
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: 40,
+              color: DR.forest,
+              letterSpacing: 1,
+              textTransform: "uppercase",
+            }}
+          >
+            deenrelief.org
+          </span>
+        </div>
+      </div>
+    );
+  }
+  // Original festival / manifesto CTA — preserved unchanged.
   return (
     <div
       style={{
@@ -2059,16 +2329,19 @@ function titleSizeFor(
   titleLength: number,
   useLora = false
 ): number {
+  // Phase 4u — toned the base sizes down ~12% across the board.
+  // The audit found previous sizes read as poster-shout; editorial
+  // news graphics use a smaller-but-more-confident type scale.
   const base = (() => {
     switch (layout) {
       case "hero":
-        return 124;
+        return 108;
       case "fact":
-        return 96;
+        return 84;
       case "response":
-        return 88;
+        return 76;
       default:
-        return 90;
+        return 80;
     }
   })();
   // Long titles step down once past ~24 chars, again past ~40.

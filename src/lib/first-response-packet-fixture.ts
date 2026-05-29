@@ -78,6 +78,13 @@ interface ScenarioCopy {
   factTitle: string;
   factBody: string;
   factSource: string;
+  /** Phase 4u — focal number for the stat slide (e.g. 'M 7.0', '33M',
+   *  '£0.40 per meal'). One short magnitude / numeric token. */
+  statHeadline: string;
+  /** One-line context under the stat number. */
+  statContext: string;
+  /** Wire-service tag for the stat source ('USGS', 'OCHA', 'Met Office'). */
+  statSource: string;
   /** Tier descriptions — specific, not generic-charity. */
   tier25: string;
   tier50: string;
@@ -108,6 +115,9 @@ function copyForScenario(scenarioId: string, event: EmergencyEvent): ScenarioCop
         factBody:
           "USGS reports a shallow-depth M7.0 event 42km east of Sylhet, near villages with limited reinforced construction.",
         factSource: "Source: USGS",
+        statHeadline: "M 7.0",
+        statContext: "42km E of Sylhet, shallow depth · widespread structural damage reported",
+        statSource: "USGS",
         tier25: "Tarpaulin + bedding for one family for two weeks",
         tier50: "Rice, dahl and cooking oil for a household of six",
         tier100: "A full emergency parcel: shelter, food and clean water",
@@ -134,6 +144,9 @@ function copyForScenario(scenarioId: string, event: EmergencyEvent): ScenarioCop
         factBody:
           "Initial field reports from local partners describe widespread displacement and disruption to medical services.",
         factSource: "Source: Field reports · OCHA",
+        statHeadline: "21 DAYS",
+        statContext: "Hospitals running on generator power across northern Gaza",
+        statSource: "OCHA · Field reports",
         tier25: "(awareness post — no donation tiers)",
         tier50: "",
         tier100: "",
@@ -171,6 +184,13 @@ function copyForScenario(scenarioId: string, event: EmergencyEvent): ScenarioCop
         factBody:
           "Initial field reports describe contaminated wells across the affected districts.",
         factSource: "Source: Initial field reports",
+        statHeadline:
+          event.countryIso === "PK" ? "33M" : "12M",
+        statContext:
+          event.countryIso === "PK"
+            ? "People affected by flooding across Pakistan"
+            : "People affected by monsoon flooding in Bangladesh",
+        statSource: "OCHA · Initial assessments",
         tier25: "Two weeks of clean drinking water for a family",
         tier50: "An emergency hygiene and water-purification kit",
         tier100: "Food and clean water for a family of five",
@@ -200,6 +220,9 @@ function copyForScenario(scenarioId: string, event: EmergencyEvent): ScenarioCop
         factBody:
           "The Met Office has issued an amber warning; rough-sleeper outreach faces severe operational impact.",
         factSource: "Source: Met Office",
+        statHeadline: "-5°C",
+        statContext: "Overnight low forecast across Sussex · Amber warning in force",
+        statSource: "Met Office",
         tier25: "A thermal sleeping bag for someone on the seafront",
         tier50: "Five hot meals + bags for a winter night patrol",
         tier100: "A week of bag-runs across central Brighton",
@@ -225,6 +248,9 @@ function copyForScenario(scenarioId: string, event: EmergencyEvent): ScenarioCop
         factTitle: "Field reports incoming",
         factBody: "Our partners on the ground are filing initial assessments.",
         factSource: "Source: Field reports",
+        statHeadline: "—",
+        statContext: "Numbers from the field expected within hours.",
+        statSource: "Field reports",
         tier25: "Two weeks of essentials for a family",
         tier50: "Emergency hygiene kit and shelter materials",
         tier100: "Food and clean water for a household of five",
@@ -305,6 +331,18 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           body: c.factBody,
           tier_lines: null,
           source_attribution: c.factSource,
+          media_id: null,
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
+        },
+        {
+          // Phase 4u — stat slide demonstrates the news-infographic
+          // register: huge focal number + one-line context + source.
+          layout: "stat",
+          eyebrow: "BY THE NUMBERS",
+          title: c.statHeadline,
+          body: c.statContext,
+          tier_lines: null,
+          source_attribution: c.statSource,
           media_id: null,
           logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
