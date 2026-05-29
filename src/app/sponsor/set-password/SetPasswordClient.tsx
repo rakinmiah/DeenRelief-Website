@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createBrowserSupabase } from "@/lib/supabase-browser";
 import { setPasswordAction } from "../actions";
 
 const inputCls =
@@ -9,8 +10,10 @@ const inputCls =
 const labelCls =
   "block text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5";
 
-export default function SetPasswordClient({ authed }: { authed: boolean }) {
+export default function SetPasswordClient() {
   const router = useRouter();
+  const [ready, setReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agree, setAgree] = useState(false);
@@ -18,18 +21,39 @@ export default function SetPasswordClient({ authed }: { authed: boolean }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!authed) {
-    return (
-      <div className="rounded-lg bg-amber-light/50 border border-amber/30 px-4 py-3 text-sm text-amber-dark">
-        This activation link is invalid or has expired. Please ask us to resend
-        your invite, or use{" "}
-        <a href="/sponsor/login" className="underline">
-          forgot password
-        </a>{" "}
-        if you already set one.
-      </div>
-    );
-  }
+  // Establish the session from whatever the activation link delivered:
+  //   - tokens in the URL hash (#access_token=…&refresh_token=…) for implicit
+  //     / recovery links → set them explicitly, then strip the hash.
+  //   - otherwise an existing cookie set by the /sponsor/auth/callback route.
+  // Either way the browser client persists it to cookies, so the server
+  // action that follows can read the session too.
+  useEffect(() => {
+    const supabase = createBrowserSupabase();
+
+    async function establish() {
+      const hash =
+        typeof window !== "undefined" ? window.location.hash : "";
+      if (hash && hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.replace(/^#/, ""));
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+        if (access_token && refresh_token) {
+          await supabase.auth.setSession({ access_token, refresh_token });
+          // Remove the token from the URL so it isn't left in history.
+          window.history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search
+          );
+        }
+      }
+      const { data } = await supabase.auth.getSession();
+      setHasSession(!!data.session);
+      setReady(true);
+    }
+
+    establish();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,6 +79,23 @@ export default function SetPasswordClient({ authed }: { authed: boolean }) {
     }
     router.replace("/sponsor/dashboard");
     router.refresh();
+  }
+
+  if (!ready) {
+    return <p className="text-sm text-grey">Checking your link…</p>;
+  }
+
+  if (!hasSession) {
+    return (
+      <div className="rounded-lg bg-amber-light/50 border border-amber/30 px-4 py-3 text-sm text-amber-dark">
+        This activation link is invalid or has expired. Please ask us to resend
+        your invite, or use{" "}
+        <a href="/sponsor/login" className="underline">
+          forgot password
+        </a>{" "}
+        if you already set one.
+      </div>
+    );
   }
 
   return (
