@@ -352,12 +352,13 @@ export const LaunchPacketSchema = z.object({
     .array(
       z.object({
         layout: z
-          .enum(["hero", "fact", "response", "tiers", "testimony", "chapter", "cta"])
+          .enum(["hero", "fact", "stat", "response", "tiers", "testimony", "chapter", "cta"])
           .describe(
             "Slide template to render. Order rules: slide 1 MUST be 'hero', the LAST slide MUST be 'cta'. Middle slides per arc:\n" +
-              "  • Most arcs use 'fact', 'response', 'tiers', 'testimony' in the middle. Repeat 'fact' for multiple evidence beats. At most one 'tiers' slide.\n" +
+              "  • Most arcs use 'fact', 'stat', 'response', 'tiers', 'testimony' in the middle. Repeat 'fact' for multiple evidence beats. At most one 'tiers' slide.\n" +
+              "  • 'stat' is news-infographic style — title is a SHORT NUMBER or magnitude string (e.g. '33M', 'M 7.0', '2,000+', '£0.40 per meal') and body is one line of context. STRONGLY ENCOURAGED for evidence/before_after/awareness_petition arcs — these are the slides that move the carousel from 'fundraising poster' into 'news briefing infographic'.\n" +
               "  • 'manifesto' arc uses 'chapter' slides — one chapter per slide, each with title (the claim, e.g. 'We believe in showing up.') + body (the proof, e.g. 'Every week since 2013, our Brighton team...'). 3–5 chapter slides between hero and cta.\n" +
-              "  • 'awareness_petition' arc OMITS the 'tiers' slide (no donation amounts) — uses 'fact' and 'testimony' middle slides instead."
+              "  • 'awareness_petition' arc OMITS the 'tiers' slide (no donation amounts) — uses 'fact', 'stat' and 'testimony' middle slides instead."
           ),
         eyebrow: z
           .string()
@@ -566,6 +567,62 @@ Exception: for 'awareness_petition' arc the lead should be the
 INJUSTICE not the donor's contribution — e.g. "Sudan is starving and
 the world looks away." Possessive framing fits donor-action arcs;
 witness/petition arcs need a different opener.
+
+──────────────────────────────────────────────────────────────────────
+EMERGENCY-NEWS BRIEFING REGISTER — the post-poster shift
+──────────────────────────────────────────────────────────────────────
+
+These packets cover REAL DISASTERS — earthquakes, floods, conflict
+escalations, displacement events. The audience needs to TRUST the
+source before they'll donate. A campaign poster reads as a sales
+pitch; a news briefing earns credibility, and the donation follows.
+
+For ALL EMERGENCY ARCS (evidence, before_after, awareness_petition,
+hero_image, quiet_dignity, testimony) — write and design as if DR
+were running an in-house news desk:
+
+  • SLIDES READ LIKE A REUTERS DISPATCH, NOT A CHARITY APPEAL.
+    Frame middle slides as briefing beats: "WHAT WE KNOW", "ON THE
+    GROUND", "BY THE NUMBERS", "FIELD UPDATE", "WHAT YOU CAN DO".
+    NOT "OUR RESPONSE TO THE CRISIS" or "EVERY GIFT COUNTS".
+
+  • PROFESSIONAL TYPOGRAPHY HIERARCHY.
+    The renderer uses EDITORIAL eyebrows (small-caps tracked sans)
+    on these arcs — NOT the Caveat brush script. The brush script
+    is reserved for 'manifesto' arc only (brand-identity warmth).
+    The shift is automatic once you pick the arc; you just need to
+    write tight, factual eyebrow text that suits the briefing
+    register — e.g. 'BRIEFING · 28 MAY 2026', 'BY THE NUMBERS',
+    'FROM THE FIELD'.
+
+  • USE 'stat' LAYOUT FOR THE FOCAL NUMBERS.
+    Every emergency story has a number that earns attention —
+    '33M displaced' / 'M 7.0' / '£0.40 per meal'. A stat slide
+    treats that as the visual focal point (massive type) with one
+    line of context. PREFER stat over fact for numerically-charged
+    beats. Most emergency packets benefit from one or two stat slides.
+
+  • SOURCES ARE VISIBLE.
+    On fact and stat slides, source_attribution is rendered as a
+    prominent design element (not a small footer line). Write it
+    like a wire-service tag: 'USGS', 'OCHA', 'Met Office', 'Field
+    reports · Sylhet team'. Specific sources beat vague 'initial
+    reports'.
+
+  • TONE THE CTA DOWN.
+    The CTA slide stays on the dark forest canvas (not the
+    inverted cream poster treatment). Headline is restrained —
+    'Support the response' / 'Contribute to the appeal' — and the
+    URL itself becomes the focal point. No huge red 'DONATE NOW'
+    on emergency packets. Save the festival inversion (cream + red
+    'DONATE NOW') for genuinely festival content (Eid, Ramadan).
+
+  • NO DECORATIVE ORNAMENT.
+    Sparkles, brush eyebrows, decorative chips: not on emergency
+    packets. They read as charity-event-flyer. The audit captured
+    these from DR's educational series — not from emergency
+    coverage. The renderer drops them automatically on emergency
+    arcs.
 
 ──────────────────────────────────────────────────────────────────────
 CAROUSEL SLIDE RULES — 3–8 slides, dynamic count, fixed bookends
