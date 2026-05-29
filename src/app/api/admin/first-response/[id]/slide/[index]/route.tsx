@@ -416,7 +416,20 @@ function SlideContent({
   // mirroring the Eid Mubarak / festival treatment — gives the closing
   // beat emotional warmth instead of more dark intensity.
   const isCta = slide.layout === "cta";
-  const hasPhoto = !isCta && mediaUrl != null;
+  // Phase 4v — fact slides can now carry media, joining hero /
+  // response / testimony. Stat / tiers / cta / chapter stay
+  // typography-only by design (the focal element is the number /
+  // price ladder / claim, not a photo).
+  const photoEligibleLayouts: Slide["layout"][] = [
+    "hero",
+    "response",
+    "fact",
+    "testimony",
+  ];
+  const hasPhoto =
+    !isCta &&
+    mediaUrl != null &&
+    photoEligibleLayouts.includes(slide.layout);
   const slideIndex = packet.carousel_slides.indexOf(slide) + 1;
   const slideTotal = packet.carousel_slides.length;
 
