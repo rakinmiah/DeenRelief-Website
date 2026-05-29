@@ -46,6 +46,10 @@ import {
   getImageryById,
   type ExternalImagery,
 } from "./external-imagery";
+import {
+  DESIGN_REFERENCES,
+  buildReferenceVisionBlocks,
+} from "./social-design-references";
 
 const MODEL = "claude-opus-4-7";
 
@@ -1257,6 +1261,15 @@ async function runStage1Strategy(
   inputTokens: number;
   outputTokens: number;
 }> {
+  // Phase 5c — Stage 1 now sees a curated set of design references
+  // (text briefs + PNG screenshots when available) BEFORE writing
+  // the strategy brief. This is the big creative unlock — Claude
+  // pattern-matches against actual high-engagement humanitarian
+  // posts (MSF "Remember Us", IR "All Eyes On Sudan", Charity:Water
+  // manifesto, etc.) instead of reasoning from text-described audit
+  // findings alone.
+  const referenceBlocks = await buildStage1ReferenceBlocks();
+
   const response = await client.messages.parse({
     model: MODEL,
     max_tokens: 2000,
@@ -1274,7 +1287,13 @@ async function runStage1Strategy(
     messages: [
       {
         role: "user",
-        content: buildStage1Prompt(input, candidateMedia, externalImagery),
+        content: [
+          ...referenceBlocks,
+          {
+            type: "text" as const,
+            text: buildStage1Prompt(input, candidateMedia, externalImagery),
+          },
+        ],
       },
     ],
   });
@@ -1288,6 +1307,61 @@ async function runStage1Strategy(
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
   };
+}
+
+/** Phase 5c — build the design-reference vision blocks that prefix
+ *  the Stage 1 user message. We send ALL six references (across all
+ *  arcs) so Claude can choose which patterns to lean on based on the
+ *  event characteristics. Sending all six costs ~3-4K input tokens
+ *  but the lift in brief quality is the largest single improvement
+ *  we've made since Phase 4m.
+ *
+ *  Each reference block opens with a short intro text, then (if the
+ *  PNG exists in /public/social-references) the screenshot, then a
+ *  CONCEIT + STEAL bullet list. Total ~12-18 content blocks. */
+async function buildStage1ReferenceBlocks(): Promise<
+  Array<Anthropic.Messages.TextBlockParam | Anthropic.Messages.ImageBlockParam>
+> {
+  const refs = DESIGN_REFERENCES;
+  const visionBlocks = await buildReferenceVisionBlocks(refs);
+
+  return [
+    {
+      type: "text",
+      text: `── DESIGN REFERENCES — high-engagement humanitarian posts to pattern-match against ──
+
+You are about to write a strategy brief for a Deen Relief emergency
+packet. Before you do, STUDY these ${refs.length} curated references.
+Each one is a post that earned outsized engagement (likes / saves /
+shares) for a humanitarian or Muslim charity. We've captured what
+makes each one work in the STEAL list below.
+
+Your job in the brief is not to copy these literally — it's to match
+their EDITORIAL DISCIPLINE. If your brief reads like a templated
+appeal-poster instead of one of these references, rewrite it.
+
+Three things these references all share that DR's old packets did
+not:
+  1. RESTRAINT — no urgency-theatre, no exclamation points, no
+     'DONATE NOW' caps. The gravity of the situation is the volume.
+  2. SPECIFICS — named people, dated events, sourced numbers. No
+     generic 'families in need'.
+  3. FORMAT INVENTION — each post has a CONCEIT (a held-up newspaper,
+     a quote in italic over a dim photo, a possessive 'YOUR'
+     opener). Boring slide templates don't earn 327K likes.
+
+`,
+    },
+    ...visionBlocks,
+    {
+      type: "text",
+      text: `── END REFERENCES ──
+
+Now write the strategy brief for the event below. Treat the
+references as the standard — if your arc / register / format choice
+wouldn't sit comfortably alongside them, pick a different one.`,
+    },
+  ];
 }
 
 /** Build a multi-block user message for Stage 2: text brief + vision

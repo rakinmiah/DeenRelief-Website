@@ -41,6 +41,39 @@ const FREE_LICENSE_PATTERNS = [
 const MIN_WIDTH = 800;
 const RECENCY_WINDOW_DAYS = 180;
 
+/* ─── Keyword expansion for high-yield search terms (Phase 5c) ────
+ *
+ * Wikimedia Commons has stronger UN-sourced photojournalism for some
+ * crisis zones than a naive country-name search would surface. Map
+ * the country ISO to one or more high-yield search expressions so we
+ * pull from those photo pools first.
+ *
+ * For ongoing-conflict countries (PS, SD, YE, SY) we ALSO widen the
+ * recency window — Commons has strong historical UN Photo content
+ * that's relevant to a current-day appeal even if uploaded years ago.
+ * (A 2018 OCHA photo of Gaza tents is still a visually accurate
+ * Gaza-tents photo.)
+ */
+const COUNTRY_KEYWORD_EXPANSION: Record<string, string[]> = {
+  PS: [
+    "Gaza Strip OCHA",
+    "Gaza Strip UNRWA",
+    "Palestine refugees UN Photo",
+    "West Bank displacement",
+  ],
+  SD: ["Sudan conflict OCHA", "Darfur displacement", "Sudan refugees UN Photo"],
+  YE: ["Yemen OCHA humanitarian", "Yemen displacement UN", "Sanaa famine"],
+  SY: ["Syria displacement UN Photo", "Syria refugees", "Aleppo OCHA"],
+  AF: ["Afghanistan UNHCR", "Kabul displacement", "Afghanistan refugees UN"],
+  BD: ["Bangladesh floods", "Cox's Bazar UNHCR", "Bangladesh cyclone"],
+  PK: ["Pakistan floods OCHA", "Pakistan UNICEF", "Sindh flood"],
+};
+
+/** Long-running conflict events get a wider recency window — UN
+ *  archival photos from 2019 of Gaza tents are still accurate
+ *  visual evidence for a 2026 Gaza appeal. */
+const WIDE_RECENCY_COUNTRIES = new Set(["PS", "SD", "YE", "SY"]);
+
 interface SearchHit {
   title: string;
   pageid: number;
@@ -72,18 +105,36 @@ interface ImageInfoResponse {
 }
 
 /**
- * Compose the search query for an event. Pulls from country, region,
- * event type, and the event title's most distinctive nouns.
+ * Compose the search queries for an event. Returns an ARRAY of
+ * queries to try in order — for high-yield countries we run 2-3
+ * curated searches (against expansion keywords like 'Gaza Strip
+ * UNRWA') before falling back to the generic 'eventType country'
+ * search. This pulls UN-sourced photojournalism that the naive
+ * search misses.
+ *
+ * Phase 5c — previously a single search like 'conflict palestine'
+ * yielded mostly map illustrations and protest photos. The expanded
+ * version surfaces actual OCHA / UNRWA / UN Photo content.
  */
-function buildSearchTerms(event: EmergencyEvent): string {
+function buildSearchTermsList(event: EmergencyEvent): string[] {
+  const queries: string[] = [];
+
+  // 1. Curated expansion keywords for high-yield countries.
+  if (event.countryIso && COUNTRY_KEYWORD_EXPANSION[event.countryIso]) {
+    queries.push(...COUNTRY_KEYWORD_EXPANSION[event.countryIso]!);
+  }
+
+  // 2. Generic fallback — 'eventType region country'.
   const parts: string[] = [];
   if (event.eventType) {
-    // 'conflict_escalation' → 'conflict' (looser match)
     parts.push(event.eventType.split("_")[0] ?? event.eventType);
   }
   if (event.region) parts.push(event.region);
   if (event.countryIso) parts.push(event.countryIso);
-  return parts.filter(Boolean).join(" ").slice(0, 80);
+  const generic = parts.filter(Boolean).join(" ").slice(0, 80);
+  if (generic) queries.push(generic);
+
+  return queries;
 }
 
 function isFreeLicense(text: string | undefined): boolean {
@@ -100,37 +151,45 @@ function stripTags(s: string | undefined): string {
 export async function fetchWikimediaImagery(
   event: EmergencyEvent
 ): Promise<CreateImageryInput[]> {
-  const searchTerms = buildSearchTerms(event);
-  if (!searchTerms) return [];
+  const queries = buildSearchTermsList(event);
+  if (queries.length === 0) return [];
 
-  // 1. Search for File: pages.
-  const searchUrl = new URL(SEARCH_API);
-  searchUrl.searchParams.set("action", "query");
-  searchUrl.searchParams.set("list", "search");
-  searchUrl.searchParams.set("srsearch", searchTerms);
-  searchUrl.searchParams.set("srnamespace", "6"); // 6 = File:
-  searchUrl.searchParams.set("srlimit", "20");
-  searchUrl.searchParams.set("format", "json");
-  searchUrl.searchParams.set("origin", "*");
+  // 1. Run each curated query in sequence, accumulating distinct
+  //    File: titles. We stop once we have 30+ candidates — that's
+  //    plenty for the info-fetch step downstream.
+  const titles: string[] = [];
+  const seenTitles = new Set<string>();
 
-  let searchResp: SearchResponse;
-  try {
-    const res = await fetch(searchUrl.toString(), {
-      headers: { "User-Agent": EXTERNAL_FETCH_UA },
-    });
-    if (!res.ok) {
-      console.warn(`[wikimedia] search HTTP ${res.status}`);
-      return [];
+  for (const q of queries) {
+    if (titles.length >= 30) break;
+    const searchUrl = new URL(SEARCH_API);
+    searchUrl.searchParams.set("action", "query");
+    searchUrl.searchParams.set("list", "search");
+    searchUrl.searchParams.set("srsearch", q);
+    searchUrl.searchParams.set("srnamespace", "6"); // 6 = File:
+    searchUrl.searchParams.set("srlimit", "12");
+    searchUrl.searchParams.set("format", "json");
+    searchUrl.searchParams.set("origin", "*");
+
+    try {
+      const res = await fetch(searchUrl.toString(), {
+        headers: { "User-Agent": EXTERNAL_FETCH_UA },
+      });
+      if (!res.ok) {
+        console.warn(`[wikimedia] search "${q}" HTTP ${res.status}`);
+        continue;
+      }
+      const searchResp = (await res.json()) as SearchResponse;
+      for (const hit of searchResp.query?.search ?? []) {
+        if (!hit.title || seenTitles.has(hit.title)) continue;
+        seenTitles.add(hit.title);
+        titles.push(hit.title);
+      }
+    } catch (err) {
+      console.error(`[wikimedia] search "${q}" exception:`, err);
     }
-    searchResp = (await res.json()) as SearchResponse;
-  } catch (err) {
-    console.error("[wikimedia] search exception:", err);
-    return [];
   }
 
-  const titles = (searchResp.query?.search ?? [])
-    .map((h) => h.title)
-    .filter(Boolean);
   if (titles.length === 0) return [];
 
   // 2. Fetch image info for the matched titles in one request.
@@ -162,9 +221,14 @@ export async function fetchWikimediaImagery(
   }
 
   const candidates: CreateImageryInput[] = [];
-  const cutoff = new Date(
-    Date.now() - RECENCY_WINDOW_DAYS * 24 * 60 * 60 * 1000
-  );
+  // Phase 5c — long-running conflict countries get a wider window
+  // (5y) since archival UN photos are still visually accurate. Other
+  // events stay on the tight 180-day window so we don't surface
+  // unrelated archival content.
+  const windowDays = WIDE_RECENCY_COUNTRIES.has(event.countryIso ?? "")
+    ? 365 * 5
+    : RECENCY_WINDOW_DAYS;
+  const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
   for (const page of Object.values(infoResp.query?.pages ?? {})) {
     const info = page.imageinfo?.[0];
