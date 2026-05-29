@@ -175,6 +175,112 @@ function buildScenarioInput(
           generatedAt: new Date().toISOString(),
         },
       };
+
+    case "ps-ocha-may26": {
+      // REAL CLAUDE TEST EVENT — sourced from the OCHA oPt Humanitarian
+      // Situation Report dated 25 May 2026 (ReliefWeb). external_id
+      // uses 'realtest:' prefix specifically so isTestEvent() returns
+      // false and Claude actually runs against substantive content.
+      // Cost: ~$0.30 per redraft. The point of this scenario is to
+      // stress-test the new briefing register (4u), fact specificity
+      // (4v), and aggressive image use (4v) against real numbers from
+      // a current OCHA dispatch.
+      //
+      // Numbers below extracted verbatim from:
+      // https://reliefweb.int/report/occupied-palestinian-territory/opt-humanitarian-situation-report-25-may-2026
+      const realExternalId = `realtest:ps-ocha-may26:${uniqueSuffix}`;
+      return {
+        externalId: realExternalId,
+        source: "reliefweb",
+        eventType: "conflict_escalation",
+        countryIso: "PS",
+        region: "Gaza Strip + West Bank including East Jerusalem",
+        title:
+          "oPt: Humanitarian Situation Report | 25 May 2026 — escalating violence, mass displacement",
+        summary:
+          "OCHA's current situation report covers the West Bank (50+ settler attacks in one week, 5 Palestinians killed 12–18 May, hundreds at risk of forced displacement in East Jerusalem) and Gaza Strip (1.7M people across 1,600 displacement sites, 881 fatalities since the October 2025 ceasefire per Gaza MoH, severe shortages of engine oil disrupting WASH services).",
+        severityRaw: 3,
+        sourceUrl:
+          "https://reliefweb.int/report/occupied-palestinian-territory/opt-humanitarian-situation-report-25-may-2026",
+        rawPayload: {
+          // Compact extracted data mirroring how a ReliefWeb signal
+          // would look once ReliefWeb fetcher is wired (Phase 4l stub).
+          source_agency: "OCHA",
+          report_type: "Situation Report",
+          report_date: "2026-05-25",
+          country_iso: "PSE",
+          // ── Headline metrics (verified against the source URL) ──
+          metrics: {
+            // West Bank
+            settler_attacks_week: 50,
+            settler_attacks_year_to_date: 870,
+            settler_attacks_communities_affected: 220,
+            settler_attack_avg_per_day_2026: 6,
+            palestinians_killed_wb_12_18_may: 5,
+            palestinians_injured_wb_12_18_may: 60,
+            structures_demolished_reporting_period: 24,
+            structures_demolished_ytd_pct_agricultural: 71,
+            khan_al_ahmar_at_risk_communities: 18,
+            khan_al_ahmar_at_risk_people: 4000,
+            // Gaza
+            people_in_displacement_sites: 1700000,
+            households_in_displacement_sites: 354480,
+            displacement_sites_total: 1600,
+            makeshift_sites_pct: 88,
+            gaza_killed_since_ceasefire_oct2025: 881,
+            gaza_injured_since_ceasefire_oct2025: 2621,
+            gaza_killed_12_20_may: 24,
+            gaza_injured_12_20_may: 159,
+            families_displaced_16_17_may: 150,
+            jabalya_strike_families_affected: 35,
+            // Aid + access
+            water_cubic_metres_per_day: 24000,
+            water_delivery_locations: 2000,
+            households_relying_on_water_deliveries_pct: 74,
+            food_parcels_people: 440000,
+            food_parcels_households: 122000,
+            cooked_meals_per_day: 1000000,
+            bread_metric_tons_per_day: 300,
+            bread_pct_of_estimated_need: 36,
+            kerem_shalom_offloading_pct: 81,
+            diesel_litres_imported_7_20_may: 2100000,
+            // Explosive ordnance
+            eo_accidents_since_oct2025: 109,
+            eo_killed_since_oct2025: 49,
+            eo_injured_since_oct2025: 265,
+          },
+          highlights: [
+            "More than 50 attacks by settlers across the West Bank in one week resulted in casualties or property damage, including arson attacks that damaged a mosque, homes, farmland and vehicles.",
+            "OCHA has documented an average of six such attacks per day in 2026.",
+            "Hundreds of Palestinians in eastern Jerusalem governorate at risk of forced displacement after the Israeli Finance Minister called for the rapid implementation of demolition orders against Khan al Ahmar.",
+            "In Gaza, humanitarian partners launched a pest-control campaign in over 1,700 locations.",
+            "Only half of all aid trucks from Egypt could offload at the Israeli-controlled Kerem Shalom Crossing in the first 18 days of May.",
+            "1.7 million people across 1,600 displacement sites in Gaza; nearly 88 per cent reside in makeshift sites.",
+            "881 fatalities and 2,621 injuries reported since the announcement of a ceasefire on 10 October 2025 (Gaza MoH).",
+          ],
+          attachments: [
+            {
+              title: "Situation Report PDF",
+              format: "application/pdf",
+              size_mb: 1.32,
+            },
+          ],
+          // Wikimedia hints — the imagery fetcher's Wikimedia search
+          // uses event-derived keywords. Including 'gaza humanitarian'
+          // + 'palestinian territory' helps it find CC-licensed
+          // photography from UN bodies (UNRWA, OCHA, World Bank).
+          imagery_keywords: [
+            "Gaza humanitarian situation",
+            "Palestinian displacement",
+            "Khan Younis displacement camp",
+            "Jabalya refugee camp",
+            "Khan al Ahmar Bedouin",
+          ],
+          scenario: scenarioId,
+          generatedAt: new Date().toISOString(),
+        },
+      };
+    }
   }
 }
 
@@ -240,15 +346,19 @@ export async function clearTestEventsAction(): Promise<
   try {
     const session = await requireAdminSession();
     const supabase = getSupabaseAdmin();
-    // Match BOTH paths: original tagged-source rows (source='test')
-    // and the newer NASA-EONET-shaped scenarios which use source='eonet'
-    // but always carry an external_id prefix of 'test:'. The latter
-    // exercise the real EONET imagery code path, so they can't safely
-    // use source='test'.
+    // Match three paths:
+    //   • source='test' — original tagged-source rows
+    //   • external_id LIKE 'test:%' — NASA-EONET-shaped scenarios using
+    //     source='eonet' but tagged for cleanup
+    //   • external_id LIKE 'realtest:%' — real-Claude scenarios sourced
+    //     from live news (OCHA / ReliefWeb) where fixture-mode is
+    //     intentionally bypassed to exercise the prompts on real content
     const { data, error } = await supabase
       .from("emergency_events")
       .delete()
-      .or("source.eq.test,external_id.like.test:%")
+      .or(
+        "source.eq.test,external_id.like.test:%,external_id.like.realtest:%"
+      )
       .select("id");
     if (error) {
       console.error("[test-event] clear failed:", error);

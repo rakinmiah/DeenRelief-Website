@@ -37,6 +37,12 @@ export const TEST_SCENARIOS = {
       "HIGH push — exercises NASA EONET signal + satellite imagery integration",
     expectedTier: "HIGH",
   },
+  "ps-ocha-may26": {
+    label: "Palestine — OCHA situation report (live data, real Claude)",
+    description:
+      "CRITICAL · USES REAL CLAUDE (~$0.30) — sourced from a current OCHA oPt situation report on ReliefWeb. Specifically built to stress-test the new briefing register, fact specificity, and multi-image rules against substantive real-world content.",
+    expectedTier: "CRITICAL",
+  },
 } as const;
 
 export type TestScenarioId = keyof typeof TEST_SCENARIOS;
