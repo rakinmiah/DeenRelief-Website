@@ -32,14 +32,16 @@ import { requireAdminSession } from "@/lib/admin-session";
 import { getLogoDataUri } from "@/lib/brand-assets";
 import {
   getExternalImageryDataUri,
+  listImageryForEvent,
   markImagerySelected,
 } from "@/lib/external-imagery";
 import { getEmergencyEventById } from "@/lib/first-response";
 import {
   LaunchPacketSchema,
+  pickBestCandidateForEvent,
   type LaunchPacket,
 } from "@/lib/first-response-packet";
-import { getMediaById } from "@/lib/media-library";
+import { getCandidateMediaForEvent, getMediaById } from "@/lib/media-library";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -201,9 +203,42 @@ export async function GET(
     );
   }
   const packet = parsed.data;
-  const slide = packet.carousel_slides[index];
+  let slide = packet.carousel_slides[index];
   if (!slide) {
     return new Response("Slide missing from packet.", { status: 422 });
+  }
+
+  // RENDER-TIME HERO PHOTO ENFORCEMENT (Phase 4q belt-and-braces).
+  // If the stored packet has a hero slide with no media_id (because it
+  // was generated under old code, or Stage 2 + Stage 3 + the post-pass
+  // all somehow failed to assign one), enforce a photo right now.
+  // Re-queries the candidate pool the same way the generator does and
+  // picks the best fit. This is per-render — the stored packet is not
+  // mutated — but the SMM sees the photo regardless.
+  if (slide.layout === "hero" && !slide.media_id) {
+    try {
+      const [drCands, extCands] = await Promise.all([
+        getCandidateMediaForEvent({
+          countryIso: event.countryIso,
+          eventType: event.eventType,
+          campaignSlugs: event.matchedCampaigns,
+          limit: 12,
+        }),
+        listImageryForEvent(event.id),
+      ]);
+      const best = pickBestCandidateForEvent(event, drCands, extCands);
+      if (best) {
+        console.warn(
+          `[slide ${index}] render-time hero enforcement: stored media_id was null, assigning ${best.id} (${best.reason})`
+        );
+        slide = { ...slide, media_id: best.id, logo_variant: "white" };
+      }
+    } catch (err) {
+      console.warn(
+        `[slide ${index}] render-time hero enforcement failed (non-fatal):`,
+        err instanceof Error ? err.message : err
+      );
+    }
   }
 
   // Resolve the slide's chosen media. media_id is prefixed:
