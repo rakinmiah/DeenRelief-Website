@@ -37,7 +37,7 @@ export default async function EmergencyEventPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdminSession();
+  const session = await requireAdminSession();
   const { id } = await params;
   const [event, brandStamp] = await Promise.all([
     getEmergencyEventById(id),
@@ -222,6 +222,10 @@ export default async function EmergencyEventPage({
         <PacketView
           packet={packet}
           eventId={event.id}
+          // Strategy brief surfaces 'Claude's thinking' — useful to
+          // admins for tuning prompts, but noisy for the SMM whose
+          // job is to ship the packet. Hidden when role=social.
+          showStrategyBrief={session.role !== "social"}
           // Combine packet draft time + latest brand-asset upload time
           // into one cache-buster value. Either changing forces fresh
           // PNG fetches in the browser, so newly uploaded logos appear
@@ -263,17 +267,21 @@ function PacketView({
   eventId,
   draftStamp,
   matchedCampaigns,
+  showStrategyBrief,
 }: {
   packet: LaunchPacket;
   eventId: string;
   draftStamp: number;
   matchedCampaigns: string[];
+  /** Admin-only by request. SMM sees the packet ready-to-ship; the
+   *  brief is a tuning surface for the engineer/admin role. */
+  showStrategyBrief: boolean;
 }) {
   return (
     <div className="space-y-6">
-      {/* Strategy brief — Claude's thinking BEFORE drafting. Surfaces
-          why the packet looks the way it does (angle, arc, slide
-          count rationale, register per surface). */}
+      {/* Strategy brief — Claude's thinking BEFORE drafting. Admin-
+          only; hidden for the SMM role per request. */}
+      {showStrategyBrief && (
       <Section title="Claude's strategy brief">
         <div className="text-[13px] text-charcoal/85 leading-relaxed space-y-3">
           <div>
@@ -321,6 +329,7 @@ function PacketView({
           </div>
         </div>
       </Section>
+      )}
 
       {/* Tiers */}
       <Section title="Donation tiers">
@@ -375,8 +384,7 @@ function PacketView({
       <Section title="Carousel slides — for Instagram">
         <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
           {packet.carousel_slides.length} 1080×1080 brand-styled slides — Claude
-          chose this count based on the story&apos;s shape (see strategy
-          brief above for rationale). Right-click any to copy, or use the
+          chose this count based on the story&apos;s shape{showStrategyBrief ? " (see strategy brief above for rationale)" : ""}. Right-click any to copy, or use the
           download button to save individually. Upload as an Instagram
           carousel in this order.
         </p>
@@ -385,6 +393,34 @@ function PacketView({
           count={packet.carousel_slides.length}
           draftStamp={draftStamp}
         />
+        {/* Editable export — Canva / PowerPoint round-trip. */}
+        <div className="mt-5 bg-amber-light/40 border border-amber/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-bold tracking-[0.12em] uppercase text-amber-dark mb-0.5">
+              Need to edit a slide?
+            </p>
+            <p className="text-[13px] text-charcoal/85 leading-relaxed">
+              Download the whole packet as an editable PowerPoint. Open it
+              in Keynote / PowerPoint to tweak directly, or{" "}
+              <a
+                href="https://www.canva.com/help/upload-existing-presentation/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2"
+              >
+                import into Canva
+              </a>{" "}
+              — every text box, image and shape becomes editable.
+            </p>
+          </div>
+          <a
+            href={`/api/admin/first-response/${eventId}/pptx`}
+            className="shrink-0 px-5 py-2.5 rounded-full bg-charcoal text-white text-[13px] font-semibold hover:bg-charcoal/85 transition-colors"
+            download
+          >
+            ↓ Download .pptx (editable)
+          </a>
+        </div>
       </Section>
 
       {/* Single-image post — for Facebook + X (where 5-slide carousels
@@ -418,11 +454,6 @@ function PacketView({
           </ul>
         </div>
         <PacketField label="Body" text={packet.email.body} multiline />
-      </Section>
-
-      {/* Press release */}
-      <Section title="Press release">
-        <PacketField text={packet.press_release} multiline />
       </Section>
     </div>
   );
