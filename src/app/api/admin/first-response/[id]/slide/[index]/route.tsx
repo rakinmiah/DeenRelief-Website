@@ -552,6 +552,7 @@ function SlideContent({
         )}
         arc={packet.strategy_brief.arc}
         ctaKind={packet.cta_kind ?? "donate"}
+        fallbackHashtags={packet.social_post.hashtags}
       />
 
       {/* Footer — source attribution, URL on CTA, hairline divider. */}
@@ -1555,6 +1556,7 @@ function SlideBody({
   displayFont,
   arc,
   ctaKind,
+  fallbackHashtags,
 }: {
   slide: Slide;
   fg: string;
@@ -1571,11 +1573,22 @@ function SlideBody({
    *  arc + kind. donate=URL pill, witness=hashtag pair, engage=
    *  comment-keyword prompt. */
   ctaKind: "donate" | "witness" | "engage";
+  /** Phase 5c — fallback hashtag pair for the witness CTA when Claude
+   *  forgets to put one in slide.body (we've seen URLs leak in there
+   *  instead). Pulled from packet.social_post.hashtags. */
+  fallbackHashtags: string[];
 }) {
   const briefing = arc !== "manifesto";
   if (slide.layout === "tiers") return <TiersBody slide={slide} fg={fg} briefing={briefing} />;
   if (isCta)
-    return <CtaBody slide={slide} briefing={briefing} ctaKind={ctaKind} />;
+    return (
+      <CtaBody
+        slide={slide}
+        briefing={briefing}
+        ctaKind={ctaKind}
+        fallbackHashtags={fallbackHashtags}
+      />
+    );
   if (slide.layout === "stat")
     return <StatBody slide={slide} fg={fg} />;
   if (slide.layout === "chapter")
@@ -2128,6 +2141,39 @@ function StatBody({ slide, fg }: { slide: Slide; fg: string }) {
   );
 }
 
+/** Phase 5c — resolve the witness CTA's hashtag pair. Claude is
+ *  prompted to put 'tag1 · tag2' in slide.body but sometimes leaks a
+ *  URL or other text there instead. This guard:
+ *    1. Strips any URL-shaped tokens from slide.body
+ *    2. Pulls the first two hashtag-like tokens (with or without '#')
+ *    3. Falls back to the caption's hashtag pair if body is empty/wrong
+ *    4. Always returns "#tag · #tag" — never a bare word, never a URL
+ */
+function resolveWitnessHashtagPair(
+  body: string | null,
+  fallbackHashtags: string[]
+): string {
+  const fromBody = body
+    ? body
+        // Kill anything that looks like a URL or domain.
+        .replace(/\bhttps?:\/\/\S+/gi, "")
+        .replace(/\b\w+\.(org|com|net|co|uk|io)(\/\S*)?/gi, "")
+        .split(/[·•|,\s]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 1 && /^#?[a-z0-9_]+$/i.test(s))
+        .slice(0, 2)
+    : [];
+  const fromCaption = fallbackHashtags
+    .filter((h) => h && /^[a-z0-9_]+$/i.test(h))
+    .slice(0, 2);
+  const tags = (fromBody.length === 2 ? fromBody : fromCaption).map((t) =>
+    t.startsWith("#") ? t.toLowerCase() : `#${t.toLowerCase()}`
+  );
+  if (tags.length === 2) return tags.join(" · ");
+  if (tags.length === 1) return `${tags[0]} · #standwiththem`;
+  return "#standwiththem · #ceasefirenow";
+}
+
 /** Phase 4u — CTA has two registers now:
  *    • Manifesto / festival (briefing=false): inverted cream canvas
  *      with red Bowlby 'DONATE NOW' (the original DR brand moment
@@ -2143,68 +2189,115 @@ function CtaBody({
   slide,
   briefing,
   ctaKind,
+  fallbackHashtags,
 }: {
   slide: Slide;
   briefing: boolean;
   ctaKind: "donate" | "witness" | "engage";
+  fallbackHashtags: string[];
 }) {
   // Phase 4y — witness mode replaces the URL pill with a hashtag pair.
   // For quiet_dignity / testimony arcs where reverence beats
-  // transactional asks (MSF "Remember Us" pattern). Sources the
-  // hashtags from slide.body, expected as 'tag1 · tag2'.
+  // transactional asks (MSF "Remember Us" pattern). Phase 5c — denser
+  // visual hierarchy, URL-leak guard (Claude sometimes ignores the
+  // "hashtags in body" rule and writes a URL there), fallback to the
+  // caption's hashtag pair when slide.body is missing or wrong.
   if (briefing && ctaKind === "witness") {
-    // Title is expected to be a short witness statement; body is the
-    // hashtag pair separated by ' · '.
+    const hashtagPair = resolveWitnessHashtagPair(slide.body, fallbackHashtags);
     return (
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           flex: 1,
-          justifyContent: "center",
+          justifyContent: "space-between",
           alignItems: "center",
           textAlign: "center",
-          paddingTop: 90,
+          paddingTop: 110,
           paddingBottom: 80,
-          paddingLeft: 56,
-          paddingRight: 56,
+          paddingLeft: 64,
+          paddingRight: 64,
         }}
       >
-        <Eyebrow text="REMEMBER" briefing={true} />
+        {/* Top: eyebrow + statement */}
         <div
           style={{
             display: "flex",
-            fontFamily: "Bowlby One SC",
-            fontWeight: 400,
-            fontSize: slide.title.length > 30 ? 76 : 110,
-            color: DR.cream,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            lineHeight: 1.0,
-            maxWidth: 880,
-            marginBottom: 40,
-            textAlign: "center",
-            alignSelf: "center",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
-          {slide.title}
+          <Eyebrow text="REMEMBER" briefing={true} />
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bowlby One SC",
+              fontWeight: 400,
+              fontSize: slide.title.length > 30 ? 76 : 110,
+              color: DR.cream,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              lineHeight: 1.0,
+              maxWidth: 880,
+              textAlign: "center",
+              alignSelf: "center",
+            }}
+          >
+            {slide.title}
+          </div>
         </div>
-        {slide.body && (
+
+        {/* Middle: amber divider rule + hashtag pair as the typographic
+            anchor. The rule gives the slide visual rhythm that a
+            text-only canvas otherwise lacks. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 28,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              width: 96,
+              height: 3,
+              backgroundColor: DR.amber,
+            }}
+          />
           <div
             style={{
               display: "flex",
               fontFamily: "DM Sans",
               fontWeight: 700,
-              fontSize: 32,
+              fontSize: 36,
               color: DR.amber,
               letterSpacing: 1.5,
               textTransform: "lowercase",
               textAlign: "center",
             }}
           >
-            {slide.body}
+            {hashtagPair}
           </div>
-        )}
+        </div>
+
+        {/* Bottom: charity grounding so the slide doesn't feel adrift. */}
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "DM Sans",
+            fontWeight: 400,
+            fontSize: 14,
+            color: DR.cream,
+            opacity: 0.5,
+            letterSpacing: 3,
+            textTransform: "uppercase",
+            textAlign: "center",
+          }}
+        >
+          Deen Relief · Charity No. 1158608
+        </div>
       </div>
     );
   }

@@ -385,12 +385,14 @@ function PacketView({
           click-to-zoom lightbox via PacketAssets (Phase 4z). Single
           client component so the lightbox can navigate across all
           assets in the packet without state coordination. */}
-      <Section title="Carousel slides + single-image post">
+      <Section title="Carousel slides (Instagram + Facebook) + X post">
         <p className="text-charcoal/65 text-[13px] mb-4 leading-relaxed">
-          {packet.carousel_slides.length} carousel slides (1080×1080) plus
-          one 1200×675 single-image post for Facebook + X. Click any
-          thumbnail to zoom — use arrow keys to walk the set. Download
-          buttons save the PNG directly.
+          {packet.carousel_slides.length} carousel slides (1080×1080) —
+          post these as a carousel on <strong>both Instagram and Facebook</strong>{" "}
+          (Facebook supports carousels natively and they outperform single
+          images for storytelling). Plus one 1200×675 single-image post
+          for <strong>X (Twitter)</strong> where carousels aren&apos;t
+          native. Click any thumbnail to zoom — arrow keys walk the set.
         </p>
         <PacketAssets
           eventId={eventId}

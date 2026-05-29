@@ -650,7 +650,7 @@ function MagazineCover({
                   textAlign: "right",
                 }}
               >
-                {f}
+                {trimToStatBeat(f)}
               </div>
             ))}
           </div>
@@ -875,12 +875,12 @@ function MagazineCoverPanelRight({
               display: "flex",
               fontFamily: "Bowlby One SC",
               fontWeight: 400,
-              fontSize: title.length > 30 ? 40 : 52,
+              fontSize: title.length > 24 ? 38 : title.length > 18 ? 46 : 56,
               color: DR.cream,
               textTransform: "uppercase",
               letterSpacing: 0.5,
-              lineHeight: 1.0,
-              marginBottom: 14,
+              lineHeight: 0.96,
+              marginBottom: 18,
             }}
           >
             {title}
@@ -891,10 +891,10 @@ function MagazineCoverPanelRight({
                 display: "flex",
                 fontFamily: "DM Sans",
                 fontWeight: 400,
-                fontSize: 15,
+                fontSize: 14.5,
                 color: DR.cream,
                 opacity: 0.78,
-                lineHeight: 1.4,
+                lineHeight: 1.45,
                 maxWidth: PANEL_W - 64,
               }}
             >
@@ -903,15 +903,18 @@ function MagazineCoverPanelRight({
           )}
         </div>
 
-        {/* Stat strip — top 3 verified facts. */}
+        {/* Stat strip — top 3 verified facts, trimmed to short beats so
+            the narrow 540px column doesn't wrap each one across 4 lines
+            (which is what made the X post read like a poster — Phase 5c
+            spacing fix). Each fact becomes a single-line headline beat. */}
         {verifiedFacts.length > 0 && (
           <div
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 6,
-              paddingTop: 16,
-              paddingBottom: 16,
+              gap: 10,
+              paddingTop: 18,
+              paddingBottom: 18,
               borderTop: `1px solid ${DR.amber}55`,
               borderBottom: `1px solid ${DR.amber}55`,
             }}
@@ -937,13 +940,13 @@ function MagazineCoverPanelRight({
                   display: "flex",
                   fontFamily: "DM Sans",
                   fontWeight: 400,
-                  fontSize: 12,
+                  fontSize: 13,
                   color: DR.cream,
                   opacity: 0.92,
-                  lineHeight: 1.4,
+                  lineHeight: 1.35,
                 }}
               >
-                {f}
+                {trimToStatBeat(f)}
               </div>
             ))}
           </div>
@@ -957,7 +960,7 @@ function MagazineCoverPanelRight({
             alignItems: "flex-start",
           }}
         >
-          <UrlPill url={ctaUrl} />
+          <UrlPill url={ctaUrl} variant="compact" />
           <div
             style={{
               display: "flex",
@@ -1150,18 +1153,40 @@ function EditorialType({
 
 /** Amber pill that reads as a clickable button — much stronger CTA
  *  than the raw amber wordmark we shipped before. Used by both
- *  layouts so the URL treatment is consistent. */
-function UrlPill({ url }: { url: string }) {
+ *  layouts so the URL treatment is consistent.
+ *
+ *  Auto-sizes the font + padding to fit the URL on ONE line in the
+ *  available width. Previously hardcoded 26px which wrapped any
+ *  campaign URL longer than ~18 chars in the narrow panel_right
+ *  column ("DEENRELIEF.ORG/PALESTINE" was breaking onto two lines).
+ *
+ *  `variant`:
+ *    - "compact"  — used inside the 540px-wide panel_right column.
+ *                   Smaller fonts so even "/orphan-sponsorship" fits.
+ *    - "standard" — used inside the full-width panel_below + EditorialType
+ *                   layouts. Bigger fonts since there's no column constraint.
+ */
+function UrlPill({
+  url,
+  variant = "standard",
+}: {
+  url: string;
+  variant?: "compact" | "standard";
+}) {
+  const fontSize = urlPillFontSize(url, variant);
+  // Padding scales with font so the pill looks balanced at every size.
+  const padV = Math.round(fontSize * 0.55);
+  const padH = Math.round(fontSize * 1.05);
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
         backgroundColor: DR.amber,
-        paddingTop: 14,
-        paddingBottom: 14,
-        paddingLeft: 26,
-        paddingRight: 26,
+        paddingTop: padV,
+        paddingBottom: padV,
+        paddingLeft: padH,
+        paddingRight: padH,
         borderRadius: 999,
       }}
     >
@@ -1170,16 +1195,76 @@ function UrlPill({ url }: { url: string }) {
           display: "flex",
           fontFamily: "Bowlby One SC",
           fontWeight: 400,
-          fontSize: 26,
+          fontSize,
           color: DR.forest,
           letterSpacing: 1,
           textTransform: "uppercase",
+          whiteSpace: "nowrap",
         }}
       >
         {url}
       </span>
     </div>
   );
+}
+
+/** Phase 5c — trim a verified_fact to a short, scannable "stat beat"
+ *  so the panel_right stat strip reads as three crisp headline lines
+ *  rather than three wrapped paragraphs. We grab the leading clause
+ *  before the first em-dash / comma / period that would split the
+ *  number from its label, then cap at ~85 chars on a word boundary.
+ *
+ *  Examples:
+ *   '1.7M people are now sheltering across 1,600 sites — 88% of them
+ *    makeshift.'  →  '1.7M people sheltering across 1,600 sites'
+ *   '881 Palestinians have been killed and 2,621 injured in Gaza since
+ *    the October 2025 ceasefire, per the Gaza Ministry of Health.'
+ *    →  '881 Palestinians killed, 2,621 injured since Oct 2025 ceasefire'
+ *
+ *  We don't try to be clever — just cut at the first natural breakpoint
+ *  and apply an 85-char hard cap on a word boundary. If the original is
+ *  already short (<60 chars) we leave it alone.
+ */
+function trimToStatBeat(fact: string): string {
+  const trimmed = fact.trim().replace(/\.$/, "");
+  if (trimmed.length <= 60) return trimmed;
+  // First break: em-dash, en-dash, or ' — ' / ' - '
+  const dashCut = trimmed.search(/\s[—–-]\s/);
+  let candidate = dashCut > 24 ? trimmed.slice(0, dashCut) : trimmed;
+  // Hard cap on a word boundary at ~85 chars.
+  if (candidate.length > 85) {
+    const slice = candidate.slice(0, 85);
+    const lastSpace = slice.lastIndexOf(" ");
+    candidate = (lastSpace > 50 ? slice.slice(0, lastSpace) : slice) + "…";
+  }
+  return candidate.trim();
+}
+
+/** Pick a Bowlby font size that keeps the URL on ONE line in the
+ *  available width. Bowlby is a wide condensed display face — caps like
+ *  M, W, D occupy ~0.7× fontSize horizontally, so we step down by URL
+ *  length. The two variants reflect the two real container widths:
+ *  panel_right has a ~424px text area inside the pill; the standard
+ *  contexts (panel_below stat-card row + EditorialType bottom strip)
+ *  have ~1000px+. */
+function urlPillFontSize(
+  url: string,
+  variant: "compact" | "standard"
+): number {
+  const len = url.length;
+  if (variant === "compact") {
+    if (len <= 14) return 28;
+    if (len <= 18) return 24;
+    if (len <= 22) return 22;
+    if (len <= 26) return 19;
+    return 17;
+  }
+  // standard — much more horizontal room.
+  if (len <= 16) return 36;
+  if (len <= 22) return 32;
+  if (len <= 28) return 28;
+  if (len <= 34) return 24;
+  return 20;
 }
 
 /** Newspaper-style date pip — horizontal rule + date + rule. Used as
