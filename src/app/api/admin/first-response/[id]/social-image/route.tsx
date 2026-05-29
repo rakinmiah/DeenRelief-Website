@@ -29,6 +29,7 @@ import {
 import { getEmergencyEventById } from "@/lib/first-response";
 import {
   LaunchPacketSchema,
+  overrideLogoVariantIfMismatched,
   pickBestCandidateForEvent,
 } from "@/lib/first-response-packet";
 import { getCandidateMediaForEvent, getMediaById } from "@/lib/media-library";
@@ -123,6 +124,11 @@ export async function GET(
   let mediaId = sourceSlide?.media_id ?? null;
   let photoLogoVariant: "white" | "green" =
     sourceSlide?.logo_variant === "green" ? "green" : "white";
+  // Phase 4x — focal point for image cropping. Threaded through to
+  // the magazine-cover composition so the image isn't always
+  // centre-cropped.
+  let photoFocalPoint: "top" | "center" | "bottom" =
+    sourceSlide?.photo_focal_point ?? "center";
 
   // RENDER-TIME HERO PHOTO ENFORCEMENT (Phase 4q belt-and-braces).
   // If neither hero nor response had a photo in the stored packet,
@@ -166,6 +172,14 @@ export async function GET(
   if (mediaId?.startsWith("dr:")) {
     const drId = mediaId.slice(3);
     const media = await getMediaById(drId);
+    if (media) {
+      // Phase 4x — override Claude's logo_variant if it disagrees
+      // with the photo's dominantColor. Catches white-on-pale.
+      photoLogoVariant = overrideLogoVariantIfMismatched(
+        photoLogoVariant,
+        media.dominantColor
+      );
+    }
     if (media && !media.archivedAt) {
       try {
         const imgRes = await fetch(media.publicUrl);
@@ -242,6 +256,11 @@ export async function GET(
       mediaUrl={mediaDataUri}
       creditText={creditText}
       photoLogoVariant={photoLogoVariant}
+      photoFocalPoint={photoFocalPoint}
+      // Phase 4x — pass the top verified_facts so the single image
+      // can render a small stat strip. A senior SMM packs the
+      // single post with substantive numbers, not just a headline.
+      verifiedFacts={packet.verified_facts.slice(0, 3).map((f) => f.fact)}
       logoOnLight={logoOnLight?.dataUri ?? null}
       logoOnDark={logoOnDark?.dataUri ?? null}
     />,
@@ -288,6 +307,8 @@ function Composition({
   mediaUrl,
   creditText,
   photoLogoVariant,
+  photoFocalPoint,
+  verifiedFacts,
   logoOnLight,
   logoOnDark,
 }: {
@@ -299,6 +320,12 @@ function Composition({
   mediaUrl: string | null;
   creditText: string | null;
   photoLogoVariant: "white" | "green";
+  /** Phase 4x — drives object-position so cropping anchors to the
+   *  subject's vertical zone. Wasn't honoured in 4n. */
+  photoFocalPoint: "top" | "center" | "bottom";
+  /** Phase 4x — top verified facts surfaced as a stat strip on the
+   *  X/FB image so it reads like a briefing, not a poster. */
+  verifiedFacts: string[];
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
@@ -313,6 +340,8 @@ function Composition({
         mediaUrl={mediaUrl}
         creditText={creditText}
         photoLogoVariant={photoLogoVariant}
+        photoFocalPoint={photoFocalPoint}
+        verifiedFacts={verifiedFacts}
         logoOnLight={logoOnLight}
         logoOnDark={logoOnDark}
       />
@@ -341,6 +370,8 @@ function MagazineCover({
   mediaUrl,
   creditText,
   photoLogoVariant,
+  photoFocalPoint,
+  verifiedFacts,
   logoOnLight,
   logoOnDark,
 }: {
@@ -352,12 +383,15 @@ function MagazineCover({
   mediaUrl: string;
   creditText: string | null;
   photoLogoVariant: "white" | "green";
+  photoFocalPoint: "top" | "center" | "bottom";
+  verifiedFacts: string[];
   logoOnLight: string | null;
   logoOnDark: string | null;
 }) {
   const PANEL_H = Math.round(HEIGHT * 0.38);
   const PHOTO_H = HEIGHT - PANEL_H;
   const photoLogo = photoLogoVariant === "green" ? logoOnLight : logoOnDark;
+  const objPos = `center ${photoFocalPoint}`;
 
   return (
     <div
@@ -386,7 +420,12 @@ function MagazineCover({
           alt=""
           width={WIDTH}
           height={PHOTO_H}
-          style={{ width: WIDTH, height: PHOTO_H, objectFit: "cover" }}
+          style={{
+            width: WIDTH,
+            height: PHOTO_H,
+            objectFit: "cover",
+            objectPosition: objPos,
+          }}
         />
 
         {/* Top-left: DR wordmark sitting directly on the photo. */}
@@ -507,47 +546,90 @@ function MagazineCover({
           )}
         </div>
 
-        {/* Right column: vertical divider + URL pill + charity tag */}
+        {/* Right column: stat strip + URL pill + charity tag.
+            Phase 4x — added the stat strip so the X/FB post reads
+            like a briefing instead of just a headline poster. Up to
+            three verified facts render as short bullet lines with an
+            amber rule between them, sourced from packet.verified_facts. */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
+            justifyContent: "space-between",
             alignItems: "flex-end",
             paddingLeft: 28,
             borderLeft: `1px solid ${DR.amber}55`,
+            height: "100%",
+            paddingTop: 4,
+            paddingBottom: 4,
           }}
         >
+          {/* Top: stat strip — up to 3 verified facts. */}
           <div
             style={{
               display: "flex",
-              fontFamily: "DM Sans",
-              fontWeight: 700,
-              fontSize: 11,
-              color: DR.cream,
-              opacity: 0.55,
-              textTransform: "uppercase",
-              letterSpacing: 2.5,
-              marginBottom: 10,
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 8,
+              maxWidth: 360,
             }}
           >
-            Donate · respond
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 700,
+                fontSize: 10,
+                color: DR.amber,
+                textTransform: "uppercase",
+                letterSpacing: 3,
+                marginBottom: 4,
+              }}
+            >
+              By the numbers
+            </div>
+            {verifiedFacts.slice(0, 3).map((f, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  fontFamily: "DM Sans",
+                  fontWeight: 400,
+                  fontSize: 13,
+                  color: DR.cream,
+                  opacity: 0.92,
+                  lineHeight: 1.35,
+                  textAlign: "right",
+                }}
+              >
+                {f}
+              </div>
+            ))}
           </div>
-          <UrlPill url={ctaUrl} />
+          {/* Bottom: URL pill + charity tag */}
           <div
             style={{
               display: "flex",
-              fontFamily: "DM Sans",
-              fontWeight: 400,
-              fontSize: 12,
-              color: DR.cream,
-              opacity: 0.55,
-              letterSpacing: 1,
-              marginTop: 12,
-              textAlign: "right",
+              flexDirection: "column",
+              alignItems: "flex-end",
             }}
           >
-            {campaignLabel ? `${campaignLabel} · ` : ""}Charity No. 1158608
+            <UrlPill url={ctaUrl} />
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 400,
+                fontSize: 12,
+                color: DR.cream,
+                opacity: 0.55,
+                letterSpacing: 1,
+                marginTop: 10,
+                textAlign: "right",
+              }}
+            >
+              {campaignLabel ? `${campaignLabel} · ` : ""}Charity No. 1158608
+            </div>
           </div>
         </div>
       </div>

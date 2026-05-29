@@ -451,6 +451,10 @@ function SlideContent({
     const composition = slide.photo_composition ?? "panel_below";
     const focalPoint = slide.photo_focal_point ?? "center";
 
+    // Phase 4x — briefing flag for the editorial eyebrow swap on
+    // photo slide variants. Manifesto keeps the Caveat brush; every
+    // other arc gets the editorial small-caps treatment.
+    const photoBriefing = packet.strategy_brief.arc !== "manifesto";
     if (composition === "panel_right") {
       return (
         <PhotoSlideRightPanel
@@ -461,6 +465,7 @@ function SlideContent({
           slideTotal={slideTotal}
           logoOnPhoto={photoLogo}
           focalPoint={focalPoint}
+          briefing={photoBriefing}
         />
       );
     }
@@ -474,6 +479,7 @@ function SlideContent({
           slideTotal={slideTotal}
           logoOnPhoto={photoLogo}
           focalPoint={focalPoint}
+          briefing={photoBriefing}
         />
       );
     }
@@ -486,6 +492,7 @@ function SlideContent({
         slideTotal={slideTotal}
         logoOnPhoto={photoLogo}
         focalPoint={focalPoint}
+        briefing={photoBriefing}
       />
     );
   }
@@ -575,6 +582,7 @@ function PhotoSlide({
   slideTotal,
   logoOnPhoto,
   focalPoint,
+  briefing,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -590,6 +598,8 @@ function PhotoSlide({
   /** Vertical anchor for object-position so cropping doesn't cut off
    *  faces. Phase 4t — picked by Claude from the vision thumbnail. */
   focalPoint: "top" | "center" | "bottom";
+  /** Phase 4x — editorial eyebrow for non-manifesto arcs. */
+  briefing: boolean;
 }) {
   const PHOTO_HEIGHT = 670; // ~62% of 1080
   const PANEL_HEIGHT = SLIDE_SIZE - PHOTO_HEIGHT;
@@ -722,19 +732,7 @@ function PhotoSlide({
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
           {slide.eyebrow && (
-            <div
-              style={{
-                display: "flex",
-                fontFamily: "Caveat",
-                fontWeight: 600,
-                fontSize: 38,
-                color: DR.amber,
-                fontStyle: "italic",
-                marginBottom: 10,
-              }}
-            >
-              {slide.eyebrow.toLowerCase()}…
-            </div>
+            <PhotoEyebrow text={slide.eyebrow} briefing={briefing} />
           )}
           <div
             style={{
@@ -835,6 +833,69 @@ function PhotoSlide({
   );
 }
 
+/**
+ * Phase 4x — eyebrow for photo slides. Compact variant of the
+ * editorial Eyebrow above, sized for the tighter panel space, with
+ * the Caveat brush fallback for manifesto arcs.
+ */
+function PhotoEyebrow({
+  text,
+  briefing,
+}: {
+  text: string;
+  briefing: boolean;
+}) {
+  if (!briefing) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "Caveat",
+          fontWeight: 600,
+          fontSize: 38,
+          color: DR.amber,
+          fontStyle: "italic",
+          marginBottom: 10,
+        }}
+      >
+        {text.toLowerCase()}…
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 16,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          width: 24,
+          height: 2,
+          backgroundColor: DR.amber,
+        }}
+      />
+      <div
+        style={{
+          display: "flex",
+          fontFamily: "DM Sans",
+          fontWeight: 700,
+          fontSize: 13,
+          color: DR.amber,
+          textTransform: "uppercase",
+          letterSpacing: 3,
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
 /** Slightly more aggressive size-down for photo-slide titles since
  *  the available vertical real-estate is smaller than the typography-
  *  only layout. */
@@ -860,6 +921,7 @@ function PhotoSlideRightPanel({
   slideTotal,
   logoOnPhoto,
   focalPoint,
+  briefing,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -868,6 +930,7 @@ function PhotoSlideRightPanel({
   slideTotal: number;
   logoOnPhoto: string | null;
   focalPoint: "top" | "center" | "bottom";
+  briefing: boolean;
 }) {
   const PHOTO_WIDTH = 648; // 60% of 1080
   const PANEL_WIDTH = SLIDE_SIZE - PHOTO_WIDTH;
@@ -1006,19 +1069,7 @@ function PhotoSlideRightPanel({
         </div>
         <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
           {slide.eyebrow && (
-            <div
-              style={{
-                display: "flex",
-                fontFamily: "Caveat",
-                fontWeight: 600,
-                fontSize: 32,
-                color: DR.amber,
-                fontStyle: "italic",
-                marginBottom: 12,
-              }}
-            >
-              {slide.eyebrow.toLowerCase()}…
-            </div>
+            <PhotoEyebrow text={slide.eyebrow} briefing={briefing} />
           )}
           <div
             style={{
@@ -1106,6 +1157,7 @@ function PhotoSlideFullBleed({
   slideTotal,
   logoOnPhoto,
   focalPoint,
+  briefing,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -1114,6 +1166,7 @@ function PhotoSlideFullBleed({
   slideTotal: number;
   logoOnPhoto: string | null;
   focalPoint: "top" | "center" | "bottom";
+  briefing: boolean;
 }) {
   const objPos = `center ${focalPoint}`;
 
@@ -1228,19 +1281,7 @@ function PhotoSlideFullBleed({
         }}
       >
         {slide.eyebrow && (
-          <div
-            style={{
-              display: "flex",
-              fontFamily: "Caveat",
-              fontWeight: 600,
-              fontSize: 40,
-              color: DR.amber,
-              fontStyle: "italic",
-              marginBottom: 12,
-            }}
-          >
-            {slide.eyebrow.toLowerCase()}…
-          </div>
+          <PhotoEyebrow text={slide.eyebrow} briefing={briefing} />
         )}
         <div
           style={{

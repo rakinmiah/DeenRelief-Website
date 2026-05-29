@@ -682,21 +682,27 @@ LAYOUTS (use as the story needs, not as a checklist):
     • body: "Link in bio · deenrelief.org".
 
 LOGO_VARIANT — picked PER SLIDE based on the slide's background.
-  • Typography slides (dark green canvas): logo_variant = "white".
-  • CTA slide (cream canvas): logo_variant = "green".
-  • PHOTO slides: look at the chosen photo carefully:
-      - Photo is green-foliage-heavy, pale, or sun-washed → "white"
-      - Photo is dark/saturated, urban, water-heavy, dust/sand →
-        "green" (the green wordmark reads as brand identity, not as
-        an overlay)
-      - Photo has WHITE / BEIGE / PALE bags, walls, or backgrounds
-        in the top-left where the logo sits → "green" (white-on-
-        white disappears)
-      - When in doubt on a photo slide → look at the top-left CORNER
-        where the logo will sit. Pick the variant that contrasts
-        with THAT specific zone, not the photo's average.
-  This choice matters — green-on-green disappears, white-on-pale
-  disappears. The renderer will not second-guess you.
+GREEN IS DR'S ORIGINAL BRAND COLOUR AND THE DEFAULT.
+
+  • Typography slides (dark green canvas): logo_variant = "white"
+    (only because the canvas is genuinely dark — that's the one
+    consistent exception).
+  • CTA slide (cream canvas, manifesto/festival only): "green".
+  • PHOTO slides — GREEN UNLESS THE PHOTO IS GENUINELY DARK.
+    Specifically:
+      - DEFAULT → "green". DR's green wordmark is the brand
+        recognition trigger.
+      - SWITCH TO "white" ONLY when the photo is genuinely dark
+        — heavy shadows, night scenes, dark-clothed subjects
+        against dark backgrounds, deep-water scenes. The photo's
+        TOP-LEFT corner (where the logo sits) must be dark enough
+        that a green wordmark would lose contrast.
+      - DO NOT pick "white" on photos with: pale UNICEF / aid
+        bags, white walls, beige tarps, sandy/dusty scenes, sun-
+        washed exteriors, light-coloured clothing. White-on-pale
+        disappears; that's a worse mistake than green-on-mid.
+      - When in doubt → "green". The renderer also has a
+        luminance-based override that catches obvious mistakes.
 
 PHOTO_COMPOSITION — picked PER PHOTO SLIDE based on the photo's
 aspect ratio + where the subject sits in frame.
@@ -1212,6 +1218,40 @@ DR's own library photos take priority over external imagery when both could work
 
 TARGET: at least 3–4 slides with photos in a 6–8-slide packet. 'Two photos in a 5-slide packet' is the old templated low-water mark; we're moving past it.
 
+NO IMAGE REUSE:
+Each photo (each media_id) may appear on AT MOST ONE slide in the
+carousel. A 7-slide packet with the same DR-branded photo on the
+hero AND the testimony slide is a wasted slot — DR has more than
+one Gaza photo, more than one Sylhet photo, more than one Brighton
+photo. Use them.
+
+  ✓ hero gets photo A · response gets photo B · testimony gets photo C
+  ✗ hero gets photo A · slide 5 ALSO gets photo A (cropped differently)
+
+The sanitisation pass enforces this — if you duplicate a media_id,
+the later slide gets coerced to null and the post-pass re-picks.
+Spend judgement picking DIFFERENT photos, not on cropping the same
+one twice.
+
+NO FABRICATED QUOTES:
+Testimony slides MUST use a quote that is GENUINELY PRESENT in the
+raw_payload — extract it verbatim or near-verbatim. If no quote
+exists in the source data, OMIT the testimony slide. Do not invent
+dialogue. Do not put words in the mouth of 'Deen Relief field team',
+'our staff', 'a beneficiary', or any other source unless the raw
+payload contains a real attributed quote.
+
+  ✓ raw_payload.highlights contains: '"We will keep distributing
+    while we can," said a UNICEF spokesperson in Gaza on 18 May.'
+    → testimony slide can use that quote with attribution.
+  ✗ Inventing 'A mother in Khan Younis told our team she'd been
+    displaced six times' when nothing like that appears in the
+    source data — even when the inference feels safe, it's
+    misleading attribution.
+
+When in doubt: SKIP THE TESTIMONY SLIDE. A 6-slide packet without a
+testimony is much better than a 7-slide packet with a fabricated one.
+
 FACTUAL DEPTH — MINE THE RAW PAYLOAD:
 Every fact slide and stat slide MUST quote a SPECIFIC NUMBER, MAGNITUDE, COORDINATE, AGENCY, OR NAMED INSTITUTION from the raw_payload below. Vague claims fail the verification bar.
 
@@ -1372,6 +1412,26 @@ If yes, return a concrete revision.
     'severe impact' fail the verification bar. Propose a rewrite
     sourcing a specific from the raw_payload — magnitude, depth,
     coordinates, agency name, dated assessment.
+
+  ☐ IMAGE REUSE — Walk the carousel slides. If ANY media_id
+    appears on more than one slide, that's a wasted slot. Propose
+    a slide.media_id revision swapping the duplicate for a
+    different unused candidate. Spend slots on visual variety.
+
+  ☐ FABRICATED QUOTE — Walk each testimony slide. The title (the
+    quote) MUST trace to something in the raw_payload — a reported
+    quote, a highlight bullet, an attributed statement. If you can
+    not find the quote's origin in the source data, propose either
+    (a) replacing the quote with one that IS in the source, or
+    (b) removing the testimony slide entirely. DR's brand integrity
+    depends on never putting words in beneficiaries' mouths.
+
+  ☐ LOGO COLOR WRONG — Look at each photo slide's TOP-LEFT corner
+    (where the logo sits). If logo_variant='white' on a pale
+    background (UNICEF bag, beige wall, tan tarp, white sky), the
+    wordmark disappears — propose logo_variant='green'. Green is
+    the default DR colour; white is the exception reserved for
+    genuinely dark photos.
 
   ☐ RHYTHMIC MONOTONY — Read the slide titles aloud in order. If
     three or more in a row are subject-verb-object declaratives in
@@ -1601,25 +1661,58 @@ unused candidate's ID.`,
  * which point typography-only is the right answer.
  */
 /**
- * Phase 4t: choose logo variant from a photo's dominant colour.
+ * Phase 4t/4x — choose logo variant from a photo's dominant colour.
  *
- * Rule: relative luminance > 0.55 = light photo → green wordmark
- * (logo-on-light), otherwise → white wordmark (logo-on-dark). Uses
- * the standard sRGB perceptual luminance formula. Defaults to white
- * when no dominantColor is known (safer fallback for the typical
- * mid-to-dark beneficiary portrait).
+ * Rule (Phase 4x revision): GREEN IS THE DEFAULT — that's DR's
+ * original brand wordmark. White is the EXCEPTION reserved for
+ * photos genuinely dark enough that green would lose contrast.
+ *
+ * Threshold lowered from 0.55 to 0.35 so anything that isn't
+ * outright dark goes to green. Pale UNICEF bags, beige walls,
+ * mid-tone skin tones, sandy backgrounds — all green now.
+ *
+ * Default when no dominantColor is known is ALSO green (was white).
  */
 export function pickLogoVariantForDominantColor(
   dominantColor: string | null
 ): "white" | "green" {
-  if (!dominantColor) return "white";
+  if (!dominantColor) return "green";
   const hex = dominantColor.replace(/^#/, "");
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return "white";
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return "green";
   const r = parseInt(hex.slice(0, 2), 16) / 255;
   const g = parseInt(hex.slice(2, 4), 16) / 255;
   const b = parseInt(hex.slice(4, 6), 16) / 255;
   const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 0.55 ? "green" : "white";
+  return luminance > 0.35 ? "green" : "white";
+}
+
+/**
+ * Phase 4x — render-time logo override. Even when Claude assigns a
+ * photo + logo_variant in Stage 2, if the photo has a known
+ * dominantColor that STRONGLY disagrees with Claude's choice, override
+ * Claude. Observed bug: Claude picks 'white' on photos with pale
+ * UNICEF bags / beige walls in the top-left zone where the logo sits;
+ * the white wordmark then disappears.
+ *
+ * Logic: compute luminance from dominantColor. If Claude picked 'white'
+ * but luminance > 0.45 (genuinely light photo), force green. If Claude
+ * picked 'green' but luminance < 0.18 (genuinely dark photo), force
+ * white. Otherwise honour Claude's vision-grounded choice.
+ */
+export function overrideLogoVariantIfMismatched(
+  claudeChoice: "white" | "green",
+  dominantColor: string | null
+): "white" | "green" {
+  if (!dominantColor) return claudeChoice;
+  const hex = dominantColor.replace(/^#/, "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return claudeChoice;
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  if (claudeChoice === "white" && luminance > 0.45) return "green";
+  if (claudeChoice === "green" && luminance < 0.18) return "white";
+  return claudeChoice;
 }
 
 export function pickBestCandidateForEvent(
@@ -1914,6 +2007,47 @@ export async function generateLaunchPacket(
         // than a hardcoded default.
         logo_variant: best.logoVariant,
       };
+    }
+  }
+
+  // ── Stage 4.6: enforce no image reuse + luminance-override logos ──
+  // Phase 4x — even with the prompt rule, Stage 2 occasionally picks
+  // the same media_id twice (once for hero, again for testimony).
+  // Walk slides in order; first occurrence wins, subsequent get null
+  // (the post-pass would then leave them typography-only since the
+  // post-pass only enforces HERO).
+  const seenMediaIds = new Set<string>();
+  for (let i = 0; i < revised.carousel_slides.length; i += 1) {
+    const s = revised.carousel_slides[i]!;
+    if (!s.media_id) continue;
+    if (seenMediaIds.has(s.media_id)) {
+      console.warn(
+        `[first-response-packet] image reuse — slide ${i} repeats ${s.media_id}; coercing to null`
+      );
+      revised.carousel_slides[i] = { ...s, media_id: null };
+    } else {
+      seenMediaIds.add(s.media_id);
+    }
+  }
+
+  // Phase 4x — luminance-override Claude's logo_variant choices.
+  // Catches the common Stage 2 + Stage 3 miss where Claude picks
+  // 'white' on photos with pale UNICEF / aid-bag backgrounds.
+  const drById = new Map(candidateMedia.map((m) => [`dr:${m.id}`, m]));
+  for (let i = 0; i < revised.carousel_slides.length; i += 1) {
+    const s = revised.carousel_slides[i]!;
+    if (!s.media_id || !s.media_id.startsWith("dr:")) continue;
+    const m = drById.get(s.media_id);
+    if (!m?.dominantColor) continue;
+    const overridden = overrideLogoVariantIfMismatched(
+      s.logo_variant,
+      m.dominantColor
+    );
+    if (overridden !== s.logo_variant) {
+      console.warn(
+        `[first-response-packet] logo override on slide ${i} — Claude=${s.logo_variant}, dominantColor=${m.dominantColor}, forced=${overridden}`
+      );
+      revised.carousel_slides[i] = { ...s, logo_variant: overridden };
     }
   }
 
