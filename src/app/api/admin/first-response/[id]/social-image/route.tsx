@@ -23,11 +23,15 @@ import { requireAdminSession } from "@/lib/admin-session";
 import { getLogoDataUri } from "@/lib/brand-assets";
 import {
   getExternalImageryDataUri,
+  listImageryForEvent,
   markImagerySelected,
 } from "@/lib/external-imagery";
 import { getEmergencyEventById } from "@/lib/first-response";
-import { LaunchPacketSchema } from "@/lib/first-response-packet";
-import { getMediaById } from "@/lib/media-library";
+import {
+  LaunchPacketSchema,
+  pickBestCandidateForEvent,
+} from "@/lib/first-response-packet";
+import { getCandidateMediaForEvent, getMediaById } from "@/lib/media-library";
 import { CAMPAIGN_LANDING_PATHS } from "@/lib/short-links";
 import {
   CAMPAIGNS,
@@ -116,9 +120,41 @@ export async function GET(
   // that slide's per-slide logo_variant choice (set by Stage 2/3 based
   // on actually looking at the photo).
   const sourceSlide = heroSlide?.media_id ? heroSlide : responseSlide;
-  const mediaId = sourceSlide?.media_id ?? null;
-  const photoLogoVariant: "white" | "green" =
+  let mediaId = sourceSlide?.media_id ?? null;
+  let photoLogoVariant: "white" | "green" =
     sourceSlide?.logo_variant === "green" ? "green" : "white";
+
+  // RENDER-TIME HERO PHOTO ENFORCEMENT (Phase 4q belt-and-braces).
+  // If neither hero nor response had a photo in the stored packet,
+  // look up the candidate pool and pick the best fit so the social
+  // image still gets a photo backdrop instead of degrading to the
+  // typography-only EditorialType layout.
+  if (!mediaId) {
+    try {
+      const [drCands, extCands] = await Promise.all([
+        getCandidateMediaForEvent({
+          countryIso: event.countryIso,
+          eventType: event.eventType,
+          campaignSlugs: event.matchedCampaigns,
+          limit: 12,
+        }),
+        listImageryForEvent(event.id),
+      ]);
+      const best = pickBestCandidateForEvent(event, drCands, extCands);
+      if (best) {
+        console.warn(
+          `[social-image] render-time hero enforcement: stored media_id was null, assigning ${best.id} (${best.reason})`
+        );
+        mediaId = best.id;
+        photoLogoVariant = "white";
+      }
+    } catch (err) {
+      console.warn(
+        `[social-image] render-time hero enforcement failed (non-fatal):`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
 
   // Resolve via prefix switch — same shape as the slide route:
   //   • 'dr:<uuid>'   → DR's media_library

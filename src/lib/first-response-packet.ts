@@ -1431,7 +1431,7 @@ unused candidate's ID.`,
  * Returns null if NOTHING in the pools could be a sensible hero — at
  * which point typography-only is the right answer.
  */
-function pickBestCandidateForEvent(
+export function pickBestCandidateForEvent(
   event: EmergencyEvent,
   drCandidates: MediaItem[],
   extCandidates: ExternalImagery[]
