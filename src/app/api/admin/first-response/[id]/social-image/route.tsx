@@ -129,6 +129,10 @@ export async function GET(
   // centre-cropped.
   let photoFocalPoint: "top" | "center" | "bottom" =
     sourceSlide?.photo_focal_point ?? "center";
+  // Phase 5d — logo placement, mirrors the source slide's pick so
+  // the X/FB image treats the photo the same way the carousel does.
+  const photoLogoPosition: LogoPosition =
+    (sourceSlide?.logo_position as LogoPosition | undefined) ?? "top_left";
 
   // RENDER-TIME HERO PHOTO ENFORCEMENT (Phase 4q belt-and-braces).
   // If neither hero nor response had a photo in the stored packet,
@@ -257,6 +261,7 @@ export async function GET(
       creditText={creditText}
       photoLogoVariant={photoLogoVariant}
       photoFocalPoint={photoFocalPoint}
+      photoLogoPosition={photoLogoPosition}
       // Phase 4x — pass the top verified_facts so the single image
       // can render a small stat strip. A senior SMM packs the
       // single post with substantive numbers, not just a headline.
@@ -311,6 +316,7 @@ function Composition({
   creditText,
   photoLogoVariant,
   photoFocalPoint,
+  photoLogoPosition,
   verifiedFacts,
   composition,
   logoOnLight,
@@ -327,6 +333,8 @@ function Composition({
   /** Phase 4x — drives object-position so cropping anchors to the
    *  subject's vertical zone. Wasn't honoured in 4n. */
   photoFocalPoint: "top" | "center" | "bottom";
+  /** Phase 5d — logo placement, mirrors the hero slide's pick. */
+  photoLogoPosition: LogoPosition;
   /** Phase 4x — top verified facts surfaced as a stat strip on the
    *  X/FB image so it reads like a briefing, not a poster. */
   verifiedFacts: string[];
@@ -350,6 +358,7 @@ function Composition({
           creditText={creditText}
           photoLogoVariant={photoLogoVariant}
           photoFocalPoint={photoFocalPoint}
+          photoLogoPosition={photoLogoPosition}
           verifiedFacts={verifiedFacts}
           logoOnLight={logoOnLight}
           logoOnDark={logoOnDark}
@@ -367,6 +376,7 @@ function Composition({
         creditText={creditText}
         photoLogoVariant={photoLogoVariant}
         photoFocalPoint={photoFocalPoint}
+        photoLogoPosition={photoLogoPosition}
         verifiedFacts={verifiedFacts}
         logoOnLight={logoOnLight}
         logoOnDark={logoOnDark}
@@ -397,6 +407,7 @@ function MagazineCover({
   creditText,
   photoLogoVariant,
   photoFocalPoint,
+  photoLogoPosition,
   verifiedFacts,
   logoOnLight,
   logoOnDark,
@@ -410,6 +421,7 @@ function MagazineCover({
   creditText: string | null;
   photoLogoVariant: "white" | "green";
   photoFocalPoint: "top" | "center" | "bottom";
+  photoLogoPosition: LogoPosition;
   verifiedFacts: string[];
   logoOnLight: string | null;
   logoOnDark: string | null;
@@ -454,8 +466,9 @@ function MagazineCover({
           }}
         />
 
-        {/* Top-left: DR wordmark sitting directly on the photo. */}
-        <SocialLogo logoDataUri={photoLogo} />
+        {/* DR wordmark — Phase 5d position-aware, placed where the
+            photo subject isn't. */}
+        <SocialLogo logoDataUri={photoLogo} position={photoLogoPosition} />
 
         {/* Top-right: a thin date pip — newspaper micro-detail. The
             eyebrow string is e.g. 'EMERGENCY APPEAL · 28 MAY 2026';
@@ -706,6 +719,7 @@ function MagazineCoverPanelRight({
   creditText,
   photoLogoVariant,
   photoFocalPoint,
+  photoLogoPosition,
   verifiedFacts,
   logoOnLight,
   logoOnDark,
@@ -719,6 +733,7 @@ function MagazineCoverPanelRight({
   creditText: string | null;
   photoLogoVariant: "white" | "green";
   photoFocalPoint: "top" | "center" | "bottom";
+  photoLogoPosition: LogoPosition;
   verifiedFacts: string[];
   logoOnLight: string | null;
   logoOnDark: string | null;
@@ -762,13 +777,14 @@ function MagazineCoverPanelRight({
             objectPosition: objPos,
           }}
         />
-        {/* Logo top-left on the photo. */}
+        {/* Logo on the photo column — Phase 5d position-aware.
+            Anchored within the photo column (not the full canvas) so
+            right-aligned positions land at the right edge of the photo,
+            not the right edge of the slide. */}
         {photoLogo ? (
           <div
             style={{
-              position: "absolute",
-              top: 28,
-              left: 32,
+              ...positionStyle(photoLogoPosition, { v: 28, h: 32 }),
               display: "flex",
             }}
           >
@@ -1365,19 +1381,41 @@ function editorialTitleSize(length: number): number {
  *   - inline: used in the editorial-type top strip alongside the
  *     date pip, sits in flex flow.
  */
+type LogoPosition = "top_left" | "top_right" | "bottom_left" | "bottom_right";
+
+function positionStyle(
+  position: LogoPosition,
+  inset: { v: number; h: number }
+): React.CSSProperties {
+  switch (position) {
+    case "top_right":
+      return { position: "absolute", top: inset.v, right: inset.h };
+    case "bottom_left":
+      return { position: "absolute", bottom: inset.v, left: inset.h };
+    case "bottom_right":
+      return { position: "absolute", bottom: inset.v, right: inset.h };
+    case "top_left":
+    default:
+      return { position: "absolute", top: inset.v, left: inset.h };
+  }
+}
+
 function SocialLogo({
   logoDataUri,
   inline = false,
+  position = "top_left",
 }: {
   logoDataUri: string | null;
   inline?: boolean;
+  /** Phase 5d — pass the hero slide's logo_position so the X/FB
+   *  social image places the logo where the subject isn't, matching
+   *  how the hero slide treats the same photo. */
+  position?: LogoPosition;
 }) {
   const wrapperStyle = inline
     ? ({ display: "flex" } as const)
     : ({
-        position: "absolute" as const,
-        top: 24,
-        left: 28,
+        ...positionStyle(position, { v: 24, h: 28 }),
         display: "flex" as const,
       } as const);
   if (logoDataUri) {

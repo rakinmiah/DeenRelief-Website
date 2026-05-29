@@ -453,6 +453,10 @@ function SlideContent({
     // photo slide variants. Manifesto keeps the Caveat brush; every
     // other arc gets the editorial small-caps treatment.
     const photoBriefing = packet.strategy_brief.arc !== "manifesto";
+    // Phase 5d — Claude's per-slide logo_position pick (added to the
+    // schema in 5a, but the renderer was hardcoded to top_left). Now
+    // honoured everywhere a logo lands on a photo.
+    const logoPos: LogoPosition = slide.logo_position ?? "top_left";
     if (composition === "panel_right") {
       return (
         <PhotoSlideRightPanel
@@ -464,6 +468,7 @@ function SlideContent({
           logoOnPhoto={photoLogo}
           focalPoint={focalPoint}
           briefing={photoBriefing}
+          logoPosition={logoPos}
         />
       );
     }
@@ -478,6 +483,7 @@ function SlideContent({
           logoOnPhoto={photoLogo}
           focalPoint={focalPoint}
           briefing={photoBriefing}
+          logoPosition={logoPos}
         />
       );
     }
@@ -491,6 +497,7 @@ function SlideContent({
         logoOnPhoto={photoLogo}
         focalPoint={focalPoint}
         briefing={photoBriefing}
+        logoPosition={logoPos}
       />
     );
   }
@@ -517,13 +524,14 @@ function SlideContent({
         position: "relative",
       }}
     >
-      {/* Brand logo — top-left. Per-slide logo_variant comes from
-          Stage 2/3 — Claude picked it for THIS slide's background.
-          Typography-only slides default to white on forest, green on
-          cream (CTA), matching the slide bg colour. */}
+      {/* Brand logo — position-aware (Phase 5d). Per-slide logo_variant
+          comes from Stage 2/3 — Claude picked it for THIS slide's
+          background. Typography-only slides default to white on forest,
+          green on cream (CTA), matching the slide bg colour. */}
       <BrandChip
         inverted={ctaCream}
         logoDataUri={slide.logo_variant === "green" ? logoOnLight : logoOnDark}
+        position={slide.logo_position ?? "top_left"}
       />
 
       {/* Slide-number pip top-right. Tiny visual progress indicator. */}
@@ -583,6 +591,7 @@ function PhotoSlide({
   logoOnPhoto,
   focalPoint,
   briefing,
+  logoPosition,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -600,6 +609,8 @@ function PhotoSlide({
   focalPoint: "top" | "center" | "bottom";
   /** Phase 4x — editorial eyebrow for non-manifesto arcs. */
   briefing: boolean;
+  /** Phase 5d — Claude's per-slide logo placement pick. */
+  logoPosition: LogoPosition;
 }) {
   const PHOTO_HEIGHT = 670; // ~62% of 1080
   const PANEL_HEIGHT = SLIDE_SIZE - PHOTO_HEIGHT;
@@ -639,8 +650,14 @@ function PhotoSlide({
             objectPosition: objPos,
           }}
         />
-        {/* Green logo directly on the photo — no chip wrapper. */}
-        <BrandChip inverted={false} logoDataUri={logoOnPhoto} />
+        {/* Green logo directly on the photo — no chip wrapper.
+            Phase 5d: position honours slide.logo_position so the brand
+            doesn't crash into the subject's face. */}
+        <BrandChip
+          inverted={false}
+          logoDataUri={logoOnPhoto}
+          position={logoPosition}
+        />
         {/* Slide pip — wrapped in a small dark green chip for legibility
             against arbitrary photo backgrounds. The existing SlidePip
             component assumes a single foreground colour; the wrap gives
@@ -922,6 +939,7 @@ function PhotoSlideRightPanel({
   logoOnPhoto,
   focalPoint,
   briefing,
+  logoPosition,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -931,6 +949,7 @@ function PhotoSlideRightPanel({
   logoOnPhoto: string | null;
   focalPoint: "top" | "center" | "bottom";
   briefing: boolean;
+  logoPosition: LogoPosition;
 }) {
   const PHOTO_WIDTH = 648; // 60% of 1080
   const PANEL_WIDTH = SLIDE_SIZE - PHOTO_WIDTH;
@@ -970,12 +989,13 @@ function PhotoSlideRightPanel({
             objectPosition: objPos,
           }}
         />
-        {/* Logo top-left on the photo. */}
+        {/* Logo on the photo — Phase 5d position-aware. Note the
+            photo column is PHOTO_WIDTH wide (648px), not the full
+            slide width — right-aligned positions anchor to the right
+            edge of the photo column. */}
         <div
           style={{
-            position: "absolute",
-            top: 56,
-            left: 56,
+            ...logoPositionToStyle(logoPosition, 56),
             display: "flex",
           }}
         >
@@ -1158,6 +1178,7 @@ function PhotoSlideFullBleed({
   logoOnPhoto,
   focalPoint,
   briefing,
+  logoPosition,
 }: {
   slide: Slide;
   mediaUrl: string;
@@ -1167,6 +1188,7 @@ function PhotoSlideFullBleed({
   logoOnPhoto: string | null;
   focalPoint: "top" | "center" | "bottom";
   briefing: boolean;
+  logoPosition: LogoPosition;
 }) {
   const objPos = `center ${focalPoint}`;
 
@@ -1211,12 +1233,13 @@ function PhotoSlideFullBleed({
         }}
       />
 
-      {/* Logo top-left. */}
+      {/* Logo — Phase 5d position-aware. Full-bleed slides have the
+          most flexibility for placement since the photo spans the
+          entire canvas; Claude should pick a position the subject
+          doesn't occupy. */}
       <div
         style={{
-          position: "absolute",
-          top: 56,
-          left: 56,
+          ...logoPositionToStyle(logoPosition, 56),
           display: "flex",
         }}
       >
@@ -1356,12 +1379,42 @@ function PhotoSlideFullBleed({
 
 /* ─── Brand chip ──────────────────────────────────────────────────── */
 
+type LogoPosition = "top_left" | "top_right" | "bottom_left" | "bottom_right";
+
+/** Map a logo_position enum value to the absolute-position style
+ *  fields for the BrandChip wrapper. Phase 5d — wires the schema
+ *  field that was added in Phase 5a but never actually rendered.
+ *  Lets Claude place the logo wherever the subject's face is NOT,
+ *  so the brand doesn't crash into the visual focal point. */
+function logoPositionToStyle(
+  position: LogoPosition,
+  inset: number = 56
+): React.CSSProperties {
+  switch (position) {
+    case "top_right":
+      return { position: "absolute", top: inset, right: inset };
+    case "bottom_left":
+      return { position: "absolute", bottom: inset, left: inset };
+    case "bottom_right":
+      return { position: "absolute", bottom: inset, right: inset };
+    case "top_left":
+    default:
+      return { position: "absolute", top: inset, left: inset };
+  }
+}
+
 function BrandChip({
   inverted,
   logoDataUri,
+  position = "top_left",
 }: {
   inverted: boolean;
   logoDataUri: string | null;
+  /** Phase 5d — per-slide logo placement. Default top_left preserves
+   *  the historical layout. Photo slides where the subject sits in
+   *  the upper-left should pass "top_right" or "bottom_right" so
+   *  the brand chip doesn't cover the face / focal element. */
+  position?: LogoPosition;
 }) {
   // `inverted` only affects the inline-SVG fallback (chip background
   // colour). When an uploaded logo is present, the chip wrapper is
@@ -1383,9 +1436,7 @@ function BrandChip({
     return (
       <div
         style={{
-          position: "absolute",
-          top: 56,
-          left: 56,
+          ...logoPositionToStyle(position),
           display: "flex",
         }}
       >
@@ -1412,9 +1463,7 @@ function BrandChip({
   return (
     <div
       style={{
-        position: "absolute",
-        top: 48,
-        left: 48,
+        ...logoPositionToStyle(position, 48),
         display: "flex",
         flexDirection: "column",
         backgroundColor: cardBg,
@@ -2082,13 +2131,16 @@ function StatBody({ slide, fg }: { slide: Slide; fg: string }) {
           style={{
             display: "flex",
             fontFamily: "DM Sans",
-            fontWeight: 700,
-            fontSize: 30,
+            // Phase 5d — sentence case + lighter weight + tighter
+            // letter-spacing. The previous ALL-CAPS bold body was
+            // unreadable on long supporting prose (the user flagged
+            // it on the "6 A DAY" West Bank stat). Editorial-style
+            // body reads as journalism, not poster shouting.
+            fontWeight: 500,
+            fontSize: 28,
             color: fg,
-            opacity: 0.88,
-            textTransform: "uppercase",
-            letterSpacing: 1,
-            lineHeight: 1.3,
+            opacity: 0.9,
+            lineHeight: 1.35,
             maxWidth: 860,
             textAlign: "center",
           }}
