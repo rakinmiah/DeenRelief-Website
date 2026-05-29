@@ -498,19 +498,39 @@ function MagazineCover({
             paddingRight: 28,
           }}
         >
+          {/* Phase 4y — editorial small-caps eyebrow with thin amber
+              rule, matching the carousel slide register. Drops the
+              Caveat brush script that read as charity-event-flyer. */}
           {eyebrow && (
             <div
               style={{
                 display: "flex",
-                fontFamily: "Caveat",
-                fontWeight: 600,
-                fontSize: 30,
-                color: DR.amber,
-                fontStyle: "italic",
-                marginBottom: 4,
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 8,
               }}
             >
-              {eyebrow.toLowerCase()}…
+              <div
+                style={{
+                  display: "flex",
+                  width: 20,
+                  height: 2,
+                  backgroundColor: DR.amber,
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  fontFamily: "DM Sans",
+                  fontWeight: 700,
+                  fontSize: 11,
+                  color: DR.amber,
+                  textTransform: "uppercase",
+                  letterSpacing: 3,
+                }}
+              >
+                {eyebrow}
+              </div>
             </div>
           )}
           <div
@@ -692,19 +712,38 @@ function EditorialType({
           paddingBottom: 18,
         }}
       >
+        {/* Phase 4y — editorial eyebrow for the EditorialType
+            (no-photo) layout too. */}
         {eyebrow && (
           <div
             style={{
               display: "flex",
-              fontFamily: "Caveat",
-              fontWeight: 600,
-              fontSize: 38,
-              color: DR.amber,
-              fontStyle: "italic",
-              marginBottom: 10,
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 18,
             }}
           >
-            {eyebrow.toLowerCase()}…
+            <div
+              style={{
+                display: "flex",
+                width: 28,
+                height: 2,
+                backgroundColor: DR.amber,
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "DM Sans",
+                fontWeight: 700,
+                fontSize: 13,
+                color: DR.amber,
+                textTransform: "uppercase",
+                letterSpacing: 3.5,
+              }}
+            >
+              {eyebrow}
+            </div>
           </div>
         )}
         <div
