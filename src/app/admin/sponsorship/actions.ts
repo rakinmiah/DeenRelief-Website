@@ -182,6 +182,10 @@ export async function inviteSponsorAction(input: {
   const redirectTo = `${siteOrigin()}/sponsor/set-password`;
 
   // Generate an invite link. This creates the auth.users row if absent.
+  // We use the link's `hashed_token` (not the raw action_link) to build a
+  // URL to our own callback, which verifies it server-side via verifyOtp.
+  // That sidesteps client-flow (PKCE vs implicit) ambiguity that otherwise
+  // makes the raw link land on a page with no session ("link expired").
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "invite",
     email,
@@ -189,25 +193,33 @@ export async function inviteSponsorAction(input: {
   });
 
   let userId = data?.user?.id ?? null;
-  let actionLink = data?.properties?.action_link ?? null;
+  let tokenHash = data?.properties?.hashed_token ?? null;
+  let linkType: "invite" | "recovery" = "invite";
 
   // If the user already exists, generateLink('invite') errors — fall back to
   // a recovery link so we can still (re-)send them an activation email.
-  if (error || !userId || !actionLink) {
+  if (error || !userId || !tokenHash) {
     const recovery = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo },
     });
-    if (recovery.error || !recovery.data?.properties?.action_link) {
+    if (recovery.error || !recovery.data?.properties?.hashed_token) {
       console.error("[sponsorship] invite link generation failed:", error?.message ?? recovery.error?.message);
       return { ok: false, error: "Couldn't generate the invite link." };
     }
     userId = recovery.data.user?.id ?? userId;
-    actionLink = recovery.data.properties.action_link;
+    tokenHash = recovery.data.properties.hashed_token;
+    linkType = "recovery";
   }
 
   if (!userId) return { ok: false, error: "Couldn't resolve the sponsor account." };
+
+  const actionLink =
+    `${siteOrigin()}/sponsor/auth/callback` +
+    `?token_hash=${encodeURIComponent(tokenHash)}` +
+    `&type=${linkType}` +
+    `&next=${encodeURIComponent("/sponsor/set-password")}`;
 
   await upsertSponsorProfile({
     id: userId,
