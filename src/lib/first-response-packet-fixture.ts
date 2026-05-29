@@ -254,7 +254,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null, // Render-time enforcement fills this in.
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "fact",
@@ -264,7 +264,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: c.factSource,
           media_id: null,
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "response",
@@ -274,7 +274,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "cta",
@@ -284,7 +284,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "green",
+          logo_variant: "green", photo_composition: "panel_below", photo_focal_point: "center",
         },
       ]
     : [
@@ -296,7 +296,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null, // Render-time enforcement fills this in.
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "fact",
@@ -306,7 +306,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: c.factSource,
           media_id: null,
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "response",
@@ -316,7 +316,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "tiers",
@@ -330,7 +330,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           ],
           source_attribution: null,
           media_id: null,
-          logo_variant: "white",
+          logo_variant: "white", photo_composition: "panel_below", photo_focal_point: "center",
         },
         {
           layout: "cta",
@@ -340,7 +340,7 @@ export function buildFixturePacket(event: EmergencyEvent): LaunchPacket {
           tier_lines: null,
           source_attribution: null,
           media_id: null,
-          logo_variant: "green",
+          logo_variant: "green", photo_composition: "panel_below", photo_focal_point: "center",
         },
       ];
 

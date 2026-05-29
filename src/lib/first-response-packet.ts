@@ -220,6 +220,8 @@ export const RevisionListSchema = z.object({
             "slide.logo_variant",
             "slide.media_id",
             "slide.source_attribution",
+            "slide.photo_composition",
+            "slide.photo_focal_point",
             "email.subject_lines",
             "email.body",
             "press_release",
@@ -408,6 +410,22 @@ export const LaunchPacketSchema = z.object({
           .enum(["white", "green"])
           .describe(
             "Which DR logo variant the renderer should overlay on this slide. CRITICAL — pick based on the slide's BACKGROUND, not the brand default: 'green' (logo-on-light) for the CTA cream slide and for PHOTO slides where the photo is dark/saturated or has heavy human skin tones (the green wordmark reads as brand, not overlay). 'white' (logo-on-dark) for typography slides on the dark green field AND for photo slides where the photo is green-foliage-heavy / pale / sun-washed (a green logo would disappear into green foliage). When in doubt on a photo slide: pick 'white' — it's the safer contrast against most photo content."
+          ),
+        photo_composition: z
+          .enum(["panel_below", "panel_right", "full_bleed_overlay"])
+          .default("panel_below")
+          .describe(
+            "Photo layout on this slide. Pick based on the photo's aspect ratio + subject placement (look at the vision thumbnail):\n" +
+              "  • 'panel_below' (default): photo top 62%, dark green text panel bottom 38%. Best for landscape photos with the subject in the upper half.\n" +
+              "  • 'panel_right': photo fills left 60%, dark green text panel right 40%. Best for tall PORTRAIT photos and for photos where the subject is centered-left and would be cut off by a horizontal split.\n" +
+              "  • 'full_bleed_overlay': photo fills 100% of the slide, dark gradient at the bottom 35% with text on top. Best for dramatic landscape shots / wide scenes where breaking the photo would hurt the composition. The headline reads against the gradient.\n" +
+              "IGNORED on typography-only slides (fact, tiers, cta, testimony, chapter without a media_id) — these always use the typography layout."
+          ),
+        photo_focal_point: z
+          .enum(["top", "center", "bottom"])
+          .default("center")
+          .describe(
+            "Where the photo's subject sits vertically. Drives the CSS object-position so cropping anchors to the right region. 'top' for photos where the face/subject is in the upper third (e.g. portrait with sky background), 'center' for normal mid-frame subjects, 'bottom' for photos with the subject in the lower third (e.g. wide landscape with figures at the bottom). Look at the vision thumbnail; don't guess."
           ),
       })
     )
@@ -607,9 +625,41 @@ LOGO_VARIANT — picked PER SLIDE based on the slide's background.
       - Photo is dark/saturated, urban, water-heavy, dust/sand →
         "green" (the green wordmark reads as brand identity, not as
         an overlay)
-      - When in doubt → "white" (safer contrast)
+      - Photo has WHITE / BEIGE / PALE bags, walls, or backgrounds
+        in the top-left where the logo sits → "green" (white-on-
+        white disappears)
+      - When in doubt on a photo slide → look at the top-left CORNER
+        where the logo will sit. Pick the variant that contrasts
+        with THAT specific zone, not the photo's average.
   This choice matters — green-on-green disappears, white-on-pale
   disappears. The renderer will not second-guess you.
+
+PHOTO_COMPOSITION — picked PER PHOTO SLIDE based on the photo's
+aspect ratio + where the subject sits in frame.
+  • 'panel_below' (default): photo top 62%, text panel bottom 38%.
+    USE WHEN: the photo is landscape (wider than tall) AND the
+    main subject sits in the upper or middle third of the frame.
+    Most documentary photos fit here.
+  • 'panel_right': photo fills left 60%, text panel right 40%.
+    USE WHEN: the photo is portrait (taller than wide) OR the
+    subject sits clearly on the left side of the frame. Stops the
+    horizontal split from cropping out the subject's head/feet.
+    Tall portraits + standing-person shots almost always want this.
+  • 'full_bleed_overlay': photo fills 100% of the slide, dark
+    gradient at the bottom 35% with text overlaid. USE WHEN: the
+    photo is wide environmental / landscape with strong composition
+    that would be ruined by a hard split (e.g. a flooded street
+    receding into the distance, a Brighton seafront wide shot).
+    The headline reads against the gradient.
+
+Pick PHOTO_FOCAL_POINT based on where the subject's face / main
+focus sits vertically:
+  • 'top': subject's face in upper third (e.g. portrait against a sky)
+  • 'center': subject mid-frame (most photos)
+  • 'bottom': subject in lower third (e.g. wide landscape with figures
+    at the bottom of the frame)
+The renderer uses this for object-position so cover-cropping anchors
+to the right region. Wrong focal_point cuts off heads.
 
 Writing rules for slide text:
   • Single-line titles where possible — they wrap at slide scale.
@@ -1242,7 +1292,21 @@ If yes, return a concrete revision.
     logo_variant. Green wordmark on green-foliage = disappears.
     Green wordmark on a mid-tone-green sky = poor contrast. White
     wordmark on pale / sun-washed / sky-heavy photo = disappears.
-    Swap the variant where contrast is weak.
+    Specifically look at the TOP-LEFT CORNER of each photo (where
+    the logo sits) — not the photo's average colour. Swap the
+    variant where contrast is weak.
+
+  ☐ PHOTO COMPOSITION MISMATCH — Look at each photo's aspect ratio
+    + subject placement. The drafter often defaults to 'panel_below'
+    even when it's wrong:
+      - Tall portrait photo with subject's head in the upper third
+        → panel_right (panel_below crops the head)
+      - Standing-person shot (vertical) → panel_right
+      - Wide environmental / landscape with strong composition
+        → full_bleed_overlay (don't break the photo)
+      - Subject in lower third → focal_point should be 'bottom'
+    Propose a slide.photo_composition + slide.photo_focal_point
+    revision when the choice doesn't match the photo.
 
   ☐ REGISTER DRIFT — The brief specified register_per_surface.
     Does the caption sound restrained / first-person if the brief
@@ -1435,11 +1499,33 @@ unused candidate's ID.`,
  * Returns null if NOTHING in the pools could be a sensible hero — at
  * which point typography-only is the right answer.
  */
+/**
+ * Phase 4t: choose logo variant from a photo's dominant colour.
+ *
+ * Rule: relative luminance > 0.55 = light photo → green wordmark
+ * (logo-on-light), otherwise → white wordmark (logo-on-dark). Uses
+ * the standard sRGB perceptual luminance formula. Defaults to white
+ * when no dominantColor is known (safer fallback for the typical
+ * mid-to-dark beneficiary portrait).
+ */
+export function pickLogoVariantForDominantColor(
+  dominantColor: string | null
+): "white" | "green" {
+  if (!dominantColor) return "white";
+  const hex = dominantColor.replace(/^#/, "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return "white";
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 0.55 ? "green" : "white";
+}
+
 export function pickBestCandidateForEvent(
   event: EmergencyEvent,
   drCandidates: MediaItem[],
   extCandidates: ExternalImagery[]
-): { id: string; reason: string } | null {
+): { id: string; reason: string; logoVariant: "white" | "green" } | null {
   // Score DR candidates first; if any score > 0 we pick from those.
   const drScored = drCandidates
     .filter((m) => !m.identifiableMinors || m.useCases.includes("consent-on-file"))
@@ -1487,16 +1573,19 @@ export function pickBestCandidateForEvent(
     return {
       id: `dr:${top.m.id}`,
       reason: top.reasons.join(", ") || `score=${top.score}`,
+      logoVariant: pickLogoVariantForDominantColor(top.m.dominantColor),
     };
   }
 
   // Fall back to external imagery — first match in the list (already
-  // ordered by fetched_at desc, so most recent first).
+  // ordered by fetched_at desc, so most recent first). External rows
+  // don't carry dominantColor so we default to white.
   if (extCandidates.length > 0) {
     const top = extCandidates[0]!;
     return {
       id: `ext:${top.id}`,
       reason: `external/${top.source}`,
+      logoVariant: "white",
     };
   }
 
@@ -1564,6 +1653,28 @@ function applyRevisions(
           if (slideIdx != null && next.carousel_slides[slideIdx]) {
             next.carousel_slides[slideIdx]!.source_attribution =
               r.new_value === "null" ? null : r.new_value;
+          }
+          break;
+        case "slide.photo_composition":
+          if (
+            slideIdx != null &&
+            next.carousel_slides[slideIdx] &&
+            (r.new_value === "panel_below" ||
+              r.new_value === "panel_right" ||
+              r.new_value === "full_bleed_overlay")
+          ) {
+            next.carousel_slides[slideIdx]!.photo_composition = r.new_value;
+          }
+          break;
+        case "slide.photo_focal_point":
+          if (
+            slideIdx != null &&
+            next.carousel_slides[slideIdx] &&
+            (r.new_value === "top" ||
+              r.new_value === "center" ||
+              r.new_value === "bottom")
+          ) {
+            next.carousel_slides[slideIdx]!.photo_focal_point = r.new_value;
           }
           break;
         case "email.subject_lines":
@@ -1688,16 +1799,16 @@ export async function generateLaunchPacket(
     );
     if (best) {
       console.warn(
-        `[first-response-packet] enforcing hero photo — Stage 2 left it null; assigning ${best.id} (${best.reason})`
+        `[first-response-packet] enforcing hero photo — Stage 2 left it null; assigning ${best.id} (${best.reason}) with logo=${best.logoVariant}`
       );
       revised.carousel_slides[heroIndex] = {
         ...revised.carousel_slides[heroIndex]!,
         media_id: best.id,
-        // Default to white logo on photo — safer contrast against
-        // most photo content. Stage 3 would have picked green where
-        // a green logo reads as brand; we can't replicate that here
-        // without vision, so we ship the safe choice.
-        logo_variant: "white",
+        // Logo variant computed from the picked photo's dominantColor:
+        // light photos get the green wordmark, dark photos get white.
+        // Not as precise as Claude's vision-grounded choice but better
+        // than a hardcoded default.
+        logo_variant: best.logoVariant,
       };
     }
   }
