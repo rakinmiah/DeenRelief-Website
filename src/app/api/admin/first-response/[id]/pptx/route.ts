@@ -123,6 +123,27 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    return await buildPptxResponse(params);
+  } catch (err) {
+    // Surface the real error to the browser so we can debug from the
+    // download instead of a silent "Site wasn't available".
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack ?? "" : "";
+    console.error("[pptx] route failed:", msg, stack);
+    return new Response(
+      `PPTX generation failed.\n\n${msg}\n\n${stack}`,
+      {
+        status: 500,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }
+    );
+  }
+}
+
+async function buildPptxResponse(
+  params: Promise<{ id: string }>
+): Promise<Response> {
   await requireAdminSession();
   const { id } = await params;
 
@@ -184,12 +205,25 @@ export async function GET(
     topCampaign && isValidCampaign(topCampaign) ? CAMPAIGNS[topCampaign] : null;
 
   // Pre-fetch logos + every slide's media in parallel — keeps the
-  // route under the maxDuration budget.
-  const [logoOnLight, logoOnDark, ...slideMedia] = await Promise.all([
+  // route under the maxDuration budget. allSettled so a single bad
+  // image (404, timeout, missing brand asset) doesn't kill the whole
+  // export — we just drop that one image and still ship the deck.
+  const settled = await Promise.allSettled([
     getLogoDataUri("logo-on-light"),
     getLogoDataUri("logo-on-dark"),
     ...enforcedSlides.map((s) => fetchImageDataUri(s.media_id ?? null)),
   ]);
+  const logoOnLight =
+    settled[0]?.status === "fulfilled"
+      ? (settled[0].value as { dataUri: string } | null)
+      : null;
+  const logoOnDark =
+    settled[1]?.status === "fulfilled"
+      ? (settled[1].value as { dataUri: string } | null)
+      : null;
+  const slideMedia: (string | null)[] = settled.slice(2).map((r) =>
+    r.status === "fulfilled" ? (r.value as string | null) : null
+  );
 
   // Build the deck.
   // pptxgenjs is a CJS module; import it dynamically to avoid bloating
