@@ -1053,6 +1053,10 @@ async function buildStage2Content(
 
   const blocks: Array<Anthropic.Messages.TextBlockParam | Anthropic.Messages.ImageBlockParam> = [];
 
+  const hasFittingCandidates =
+    candidateMedia.length > 0 || externalImagery.length > 0;
+  const heroMustHavePhoto = hasFittingCandidates;
+
   blocks.push({
     type: "text",
     text: `${buildEventBrief(input, candidateMedia, externalImagery)}
@@ -1070,6 +1074,17 @@ based on the photo you SEE.
 
 Honour brief.slide_count exactly. Slide 1 = 'hero'. Last slide = 'cta'.
 Middle slides per the brief's arc.
+
+${
+  heroMustHavePhoto
+    ? `HARD RULE — HERO SLIDE MUST USE A PHOTO:
+The DR library has ${candidateMedia.length} matching photo${candidateMedia.length === 1 ? "" : "s"} and there are ${externalImagery.length} external candidate${externalImagery.length === 1 ? "" : "s"}. You MUST put a photo on the hero slide. Pick the strongest-fitting candidate from the vision thumbnails below — typography-only hero is RESERVED for the case where genuinely nothing fits, which is NOT this case.
+
+DR's own library photos take priority over external imagery when both could work. A DR-library photo of someone in the event's country (BD, PK, SY, PS, IN, GB) with documentary tone or response-illustration use-case is almost always the right hero choice. If the hero is appeal-led and the response slide has a ground-level field photo, the response slide can take a second photo too.
+
+If you leave the hero with media_id=null while a fitting candidate is visible in the thumbnails, the post-processing pass will OVERRIDE your choice and assign one anyway — so spend your judgement picking the BEST one, not whether to use one.`
+    : `No DR-library or external candidates match this event — typography-only hero is acceptable here. Note this in your composition.`
+}
 
 VISION THUMBNAILS — DR LIBRARY (top candidates):`,
   });
@@ -1141,10 +1156,14 @@ async function runStage2Compose(
 }
 
 /** Stage 3: critique. Vision tokens for the photos Claude PICKED in
- *  Stage 2 (not all candidates) — much smaller, more focused. */
+ *  Stage 2 + the metadata of UNUSED candidates (so the critique can
+ *  catch hero-typography-when-a-photo-was-available misses, which is
+ *  the single biggest failure mode in production). */
 async function runStage3Critique(
   client: Anthropic,
-  draft: LaunchPacket
+  draft: LaunchPacket,
+  candidateMedia: MediaItem[],
+  externalImagery: ExternalImagery[]
 ): Promise<{
   revisions: RevisionList;
   inputTokens: number;
@@ -1162,6 +1181,17 @@ async function runStage3Critique(
   const visionBlocks = await Promise.all(
     pickedIds.map((id) => fetchAnthropicImageBlock(id))
   );
+
+  // Compact list of unused candidates so the critique can see what
+  // Stage 2 passed over. This is what surfaces the "hero is
+  // typography-only but a perfect-fit DR photo was available" miss.
+  const pickedSet = new Set(pickedIds);
+  const unusedDrCandidates = candidateMedia
+    .filter((m) => !pickedSet.has(`dr:${m.id}`))
+    .slice(0, 8);
+  const unusedExtCandidates = externalImagery
+    .filter((e) => !pickedSet.has(`ext:${e.id}`))
+    .slice(0, 4);
 
   const content: Array<Anthropic.Messages.TextBlockParam | Anthropic.Messages.ImageBlockParam> = [
     {
@@ -1315,6 +1345,54 @@ ${JSON.stringify(
     if (b) content.push(b);
   }
 
+  // Append the UNUSED candidate metadata so the critique can compare
+  // what was picked against what was available. The drafter often
+  // leaves a perfect-fit DR photo unused on the hero — this gives
+  // the creative-director pass the information needed to call that
+  // out as a specific revision.
+  if (unusedDrCandidates.length > 0 || unusedExtCandidates.length > 0) {
+    const unusedLines: string[] = [];
+    if (unusedDrCandidates.length > 0) {
+      unusedLines.push("DR library candidates the drafter did NOT use:");
+      for (const m of unusedDrCandidates) {
+        const bits = [
+          `id=dr:${m.id}`,
+          m.caption ? `caption="${m.caption}"` : null,
+          m.countryIso ? `country=${m.countryIso}` : null,
+          m.eventTypes.length ? `events=${m.eventTypes.join(",")}` : null,
+          m.tone ? `tone=${m.tone}` : null,
+          m.useCases.length ? `use=${m.useCases.join(",")}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        unusedLines.push(`  • ${bits}`);
+      }
+    }
+    if (unusedExtCandidates.length > 0) {
+      unusedLines.push("External candidates the drafter did NOT use:");
+      for (const e of unusedExtCandidates) {
+        const bits = [
+          `id=ext:${e.id}`,
+          `source=${e.source}`,
+          e.title ? `title="${e.title.slice(0, 80)}"` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        unusedLines.push(`  • ${bits}`);
+      }
+    }
+    content.push({
+      type: "text",
+      text: `\n── UNUSED CANDIDATES (the drafter had these but chose not to use them) ──
+${unusedLines.join("\n")}
+
+If the hero slide is typography-only AND any of these unused candidates
+plausibly fit the event (matching country, event type, or campaign), that
+is a miss. Propose a revision setting slide.media_id to the best
+unused candidate's ID.`,
+    });
+  }
+
   const response = await client.messages.parse({
     model: MODEL,
     max_tokens: 3000,
@@ -1334,6 +1412,91 @@ ${JSON.stringify(
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
   };
+}
+
+/**
+ * Pick the best DR-library (or external) candidate for the hero slide
+ * when Stage 2 left it null. Ranking is deterministic + cheap — we
+ * can't call vision here, so we rank by metadata fit:
+ *
+ *   1. Country match beats no country match
+ *   2. Event-type match (e.g. 'flood' photo for a flood event)
+ *   3. Campaign match (matches one of event.matchedCampaigns)
+ *   4. Tone match — 'documentary' / 'dignified' beat 'festival' / 'gratitude' for emergency events
+ *   5. Use-case match — 'emergency-hero' / 'beneficiary-portrait' beat 'tier-illustration'
+ *   6. People-visible + not-identifiable-minor (safeguarding-clean)
+ *
+ * DR library always beats external imagery when both have a fit.
+ *
+ * Returns null if NOTHING in the pools could be a sensible hero — at
+ * which point typography-only is the right answer.
+ */
+function pickBestCandidateForEvent(
+  event: EmergencyEvent,
+  drCandidates: MediaItem[],
+  extCandidates: ExternalImagery[]
+): { id: string; reason: string } | null {
+  // Score DR candidates first; if any score > 0 we pick from those.
+  const drScored = drCandidates
+    .filter((m) => !m.identifiableMinors || m.useCases.includes("consent-on-file"))
+    .map((m) => {
+      let score = 0;
+      const reasons: string[] = [];
+      if (event.countryIso && m.countryIso === event.countryIso) {
+        score += 10;
+        reasons.push(`country=${event.countryIso}`);
+      }
+      if (event.eventType && m.eventTypes.includes(event.eventType)) {
+        score += 6;
+        reasons.push(`event=${event.eventType}`);
+      }
+      // Campaign overlap.
+      const campaignOverlap = m.campaignSlugs.filter((c) =>
+        event.matchedCampaigns?.includes(c)
+      );
+      if (campaignOverlap.length > 0) {
+        score += 4 * campaignOverlap.length;
+        reasons.push(`campaigns=${campaignOverlap.join(",")}`);
+      }
+      // Tone preference for emergency events.
+      if (m.tone === "documentary" || m.tone === "dignified") {
+        score += 2;
+      } else if (m.tone === "festival" || m.tone === "gratitude") {
+        score -= 2;
+      }
+      // Use-case match.
+      if (
+        m.useCases.includes("emergency-hero") ||
+        m.useCases.includes("beneficiary-portrait") ||
+        m.useCases.includes("response-illustration")
+      ) {
+        score += 2;
+      }
+      if (m.peopleVisible) score += 1;
+      return { m, score, reasons };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (drScored.length > 0) {
+    const top = drScored[0]!;
+    return {
+      id: `dr:${top.m.id}`,
+      reason: top.reasons.join(", ") || `score=${top.score}`,
+    };
+  }
+
+  // Fall back to external imagery — first match in the list (already
+  // ordered by fetched_at desc, so most recent first).
+  if (extCandidates.length > 0) {
+    const top = extCandidates[0]!;
+    return {
+      id: `ext:${top.id}`,
+      reason: `external/${top.source}`,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -1464,7 +1627,12 @@ export async function generateLaunchPacket(
   let s3Input = 0;
   let s3Output = 0;
   try {
-    const s3 = await runStage3Critique(client, s2.draft);
+    const s3 = await runStage3Critique(
+      client,
+      s2.draft,
+      candidateMedia,
+      externalImagery
+    );
     revisions = s3.revisions;
     s3Input = s3.inputTokens;
     s3Output = s3.outputTokens;
@@ -1477,6 +1645,38 @@ export async function generateLaunchPacket(
 
   // ── Stage 4: Apply revisions deterministically ──
   const revised = applyRevisions(s2.draft, revisions);
+
+  // ── Stage 4.5: ENFORCE hero photo when candidates exist ──
+  // The single biggest production failure is Stage 2 leaving the
+  // hero typography-only despite a perfectly-fitting DR library
+  // candidate sitting in the pool. Stage 3 critique should catch
+  // this but doesn't always — especially when the arc is
+  // 'quiet_dignity' or 'hero_image' where photos are non-negotiable.
+  // We enforce it deterministically here.
+  const heroIndex = revised.carousel_slides.findIndex(
+    (s) => s.layout === "hero"
+  );
+  if (heroIndex !== -1 && !revised.carousel_slides[heroIndex]!.media_id) {
+    const best = pickBestCandidateForEvent(
+      input.event,
+      candidateMedia,
+      externalImagery
+    );
+    if (best) {
+      console.warn(
+        `[first-response-packet] enforcing hero photo — Stage 2 left it null; assigning ${best.id} (${best.reason})`
+      );
+      revised.carousel_slides[heroIndex] = {
+        ...revised.carousel_slides[heroIndex]!,
+        media_id: best.id,
+        // Default to white logo on photo — safer contrast against
+        // most photo content. Stage 3 would have picked green where
+        // a green logo reads as brand; we can't replicate that here
+        // without vision, so we ship the safe choice.
+        logo_variant: "white",
+      };
+    }
+  }
 
   // Safety pass 1: ensure any media_id is in one of the candidate
   // sets. Confabulated IDs would render as broken images.
