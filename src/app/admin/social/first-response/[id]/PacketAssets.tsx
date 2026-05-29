@@ -58,7 +58,7 @@ export default function PacketAssets({
     const social: Asset = {
       src: `/api/admin/first-response/${eventId}/social-image?v=${draftStamp}`,
       label: "Single-image post · 1200×675",
-      alt: "Single-image post for Facebook and X",
+      alt: "Single-image post for X (Twitter)",
       downloadName: "deenrelief-social-post.png",
       aspect: "wide" as const,
     };
@@ -119,10 +119,13 @@ export default function PacketAssets({
         ))}
       </div>
 
-      {/* ── Single-image (X / Facebook) — rendered below the carousel ── */}
+      {/* ── Single-image (X / Twitter) — rendered below the carousel.
+            Phase 5c relabel: the carousel above is for Instagram +
+            Facebook (FB supports carousels natively), so the only
+            platform that genuinely needs a single image is X. ── */}
       <div className="mt-8">
         <div className="text-[11px] font-bold tracking-[0.1em] uppercase text-charcoal/55 mb-3">
-          Single-image post for Facebook + X
+          Single-image post for X (Twitter)
         </div>
         <Thumbnail
           asset={social}

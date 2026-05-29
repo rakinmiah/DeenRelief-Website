@@ -608,6 +608,49 @@ distinct beats, not the same fact twice.
     body: '1.7 million people in Gaza are living across 1,600 sites.'
     — same fact twice.
 
+HERO SLIDE DISCIPLINE (Phase 5c — hero is where the donor decides
+whether to swipe):
+
+The hero is slide 1 of the carousel AND the 1200×675 X/Facebook image.
+It is the single highest-leverage surface in the packet. Two hard rules:
+
+  RULE 1 — HERO TITLE: a short editorial beat, MAX 24 characters.
+  Think newspaper front-page headline, not paragraph summary.
+  ✓ 'GAZA, STILL.'          (12 chars — restraint, devastating)
+  ✓ 'AFTER 600 DAYS.'       (15 chars — temporal weight)
+  ✓ 'WEST BANK: 6 A DAY.'   (19 chars — specific, urgent)
+  ✓ 'STAY WITH THEM.'       (15 chars — witness register)
+  ✗ 'GAZA EMERGENCY APPEAL — DONATE NOW' (poster cliché)
+  ✗ 'PEOPLE OF GAZA STILL NEED YOUR HELP' (33 chars — too long)
+  ✗ 'CRITICAL UPDATE ON THE SITUATION IN PALESTINE' (newsroom-bland)
+
+  RULE 2 — HERO BODY: open with the STRONGEST SINGLE SPECIFIC FACT
+  from raw_payload. Not a summary sentence. Not a generic "our team
+  is still on the ground". A fact someone could cite at dinner.
+  ✓ '1.7M people now sheltering across 1,600 displacement sites —
+     88% of them makeshift. Our team is moving parcels where the
+     bombardment allows.'
+  ✓ 'OCHA logged 50+ settler attacks in a single week of May.
+     Five Palestinians killed between 12–18 May alone.'
+  ✗ '1.7 million people now living across 1,600 displacement
+     sites. Our team is still on the ground.'  ← summary +
+     generic closer; reads like a press release.
+
+The hero body MUST be at least two sentences for emergency packets,
+and the first sentence MUST contain a verbatim number or named
+location from raw_payload.
+
+CLOSING SLIDE DISCIPLINE (Phase 5c — the last slide is where the
+audience either commits or scrolls past):
+
+The CTA slide is the closer. For 'donate' cta_kind, it gets the URL
+pill — keep title to ≤ 18 chars ('DONATE NOW', 'STAND WITH GAZA',
+'BACK OUR TEAM'). For 'witness' cta_kind, title is the witness
+statement (≤ 30 chars), body MUST be exactly two hashtags separated
+by ' · ' (e.g. '#ceasefirenow · #freepalestine'). Do not put the URL
+in the witness body — the slide renders the hashtag pair as the
+typographic anchor instead of a pill.
+
 CAPTION OPENER PRIORITY (Phase 4y research finding — anchored by
 MSF's "Remember Us" Gaza post which earned 327K likes opening with
 a pulled quote):
