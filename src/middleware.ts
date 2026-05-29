@@ -44,7 +44,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── 2. Sponsor session refresh (scoped to the portal) ──
-  if (pathname.startsWith("/sponsor") || pathname.startsWith("/api/sponsor")) {
+  // Skip /sponsor/auth/* — the callback route establishes the session itself
+  // and must own its Set-Cookie response without the refresh helper racing it.
+  if (
+    (pathname.startsWith("/sponsor") || pathname.startsWith("/api/sponsor")) &&
+    !pathname.startsWith("/sponsor/auth")
+  ) {
     return updateSponsorSession(request);
   }
 

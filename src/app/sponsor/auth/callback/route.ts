@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { createServerSupabase } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -8,14 +9,16 @@ export const dynamic = "force-dynamic";
  * Verifies invite + password-recovery email links and establishes the
  * sponsor's session cookie, then forwards them to set their password.
  *
- * Supports both link shapes so it works regardless of the project's auth
- * flow setting:
- *   - `?token_hash=…&type=invite|recovery` → verifyOtp (the SSR-recommended
- *     pattern; this is what our invite email + the recovery template use).
- *   - `?code=…` → exchangeCodeForSession (PKCE, e.g. magic links).
+ * Cookie handling is bound DIRECTLY to the redirect response we return —
+ * not the next/headers store — because cookies written to that store do not
+ * reliably attach to a NextResponse.redirect() in the App Router. Without
+ * this, verifyOtp succeeds but the session cookie is dropped, and the
+ * set-password page wrongly reports the link as expired.
  *
- * On success → redirect to `next` (default /sponsor/set-password). On any
- * failure → /sponsor/login?error=link so the page can offer a resend.
+ * Supports both link shapes:
+ *   - `?token_hash=…&type=invite|recovery` → verifyOtp (our invite email +
+ *     the recovery email template use this).
+ *   - `?code=…` → exchangeCodeForSession (PKCE magic links).
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -24,24 +27,43 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next") || "/sponsor/set-password";
 
-  const supabase = await createServerSupabase();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.redirect(new URL("/sponsor/login?error=config", url.origin));
+  }
 
+  // Build the success response FIRST and write session cookies onto it.
+  const successResponse = NextResponse.redirect(new URL(next, url.origin));
+  const cookieStore = await cookies();
+
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        for (const { name, value, options } of cookiesToSet) {
+          successResponse.cookies.set(name, value, options);
+        }
+      },
+    },
+  });
+
+  let ok = false;
+  let reason = "no-token";
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (error) {
-      return NextResponse.redirect(new URL("/sponsor/login?error=link", url.origin));
-    }
-    return NextResponse.redirect(new URL(next, url.origin));
-  }
-
-  if (code) {
+    ok = !error;
+    if (error) reason = error.message;
+  } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(new URL("/sponsor/login?error=link", url.origin));
-    }
-    return NextResponse.redirect(new URL(next, url.origin));
+    ok = !error;
+    if (error) reason = error.message;
   }
 
-  // No recognisable token in the URL.
+  if (ok) return successResponse;
+
+  console.error("[sponsor/auth/callback] verification failed:", reason);
   return NextResponse.redirect(new URL("/sponsor/login?error=link", url.origin));
 }
