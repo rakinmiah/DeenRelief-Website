@@ -12,16 +12,25 @@ the next packet redraft picks it up.
 ## Required filenames
 
 The IDs come from `src/lib/social-design-references.ts`. Save each
-screenshot as `<id>.png`:
+screenshot as `<id>.{png|jpg|jpeg|webp}` — the loader tries each
+extension in order so any common image format works.
 
-| Filename                       | What to capture                                            |
-| ------------------------------ | ---------------------------------------------------------- |
-| `msf-remember-us.png`          | MSF's Gaza "Remember Us" post (Dr Mahmoud Abu Nujaila quote) |
-| `ir-all-eyes-sudan.png`        | Islamic Relief UK's "All Eyes On Sudan" newspaper reel cover |
-| `ir-eid-prayers.png`           | Islamic Relief UK's "Wondering how to perform Eid prayers?" carousel cover |
-| `charity-water-manifesto.png`  | charity:water's "HI, WE'RE CHARITY: WATER" identity reel cover |
-| `muslim-hands-qurbani.png`     | Muslim Hands UK's "YOUR QURBANI in NIGER" portrait post    |
-| `unicef-restraint.png`         | A UNICEF child-portrait or displacement post showing institutional restraint |
+| Filename                          | Source post URL                                                 | Status |
+| --------------------------------- | --------------------------------------------------------------- | ------ |
+| `msf-remember-us.jpg`             | https://www.instagram.com/p/C0hUw1-O346/                        | ✅ shipped |
+| `ir-all-eyes-sudan.jpg`           | https://www.instagram.com/p/DTTRMMRDEAh/                        | ✅ shipped |
+| `charity-water-manifesto.jpg`     | https://www.instagram.com/p/DE07wKHRbVV/                        | ✅ shipped |
+| `muslim-hands-qurbani.jpg`        | https://www.instagram.com/p/DY6x_uADvC-/                        | ✅ shipped (Yemen variant) |
+| `unicef-restraint.jpg`            | https://www.instagram.com/p/DX7DgPDFsEV/ (UNICEF Darfur post)   | ⚠️ pending — see below |
+| `ir-eid-prayers.jpg`              | @islamicreliefuk Eid prayers carousel (seasonal — search profile) | ⚠️ pending |
+
+### Capturing the remaining 2
+
+Brave throttled the automated downloads on the last couple. Easiest manual approach:
+
+1. Open the post URL in a browser tab
+2. Right-click the post image → "Save image as…"
+3. Save with the exact filename above into this directory
 
 ## Format
 
