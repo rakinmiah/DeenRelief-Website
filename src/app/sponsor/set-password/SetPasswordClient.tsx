@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserSupabase } from "@/lib/supabase-browser";
-import { activateAccountAction } from "../actions";
+import { setPasswordAction } from "../actions";
 
 const inputCls =
   "w-full px-4 py-3 rounded-xl bg-white border border-charcoal/15 focus:border-green focus:outline-none focus:ring-2 focus:ring-green/15 text-charcoal text-sm";
 const labelCls =
   "block text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5";
 
-export default function SetPasswordClient() {
+export default function SetPasswordClient({ authed }: { authed: boolean }) {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agree, setAgree] = useState(false);
@@ -21,16 +18,18 @@ export default function SetPasswordClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The invite/recovery link establishes a session (PKCE via the callback
-  // route, or hash tokens auto-detected by the browser client). Confirm it
-  // exists before showing the form.
-  useEffect(() => {
-    const supabase = createBrowserSupabase();
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-      setReady(true);
-    });
-  }, []);
+  if (!authed) {
+    return (
+      <div className="rounded-lg bg-amber-light/50 border border-amber/30 px-4 py-3 text-sm text-amber-dark">
+        This activation link is invalid or has expired. Please ask us to resend
+        your invite, or use{" "}
+        <a href="/sponsor/login" className="underline">
+          forgot password
+        </a>{" "}
+        if you already set one.
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,43 +47,14 @@ export default function SetPasswordClient() {
       return;
     }
     setSubmitting(true);
-    const supabase = createBrowserSupabase();
-    const { error: pwError } = await supabase.auth.updateUser({ password });
-    if (pwError) {
-      setError("Couldn't set your password. Your link may have expired.");
+    const result = await setPasswordAction(password, marketing);
+    if (!result.ok) {
+      setError(result.error ?? "Couldn't activate your account.");
       setSubmitting(false);
       return;
-    }
-    // Record activation consents + mark the profile active (server-side).
-    const activation = await activateAccountAction();
-    if (!activation.ok) {
-      setError(activation.error ?? "Couldn't activate your account.");
-      setSubmitting(false);
-      return;
-    }
-    if (marketing) {
-      const { setMarketingConsentAction } = await import("../actions");
-      await setMarketingConsentAction(true);
     }
     router.replace("/sponsor/dashboard");
     router.refresh();
-  }
-
-  if (!ready) {
-    return <p className="text-sm text-grey">Checking your link…</p>;
-  }
-
-  if (!hasSession) {
-    return (
-      <div className="rounded-lg bg-amber-light/50 border border-amber/30 px-4 py-3 text-sm text-amber-dark">
-        This activation link is invalid or has expired. Please ask us to resend
-        your invite, or use{" "}
-        <a href="/sponsor/login" className="underline">
-          forgot password
-        </a>{" "}
-        if you already set one.
-      </div>
-    );
   }
 
   return (

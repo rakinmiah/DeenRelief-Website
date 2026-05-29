@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { getSponsorUser } from "@/lib/supabase-server";
+import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
 import { clientIpFromRequest } from "@/lib/admin-audit";
 import {
   activateSponsor,
@@ -32,9 +32,49 @@ async function requestContext() {
 }
 
 /**
- * Finalise account activation after the sponsor sets their password. Marks
- * the profile active and records the mandatory activation consents (account
- * terms, privacy policy, child-media confidentiality).
+ * Set the sponsor's password AND finalise activation, entirely server-side.
+ *
+ * Runs against the recovery/invite session cookie set by the callback route
+ * — so it does NOT depend on the browser client seeing the session, which is
+ * the fragile part that surfaces as a false "link expired". After setting the
+ * password it records the mandatory activation consents and (optionally)
+ * marketing consent.
+ */
+export async function setPasswordAction(
+  password: string,
+  marketingOptIn: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  if (!password || password.length < 8) {
+    return { ok: false, error: "Use at least 8 characters." };
+  }
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      error: "Your activation link has expired. Please ask us to resend it.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { ok: false, error: "Couldn't set your password — please try again." };
+  }
+
+  const { ip, userAgent } = await requestContext();
+  await activateSponsor({ sponsorId: user.id, ip, userAgent });
+  if (marketingOptIn) {
+    await setMarketingConsent({ sponsorId: user.id, granted: true, ip, userAgent });
+  }
+  return { ok: true };
+}
+
+/**
+ * Finalise account activation only (consents + status) for an
+ * already-signed-in sponsor. Kept for completeness; setPasswordAction is the
+ * primary activation path.
  */
 export async function activateAccountAction(): Promise<{
   ok: boolean;
