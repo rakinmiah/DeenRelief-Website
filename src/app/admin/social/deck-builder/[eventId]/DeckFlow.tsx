@@ -176,15 +176,13 @@ export default function DeckFlow({
       {/* Step canvas */}
       <div className="flex-1 grid place-items-center px-5 py-8">
         <div className="w-full max-w-2xl">
-          <AnimatePresence mode="wait" custom={dir}>
+          <AnimatePresence mode="wait">
             <motion.div
               key={step}
-              custom={dir}
-              variants={stepVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, x: dir * 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: dir * -28 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             >
               {step === "preparing" && (
                 <PreparingStep
@@ -234,8 +232,3 @@ export default function DeckFlow({
   );
 }
 
-const stepVariants = {
-  enter: (d: 1 | -1) => ({ opacity: 0, x: d * 28 }),
-  center: { opacity: 1, x: 0 },
-  exit: (d: 1 | -1) => ({ opacity: 0, x: d * -28 }),
-};
