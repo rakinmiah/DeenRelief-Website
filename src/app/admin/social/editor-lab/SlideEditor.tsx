@@ -368,7 +368,7 @@ export default function SlideEditor({ slide }: { slide: EditorSlide }) {
                 style={{
                   left: (selected.x + selected.w / 2) * scale,
                   top: selected.y * scale,
-                  transform: "translate(-50%, calc(-100% - 10px))",
+                  transform: "translate(-50%, calc(-100% - 16px))",
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
@@ -402,6 +402,7 @@ export default function SlideEditor({ slide }: { slide: EditorSlide }) {
                 draggable
                 resizable
                 rotatable
+                rotationPosition="bottom"
                 origin={false}
                 throttleDrag={0}
                 throttleResize={0}
