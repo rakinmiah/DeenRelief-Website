@@ -202,16 +202,13 @@ function renderInner(l: Layer, uri: string | null) {
       </div>
     );
   }
-  return (
-    <div
-      style={{
-        display: "flex",
-        width: "100%",
-        height: "100%",
-        background: l.fill,
-        border: l.strokeWidth > 0 ? `${l.strokeWidth}px solid ${l.stroke}` : undefined,
-        borderRadius: l.shape === "ellipse" ? 9999 : l.radius,
-      }}
-    />
-  );
+  const shapeStyle: CSSProperties = {
+    display: "flex",
+    width: "100%",
+    height: "100%",
+    background: l.fill,
+    borderRadius: l.shape === "ellipse" ? 9999 : l.radius,
+  };
+  if (l.strokeWidth > 0) shapeStyle.border = `${l.strokeWidth}px solid ${l.stroke}`;
+  return <div style={shapeStyle} />;
 }
