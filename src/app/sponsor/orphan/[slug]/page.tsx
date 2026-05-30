@@ -33,6 +33,31 @@ function formatWhen(iso: string | null): string {
   });
 }
 
+function monthsSince(fromIso: string): number {
+  const from = new Date(fromIso);
+  const to = new Date();
+  let m = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  if (to.getDate() < from.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
+function formatSince(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function durationPhrase(startedOn: string): string {
+  const m = monthsSince(startedOn);
+  if (m < 1) return "since this month";
+  if (m < 12) return `for ${m} month${m === 1 ? "" : "s"}`;
+  const years = Math.floor(m / 12);
+  const rem = m % 12;
+  const y = `${years} year${years === 1 ? "" : "s"}`;
+  return rem ? `for ${y}, ${rem} month${rem === 1 ? "" : "s"}` : `for ${y}`;
+}
+
 export default async function OrphanProfilePage({
   params,
 }: {
@@ -51,6 +76,17 @@ export default async function OrphanProfilePage({
     .eq("slug", slug)
     .maybeSingle();
   if (!orphan) notFound();
+
+  // This sponsor's start date for the milestone band (RLS-scoped to them).
+  const { data: link } = await supabase
+    .from("sponsorships")
+    .select("started_on")
+    .eq("orphan_id", orphan.id)
+    .neq("status", "ended")
+    .order("started_on", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const startedOn = (link?.started_on as string) ?? null;
 
   // Published updates for this child (RLS also enforces published + link).
   const { data: updateRows } = await supabase
@@ -127,6 +163,13 @@ export default async function OrphanProfilePage({
             {[orphan.country, orphan.region].filter(Boolean).join(" · ")}
             {orphan.age_band && <span> · age {orphan.age_band as string}</span>}
           </p>
+          {startedOn && (
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white border border-charcoal/10 text-charcoal/80 text-[13px] font-semibold px-3.5 py-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber" aria-hidden />
+              You&apos;ve been sponsoring {orphan.display_name as string}{" "}
+              {durationPhrase(startedOn)} · since {formatSince(startedOn)}
+            </p>
+          )}
           {orphan.bio ? (
             <div
               className="dr-prose mt-5"

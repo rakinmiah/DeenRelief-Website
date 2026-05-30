@@ -13,7 +13,7 @@ export default async function SponsorAccountPage() {
   const supabase = await createServerSupabase();
   const { data: profile } = await supabase
     .from("sponsor_profiles")
-    .select("full_name, contact_email, marketing_consent")
+    .select("full_name, contact_email, marketing_consent, notify_new_update")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -43,6 +43,7 @@ export default async function SponsorAccountPage() {
 
         <AccountClient
           marketingConsent={Boolean(profile?.marketing_consent)}
+          notifyNewUpdate={profile?.notify_new_update !== false}
           hasPendingErasure={hasPendingErasure}
         />
       </div>

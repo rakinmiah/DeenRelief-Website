@@ -12,6 +12,26 @@ interface DashboardOrphan {
   country: string;
   region: string | null;
   ageBand: string | null;
+  startedOn: string | null;
+}
+
+/** Whole months between a start date and now (never negative). */
+function monthsSince(fromIso: string): number {
+  const from = new Date(fromIso);
+  const to = new Date();
+  let m = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  if (to.getDate() < from.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
+function durationLabel(startedOn: string): string {
+  const m = monthsSince(startedOn);
+  if (m < 1) return "Sponsoring since this month";
+  if (m < 12) return `Sponsoring for ${m} month${m === 1 ? "" : "s"}`;
+  const years = Math.floor(m / 12);
+  const rem = m % 12;
+  const y = `${years} year${years === 1 ? "" : "s"}`;
+  return rem ? `Sponsoring for ${y}, ${rem} mo` : `Sponsoring for ${y}`;
 }
 
 export default async function SponsorDashboardPage() {
@@ -24,7 +44,7 @@ export default async function SponsorDashboardPage() {
   const { data } = await supabase
     .from("sponsorships")
     .select(
-      "id, status, orphans ( slug, display_name, country, region, age_band )"
+      "id, status, started_on, orphans ( slug, display_name, country, region, age_band )"
     )
     .neq("status", "ended")
     .order("created_at", { ascending: true });
@@ -39,6 +59,7 @@ export default async function SponsorDashboardPage() {
         country: (o.country as string) ?? "",
         region: (o.region as string) ?? null,
         ageBand: (o.age_band as string) ?? null,
+        startedOn: (row.started_on as string) ?? null,
       };
     })
     .filter((x): x is DashboardOrphan => x !== null);
@@ -57,6 +78,13 @@ export default async function SponsorDashboardPage() {
             Open a profile to read the latest updates, and to see the photos and
             videos we share about the child you sponsor.
           </p>
+          {children.length > 0 && (
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-green/10 text-green-dark text-[13px] font-semibold px-3.5 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green" aria-hidden />
+              New updates every month — far more than most sponsorship
+              programmes
+            </p>
+          )}
         </div>
 
         {children.length === 0 ? (
@@ -95,6 +123,11 @@ export default async function SponsorDashboardPage() {
                   {[c.country, c.region].filter(Boolean).join(" · ")}
                   {c.ageBand && <span> · age {c.ageBand}</span>}
                 </p>
+                {c.startedOn && (
+                  <p className="mt-2 text-xs font-medium text-amber-dark">
+                    {durationLabel(c.startedOn)}
+                  </p>
+                )}
                 <span className="inline-block mt-4 text-sm font-semibold text-green">
                   View updates →
                 </span>

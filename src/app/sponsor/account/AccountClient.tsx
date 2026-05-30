@@ -4,30 +4,47 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   setMarketingConsentAction,
+  setUpdateNotificationAction,
   requestErasureAction,
 } from "../actions";
 
 export default function AccountClient({
   marketingConsent,
+  notifyNewUpdate,
   hasPendingErasure,
 }: {
   marketingConsent: boolean;
+  notifyNewUpdate: boolean;
   hasPendingErasure: boolean;
 }) {
   const router = useRouter();
   const [marketing, setMarketing] = useState(marketingConsent);
-  const [savingMarketing, setSavingMarketing] = useState(false);
+  const [notifyUpdate, setNotifyUpdate] = useState(notifyNewUpdate);
+  const [savingPref, setSavingPref] = useState(false);
   const [erasureSent, setErasureSent] = useState(hasPendingErasure);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function toggleMarketing(next: boolean) {
-    setSavingMarketing(true);
+    setSavingPref(true);
     setMsg(null);
     const result = await setMarketingConsentAction(next);
-    setSavingMarketing(false);
+    setSavingPref(false);
     if (result.ok) {
       setMarketing(next);
+      setMsg({ ok: true, text: "Preference saved." });
+    } else {
+      setMsg({ ok: false, text: result.error ?? "Couldn't save." });
+    }
+  }
+
+  async function toggleNotifyUpdate(next: boolean) {
+    setSavingPref(true);
+    setMsg(null);
+    const result = await setUpdateNotificationAction(next);
+    setSavingPref(false);
+    if (result.ok) {
+      setNotifyUpdate(next);
       setMsg({ ok: true, text: "Preference saved." });
     } else {
       setMsg({ ok: false, text: result.error ?? "Couldn't save." });
@@ -67,24 +84,37 @@ export default function AccountClient({
         </div>
       )}
 
-      {/* Marketing preference */}
+      {/* Email preferences */}
       <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
         <h2 className="font-heading font-bold text-lg text-charcoal mb-3">
           Email preferences
         </h2>
-        <label className="flex items-start gap-2.5 text-sm text-charcoal/80">
-          <input
-            type="checkbox"
-            checked={marketing}
-            disabled={savingMarketing}
-            onChange={(e) => toggleMarketing(e.target.checked)}
-            className="mt-0.5"
-          />
-          <span>
-            Email me occasional news and appeals from Deen Relief. (Updates
-            about the child you sponsor are sent regardless of this setting.)
-          </span>
-        </label>
+        <div className="space-y-3.5">
+          <label className="flex items-start gap-2.5 text-sm text-charcoal/80">
+            <input
+              type="checkbox"
+              checked={notifyUpdate}
+              disabled={savingPref}
+              onChange={(e) => toggleNotifyUpdate(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Email me when there&apos;s a new update about the child I sponsor.
+            </span>
+          </label>
+          <label className="flex items-start gap-2.5 text-sm text-charcoal/80">
+            <input
+              type="checkbox"
+              checked={marketing}
+              disabled={savingPref}
+              onChange={(e) => toggleMarketing(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Email me occasional news and appeals from Deen Relief.
+            </span>
+          </label>
+        </div>
       </section>
 
       {/* Your data */}

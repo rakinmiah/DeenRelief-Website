@@ -6,6 +6,7 @@ import { clientIpFromRequest } from "@/lib/admin-audit";
 import {
   activateSponsor,
   setMarketingConsent,
+  setUpdateNotification,
   createDataRequest,
 } from "@/lib/sponsor-consent";
 import { getSponsorByEmail } from "@/lib/sponsorship-admin";
@@ -95,6 +96,14 @@ export async function setMarketingConsentAction(
   if (!user) return { ok: false, error: "Not signed in." };
   const { ip, userAgent } = await requestContext();
   return setMarketingConsent({ sponsorId: user.id, granted, ip, userAgent });
+}
+
+export async function setUpdateNotificationAction(
+  enabled: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getSponsorUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+  return setUpdateNotification({ sponsorId: user.id, enabled });
 }
 
 export async function requestDataExportAction(): Promise<{
