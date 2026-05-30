@@ -147,10 +147,14 @@ export default async function FirstResponsePage() {
                       anchors. The source ↗ link below gets z-10 +
                       relative to sit above this and remain
                       independently clickable. */}
+                  {/* Phase 6 — link goes to the deck builder (primary
+                      SMM entry point now). The legacy auto-gen view
+                      remains reachable at /admin/social/first-response/
+                      legacy/[id]/ as a fallback. */}
                   <Link
-                    href={`/admin/social/first-response/${ev.id}`}
+                    href={`/admin/social/deck-builder/${ev.id}`}
                     className="absolute inset-0 z-0"
-                    aria-label={`Open event: ${ev.title}`}
+                    aria-label={`Open deck builder for: ${ev.title}`}
                   />
                   <div className="relative flex items-start justify-between gap-3 flex-wrap pointer-events-none">
                     <div className="flex-1 min-w-0">

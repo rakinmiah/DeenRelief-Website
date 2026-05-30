@@ -821,3 +821,88 @@ export async function extractContentBlocksWithDefaultClient(
 ): Promise<ExtractContentBlocksResult> {
   return extractContentBlocks(getDefaultClient(), event, options);
 }
+
+// ─── ContentBlocks → ContentCard[] adapter (Phase 6e integration) ──────
+
+import type { ContentCard } from "./social-templates/types";
+
+/**
+ * Flatten a typed ContentBlocks payload into the discrete ContentCard
+ * array the deck-builder Compose UI consumes (one draggable card per
+ * option). The shape comes from src/lib/social-templates/types.ts —
+ * each card's `kind` discriminator drives colour-coding + drop-target
+ * compatibility in dnd-kit.
+ *
+ * Card ids are stable per (event extraction → card) — they encode the
+ * source group + index. That means React keys are stable across re-
+ * renders AND the SMM can drag the same card multiple times into
+ * different slides without colliding.
+ */
+export function flattenBlocksToCards(
+  blocks: ContentBlocks
+): Array<{ id: string; card: ContentCard }> {
+  const out: Array<{ id: string; card: ContentCard }> = [];
+
+  blocks.title_options.forEach((t, i) => {
+    out.push({
+      id: `title-${i}`,
+      card: { kind: "title", text: t.text, charCount: t.char_count },
+    });
+  });
+  blocks.eyebrow_options.forEach((e, i) => {
+    out.push({ id: `eyebrow-${i}`, card: { kind: "eyebrow", text: e.text } });
+  });
+  blocks.body_options.forEach((b, i) => {
+    out.push({
+      id: `body-${i}`,
+      card: { kind: "body", text: b.text, charCount: b.char_count },
+    });
+  });
+  blocks.verified_facts.forEach((f, i) => {
+    out.push({
+      id: `fact-${i}`,
+      card: { kind: "fact", text: f.text, source: f.source },
+    });
+  });
+  blocks.quotes.forEach((q, i) => {
+    out.push({
+      id: `quote-${i}`,
+      card: { kind: "quote", text: q.text, attribution: q.attribution },
+    });
+  });
+  blocks.tier_lines.forEach((t, i) => {
+    out.push({
+      id: `tier-${i}`,
+      card: {
+        kind: "tier_row",
+        amountGbp: t.amount_gbp,
+        shortDescription: t.short_description,
+        longDescription: t.long_description,
+      },
+    });
+  });
+  blocks.hashtags.forEach((h, i) => {
+    out.push({ id: `hashtag-${i}`, card: { kind: "hashtag", tag: h } });
+  });
+  out.push({
+    id: "caption-ig",
+    card: { kind: "caption_ig", text: blocks.captions.instagram },
+  });
+  out.push({
+    id: "caption-fb",
+    card: { kind: "caption_fb", text: blocks.captions.facebook },
+  });
+  out.push({
+    id: "caption-x",
+    card: { kind: "caption_x", text: blocks.captions.x },
+  });
+  blocks.email.subject_lines.forEach((s, i) => {
+    out.push({ id: `email-subject-${i}`, card: { kind: "email_subject", text: s } });
+  });
+  out.push({
+    id: "email-body",
+    card: { kind: "email_body", text: blocks.email.body },
+  });
+
+  return out;
+}
