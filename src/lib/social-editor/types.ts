@@ -51,6 +51,20 @@ export type TextLayer = LayerBase & {
   letterSpacing: number;
 };
 
+/** Named colour treatments — applied as CSS filters in the editor and
+ *  reproduced with sharp at export so they survive to the PNG. */
+export type ImageFilter =
+  | "none"
+  | "mono"
+  | "warm"
+  | "cool"
+  | "bright"
+  | "faded";
+
+/** Zoom + reposition WITHIN the layer frame (Canva-style crop).
+ *  scale ≥ 1; ox/oy are focal offsets in percent (−50…50). */
+export type ImageCrop = { scale: number; ox: number; oy: number };
+
 export type ImageLayer = LayerBase & {
   type: "image";
   /** Browser-loadable URL (remote, data URI, or /public path). The
@@ -61,6 +75,8 @@ export type ImageLayer = LayerBase & {
   objectFit: "cover" | "contain";
   /** Corner radius, board units. */
   radius: number;
+  crop?: ImageCrop;
+  filter?: ImageFilter;
 };
 
 export type ShapeKind = "rect" | "ellipse" | "line";

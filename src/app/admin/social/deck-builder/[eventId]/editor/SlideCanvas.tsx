@@ -20,7 +20,10 @@ export default function SlideCanvas({
   slide,
   scale,
   selectedId,
+  editingId,
   onSelect,
+  onStartEdit,
+  onCommitText,
   onCheckpoint,
   onLayersCommit,
   onReorder,
@@ -31,7 +34,10 @@ export default function SlideCanvas({
   slide: EditorSlide;
   scale: number;
   selectedId: string | null;
+  editingId: string | null;
   onSelect: (id: string | null) => void;
+  onStartEdit: (id: string) => void;
+  onCommitText: (id: string, text: string) => void;
   onCheckpoint: () => void;
   onLayersCommit: (layers: Layer[]) => void;
   onReorder: (dir: "forward" | "backward") => void;
@@ -105,14 +111,17 @@ export default function SlideCanvas({
             layer={l}
             scale={scale}
             selected={l.id === selectedId}
+            editing={l.id === editingId}
             onSelect={onSelect}
+            onStartEdit={onStartEdit}
+            onCommitText={onCommitText}
             nodeRef={registerNode(l.id)}
           />
         ))}
       </div>
 
       {/* Floating mini-toolbar above the selection */}
-      {selected && (
+      {selected && !editingId && (
         <div
           className="absolute z-20 flex items-center gap-0.5 bg-white rounded-lg shadow-lg ring-1 ring-charcoal/10 px-1 py-1"
           style={{
@@ -141,7 +150,7 @@ export default function SlideCanvas({
       )}
 
       {/* Transform controls */}
-      {target && selected && !selected.locked && (
+      {target && selected && !selected.locked && !editingId && (
         <Moveable
           ref={moveableRef}
           target={target}

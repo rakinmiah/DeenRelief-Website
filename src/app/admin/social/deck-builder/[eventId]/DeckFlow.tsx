@@ -189,6 +189,7 @@ export default function DeckFlow({
           initialDeck={seedSlides}
           eventId={event.id}
           platform={platform}
+          images={images.images}
           backHref={backHref}
           persist
           title={event.title}

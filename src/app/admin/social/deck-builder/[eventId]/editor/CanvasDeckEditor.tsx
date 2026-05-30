@@ -2,28 +2,31 @@
 
 /**
  * CanvasDeckEditor — the Canva-style editor wired into the real deck
- * builder (Phase 10 wiring).
+ * builder (Phase 10 wiring + 10c/10d/10f).
  *
  * Owns the whole deck: a filmstrip of EditorSlides, deck-level
- * undo/redo, zoom, the add-layer rail, and the per-layer property
- * panel. The active slide renders in a SlideCanvas. Edits autosave to
- * the existing deck-draft store (encoded as __canvas__ slides).
+ * undo/redo, zoom, the add-layer rail, a contextual top toolbar, inline
+ * text editing, an image picker, and PNG export. Edits autosave to the
+ * existing deck-draft store (encoded as __canvas__ slides).
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ImageCandidate } from "@/lib/social-templates/types";
 import {
   type EditorSlide,
   type Layer,
   type ShapeKind,
   makeLayerId,
 } from "@/lib/social-editor/types";
+import { googleFontsHref } from "@/lib/social-editor/fonts";
 import LayerView from "./LayerView";
 import SlideCanvas from "./SlideCanvas";
 import { useHistory } from "./useHistory";
 import { loadDeck, saveDeck } from "./deckStore";
+import { exportDeck } from "./exportDeck";
+import { ContextToolbar, ImagePicker } from "./editorToolbar";
 import {
-  SelectionPanel,
   ToolbarBtn,
   RailBtn,
   UndoIcon,
@@ -37,6 +40,7 @@ export default function CanvasDeckEditor({
   initialDeck,
   eventId,
   platform = "instagram",
+  images = [],
   backHref,
   persist = false,
   title = "Slide editor",
@@ -44,6 +48,7 @@ export default function CanvasDeckEditor({
   initialDeck: EditorSlide[];
   eventId?: string;
   platform?: string;
+  images?: ImageCandidate[];
   backHref?: string;
   persist?: boolean;
   title?: string;
@@ -55,15 +60,30 @@ export default function CanvasDeckEditor({
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [scale, setScale] = useState(0.5);
   const [hydrated, setHydrated] = useState(!persist);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [exporting, setExporting] = useState(false);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef(0.5);
 
   const ai = Math.min(activeIndex, deck.length - 1);
   const activeSlide = deck[ai]!;
+  const selected = activeSlide.layers.find((l) => l.id === selectedId) ?? null;
+
+  /* ── Load the editor fonts once ──────────────────────────────── */
+  useEffect(() => {
+    const id = "social-editor-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = googleFontsHref();
+    document.head.appendChild(link);
+  }, []);
 
   /* ── Load saved deck (persist mode) ──────────────────────────── */
   useEffect(() => {
@@ -113,7 +133,7 @@ export default function CanvasDeckEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSlide.width, activeSlide.height]);
 
-  /* ── Deck/slide mutation helpers ─────────────────────────────── */
+  /* ── Mutation helpers ────────────────────────────────────────── */
   const setActiveLayers = useCallback(
     (layers: Layer[], commit: boolean) => {
       const next = deck.map((s, i) => (i === ai ? { ...s, layers } : s));
@@ -123,22 +143,22 @@ export default function CanvasDeckEditor({
     [deck, ai, history]
   );
 
-  const selected = activeSlide.layers.find((l) => l.id === selectedId) ?? null;
-
   function mutateSelected(patch: Partial<Layer>) {
     if (!selected) return;
-    history.commit(
-      deck.map((s, i) =>
-        i === ai
-          ? {
-              ...s,
-              layers: s.layers.map((l) =>
-                l.id === selected.id ? ({ ...l, ...patch } as Layer) : l
-              ),
-            }
-          : s
-      )
+    setActiveLayers(
+      activeSlide.layers.map((l) => (l.id === selected.id ? ({ ...l, ...patch } as Layer) : l)),
+      true
     );
+  }
+
+  function commitText(id: string, text: string) {
+    setActiveLayers(
+      activeSlide.layers.map((l) =>
+        l.id === id && l.type === "text" ? { ...l, text } : l
+      ),
+      true
+    );
+    setEditingId(null);
   }
 
   function addLayer(layer: Layer) {
@@ -148,10 +168,7 @@ export default function CanvasDeckEditor({
 
   function deleteSelected() {
     if (!selectedId) return;
-    setActiveLayers(
-      activeSlide.layers.filter((l) => l.id !== selectedId),
-      true
-    );
+    setActiveLayers(activeSlide.layers.filter((l) => l.id !== selectedId), true);
     setSelectedId(null);
   }
 
@@ -179,14 +196,29 @@ export default function CanvasDeckEditor({
     setActiveLayers(ls, true);
   }
 
-  /* ── Add new layers ──────────────────────────────────────────── */
+  /* ── Image picker ────────────────────────────────────────────── */
+  function onPickImage(img: ImageCandidate) {
+    if (picker === "replace" && selected && selected.type === "image") {
+      mutateSelected({ src: img.url, mediaId: img.id, crop: undefined, filter: undefined });
+    } else {
+      addLayer({
+        id: makeLayerId(), type: "image",
+        x: activeSlide.width / 2 - 300, y: activeSlide.height / 2 - 300, w: 600, h: 600,
+        rotation: 0, opacity: 1, locked: false,
+        src: img.url, mediaId: img.id, objectFit: "cover", radius: 16,
+      });
+    }
+    setPicker(null);
+  }
+
+  /* ── Add layers ──────────────────────────────────────────────── */
   const cx = activeSlide.width / 2;
   const cy = activeSlide.height / 2;
   function addText() {
     addLayer({
       id: makeLayerId(), type: "text", x: cx - 300, y: cy - 60, w: 600, h: 120,
       rotation: 0, opacity: 1, locked: false, text: "Your text",
-      fontFamily: '"DM Sans", sans-serif', fontSize: 64, fontWeight: 700,
+      fontFamily: "DM Sans", fontSize: 64, fontWeight: 700,
       italic: false, underline: false, uppercase: false, color: "#1A1A2E",
       align: "center", lineHeight: 1.1, letterSpacing: 0,
     });
@@ -197,12 +229,6 @@ export default function CanvasDeckEditor({
       w: 300, h: shape === "line" ? 8 : 300, rotation: 0, opacity: 1, locked: false,
       shape, fill: shape === "line" ? "transparent" : "#2D6A2E", stroke: "#2D6A2E",
       strokeWidth: shape === "line" ? 8 : 0, radius: shape === "rect" ? 16 : 0,
-    });
-  }
-  function addImage() {
-    addLayer({
-      id: makeLayerId(), type: "image", x: cx - 300, y: cy - 300, w: 600, h: 600,
-      rotation: 0, opacity: 1, locked: false, src: "", objectFit: "cover", radius: 16,
     });
   }
 
@@ -223,13 +249,25 @@ export default function CanvasDeckEditor({
   function selectSlide(i: number) {
     setActiveIndex(i);
     setSelectedId(null);
+    setEditingId(null);
+  }
+
+  /* ── Export ──────────────────────────────────────────────────── */
+  async function onExport() {
+    setExporting(true);
+    try {
+      await exportDeck(deck, title);
+    } finally {
+      setExporting(false);
+    }
   }
 
   /* ── Keyboard ────────────────────────────────────────────────── */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const editable = (e.target as HTMLElement)?.isContentEditable;
+      if (tag === "INPUT" || tag === "TEXTAREA" || editable) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -268,40 +306,57 @@ export default function CanvasDeckEditor({
   return (
     <div className="flex flex-col h-full bg-[#F4F4F2]">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-charcoal/8 shrink-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {backHref && (
-            <Link href={backHref} className="flex items-center gap-1 text-[13px] text-charcoal/55 hover:text-charcoal pr-2">
-              <ChevronIcon dir="left" /> Back
-            </Link>
-          )}
-          <ToolbarBtn label="Undo" onClick={history.undo} disabled={!history.canUndo}>
-            <UndoIcon />
-          </ToolbarBtn>
-          <ToolbarBtn label="Redo" onClick={history.redo} disabled={!history.canRedo}>
-            <UndoIcon flip />
-          </ToolbarBtn>
-        </div>
-        <span className="text-[13px] font-medium text-charcoal/70 truncate">{title}</span>
-        <div className="flex items-center gap-3">
-          {persist && (
-            <span className="text-[11.5px] text-charcoal/40 w-14 text-right">
-              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
-            </span>
-          )}
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => setScale((s) => Math.max(0.05, s / 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">−</button>
-            <button type="button" onClick={() => setScale(fitRef.current)} className="text-[12px] tabular-nums text-charcoal/60 w-11 text-center hover:text-charcoal">{zoomPct}%</button>
-            <button type="button" onClick={() => setScale((s) => Math.min(4, s * 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">+</button>
+      <div className="bg-white border-b border-charcoal/8 shrink-0">
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {backHref && (
+              <Link href={backHref} className="flex items-center gap-1 text-[13px] text-charcoal/55 hover:text-charcoal pr-2">
+                <ChevronIcon dir="left" /> Back
+              </Link>
+            )}
+            <ToolbarBtn label="Undo" onClick={history.undo} disabled={!history.canUndo}><UndoIcon /></ToolbarBtn>
+            <ToolbarBtn label="Redo" onClick={history.redo} disabled={!history.canRedo}><UndoIcon flip /></ToolbarBtn>
+          </div>
+          <span className="text-[13px] font-medium text-charcoal/70 truncate px-3">{title}</span>
+          <div className="flex items-center gap-3">
+            {persist && (
+              <span className="text-[11.5px] text-charcoal/40 w-14 text-right">
+                {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
+              </span>
+            )}
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => setScale((s) => Math.max(0.05, s / 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">−</button>
+              <button type="button" onClick={() => setScale(fitRef.current)} className="text-[12px] tabular-nums text-charcoal/60 w-11 text-center hover:text-charcoal">{zoomPct}%</button>
+              <button type="button" onClick={() => setScale((s) => Math.min(4, s * 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">+</button>
+            </div>
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={exporting}
+              className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </button>
           </div>
         </div>
+
+        {/* Contextual toolbar */}
+        {selected && !editingId && (
+          <div className="flex items-center px-4 pb-2 border-t border-charcoal/5 pt-1.5 min-h-[48px]">
+            <ContextToolbar
+              layer={selected}
+              onChange={mutateSelected}
+              onReplaceImage={() => setPicker("replace")}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-1 min-h-0">
         {/* Left rail */}
         <div className="w-[72px] bg-white border-r border-charcoal/8 flex flex-col items-center py-3 gap-1 shrink-0">
           <RailBtn label="Text" onClick={addText}><span className="text-[19px] font-bold">T</span></RailBtn>
-          <RailBtn label="Image" onClick={addImage}><ImageIcon /></RailBtn>
+          <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
           <RailBtn label="Rect" onClick={() => addShape("rect")}><span className="block w-5 h-5 rounded-[4px] border-2 border-current" /></RailBtn>
           <RailBtn label="Circle" onClick={() => addShape("ellipse")}><span className="block w-5 h-5 rounded-full border-2 border-current" /></RailBtn>
           <RailBtn label="Line" onClick={() => addShape("line")}><span className="block w-5 h-0.5 bg-current" /></RailBtn>
@@ -311,7 +366,7 @@ export default function CanvasDeckEditor({
         <div className="flex-1 min-w-0 flex flex-col">
           <div
             ref={viewportRef}
-            onMouseDown={() => setSelectedId(null)}
+            onMouseDown={() => { setSelectedId(null); setEditingId(null); }}
             className="flex-1 min-h-0 overflow-auto grid place-items-center p-10"
           >
             <SlideCanvas
@@ -319,7 +374,10 @@ export default function CanvasDeckEditor({
               slide={activeSlide}
               scale={scale}
               selectedId={selectedId}
+              editingId={editingId}
               onSelect={setSelectedId}
+              onStartEdit={(id) => { setSelectedId(id); setEditingId(id); }}
+              onCommitText={commitText}
               onCheckpoint={history.checkpoint}
               onLayersCommit={(layers) => setActiveLayers(layers, false)}
               onReorder={reorderLayer}
@@ -352,19 +410,11 @@ export default function CanvasDeckEditor({
             </button>
           </div>
         </div>
-
-        {/* Right rail */}
-        <div className="w-[240px] bg-white border-l border-charcoal/8 p-4 shrink-0 overflow-auto">
-          {selected ? (
-            <SelectionPanel layer={selected} onChange={mutateSelected} />
-          ) : (
-            <p className="text-[12.5px] text-charcoal/40 leading-relaxed">
-              Select a layer to edit it, or add one from the left. Drag to move,
-              corners to resize, the bottom handle to rotate.
-            </p>
-          )}
-        </div>
       </div>
+
+      {picker && (
+        <ImagePicker images={images} onPick={onPickImage} onClose={() => setPicker(null)} />
+      )}
     </div>
   );
 }

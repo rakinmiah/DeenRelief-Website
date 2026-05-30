@@ -1,31 +1,38 @@
 "use client";
 
 /**
- * Renders ONE layer as a positioned DOM node (Phase 10a).
+ * Renders ONE layer as a positioned DOM node (Phase 10a/10c/10d).
  *
  * Geometry is stored in board units; everything here multiplies by
- * `scale` to paint at the current zoom. The node carries data-layer-id
- * so the canvas can hand it to react-moveable as a transform target.
+ * `scale` to paint at the current zoom. Image layers honour crop +
+ * filter; text layers become contentEditable when `editing`.
  *
- * `interactive={false}` (used for filmstrip thumbnails) drops the
- * pointer handlers + hover ring so it's a pure preview.
+ * `interactive={false}` (filmstrip thumbnails) drops the pointer
+ * handlers + hover ring so it's a pure preview.
  */
 
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import type { Layer } from "@/lib/social-editor/types";
+import { cropImgStyle, filterCss } from "@/lib/social-editor/imageStyle";
 
 export default function LayerView({
   layer,
   scale,
   selected,
+  editing,
   onSelect,
+  onStartEdit,
+  onCommitText,
   nodeRef,
   interactive = true,
 }: {
   layer: Layer;
   scale: number;
   selected?: boolean;
+  editing?: boolean;
   onSelect?: (id: string) => void;
+  onStartEdit?: (id: string) => void;
+  onCommitText?: (id: string, text: string) => void;
   nodeRef?: (node: HTMLDivElement | null) => void;
   interactive?: boolean;
 }) {
@@ -49,7 +56,7 @@ export default function LayerView({
       ref={nodeRef}
       data-layer-id={layer.id}
       onMouseDown={
-        interactive
+        interactive && !editing
           ? (e) => {
               if (layer.locked) return;
               e.stopPropagation();
@@ -57,10 +64,25 @@ export default function LayerView({
             }
           : undefined
       }
+      onDoubleClick={
+        interactive && layer.type === "text" && !layer.locked
+          ? (e) => {
+              e.stopPropagation();
+              onStartEdit?.(layer.id);
+            }
+          : undefined
+      }
       className={interactive ? "group" : undefined}
       style={base}
     >
-      {layer.type === "text" && <TextBody layer={layer} scale={scale} />}
+      {layer.type === "text" && (
+        <TextBody
+          layer={layer}
+          scale={scale}
+          editing={!!editing}
+          onCommitText={(t) => onCommitText?.(layer.id, t)}
+        />
+      )}
       {layer.type === "image" && <ImageBody layer={layer} scale={scale} />}
       {layer.type === "shape" && <ShapeBody layer={layer} scale={scale} />}
       {interactive && !selected && !layer.locked && (
@@ -76,36 +98,73 @@ export default function LayerView({
 function TextBody({
   layer,
   scale,
+  editing,
+  onCommitText,
 }: {
   layer: Extract<Layer, { type: "text" }>;
   scale: number;
+  editing: boolean;
+  onCommitText: (text: string) => void;
 }) {
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-start",
-        fontFamily: layer.fontFamily,
-        fontSize: layer.fontSize * scale,
-        fontWeight: layer.fontWeight,
-        fontStyle: layer.italic ? "italic" : "normal",
-        textDecoration: layer.underline ? "underline" : "none",
-        textTransform: layer.uppercase ? "uppercase" : "none",
-        color: layer.color,
-        textAlign: layer.align,
-        lineHeight: layer.lineHeight,
-        letterSpacing: layer.letterSpacing * scale,
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-        overflow: "hidden",
-      }}
-    >
-      {layer.text}
-    </div>
-  );
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editing && ref.current) {
+      const el = ref.current;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, [editing]);
+
+  const style: CSSProperties = {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    fontFamily: layer.fontFamily,
+    fontSize: layer.fontSize * scale,
+    fontWeight: layer.fontWeight,
+    fontStyle: layer.italic ? "italic" : "normal",
+    textDecoration: layer.underline ? "underline" : "none",
+    textTransform: layer.uppercase ? "uppercase" : "none",
+    color: layer.color,
+    textAlign: layer.align,
+    lineHeight: layer.lineHeight,
+    letterSpacing: layer.letterSpacing * scale,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    overflow: "hidden",
+    outline: editing ? "none" : undefined,
+    cursor: editing ? "text" : undefined,
+  };
+
+  if (editing) {
+    return (
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onMouseDown={(e) => e.stopPropagation()}
+        onBlur={(e) => onCommitText(e.currentTarget.innerText)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+        style={style}
+      >
+        {layer.text}
+      </div>
+    );
+  }
+
+  return <div style={style}>{layer.text}</div>;
 }
 
 function ImageBody({
@@ -132,11 +191,10 @@ function ImageBody({
           alt=""
           draggable={false}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: layer.objectFit,
+            ...cropImgStyle(layer.crop),
             display: "block",
             pointerEvents: "none",
+            filter: filterCss(layer.filter),
           }}
         />
       )}
