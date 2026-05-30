@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import Button from "@/components/Button";
+import DonationUpsell from "@/components/DonationUpsell";
+import { getUpsellChips } from "@/lib/donation-upsell";
+import { UK_HOMELESS_UPSELL } from "./upsell";
 
 export const donationAmounts = {
   "one-time": [
@@ -54,6 +57,16 @@ export default function DonationForm() {
     setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][0].value);
   };
 
+  // "Make your gift go further" — adds a researched increment to the gift; if
+  // the new total lands on a preset we let that preset highlight, otherwise we
+  // surface it in the custom field.
+  const upsellChips = getUpsellChips(amountForUrl, UK_HOMELESS_UPSELL);
+  const handleUpsell = (add: number) => {
+    const next = amountForUrl + add;
+    setSelectedAmount(next);
+    setCustomAmount(amounts.some((a) => a.value === next) ? "" : String(next));
+  };
+
   return (
     <div className="text-center">
       <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">Our Community</span>
@@ -89,6 +102,9 @@ export default function DonationForm() {
           {currentOutcome}
         </p>
       )}
+
+      {/* Make your gift go further — adaptive upsell nudges */}
+      {isAmountValid && <DonationUpsell chips={upsellChips} onAdd={handleUpsell} />}
 
       {amountForUrl > 0 && isAmountValid && (
         <p className="text-[13px] text-green/70 font-medium mb-6 flex items-center justify-center gap-1.5">
