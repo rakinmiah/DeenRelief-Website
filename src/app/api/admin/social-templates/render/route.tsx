@@ -87,30 +87,14 @@ async function renderTemplate(request: Request): Promise<Response> {
   const slotValues = body.slotValues ?? {};
   const imageMediaIds = body.imageMediaIds ?? {};
 
-  // Friendly required-slot check. We don't enforce text shape rules
-  // (hybrid model — SMM eyeballs fit) but missing required slots
-  // would crash render(), better to return a 400 with detail.
-  const missing = template.meta.slots
-    .filter((s) => s.required)
-    .filter((s) => {
-      if (s.type.startsWith("image:")) {
-        return !imageMediaIds[s.id];
-      }
-      const v = slotValues[s.id];
-      if (!v || typeof v !== "object") return true;
-      const obj = v as { type?: string };
-      return !obj.type;
-    })
-    .map((s) => s.id);
-
-  if (missing.length > 0) {
-    return new Response(
-      `Template "${template.meta.id}" is missing required slot(s): ${missing.join(
-        ", "
-      )}`,
-      { status: 400 }
-    );
-  }
+  // Phase 7 — render-always. We deliberately DO NOT 400 on missing
+  // required slots. The deck builder shows this output as a LIVE
+  // PREVIEW, and a composer's canvas must always render something —
+  // a partial/blank branded slide is infinitely more useful than a
+  // red error wall. Templates already guard null images (they paint
+  // a placeholder zone) and empty text simply renders empty. The
+  // "required" flag now drives only the export-readiness checklist
+  // in the UI, not whether we can render a preview.
 
   // Resolve images in parallel. allSettled so a single failing fetch
   // (404, timeout) renders the slide without that image instead of

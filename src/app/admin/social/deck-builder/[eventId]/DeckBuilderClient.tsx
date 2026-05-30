@@ -50,6 +50,7 @@ import ContentCardItem from "./ContentCard";
 import ImageCardItem from "./ImageCard";
 import SlideEditor, { type PreviewState } from "./SlideEditor";
 import TemplatePicker from "./TemplatePicker";
+import { contentKindSection } from "./labels";
 import { MOCK_CONTENT, MOCK_IMAGES } from "./mock-data";
 import type {
   ContentBundle,
@@ -218,12 +219,10 @@ export default function DeckBuilderClient({
         // Avoid double-firing if the slide has no template (broken ref)
         if (!templatesById[slide.templateId]) return;
 
-        // Skip if there are no slot values at all and no image media ids
-        // — render would 400 anyway because required slots are empty.
-        const hasAnyContent =
-          Object.keys(slide.slotValues).length > 0 ||
-          Object.keys(slide.imageMediaIds).length > 0;
-        if (!hasAnyContent) return;
+        // Phase 7 — render-always. We fire a render even for a slide
+        // with zero filled slots so picking a template instantly shows
+        // the blank branded layout (Canva/Gamma behaviour). The render
+        // endpoint no longer 400s on empty required slots.
 
         // current was narrowed to non-ready/loading above (we returned
         // early). For previousUrl we instead peek at the LATEST ready
@@ -456,6 +455,49 @@ export default function DeckBuilderClient({
     return m;
   }, [content]);
 
+  // ── Image mediaId → thumbnail resolver (for the slot row chips) ──────
+  const resolveImageThumb = useCallback(
+    (mediaId: string): string | null => {
+      const img = images.images.find((i) => i.id === mediaId);
+      return img?.thumbnailUrl ?? img?.url ?? null;
+    },
+    [images]
+  );
+
+  // ── Content grouped into sentence-case sections for the left column.
+  // Kinds that share a section label (the three caption variants →
+  // "Captions", the two email parts → "Email") merge under one header.
+  const contentSections = useMemo(() => {
+    const order: ContentKind[] = [
+      "title",
+      "fact",
+      "quote",
+      "tier_row",
+      "hashtag",
+      "body",
+      "eyebrow",
+      "caption_ig",
+      "caption_fb",
+      "caption_x",
+      "email_subject",
+      "email_body",
+      "source",
+    ];
+    const bySection = new Map<
+      string,
+      { label: string; cards: Array<{ id: string; card: ContentCard }> }
+    >();
+    for (const kind of order) {
+      const cards = contentByKind.get(kind);
+      if (!cards?.length) continue;
+      const label = contentKindSection(kind);
+      const existing = bySection.get(label);
+      if (existing) existing.cards.push(...cards);
+      else bySection.set(label, { label, cards: [...cards] });
+    }
+    return [...bySection.values()];
+  }, [contentByKind]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -465,31 +507,34 @@ export default function DeckBuilderClient({
       onDragCancel={() => setActiveDrag(null)}
     >
       {/* ── Top bar ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-charcoal/10 px-4 py-2.5">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-charcoal/8 px-4 py-2.5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
             <Link
               href={backHref}
-              className="text-[12px] font-semibold uppercase tracking-[0.08em] text-amber-dark hover:text-amber-darker shrink-0"
+              className="flex items-center gap-1.5 text-[13px] text-charcoal/55 hover:text-charcoal shrink-0"
             >
-              ← Event
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5l-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Back
             </Link>
-            <span className="text-charcoal/20">|</span>
-            <h1 className="font-heading font-bold text-charcoal text-base md:text-lg truncate max-w-md">
+            <span className="w-px h-4 bg-charcoal/12" />
+            <h1 className="font-heading font-semibold text-charcoal text-[15px] md:text-base truncate max-w-md">
               {eventTitle}
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <PlatformPicker value={platform} onChange={setPlatform} />
-            <span className="text-[11px] text-charcoal/55 hidden md:inline">
+            <AutoSaveBadge state={autoSaveState} />
+            <span className="text-[12px] text-charcoal/40 hidden md:inline">
               {slides.length} slide{slides.length === 1 ? "" : "s"}
             </span>
-            <AutoSaveBadge state={autoSaveState} />
+            <PlatformPicker value={platform} onChange={setPlatform} />
             <button
               type="button"
               onClick={handleExport}
               disabled={slides.length === 0 || exporting || comingSoon}
-              className="bg-amber-dark text-white text-[12.5px] font-bold uppercase tracking-[0.06em] px-3.5 py-2 rounded-md hover:bg-amber-darker disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-amber-dark text-white text-[13px] font-semibold px-4 py-1.5 rounded-lg hover:bg-amber-darker disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
             >
               {exporting ? "Exporting…" : "Create post"}
             </button>
@@ -499,28 +544,31 @@ export default function DeckBuilderClient({
 
       {/* ── Three-column workspace ── */}
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_280px] gap-4 p-4 max-w-[1600px] mx-auto">
-        {/* LEFT: content cards */}
-        <aside className="space-y-4">
-          <h2 className="text-[11px] font-bold tracking-[0.18em] uppercase text-charcoal/55 px-1">
+        {/* LEFT: content cards, grouped into sentence-case sections */}
+        <aside className="flex flex-col gap-5">
+          <h2 className="text-[12px] font-semibold text-charcoal/45 px-0.5">
             Content
           </h2>
           {comingSoon ? (
             <ComingSoonBanner platform={platform} />
+          ) : contentSections.length === 0 ? (
+            <p className="text-[12px] text-charcoal/45 px-0.5">
+              No content extracted yet.
+            </p>
           ) : (
-            <div className="flex flex-col gap-3">
-              {[...contentByKind.entries()].map(([kind, cards]) => (
-                <div key={kind} className="flex flex-col gap-1.5">
-                  {cards.map((c) => (
-                    <ContentCardItem key={c.id} id={c.id} card={c.card} />
-                  ))}
-                </div>
-              ))}
-              {contentByKind.size === 0 && (
-                <p className="text-[12px] text-charcoal/50">
-                  No content cards extracted yet.
-                </p>
-              )}
-            </div>
+            contentSections.map((section) => (
+              <div key={section.label} className="flex flex-col gap-1.5">
+                <h3 className="text-[11px] font-semibold text-charcoal/40 px-0.5">
+                  {section.label}
+                  <span className="ml-1.5 text-charcoal/25 font-normal">
+                    {section.cards.length}
+                  </span>
+                </h3>
+                {section.cards.map((c) => (
+                  <ContentCardItem key={c.id} id={c.id} card={c.card} />
+                ))}
+              </div>
+            ))
           )}
         </aside>
 
@@ -548,6 +596,7 @@ export default function DeckBuilderClient({
                         state: "idle",
                       }
                     }
+                    resolveImageThumb={resolveImageThumb}
                     onRemove={() => removeSlide(s.slideId)}
                     onClearSlot={(slotId) => clearSlot(s.slideId, slotId)}
                     onSetChoice={(slotId, v) => setChoice(s.slideId, slotId, v)}
@@ -568,18 +617,23 @@ export default function DeckBuilderClient({
         </section>
 
         {/* RIGHT: image gallery */}
-        <aside className="space-y-3">
-          <h2 className="text-[11px] font-bold tracking-[0.18em] uppercase text-charcoal/55 px-1">
-            Imagery
-          </h2>
+        <aside className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between px-0.5">
+            <h2 className="text-[12px] font-semibold text-charcoal/45">Imagery</h2>
+            {!comingSoon && images.images.length > 0 && (
+              <span className="text-[11px] text-charcoal/30">
+                {images.images.length}
+              </span>
+            )}
+          </div>
           {comingSoon ? null : (
             <div className="grid grid-cols-2 gap-2">
               {images.images.map((img) => (
                 <ImageCardItem key={img.id} image={img} />
               ))}
               {images.images.length === 0 && (
-                <p className="text-[12px] text-charcoal/50 col-span-2">
-                  No imagery candidates yet.
+                <p className="text-[12px] text-charcoal/45 col-span-2 px-0.5">
+                  No imagery yet.
                 </p>
               )}
             </div>
@@ -772,14 +826,19 @@ function AutoSaveBadge({
   if (!label) return null;
   return (
     <span
-      className={`text-[11px] font-semibold tracking-[0.06em] uppercase ${
-        state === "error"
-          ? "text-red"
-          : state === "saving"
-            ? "text-charcoal/55"
-            : "text-green-dark"
+      className={`hidden sm:inline-flex items-center gap-1.5 text-[12px] ${
+        state === "error" ? "text-red" : "text-charcoal/40"
       }`}
     >
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          state === "error"
+            ? "bg-red"
+            : state === "saving"
+              ? "bg-amber animate-pulse"
+              : "bg-green/60"
+        }`}
+      />
       {label}
     </span>
   );

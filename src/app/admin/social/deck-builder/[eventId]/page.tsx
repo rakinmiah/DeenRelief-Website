@@ -41,7 +41,7 @@ export default async function DeckBuilderPage({
   if (!event) notFound();
 
   return (
-    <main className="min-h-screen bg-cream/30">
+    <main className="min-h-screen bg-[#FAFAF7]">
       <DeckBuilderClient
         eventId={event.id}
         eventTitle={event.title}
