@@ -405,7 +405,7 @@ function ChooseImage({
   return (
     <div className="max-w-5xl">
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
-        Choose your hero image
+        Choose an image
       </h1>
       <p className="text-[13.5px] text-charcoal/55">
         {visible.length} image{visible.length === 1 ? "" : "s"} matched to this
@@ -687,11 +687,11 @@ function TemplateCarousel({
   return (
     <div>
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
-        Choose your hero template
+        Choose a template
       </h1>
       <p className="text-[13.5px] text-charcoal/55">
-        Your title, line and photo are already in each one. Scroll through and
-        pick the look you want.
+        Your content is already in each one. Scroll through and pick the look
+        you want.
       </p>
 
       <div className="mt-12">
