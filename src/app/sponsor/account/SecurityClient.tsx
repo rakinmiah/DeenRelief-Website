@@ -94,7 +94,7 @@ export default function SecurityClient({
   }
 
   return (
-    <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
+    <div>
       <div className="flex items-center justify-between gap-3 mb-2">
         <h2 className="font-heading font-bold text-lg text-charcoal">
           Sign-in &amp; security
@@ -204,6 +204,6 @@ export default function SecurityClient({
           device.
         </p>
       </div>
-    </section>
+    </div>
   );
 }

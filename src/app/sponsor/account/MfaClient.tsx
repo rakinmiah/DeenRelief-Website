@@ -114,7 +114,7 @@ export default function MfaClient() {
   }
 
   return (
-    <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
+    <div className="mt-6 pt-6 border-t border-charcoal/8">
       <div className="flex items-center justify-between gap-3 mb-2">
         <h2 className="font-heading font-bold text-lg text-charcoal">
           Two-factor authentication
@@ -221,6 +221,6 @@ export default function MfaClient() {
           </button>
         </>
       )}
-    </section>
+    </div>
   );
 }

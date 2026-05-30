@@ -50,14 +50,14 @@ export default async function SponsorAccountPage({
         </div>
 
         <div className="space-y-6">
-          {/* Sign-in & security */}
-          <SecurityClient
-            email={email}
-            lastSignInAt={user.last_sign_in_at ?? null}
-          />
-
-          {/* Two-factor authentication */}
-          <MfaClient />
+          {/* Sign-in & security (password, sessions, 2FA in one card) */}
+          <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
+            <SecurityClient
+              email={email}
+              lastSignInAt={user.last_sign_in_at ?? null}
+            />
+            <MfaClient />
+          </section>
 
           {/* Billing self-service via the Stripe-hosted portal */}
           <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">

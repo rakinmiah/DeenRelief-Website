@@ -31,14 +31,23 @@ export default async function SponsorProfilePage() {
   return (
     <section className="bg-white">
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-12 md:py-16">
-        <div className="mb-10">
-          <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-            Your profile
-          </span>
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-2">
-            {view.fullName || "Your profile"}
-          </h1>
-          <p className="text-grey text-base">{view.email}</p>
+        <div className="mb-10 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-green/10 ring-1 ring-charcoal/5 flex items-center justify-center shrink-0">
+            <span className="font-heading font-bold text-2xl text-green/70">
+              {(view.fullName.trim()[0] ?? view.email.trim()[0] ?? "•").toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-charcoal leading-tight">
+              {view.fullName || "Your profile"}
+            </h1>
+            <p className="text-grey text-sm sm:text-base truncate">{view.email}</p>
+            {view.memberSince && (
+              <p className="text-xs text-grey/70 mt-0.5">
+                Supporter since {formatMonthYear(view.memberSince)}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
