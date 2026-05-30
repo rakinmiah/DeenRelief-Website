@@ -16,7 +16,7 @@
  * choices to the composer.
  */
 
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SocialPlatform } from "@/lib/social-templates/types";
 import DeckBuilderClient from "./DeckBuilderClient";
@@ -176,14 +176,15 @@ export default function DeckFlow({
       {/* Step canvas */}
       <div className="flex-1 grid place-items-center px-5 py-8">
         <div className="w-full max-w-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, x: dir * 28 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: dir * -28 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            >
+          {/* Keyed remount: each step unmounts the last and fades/slides
+              in on mount. Simpler + more reliable than AnimatePresence
+              exit/enter, which left swapped-in steps stuck at opacity 0. */}
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: dir * 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          >
               {step === "preparing" && (
                 <PreparingStep
                   eventTitle={event.title}
@@ -224,8 +225,7 @@ export default function DeckFlow({
                   }}
                 />
               )}
-            </motion.div>
-          </AnimatePresence>
+          </motion.div>
         </div>
       </div>
     </div>
