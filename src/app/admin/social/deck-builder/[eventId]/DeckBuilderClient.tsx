@@ -51,7 +51,6 @@ import ImageCardItem from "./ImageCard";
 import SlideEditor, { type PreviewState } from "./SlideEditor";
 import TemplatePicker from "./TemplatePicker";
 import { contentKindSection } from "./labels";
-import { MOCK_CONTENT, MOCK_IMAGES } from "./mock-data";
 import type {
   ContentBundle,
   DragPayload,
@@ -79,8 +78,16 @@ export default function DeckBuilderClient({
   const [templatesById, setTemplatesById] = useState<
     Record<string, TemplateMeta>
   >({});
-  const [content, setContent] = useState<ContentBundle>(MOCK_CONTENT);
-  const [images, setImages] = useState<ImageBundle>(MOCK_IMAGES);
+  // Real data only — never seed fake "mock" content/images. We show a
+  // loading state, then real data or a quiet empty/retry state. (The
+  // old MOCK fallback flashed placeholder "Wikimedia placeholder…"
+  // images on a slow cold start, which read as broken.)
+  const [content, setContent] = useState<ContentBundle>({ cards: [] });
+  const [images, setImages] = useState<ImageBundle>({ images: [] });
+  const [contentLoading, setContentLoading] = useState(true);
+  const [imagesStatus, setImagesStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
@@ -95,6 +102,23 @@ export default function DeckBuilderClient({
     Record<string, PreviewState>
   >({});
   const previewUrlsRef = useRef<Map<string, string>>(new Map());
+
+  // ── Image candidates loader (also the retry handler) ────────────────
+  const loadImages = useCallback(async () => {
+    setImagesStatus("loading");
+    try {
+      const res = await fetch(
+        `/api/admin/social-content/${eventId}/images`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as ImageBundle;
+      setImages({ images: Array.isArray(json.images) ? json.images : [] });
+      setImagesStatus("ready");
+    } catch {
+      setImagesStatus("error");
+    }
+  }, [eventId]);
 
   // ── Initial load: templates + saved draft + content/images ──────────
   useEffect(() => {
@@ -139,7 +163,7 @@ export default function DeckBuilderClient({
         if (!cancelled) setDraftLoaded(true);
       }
 
-      // Content extraction (with MOCK fallback on 404)
+      // Content extraction — real data only, with a loading flag.
       try {
         const res = await fetch(
           `/api/admin/social-content/${eventId}/extract`,
@@ -147,30 +171,16 @@ export default function DeckBuilderClient({
         );
         if (res.ok && !cancelled) {
           const json = (await res.json()) as ContentBundle;
-          if (Array.isArray(json.cards) && json.cards.length > 0) {
-            setContent(json);
-          }
+          setContent({ cards: Array.isArray(json.cards) ? json.cards : [] });
         }
-        // 404 → keep MOCK
       } catch {
-        // keep MOCK
+        // leave content empty — the column shows an empty state
+      } finally {
+        if (!cancelled) setContentLoading(false);
       }
 
       // Images
-      try {
-        const res = await fetch(
-          `/api/admin/social-content/${eventId}/images`,
-          { cache: "no-store" }
-        );
-        if (res.ok && !cancelled) {
-          const json = (await res.json()) as ImageBundle;
-          if (Array.isArray(json.images) && json.images.length > 0) {
-            setImages(json);
-          }
-        }
-      } catch {
-        // keep MOCK
-      }
+      await loadImages();
     }
 
     load();
@@ -551,6 +561,8 @@ export default function DeckBuilderClient({
           </h2>
           {comingSoon ? (
             <ComingSoonBanner platform={platform} />
+          ) : contentLoading ? (
+            <SkeletonStack rows={5} />
           ) : contentSections.length === 0 ? (
             <p className="text-[12px] text-charcoal/45 px-0.5">
               No content extracted yet.
@@ -623,22 +635,43 @@ export default function DeckBuilderClient({
         <aside className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between px-0.5">
             <h2 className="text-[12px] font-semibold text-charcoal/45">Imagery</h2>
-            {!comingSoon && images.images.length > 0 && (
+            {!comingSoon && imagesStatus === "ready" && images.images.length > 0 && (
               <span className="text-[11px] text-charcoal/30">
                 {images.images.length}
               </span>
             )}
           </div>
-          {comingSoon ? null : (
+          {comingSoon ? null : imagesStatus === "loading" ? (
+            <div className="grid grid-cols-2 gap-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-square rounded-xl bg-charcoal/[0.05] animate-pulse"
+                />
+              ))}
+            </div>
+          ) : imagesStatus === "error" ? (
+            <div className="rounded-xl bg-white ring-1 ring-charcoal/8 px-3 py-4 text-center">
+              <p className="text-[12px] text-charcoal/55 mb-2">
+                Couldn&apos;t load imagery.
+              </p>
+              <button
+                type="button"
+                onClick={loadImages}
+                className="text-[12px] font-medium text-green-dark hover:text-green underline underline-offset-2"
+              >
+                Retry
+              </button>
+            </div>
+          ) : images.images.length === 0 ? (
+            <p className="text-[12px] text-charcoal/45 px-0.5">
+              No imagery found for this event.
+            </p>
+          ) : (
             <div className="grid grid-cols-2 gap-2">
               {images.images.map((img) => (
                 <ImageCardItem key={img.id} image={img} />
               ))}
-              {images.images.length === 0 && (
-                <p className="text-[12px] text-charcoal/45 col-span-2 px-0.5">
-                  No imagery yet.
-                </p>
-              )}
             </div>
           )}
         </aside>
@@ -844,6 +877,19 @@ function AutoSaveBadge({
       />
       {label}
     </span>
+  );
+}
+
+function SkeletonStack({ rows }: { rows: number }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="h-12 rounded-lg bg-charcoal/[0.04] animate-pulse"
+        />
+      ))}
+    </div>
   );
 }
 
