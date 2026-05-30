@@ -98,8 +98,28 @@ export async function sponsorNeedsMfaChallenge(): Promise<boolean> {
       data && data.currentLevel === "aal1" && data.nextLevel === "aal2"
     );
   } catch (err) {
+    // Page guards fail OPEN to avoid a redirect loop locking sponsors out on a
+    // transient MFA-API error (the API routes below use the fail-CLOSED gate).
     console.error("[supabase-server] AAL check failed:", err);
     return false;
+  }
+}
+
+/**
+ * Fail-CLOSED MFA gate for sensitive API routes (child media, downloads, GDPR
+ * export). Returns true (= block) when a second factor is owed OR when the AAL
+ * check can't be evaluated — so a transient error can never serve children's
+ * data or full PII to an un-stepped-up session. A blocked sponsor just retries.
+ */
+export async function sponsorMfaBlocked(): Promise<boolean> {
+  try {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) return true;
+    return data.currentLevel === "aal1" && data.nextLevel === "aal2";
+  } catch (err) {
+    console.error("[supabase-server] AAL gate failed — blocking:", err);
+    return true;
   }
 }
 

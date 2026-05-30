@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { requireSponsorshipAccess } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
-import {
-  buildOrphanMediaPath,
-  uploadOrphanMedia,
-  orphanMediaKindFromMime,
-} from "@/lib/orphan-media";
+import { buildOrphanMediaPath, uploadOrphanMedia } from "@/lib/orphan-media";
+import { sniffImageFormat, processCatalogImage } from "@/lib/image-processing";
 import {
   getOrphanById,
   getUpdateById,
@@ -15,6 +12,13 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Cheap check that a buffer is an ISO-BMFF video container (MP4/MOV). */
+function looksLikeVideo(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+  const box = buf.toString("ascii", 4, 8);
+  return ["ftyp", "moov", "mdat", "free", "skip", "wide"].includes(box);
+}
 
 /**
  * Upload a child photo/video to the PRIVATE orphan-media bucket and attach
@@ -89,9 +93,48 @@ export async function POST(req: Request) {
     );
   }
 
-  const storagePath = buildOrphanMediaPath(orphanId, file.name);
+  // Validate the actual bytes (don't trust the client MIME). Images are
+  // re-encoded to strip EXIF/GPS — children's photos must not carry location
+  // at rest. Videos are confirmed to be a real container, then stored as-is.
+  const inputBuf = Buffer.from(await file.arrayBuffer());
+  const isImage = file.type.startsWith("image/");
+  let uploadBuf: Buffer;
+  let uploadType: string;
+  let storageName: string;
+  let kind: "photo" | "video";
+
+  if (isImage) {
+    if (!sniffImageFormat(inputBuf)) {
+      return NextResponse.json(
+        { error: "That file doesn't look like a real image." },
+        { status: 415 }
+      );
+    }
+    try {
+      const processed = await processCatalogImage(inputBuf);
+      uploadBuf = processed.buffer;
+      uploadType = processed.contentType;
+    } catch {
+      return NextResponse.json({ error: "Couldn't process that image." }, { status: 502 });
+    }
+    storageName = "photo.webp";
+    kind = "photo";
+  } else {
+    if (!looksLikeVideo(inputBuf)) {
+      return NextResponse.json(
+        { error: "That file doesn't look like a real video." },
+        { status: 415 }
+      );
+    }
+    uploadBuf = inputBuf;
+    uploadType = file.type;
+    storageName = file.name;
+    kind = "video";
+  }
+
+  const storagePath = buildOrphanMediaPath(orphanId, storageName);
   try {
-    await uploadOrphanMedia(storagePath, file, file.type);
+    await uploadOrphanMedia(storagePath, uploadBuf, uploadType);
   } catch (err) {
     const raw = err instanceof Error ? err.message : "Storage upload failed.";
     const lower = raw.toLowerCase();
@@ -107,10 +150,10 @@ export async function POST(req: Request) {
   const created = await createUpdateMediaRow({
     updateId,
     orphanId,
-    kind: orphanMediaKindFromMime(file.type),
+    kind,
     storagePath,
-    mimeType: file.type,
-    sizeBytes: file.size,
+    mimeType: uploadType,
+    sizeBytes: uploadBuf.length,
   });
   if ("error" in created) {
     return NextResponse.json(
@@ -131,7 +174,7 @@ export async function POST(req: Request) {
     userEmail: session.email,
     targetId: created.id,
     request: fauxRequest,
-    metadata: { orphanId, updateId, mimeType: file.type, sizeBytes: file.size },
+    metadata: { orphanId, updateId, mimeType: uploadType, sizeBytes: uploadBuf.length },
   });
 
   // Return the new media row in the shape the client maps over.
@@ -140,10 +183,10 @@ export async function POST(req: Request) {
       id: created.id,
       updateId,
       orphanId,
-      kind: orphanMediaKindFromMime(file.type),
+      kind,
       storagePath,
-      mimeType: file.type,
-      sizeBytes: file.size,
+      mimeType: uploadType,
+      sizeBytes: uploadBuf.length,
       caption: null,
       sortOrder: 0,
       createdAt: new Date().toISOString(),

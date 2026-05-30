@@ -8,6 +8,7 @@ import {
   deleteOrphanMedia,
   createSignedOrphanMediaUrl,
 } from "@/lib/orphan-media";
+import { sniffImageFormat, processCatalogImage } from "@/lib/image-processing";
 import { getOrphanById, setOrphanProfilePhoto } from "@/lib/sponsorship-admin";
 
 export const runtime = "nodejs";
@@ -62,9 +63,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Child not found." }, { status: 404 });
   }
 
-  const storagePath = buildOrphanMediaPath(orphanId, `profile-${file.name}`);
+  // Confirm the bytes are really an image (not a polyglot with a faked MIME),
+  // then re-encode to strip EXIF/GPS — children's photos must not carry the
+  // photographer's location at rest.
+  const inputBuf = Buffer.from(await file.arrayBuffer());
+  if (!sniffImageFormat(inputBuf)) {
+    return NextResponse.json(
+      { error: "That file doesn't look like a JPEG, PNG, or WebP image." },
+      { status: 415 }
+    );
+  }
+  let processed;
   try {
-    await uploadOrphanMedia(storagePath, file, file.type);
+    processed = await processCatalogImage(inputBuf);
+  } catch {
+    return NextResponse.json({ error: "Couldn't process that image." }, { status: 502 });
+  }
+
+  const storagePath = buildOrphanMediaPath(orphanId, "profile-photo.webp");
+  try {
+    await uploadOrphanMedia(storagePath, processed.buffer, processed.contentType);
   } catch (err) {
     const raw = err instanceof Error ? err.message : "Storage upload failed.";
     const friendly = raw.toLowerCase().includes("bucket not found")

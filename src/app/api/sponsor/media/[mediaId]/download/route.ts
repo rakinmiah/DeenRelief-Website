@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import {
   createServerSupabase,
   getSponsorUser,
-  sponsorNeedsMfaChallenge,
+  sponsorMfaBlocked,
 } from "@/lib/supabase-server";
 import {
   downloadOrphanMediaBytes,
@@ -45,7 +45,7 @@ export async function GET(
 
   const user = await getSponsorUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  if (await sponsorNeedsMfaChallenge()) {
+  if (await sponsorMfaBlocked()) {
     return NextResponse.json({ error: "Verification required." }, { status: 403 });
   }
 

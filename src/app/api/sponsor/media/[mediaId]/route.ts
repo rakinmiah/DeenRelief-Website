@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import {
   createServerSupabase,
   getSponsorUser,
-  sponsorNeedsMfaChallenge,
+  sponsorMfaBlocked,
 } from "@/lib/supabase-server";
 import {
   createSignedOrphanMediaUrl,
@@ -40,7 +40,7 @@ export async function GET(
   // Block sessions that still owe a second factor (defence in depth — the
   // orphan page already redirects them, but never serve child media to an
   // un-stepped-up session).
-  if (await sponsorNeedsMfaChallenge()) {
+  if (await sponsorMfaBlocked()) {
     return NextResponse.json({ error: "Verification required." }, { status: 403 });
   }
 

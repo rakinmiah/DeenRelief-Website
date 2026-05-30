@@ -80,7 +80,7 @@ export function orphanMediaKindFromMime(mime: string): OrphanMediaKind {
 /** Upload a binary to the PRIVATE bucket. Throws on failure. */
 export async function uploadOrphanMedia(
   storagePath: string,
-  body: ArrayBuffer | Blob | File,
+  body: ArrayBuffer | Blob | File | Buffer | Uint8Array,
   mimeType: string
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
