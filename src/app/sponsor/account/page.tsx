@@ -27,19 +27,25 @@ export default async function SponsorAccountPage() {
   );
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 py-10">
-      <h1 className="text-2xl font-heading font-bold text-charcoal mb-1">
-        Your account
-      </h1>
-      <p className="text-sm text-grey mb-8">
-        {profile?.full_name || user.email}
-        {profile?.contact_email ? ` · ${profile.contact_email}` : ""}
-      </p>
+    <section className="bg-white">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-12 md:py-16">
+        <div className="mb-10">
+          <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
+            Your account
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-2">
+            {profile?.full_name || "Account settings"}
+          </h1>
+          <p className="text-grey text-base">
+            {profile?.contact_email || user.email}
+          </p>
+        </div>
 
-      <AccountClient
-        marketingConsent={Boolean(profile?.marketing_consent)}
-        hasPendingErasure={hasPendingErasure}
-      />
-    </div>
+        <AccountClient
+          marketingConsent={Boolean(profile?.marketing_consent)}
+          hasPendingErasure={hasPendingErasure}
+        />
+      </div>
+    </section>
   );
 }

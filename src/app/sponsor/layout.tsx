@@ -1,56 +1,35 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import SponsorHeader from "@/components/SponsorHeader";
+import Footer from "@/components/Footer";
+import { getSponsorUser } from "@/lib/supabase-server";
 
 /**
- * Sponsor portal layout. The whole tree is noindex — these pages are private
- * and must never appear in search results, even if a URL leaks.
+ * Sponsor portal layout. Wraps every /sponsor page in the public DeenRelief
+ * design language — the real site Footer plus a portal Header styled to match
+ * the public Header — so the account area feels like the charity's website,
+ * not the admin tool.
  *
- * Deliberately minimal chrome (not the full marketing Header/Footer) so the
- * portal reads as a calm, focused account area.
+ * The whole tree is noindex: these pages are private and must never surface in
+ * search, even if a URL leaks.
  */
 export const metadata: Metadata = {
   title: { default: "Sponsor account | Deen Relief", template: "%s | Deen Relief" },
   robots: { index: false, follow: false },
 };
 
-export default function SponsorLayout({
+export default async function SponsorLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getSponsorUser();
+
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      <header className="bg-white border-b border-charcoal/10">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/sponsor/dashboard" className="block" aria-label="Sponsor home">
-            <span className="block text-[10px] font-bold tracking-[0.18em] uppercase text-amber-dark leading-tight">
-              Deen Relief
-            </span>
-            <span className="block text-charcoal font-heading font-semibold text-base leading-tight">
-              Sponsor account
-            </span>
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/sponsor/dashboard" className="text-charcoal/70 hover:text-charcoal">
-              Dashboard
-            </Link>
-            <Link href="/sponsor/account" className="text-charcoal/70 hover:text-charcoal">
-              Account
-            </Link>
-            <Link
-              href="/sponsor/logout"
-              prefetch={false}
-              className="text-charcoal/70 hover:text-charcoal"
-            >
-              Sign out
-            </Link>
-          </nav>
-        </div>
-      </header>
-      <main className="flex-1">{children}</main>
-      <footer className="border-t border-charcoal/10 py-6 text-center text-xs text-grey/70">
-        Deen Relief · Registered charity in England &amp; Wales, No. 1158608
-      </footer>
+    <div className="min-h-screen flex flex-col bg-white">
+      <SponsorHeader authed={!!user} />
+      {/* pt offset clears the fixed header (py-4 + h-8 logo ≈ 64px). */}
+      <main className="flex-1 pt-[68px]">{children}</main>
+      <Footer />
     </div>
   );
 }

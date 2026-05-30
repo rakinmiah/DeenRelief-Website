@@ -106,71 +106,98 @@ export default async function OrphanProfilePage({
   });
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-      <Link
-        href="/sponsor/dashboard"
-        className="text-sm text-grey hover:text-charcoal transition-colors"
-      >
-        ← Your sponsorships
-      </Link>
+    <div className="bg-white">
+      {/* Header band */}
+      <section className="bg-cream border-b border-charcoal/5">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+          <Link
+            href="/sponsor/dashboard"
+            className="inline-flex items-center gap-1 text-sm font-medium text-grey hover:text-green transition-colors"
+          >
+            ← Your sponsorships
+          </Link>
 
-      <h1 className="mt-3 text-3xl font-heading font-bold text-charcoal">
-        {orphan.display_name as string}
-      </h1>
-      <p className="text-sm text-grey mt-1">
-        {[orphan.country, orphan.region].filter(Boolean).join(" · ")}
-        {orphan.age_band && <span> · age {orphan.age_band as string}</span>}
-      </p>
-      {orphan.bio ? (
-        <div
-          className="mt-4 text-charcoal/85 leading-relaxed text-[15px]"
-          dangerouslySetInnerHTML={{ __html: orphan.bio as string }}
-        />
-      ) : null}
-
-      <div className="mt-6 rounded-lg bg-cream border border-charcoal/10 px-4 py-3 text-xs text-grey leading-relaxed">
-        These updates and media are shared with you in confidence. Please keep
-        them private and do not share or republish them.
-      </div>
-
-      <hr className="my-8 border-charcoal/10" />
-
-      {updates.length === 0 ? (
-        <p className="text-grey text-center py-10">
-          No updates yet — we&apos;ll post the first one soon.
-        </p>
-      ) : (
-        <div className="space-y-10">
-          {updates.map((u) => (
-            <article key={u.id}>
-              <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-amber-dark mb-1">
-                {u.periodLabel || formatWhen(u.publishedAt)}
-              </p>
-              <h2 className="text-xl font-heading font-bold text-charcoal mb-3">
-                {u.title || "Update"}
-              </h2>
-              {u.media.length > 0 && (
-                <div className="space-y-4 mb-4">
-                  {u.media.map((m) => (
-                    <MediaPlayer
-                      key={m.id}
-                      mediaId={m.id}
-                      kind={m.kind}
-                      caption={m.caption}
-                    />
-                  ))}
-                </div>
-              )}
-              {u.bodyHtml ? (
-                <div
-                  className="text-charcoal/85 leading-relaxed text-[15px] space-y-3"
-                  dangerouslySetInnerHTML={{ __html: u.bodyHtml }}
-                />
-              ) : null}
-            </article>
-          ))}
+          <span className="block mt-6 text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-2">
+            The child you sponsor
+          </span>
+          <h1 className="text-4xl sm:text-5xl font-heading font-bold text-charcoal leading-[1.05]">
+            {orphan.display_name as string}
+          </h1>
+          <p className="text-grey text-base mt-2">
+            {[orphan.country, orphan.region].filter(Boolean).join(" · ")}
+            {orphan.age_band && <span> · age {orphan.age_band as string}</span>}
+          </p>
+          {orphan.bio ? (
+            <div
+              className="dr-prose mt-5"
+              dangerouslySetInnerHTML={{ __html: orphan.bio as string }}
+            />
+          ) : null}
         </div>
-      )}
+      </section>
+
+      {/* Updates */}
+      <section className="bg-white">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 md:py-16">
+          <div className="flex items-start gap-2.5 rounded-2xl bg-amber-light/50 border border-amber/20 px-4 py-3 mb-10">
+            <svg
+              className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-dark"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+              />
+            </svg>
+            <p className="text-[13px] text-amber-dark leading-relaxed">
+              These updates and media are shared with you in confidence. Please
+              keep them private and do not share or republish them.
+            </p>
+          </div>
+
+          {updates.length === 0 ? (
+            <p className="text-grey text-center py-12">
+              No updates yet — we&apos;ll post the first one soon.
+            </p>
+          ) : (
+            <div className="space-y-12">
+              {updates.map((u) => (
+                <article key={u.id}>
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-green mb-2">
+                    {u.periodLabel || formatWhen(u.publishedAt)}
+                  </span>
+                  <h2 className="text-2xl font-heading font-bold text-charcoal leading-tight mb-4">
+                    {u.title || "Update"}
+                  </h2>
+                  {u.media.length > 0 && (
+                    <div className="space-y-4 mb-5">
+                      {u.media.map((m) => (
+                        <MediaPlayer
+                          key={m.id}
+                          mediaId={m.id}
+                          kind={m.kind}
+                          caption={m.caption}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {u.bodyHtml ? (
+                    <div
+                      className="dr-prose"
+                      dangerouslySetInnerHTML={{ __html: u.bodyHtml }}
+                    />
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

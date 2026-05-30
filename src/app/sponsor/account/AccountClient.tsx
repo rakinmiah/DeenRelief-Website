@@ -68,8 +68,8 @@ export default function AccountClient({
       )}
 
       {/* Marketing preference */}
-      <section className="rounded-xl border border-charcoal/10 bg-white p-5">
-        <h2 className="font-heading font-semibold text-charcoal mb-2">
+      <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
+        <h2 className="font-heading font-bold text-lg text-charcoal mb-3">
           Email preferences
         </h2>
         <label className="flex items-start gap-2.5 text-sm text-charcoal/80">
@@ -88,18 +88,18 @@ export default function AccountClient({
       </section>
 
       {/* Your data */}
-      <section className="rounded-xl border border-charcoal/10 bg-white p-5">
-        <h2 className="font-heading font-semibold text-charcoal mb-2">
+      <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
+        <h2 className="font-heading font-bold text-lg text-charcoal mb-2">
           Your data
         </h2>
-        <p className="text-sm text-grey mb-4">
+        <p className="text-sm text-grey mb-5 leading-[1.7]">
           You can download a copy of the personal data we hold about you, or ask
           us to delete your account.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <a
             href="/api/sponsor/export"
-            className="px-4 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors"
+            className="inline-flex items-center justify-center px-5 py-2.5 text-sm rounded-full bg-green text-white font-semibold shadow-sm hover:bg-green-dark transition-colors"
           >
             Download my data
           </a>
@@ -111,7 +111,7 @@ export default function AccountClient({
             <button
               onClick={handleErasure}
               disabled={busy}
-              className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-60"
+              className="inline-flex items-center justify-center px-5 py-2.5 text-sm rounded-full border border-charcoal/15 text-charcoal/80 font-medium hover:border-red-300 hover:text-red-600 transition-colors disabled:opacity-60"
             >
               Request account deletion
             </button>

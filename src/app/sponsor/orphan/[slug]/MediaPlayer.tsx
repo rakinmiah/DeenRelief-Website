@@ -45,7 +45,7 @@ export default function MediaPlayer({
   }, [requested, url, mediaId]);
 
   return (
-    <figure className="rounded-xl overflow-hidden border border-charcoal/10 bg-charcoal/5">
+    <figure className="rounded-2xl overflow-hidden border border-charcoal/5 bg-charcoal/5 shadow-sm">
       {error ? (
         <div className="aspect-video flex items-center justify-center text-sm text-grey">
           Couldn&apos;t load this media. Try refreshing.
