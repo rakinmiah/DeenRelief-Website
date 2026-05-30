@@ -141,7 +141,13 @@ export default function DeckFlow({
   // every element is freely editable on the canvas.
   const seedSlides = useMemo(() => {
     if (!content || !images || !platform) return [];
-    const region = (event.region || event.countryIso || "").toString().slice(0, 48);
+    // Keep the eyebrow short — region strings can be long ("Gaza Strip
+    // + West Bank Including East Jerusalem"); take the first segment.
+    const region = (event.region || event.countryIso || "")
+      .toString()
+      .split(/[+(/]/)[0]!
+      .trim()
+      .slice(0, 24);
     const eyebrowLine =
       [region, event.detectedAtLabel].filter(Boolean).join(" · ").toUpperCase() ||
       "FROM THE FIELD";
@@ -178,7 +184,7 @@ export default function DeckFlow({
   // from the event's content + the guided hero choices.
   if (step === "build" && content && images && platform) {
     return (
-      <div className="h-screen w-full">
+      <div className="fixed inset-0 z-50 bg-[#F4F4F2]">
         <CanvasDeckEditor
           initialDeck={seedSlides}
           eventId={event.id}
