@@ -1,4 +1,7 @@
--- Migration 030: deck_drafts — SMM-composed deck drafts per event/platform.
+-- Migration 033: deck_drafts — SMM-composed deck drafts per event/platform.
+-- (Renumbered from 031 → 033 to deconflict with main's 031_orphan_sponsorship.
+--  Already applied by content in Supabase as "031"; re-running is a no-op
+--  thanks to "create table if not exists".)
 --
 -- Phase 6e of the Social Operations Platform. The Compose page lets the
 -- SMM drag content cards into template slides, building up a deck of
