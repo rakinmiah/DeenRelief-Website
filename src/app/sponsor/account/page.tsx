@@ -5,6 +5,7 @@ import { getSponsorById } from "@/lib/sponsorship-admin";
 import { getSponsorProfileView } from "@/lib/sponsor-donor";
 import AccountClient from "./AccountClient";
 import ProfileClient from "./ProfileClient";
+import SecurityClient from "./SecurityClient";
 
 export const metadata: Metadata = { title: "Your account" };
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export default async function SponsorAccountPage({
   );
 
   const displayName = view?.fullName || sponsor?.fullName || "Account settings";
-  const email = view?.email || sponsor?.contactEmail || user.email;
+  const email = view?.email || sponsor?.contactEmail || user.email || "";
   const giving = view?.giving ?? null;
 
   return (
@@ -76,6 +77,12 @@ export default async function SponsorAccountPage({
               }}
             />
           )}
+
+          {/* Sign-in & security */}
+          <SecurityClient
+            email={email}
+            lastSignInAt={user.last_sign_in_at ?? null}
+          />
 
           {/* Your giving (read-only, from the donor record) */}
           {giving && (
