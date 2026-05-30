@@ -69,6 +69,9 @@ interface Props {
    *  draft is empty, pre-seed an editable scaffold of this many slides
    *  (hero → … → cta). She can fully edit/reorder/swap afterwards. */
   seedSlideCount?: number;
+  /** Explicit starting slides (e.g. the hero the guided builder just
+   *  produced). Used in place of the scaffold when the draft is empty. */
+  initialSlides?: SlideDraft[];
 }
 
 const COMING_SOON_PLATFORMS: SocialPlatform[] = ["facebook", "x"];
@@ -81,6 +84,7 @@ export default function DeckBuilderClient({
   initialImages,
   initialPlatform,
   seedSlideCount,
+  initialSlides,
 }: Props) {
   const [platform, setPlatform] = useState<SocialPlatform>(
     initialPlatform ?? "instagram"
@@ -178,6 +182,8 @@ export default function DeckBuilderClient({
           };
           if (json.exists && json.slides.length > 0) {
             setSlides(json.slides);
+          } else if (initialSlides && initialSlides.length > 0) {
+            setSlides(initialSlides);
           } else if (seedSlideCount && seedSlideCount > 0) {
             const seeded = scaffoldDeck(seedSlideCount, groups);
             if (seeded.length > 0) setSlides(seeded);

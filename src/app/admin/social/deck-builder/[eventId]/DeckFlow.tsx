@@ -18,10 +18,11 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SocialPlatform } from "@/lib/social-templates/types";
+import type { SocialPlatform, TemplateMeta } from "@/lib/social-templates/types";
 import DeckBuilderClient from "./DeckBuilderClient";
 import { PlatformStep, PreparingStep, SlideCountStep, SummaryStep } from "./DeckFlowSteps";
-import type { ContentBundle, ImageBundle } from "./types";
+import HeroBuilder from "./HeroBuilder";
+import type { ContentBundle, ImageBundle, SlideDraft, TemplateGroups } from "./types";
 
 export interface EventSummary {
   id: string;
@@ -35,9 +36,16 @@ export interface EventSummary {
   detectedAtLabel: string | null;
 }
 
-type Step = "preparing" | "summary" | "platform" | "count" | "build";
+type Step = "preparing" | "summary" | "platform" | "count" | "hero" | "build";
 
-const ORDER: Step[] = ["preparing", "summary", "platform", "count", "build"];
+const ORDER: Step[] = [
+  "preparing",
+  "summary",
+  "platform",
+  "count",
+  "hero",
+  "build",
+];
 
 export default function DeckFlow({
   event,
@@ -54,8 +62,12 @@ export default function DeckFlow({
   // Data fetched during "preparing".
   const [content, setContent] = useState<ContentBundle | null>(null);
   const [images, setImages] = useState<ImageBundle | null>(null);
+  const [heroTemplates, setHeroTemplates] = useState<TemplateMeta[]>([]);
   const [ready, setReady] = useState(false);
   const startedRef = useRef(false);
+
+  // The hero slide the guided builder produces, handed to the composer.
+  const [builtSlides, setBuiltSlides] = useState<SlideDraft[]>([]);
 
   // Kick off the real work once.
   useEffect(() => {
@@ -63,11 +75,14 @@ export default function DeckFlow({
     startedRef.current = true;
     let cancelled = false;
     (async () => {
-      const [cRes, iRes] = await Promise.allSettled([
+      const [cRes, iRes, tRes] = await Promise.allSettled([
         fetch(`/api/admin/social-content/${event.id}/extract`, {
           cache: "no-store",
         }),
         fetch(`/api/admin/social-content/${event.id}/images`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/admin/social-templates/list?platform=instagram`, {
           cache: "no-store",
         }),
       ]);
@@ -91,6 +106,14 @@ export default function DeckFlow({
         }
       } else {
         setImages({ images: [] });
+      }
+      if (tRes.status === "fulfilled" && tRes.value.ok) {
+        try {
+          const json = (await tRes.value.json()) as { groups: TemplateGroups };
+          setHeroTemplates(json.groups?.hero ?? []);
+        } catch {
+          /* hero builder will show an empty template step */
+        }
       }
       if (!cancelled) setReady(true);
     })();
@@ -128,11 +151,30 @@ export default function DeckFlow({
         initialContent={content}
         initialImages={images}
         initialPlatform={platform}
+        // The guided builder produced the hero slide — start the deck
+        // with it. (If the builder was skipped, fall back to a scaffold.)
+        initialSlides={builtSlides.length > 0 ? builtSlides : undefined}
         seedSlideCount={
-          platform === "instagram" || platform === "facebook"
+          builtSlides.length === 0 &&
+          (platform === "instagram" || platform === "facebook")
             ? slideCount ?? suggestedSlideCount
-            : 1
+            : undefined
         }
+      />
+    );
+  }
+
+  // The guided hero builder — also full-bleed (its own pinned header).
+  if (step === "hero" && content && images) {
+    return (
+      <HeroBuilder
+        content={content}
+        images={images}
+        heroTemplates={heroTemplates}
+        onComplete={(slide) => {
+          setBuiltSlides([slide]);
+          go("build");
+        }}
       />
     );
   }
@@ -221,7 +263,7 @@ export default function DeckFlow({
                   onChange={setSlideCount}
                   onConfirm={() => {
                     if (slideCount == null) setSlideCount(suggestedSlideCount);
-                    go("build");
+                    go("hero");
                   }}
                 />
               )}
