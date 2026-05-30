@@ -1,30 +1,13 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { createServerSupabase, requireSponsor } from "@/lib/supabase-server";
 import { getSponsorById } from "@/lib/sponsorship-admin";
-import { getSponsorProfileView } from "@/lib/sponsor-donor";
 import AccountClient from "./AccountClient";
-import ProfileClient from "./ProfileClient";
 import SecurityClient from "./SecurityClient";
 import MfaClient from "./MfaClient";
 
 export const metadata: Metadata = { title: "Your account" };
 export const dynamic = "force-dynamic";
-
-function formatGbp(pence: number): string {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-    minimumFractionDigits: pence % 100 === 0 ? 0 : 2,
-  }).format(pence / 100);
-}
-
-function formatMonthYear(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
-}
 
 export default async function SponsorAccountPage({
   searchParams,
@@ -35,8 +18,8 @@ export default async function SponsorAccountPage({
   const { billing } = await searchParams;
 
   const sponsor = await getSponsorById(user.id);
-  const view = sponsor ? await getSponsorProfileView(sponsor) : null;
   const hasBilling = Boolean(sponsor?.stripeCustomerId);
+  const email = sponsor?.contactEmail || user.email || "";
 
   const supabase = await createServerSupabase();
   const { data: openRequests } = await supabase
@@ -47,36 +30,26 @@ export default async function SponsorAccountPage({
     (r) => r.request_type === "erasure"
   );
 
-  const displayName = view?.fullName || sponsor?.fullName || "Account settings";
-  const email = view?.email || sponsor?.contactEmail || user.email || "";
-  const giving = view?.giving ?? null;
-
   return (
     <section className="bg-white">
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-12 md:py-16">
         <div className="mb-10">
           <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-            Your account
+            Account settings
           </span>
           <h1 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-2">
-            {displayName}
+            Account &amp; security
           </h1>
-          <p className="text-grey text-base">{email}</p>
+          <p className="text-grey text-base">
+            Your personal details and giving are in{" "}
+            <Link href="/sponsor/profile" className="text-green hover:underline">
+              your profile
+            </Link>
+            .
+          </p>
         </div>
 
         <div className="space-y-6">
-          {/* Personal details + address (editable) */}
-          {view && (
-            <ProfileClient
-              initial={{
-                fullName: view.fullName,
-                email: view.email,
-                phone: view.phone,
-                address: view.address,
-              }}
-            />
-          )}
-
           {/* Sign-in & security */}
           <SecurityClient
             email={email}
@@ -85,51 +58,6 @@ export default async function SponsorAccountPage({
 
           {/* Two-factor authentication */}
           <MfaClient />
-
-          {/* Your giving (read-only, from the donor record) */}
-          {giving && (
-            <section className="rounded-2xl border border-charcoal/5 bg-cream shadow-sm p-6">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h2 className="font-heading font-bold text-lg text-charcoal">
-                  Your giving
-                </h2>
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full ${
-                    view?.giftAidActive
-                      ? "bg-green-light text-green"
-                      : "bg-grey-light text-grey"
-                  }`}
-                >
-                  {view?.giftAidActive ? "Gift Aid active" : "Gift Aid not set up"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-                <Stat label="Total given" value={formatGbp(giving.totalPence)} />
-                <Stat
-                  label="Monthly sponsorship"
-                  value={
-                    giving.hasActiveRecurring
-                      ? `${formatGbp(giving.activeMonthlyPence)}/mo`
-                      : "—"
-                  }
-                />
-                <Stat label="Donations" value={String(giving.donationsCount)} />
-                <Stat
-                  label="Supporter since"
-                  value={formatMonthYear(view?.memberSince ?? null)}
-                />
-              </div>
-              {view?.giftAidActive && giving.giftAidReclaimablePence > 0 && (
-                <p className="mt-4 text-xs text-grey/80 leading-relaxed">
-                  With Gift Aid, the government adds an extra{" "}
-                  <strong className="text-charcoal">
-                    {formatGbp(giving.giftAidReclaimablePence)}
-                  </strong>{" "}
-                  to your giving at no cost to you.
-                </p>
-              )}
-            </section>
-          )}
 
           {/* Billing self-service via the Stripe-hosted portal */}
           <section className="rounded-2xl border border-charcoal/5 bg-white shadow-sm p-6">
@@ -179,16 +107,5 @@ export default async function SponsorAccountPage({
         </div>
       </div>
     </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/50 mb-1">
-        {label}
-      </p>
-      <p className="text-lg font-heading font-bold text-charcoal">{value}</p>
-    </div>
   );
 }

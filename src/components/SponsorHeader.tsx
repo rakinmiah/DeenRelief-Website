@@ -28,6 +28,7 @@ export default function SponsorHeader({ authed }: { authed: boolean }) {
   const navLinks = authed
     ? [
         { label: "Dashboard", href: "/sponsor/dashboard" },
+        { label: "Profile", href: "/sponsor/profile" },
         { label: "Account", href: "/sponsor/account" },
       ]
     : [];

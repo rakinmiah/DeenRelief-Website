@@ -9,9 +9,10 @@ import {
   setUpdateNotification,
   createDataRequest,
 } from "@/lib/sponsor-consent";
-import { getSponsorByEmail, getSponsorById } from "@/lib/sponsorship-admin";
+import { getSponsorByEmail } from "@/lib/sponsorship-admin";
 import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
 import {
+  resolveSponsor,
   updateSponsorDonorDetails,
   type UpdateSponsorDetailsInput,
 } from "@/lib/sponsor-donor";
@@ -108,8 +109,7 @@ export async function updateProfileAction(
 ): Promise<{ ok: boolean; error?: string }> {
   const user = await getSponsorUser();
   if (!user) return { ok: false, error: "Not signed in." };
-  const sponsor = await getSponsorById(user.id);
-  if (!sponsor) return { ok: false, error: "Account not found." };
+  const sponsor = await resolveSponsor(user);
   return updateSponsorDonorDetails(sponsor, input);
 }
 

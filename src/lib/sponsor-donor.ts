@@ -16,9 +16,34 @@ import "server-only";
  * gracefully (hasRecord:false).
  */
 
+import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { fetchDonorProfile } from "@/lib/donor-profile";
-import type { SponsorProfile } from "@/lib/sponsorship-admin";
+import { getSponsorById, type SponsorProfile } from "@/lib/sponsorship-admin";
+
+/**
+ * Resolve the SponsorProfile for a signed-in auth user. Falls back to a
+ * minimal profile synthesised from the auth user if the sponsor_profiles row
+ * can't be read (e.g. a not-yet-applied migration) — so the profile UI still
+ * renders and resolves the donor record by email rather than going blank.
+ */
+export async function resolveSponsor(user: User): Promise<SponsorProfile> {
+  const existing = await getSponsorById(user.id);
+  if (existing) return existing;
+  return {
+    id: user.id,
+    fullName: "",
+    contactEmail: user.email ?? "",
+    phone: null,
+    marketingConsent: false,
+    notifyNewUpdate: true,
+    status: "active",
+    stripeCustomerId: null,
+    invitedByEmail: null,
+    activatedAt: null,
+    createdAt: "",
+  };
+}
 
 export interface SponsorGivingSummary {
   donationsCount: number;
