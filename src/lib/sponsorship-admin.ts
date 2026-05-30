@@ -652,6 +652,43 @@ export async function getSponsorByEmail(
   return data ? mapSponsor(data) : null;
 }
 
+/**
+ * Clear ALL of a sponsor's MFA factors (admin recovery for a lost
+ * authenticator). Uses the Supabase admin MFA API. Returns how many were
+ * removed so the UI can confirm or report "no 2FA was set up".
+ */
+export async function resetSponsorMfa(
+  sponsorId: string
+): Promise<{ ok: boolean; error?: string; removed: number }> {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data, error } = await supabase.auth.admin.mfa.listFactors({
+      userId: sponsorId,
+    });
+    if (error) {
+      console.error("[sponsorship-admin] listFactors failed:", error.message);
+      return { ok: false, error: "Couldn't read 2FA settings.", removed: 0 };
+    }
+    const factors = data?.factors ?? [];
+    let removed = 0;
+    for (const f of factors) {
+      const { error: delErr } = await supabase.auth.admin.mfa.deleteFactor({
+        id: f.id,
+        userId: sponsorId,
+      });
+      if (delErr) {
+        console.error("[sponsorship-admin] deleteFactor failed:", delErr.message);
+      } else {
+        removed += 1;
+      }
+    }
+    return { ok: true, removed };
+  } catch (err) {
+    console.error("[sponsorship-admin] resetSponsorMfa threw:", err);
+    return { ok: false, error: "Couldn't reset 2FA.", removed: 0 };
+  }
+}
+
 export async function setSponsorStatus(
   id: string,
   status: SponsorStatus

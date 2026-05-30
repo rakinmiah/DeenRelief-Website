@@ -106,6 +106,7 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   sponsorship_paused: "Sponsorship paused",
   sponsorship_ended: "Sponsorship ended",
   sponsor_suspended: "Sponsor account suspended",
+  sponsor_mfa_reset: "Sponsor 2FA reset",
   sponsor_data_export_fulfilled: "Sponsor data export fulfilled",
   sponsor_erasure_fulfilled: "Sponsor erasure fulfilled",
 };
@@ -202,6 +203,7 @@ const ACTION_STYLES: Record<AdminAction, string> = {
   sponsorship_paused: "bg-amber-light text-amber-dark border-amber/30",
   sponsorship_ended: "bg-amber-light text-amber-dark border-amber/30",
   sponsor_suspended: "bg-red-50 text-red-700 border-red-200",
+  sponsor_mfa_reset: "bg-amber-light text-amber-dark border-amber/30",
   sponsor_data_export_fulfilled: "bg-green/10 text-green-dark border-green/30",
   sponsor_erasure_fulfilled: "bg-red-50 text-red-700 border-red-200",
 };

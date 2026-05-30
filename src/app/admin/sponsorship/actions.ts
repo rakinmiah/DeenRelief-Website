@@ -19,6 +19,7 @@ import {
   getSponsorById,
   listUpdateEmailRecipients,
   setSponsorStatus,
+  resetSponsorMfa,
   createSponsorshipLink,
   setSponsorshipStatus,
   markDataRequestFulfilled,
@@ -305,6 +306,19 @@ export async function suspendSponsorAction(
   await audit("sponsor_suspended", session.email, sponsorId, {});
   revalidatePath(`/admin/sponsorship/sponsors/${sponsorId}`);
   return { ok: true };
+}
+
+/** Clear a sponsor's 2FA factors (recovery for a lost authenticator). */
+export async function resetSponsorMfaAction(
+  sponsorId: string
+): Promise<{ ok: boolean; error?: string; removed?: number }> {
+  const session = await requireSponsorshipAccess();
+  const result = await resetSponsorMfa(sponsorId);
+  if (!result.ok) return { ok: false, error: result.error };
+  await audit("sponsor_mfa_reset", session.email, sponsorId, {
+    removed: result.removed,
+  });
+  return { ok: true, removed: result.removed };
 }
 
 // ─────────────────────────────────────────────────────────────────

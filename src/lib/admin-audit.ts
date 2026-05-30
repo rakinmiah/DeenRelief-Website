@@ -125,6 +125,7 @@ export type AdminAction =
   | "sponsorship_paused"
   | "sponsorship_ended"
   | "sponsor_suspended"
+  | "sponsor_mfa_reset"
   | "sponsor_data_export_fulfilled"
   | "sponsor_erasure_fulfilled";
 
