@@ -9,7 +9,9 @@
  *     ~75–100 BDT (£0.50–0.70); a month of a child's food lands around £15–20.
  *     A full family food pack runs ~4,500 BDT / £32. → food-month ≈ £20.
  *   - Winter blankets: ~600 BDT (£4–5) per thick blanket; £10 = two blankets.
- *   - Winter clothing (hoodie + wool cap + sweater): ~850–1,150 BDT → ~£7–8.
+ *   - School supplies (exercise books, pencils, ruler, basic stationery):
+ *     UK charities sell a complete school stationery pack at ~£6; Bangladesh
+ *     retail puts notebooks at 50–300 BDT and pencils/erasers at 10–100 BDT.
  *   - A month of schooling (lessons + learning support): year-round
  *     education sponsorship is widely sold at ~£25/month ($1/day), so £15
  *     for a month of lessons is conservative.
@@ -37,7 +39,7 @@ const FOOD_MONTH_GBP = 20;
  */
 const UPSELL_UNITS: UpsellChip[] = [
   { add: 5, outcome: "a week of hot, nutritious meals" },
-  { add: 8, outcome: "a warm winter clothing set" },
+  { add: 6, outcome: "a school supplies pack — exercise books, pencils & ruler" },
   { add: 10, outcome: "two thick blankets for the cold season" },
   { add: 15, outcome: "a month of lessons and learning support" },
   { add: 20, outcome: "a full month of nutritious food" },
