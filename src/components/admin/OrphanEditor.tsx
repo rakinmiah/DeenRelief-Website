@@ -35,8 +35,17 @@ const labelCls =
 const inputCls =
   "w-full px-3.5 py-2.5 rounded-lg bg-white border border-charcoal/15 focus:border-green focus:outline-none focus:ring-2 focus:ring-green/15 text-charcoal text-sm";
 
-export default function OrphanEditor({ orphan }: { orphan: Orphan }) {
+export default function OrphanEditor({
+  orphan,
+  photoUrl,
+}: {
+  orphan: Orphan;
+  photoUrl: string | null;
+}) {
   const router = useRouter();
+  const [currentPhoto, setCurrentPhoto] = useState<string | null>(photoUrl);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     slug: orphan.slug,
     displayName: orphan.displayName,
@@ -55,6 +64,32 @@ export default function OrphanEditor({ orphan }: { orphan: Orphan }) {
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    setPhotoMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("orphanId", orphan.id);
+      const res = await fetch("/api/admin/sponsorship/orphan-photo", {
+        method: "POST",
+        body: fd,
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Upload failed.");
+      setCurrentPhoto(body.url as string);
+      setPhotoMsg("Photo updated.");
+      router.refresh();
+    } catch (err) {
+      setPhotoMsg(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = "";
+    }
   }
 
   async function handleSave() {
@@ -85,6 +120,49 @@ export default function OrphanEditor({ orphan }: { orphan: Orphan }) {
 
   return (
     <div className="rounded-xl border border-charcoal/10 bg-white p-5 space-y-4">
+      {/* Profile photo — the hero image sponsors see in the portal. */}
+      <div className="flex items-center gap-4 pb-4 border-b border-charcoal/8">
+        {currentPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={currentPhoto}
+            alt="Profile"
+            className="w-20 h-20 rounded-2xl object-cover ring-1 ring-charcoal/10 shrink-0"
+          />
+        ) : (
+          <div className="w-20 h-20 rounded-2xl bg-green/10 ring-1 ring-charcoal/10 flex items-center justify-center shrink-0">
+            <span className="font-heading font-bold text-2xl text-green/70">
+              {(form.displayName.trim()[0] ?? "•").toUpperCase()}
+            </span>
+          </div>
+        )}
+        <div>
+          <p className="text-sm font-semibold text-charcoal">Profile photo</p>
+          <p className="text-xs text-grey/70 mb-2">
+            Shown as the hero image to this child&apos;s sponsors.
+          </p>
+          <label className="inline-flex items-center px-3.5 py-1.5 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors cursor-pointer">
+            {uploadingPhoto
+              ? "Uploading…"
+              : currentPhoto
+              ? "Replace photo"
+              : "Upload photo"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handlePhotoUpload}
+              disabled={uploadingPhoto}
+            />
+          </label>
+          {photoMsg && (
+            <p className="mt-1.5 text-xs text-grey" role="status">
+              {photoMsg}
+            </p>
+          )}
+        </div>
+      </div>
+
       <div className="rounded-lg bg-amber-light/40 border border-amber/30 px-3.5 py-2.5 text-xs text-amber-dark leading-relaxed">
         <strong>Safeguarding:</strong> use a first name or pseudonym, country
         and broad region only (never a town, address, or GPS), and an age band

@@ -7,6 +7,7 @@ import {
   listUpdates,
   listSponsorshipsForOrphan,
 } from "@/lib/sponsorship-admin";
+import { createSignedOrphanMediaUrl } from "@/lib/orphan-media";
 import { createUpdateAction } from "../../actions";
 import OrphanEditor from "@/components/admin/OrphanEditor";
 
@@ -30,6 +31,9 @@ export default async function OrphanDetailPage({
     listSponsorshipsForOrphan(id),
   ]);
   const activeSponsors = sponsorships.filter((s) => s.status !== "ended").length;
+  const photoUrl = orphan.profilePhotoPath
+    ? await createSignedOrphanMediaUrl(orphan.profilePhotoPath)
+    : null;
 
   const createUpdateForThisOrphan = createUpdateAction.bind(null, id);
 
@@ -49,7 +53,7 @@ export default async function OrphanDetailPage({
         {activeSponsors} active sponsor{activeSponsors === 1 ? "" : "s"}.
       </p>
 
-      <OrphanEditor orphan={orphan} />
+      <OrphanEditor orphan={orphan} photoUrl={photoUrl} />
 
       {/* Updates */}
       <section className="mt-10">
