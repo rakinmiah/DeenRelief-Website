@@ -1,28 +1,31 @@
 "use client";
 
 /**
- * DeckFlow — the guided wizard on-ramp to the deck builder (Phase 8).
+ * DeckFlow — the guided wizard on-ramp to the deck builder (Phase 8 → 11).
  *
- * A Typeform-style step machine: one calm decision per screen with
- * smooth Framer-Motion transitions.
- *
- *   preparing → summary → platform → (count, if IG/FB) → build
+ *   preparing → summary → platform → count → plan → slides → build
  *
  * "preparing" fires the real content-extraction + image fetches and
- * shows scripted progress stages, but only advances once the real work
- * is done (scripted-but-gated). Every later step pre-fills Claude's
- * suggestion as a default the SMM can override — the wizard guides,
- * never locks. The final step hands the already-fetched data + her
- * choices to the composer.
+ * shows scripted-but-gated progress. "plan" lets her assign a role to
+ * each middle slide (hero + CTA locked). "slides" runs the guided
+ * SlideBuilder once per slide. "build" opens the Canva-style canvas
+ * seeded with every slide she planned.
  */
 
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SocialPlatform, TemplateMeta } from "@/lib/social-templates/types";
-import { heroFor, seedDeck, type SeedHero } from "@/lib/social-editor/presets";
+import type { SocialPlatform } from "@/lib/social-templates/types";
+import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
 import CanvasDeckEditor from "./editor/CanvasDeckEditor";
-import { PlatformStep, PreparingStep, SlideCountStep, SummaryStep } from "./DeckFlowSteps";
-import HeroBuilder, { type HeroResult } from "./HeroBuilder";
+import {
+  PlanStep,
+  PlatformStep,
+  PreparingStep,
+  SlideCountStep,
+  SummaryStep,
+} from "./DeckFlowSteps";
+import SlideBuilder, { type SlideResult } from "./SlideBuilder";
+import { ROLES, suggestPlan, type SlideRole } from "./slideRoles";
 import type { ContentBundle, ImageBundle, TemplateGroups } from "./types";
 
 export interface EventSummary {
@@ -37,16 +40,9 @@ export interface EventSummary {
   detectedAtLabel: string | null;
 }
 
-type Step = "preparing" | "summary" | "platform" | "count" | "hero" | "build";
+type Step = "preparing" | "summary" | "platform" | "count" | "plan" | "slides" | "build";
 
-const ORDER: Step[] = [
-  "preparing",
-  "summary",
-  "platform",
-  "count",
-  "hero",
-  "build",
-];
+const ORDER: Step[] = ["preparing", "summary", "platform", "count", "plan", "slides", "build"];
 
 export default function DeckFlow({
   event,
@@ -63,12 +59,14 @@ export default function DeckFlow({
   // Data fetched during "preparing".
   const [content, setContent] = useState<ContentBundle | null>(null);
   const [images, setImages] = useState<ImageBundle | null>(null);
-  const [heroTemplates, setHeroTemplates] = useState<TemplateMeta[]>([]);
+  const [groups, setGroups] = useState<TemplateGroups>({});
   const [ready, setReady] = useState(false);
   const startedRef = useRef(false);
 
-  // The guided hero builder's raw choices, used to seed the canvas deck.
-  const [heroResult, setHeroResult] = useState<HeroResult | null>(null);
+  // The plan (one role per slide) + the per-slide build results.
+  const [plan, setPlan] = useState<SlideRole[]>([]);
+  const [results, setResults] = useState<SlideResult[]>([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // Kick off the real work once.
   useEffect(() => {
@@ -77,15 +75,9 @@ export default function DeckFlow({
     let cancelled = false;
     (async () => {
       const [cRes, iRes, tRes] = await Promise.allSettled([
-        fetch(`/api/admin/social-content/${event.id}/extract`, {
-          cache: "no-store",
-        }),
-        fetch(`/api/admin/social-content/${event.id}/images`, {
-          cache: "no-store",
-        }),
-        fetch(`/api/admin/social-templates/list?platform=instagram`, {
-          cache: "no-store",
-        }),
+        fetch(`/api/admin/social-content/${event.id}/extract`, { cache: "no-store" }),
+        fetch(`/api/admin/social-content/${event.id}/images`, { cache: "no-store" }),
+        fetch(`/api/admin/social-templates/list?platform=instagram`, { cache: "no-store" }),
       ]);
       if (cancelled) return;
       if (cRes.status === "fulfilled" && cRes.value.ok) {
@@ -95,9 +87,7 @@ export default function DeckFlow({
         } catch {
           setContent({ cards: [] });
         }
-      } else {
-        setContent({ cards: [] });
-      }
+      } else setContent({ cards: [] });
       if (iRes.status === "fulfilled" && iRes.value.ok) {
         try {
           const json = (await iRes.value.json()) as ImageBundle;
@@ -105,15 +95,13 @@ export default function DeckFlow({
         } catch {
           setImages({ images: [] });
         }
-      } else {
-        setImages({ images: [] });
-      }
+      } else setImages({ images: [] });
       if (tRes.status === "fulfilled" && tRes.value.ok) {
         try {
           const json = (await tRes.value.json()) as { groups: TemplateGroups };
-          setHeroTemplates(json.groups?.hero ?? []);
+          setGroups(json.groups ?? {});
         } catch {
-          /* hero builder will show an empty template step */
+          /* builders fall back to write-own + an empty template step */
         }
       }
       if (!cancelled) setReady(true);
@@ -123,9 +111,6 @@ export default function DeckFlow({
     };
   }, [event.id]);
 
-  // Suggested slide count — Claude-informed via how much content was
-  // extracted (hero + up to 3 facts + a quote + a tiers + the ask),
-  // clamped 3–8. A real Claude-reasoned field is a later upgrade.
   const suggestedSlideCount = useMemo(() => {
     if (!content) return 6;
     const kinds = content.cards.map((c) => c.card.kind);
@@ -136,52 +121,44 @@ export default function DeckFlow({
     return Math.max(3, Math.min(8, count));
   }, [content]);
 
-  // Seed the canvas deck from the event's content + the guided hero
-  // choices. Layer presets (not the old slot templates) — once seeded,
-  // every element is freely editable on the canvas.
-  const seedSlides = useMemo(() => {
-    if (!content || !images || !platform) return [];
-    // Keep the eyebrow short — region strings can be long ("Gaza Strip
-    // + West Bank Including East Jerusalem"); take the first segment.
+  // A short eyebrow shared by every seeded slide.
+  const eyebrow = useMemo(() => {
     const region = (event.region || event.countryIso || "")
       .toString()
       .split(/[+(/]/)[0]!
       .trim()
       .slice(0, 24);
-    const eyebrowLine =
+    return (
       [region, event.detectedAtLabel].filter(Boolean).join(" · ").toUpperCase() ||
-      "FROM THE FIELD";
-    const titleCard = content.cards.find((c) => c.card.kind === "title")?.card;
-    const titleText = titleCard && titleCard.kind === "title" ? titleCard.text : event.title;
-    const facts = content.cards
-      .filter((c) => c.card.kind === "fact")
-      .map((c) => (c.card.kind === "fact" ? c.card.text : ""))
-      .filter(Boolean)
-      .slice(0, 4);
-    const heroImageUrl = heroResult?.imageId
-      ? images.images.find((i) => i.id === heroResult.imageId)?.url ?? null
-      : images.images[0]?.url ?? null;
-    const hero: SeedHero = {
-      templateId: heroResult?.templateId ?? "ig-hero-magazine-cover",
-      title: heroResult?.title || titleText,
-      subtext: heroResult?.subtext ?? null,
-      imageUrl: heroImageUrl,
-      eyebrow: eyebrowLine,
-    };
-    if (platform === "x") return [heroFor(hero)];
-    return seedDeck(
-      { eyebrow: eyebrowLine, hero, facts, ctaHeadline: "Your support can't wait." },
-      slideCount ?? suggestedSlideCount
+      "FROM THE FIELD"
     );
-  }, [content, images, platform, heroResult, slideCount, suggestedSlideCount, event]);
+  }, [event]);
+
+  // Seed the canvas deck from the per-slide build results.
+  const seedSlides = useMemo(() => {
+    if (!images) return [];
+    return results.filter(Boolean).map((r) => {
+      const imageUrl = r.imageId
+        ? images.images.find((i) => i.id === r.imageId)?.url ?? null
+        : null;
+      const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow };
+      return presetForTemplate(r.templateId, c);
+    });
+  }, [results, images, eyebrow]);
 
   function go(next: Step) {
     setDir(ORDER.indexOf(next) > ORDER.indexOf(step) ? 1 : -1);
     setStep(next);
   }
 
-  // The build step is the full-bleed Canva-style canvas editor, seeded
-  // from the event's content + the guided hero choices.
+  function startBuilding(p: SlideRole[]) {
+    setPlan(p);
+    setResults([]);
+    setCurrentSlide(0);
+    go("slides");
+  }
+
+  /* ── Full-bleed: the canvas editor ───────────────────────────── */
   if (step === "build" && content && images && platform) {
     return (
       <div className="fixed inset-0 z-50 bg-[#F4F4F2]">
@@ -192,43 +169,52 @@ export default function DeckFlow({
           images={images.images}
           backHref={backHref}
           persist
+          forceInitial
           title={event.title}
         />
       </div>
     );
   }
 
-  // The guided hero builder — also full-bleed (its own pinned header).
-  if (step === "hero" && content && images) {
+  /* ── Full-bleed: the per-slide guided builder loop ───────────── */
+  if (step === "slides" && content && images && plan.length > 0) {
+    const role = plan[currentSlide]!;
+    const templates = groups[ROLES[role].category] ?? [];
     return (
-      <HeroBuilder
+      <SlideBuilder
+        key={currentSlide}
+        spec={{ role, index: currentSlide, total: plan.length }}
         content={content}
         images={images}
-        heroTemplates={heroTemplates}
+        templates={templates}
         onComplete={(result) => {
-          setHeroResult(result);
-          go("build");
+          setResults((prev) => {
+            const next = [...prev];
+            next[currentSlide] = result;
+            return next;
+          });
+          if (currentSlide + 1 < plan.length) setCurrentSlide((s) => s + 1);
+          else go("build");
         }}
       />
     );
   }
 
   const stepIndex = ORDER.indexOf(step);
-  const progress =
-    step === "preparing" ? 0 : (stepIndex - 1) / (ORDER.length - 2);
+  const progress = step === "preparing" ? 0 : (stepIndex - 1) / (ORDER.length - 2);
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Slim progress + back */}
       <div className="sticky top-0 z-10 px-5 pt-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           {step !== "preparing" && (
             <button
               type="button"
               onClick={() => {
-                if (step === "summary") return; // can't go back into loading
+                if (step === "summary") return;
                 if (step === "platform") go("summary");
                 else if (step === "count") go("platform");
+                else if (step === "plan") go("count");
               }}
               className="text-charcoal/45 hover:text-charcoal text-[13px] flex items-center gap-1"
             >
@@ -249,62 +235,60 @@ export default function DeckFlow({
         </div>
       </div>
 
-      {/* Step canvas */}
       <div className="flex-1 grid place-items-center px-5 py-8">
         <div className="w-full max-w-2xl">
-          {/* Keyed remount: each step unmounts the last and fades/slides
-              in on mount. Simpler + more reliable than AnimatePresence
-              exit/enter, which left swapped-in steps stuck at opacity 0. */}
           <motion.div
             key={step}
             initial={{ opacity: 0, x: dir * 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
           >
-              {step === "preparing" && (
-                <PreparingStep
-                  eventTitle={event.title}
-                  ready={ready}
-                  onDone={() => go("summary")}
-                />
-              )}
-              {step === "summary" && (
-                <SummaryStep
-                  event={event}
-                  facts={
-                    content?.cards
-                      .filter((c) => c.card.kind === "fact")
-                      .map((c) =>
-                        c.card.kind === "fact" ? c.card.text : ""
-                      ) ?? []
-                  }
-                  onContinue={() => go("platform")}
-                />
-              )}
-              {step === "platform" && (
-                <PlatformStep
-                  onPick={(p) => {
-                    setPlatform(p);
-                    if (p === "instagram" || p === "facebook") go("count");
-                    else go("build");
-                  }}
-                />
-              )}
-              {step === "count" && (
-                <SlideCountStep
-                  suggested={suggestedSlideCount}
-                  value={slideCount ?? suggestedSlideCount}
-                  onChange={setSlideCount}
-                  onConfirm={() => {
-                    if (slideCount == null) setSlideCount(suggestedSlideCount);
-                    go("hero");
-                  }}
-                />
-              )}
+            {step === "preparing" && (
+              <PreparingStep eventTitle={event.title} ready={ready} onDone={() => go("summary")} />
+            )}
+            {step === "summary" && (
+              <SummaryStep
+                event={event}
+                facts={
+                  content?.cards
+                    .filter((c) => c.card.kind === "fact")
+                    .map((c) => (c.card.kind === "fact" ? c.card.text : "")) ?? []
+                }
+                onContinue={() => go("platform")}
+              />
+            )}
+            {step === "platform" && (
+              <PlatformStep
+                onPick={(p) => {
+                  setPlatform(p);
+                  if (p === "instagram" || p === "facebook") go("count");
+                  else startBuilding(["hero"]); // X = single image
+                }}
+              />
+            )}
+            {step === "count" && (
+              <SlideCountStep
+                suggested={suggestedSlideCount}
+                value={slideCount ?? suggestedSlideCount}
+                onChange={setSlideCount}
+                onConfirm={() => {
+                  const c = slideCount ?? suggestedSlideCount;
+                  setSlideCount(c);
+                  if (content) setPlan(suggestPlan(c, content));
+                  go("plan");
+                }}
+              />
+            )}
+            {step === "plan" && (
+              <PlanStep
+                plan={plan}
+                onChange={setPlan}
+                onConfirm={() => startBuilding(plan)}
+              />
+            )}
           </motion.div>
         </div>
       </div>
     </div>
   );
 }
-

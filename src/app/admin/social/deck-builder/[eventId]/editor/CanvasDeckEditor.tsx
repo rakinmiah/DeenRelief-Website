@@ -43,6 +43,7 @@ export default function CanvasDeckEditor({
   images = [],
   backHref,
   persist = false,
+  forceInitial = false,
   title = "Slide editor",
 }: {
   initialDeck: EditorSlide[];
@@ -51,6 +52,9 @@ export default function CanvasDeckEditor({
   images?: ImageCandidate[];
   backHref?: string;
   persist?: boolean;
+  /** Use initialDeck as-is and skip loading any saved draft (the deck
+   *  was just freshly built by the guided flow). Autosave still runs. */
+  forceInitial?: boolean;
   title?: string;
 }) {
   const history = useHistory<EditorSlide[]>(
@@ -87,7 +91,10 @@ export default function CanvasDeckEditor({
 
   /* ── Load saved deck (persist mode) ──────────────────────────── */
   useEffect(() => {
-    if (!persist || !eventId) return;
+    if (!persist || !eventId || forceInitial) {
+      setHydrated(true);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const loaded = await loadDeck(eventId, platform);

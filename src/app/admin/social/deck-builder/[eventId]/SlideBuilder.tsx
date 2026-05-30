@@ -1,17 +1,17 @@
 "use client";
 
 /**
- * HeroBuilder — the guided sub-flow for slide 1 (Phase 9 / 9b).
+ * SlideBuilder — the guided sub-flow for ONE slide (Phase 9 → 11).
  *
- *   intro → title → subtext → image → compiling → template
+ *   intro → primary → [secondary] → [image] → compiling → template
  *
- * The chosen TITLE pins to a constant header and stays through every
- * step (subtext + photo are NOT echoed there — they live only in the
- * eventual slide). On each step the page scrolls to the top so the
- * header is always in view. After the image step, a "Compiling
- * templates" screen actually renders her content into every hero
- * template up front, then a focus carousel lets her flick through
- * them — the centred one enlarges so she can see it properly.
+ * Parameterised by the slide's role (hero / fact / stat / testimony /
+ * response / cta): the role decides the content options offered, whether
+ * a photo is asked for, and which template category is shown. The deck
+ * flow runs one SlideBuilder per slide. The chosen PRIMARY text pins to
+ * a constant header through the slide's steps; after the image step a
+ * "Compiling templates" screen renders her content into every template
+ * for the role, then a focus carousel lets her pick.
  */
 
 import { motion } from "framer-motion";
@@ -22,37 +22,53 @@ import type {
   TemplateMeta,
 } from "@/lib/social-templates/types";
 import type { ContentBundle, ImageBundle } from "./types";
+import { ROLES, type SlideRole } from "./slideRoles";
 
-/** What the guided hero builder hands back — raw choices the deck
+/** What the guided builder hands back per slide — raw choices the deck
  *  seeder turns into a layer preset. */
-export type HeroResult = {
+export type SlideResult = {
+  role: SlideRole;
+  index: number;
   templateId: string;
   title: string;
   subtext: string | null;
   imageId: string | null;
 };
 
-type Phase = "intro" | "title" | "subtext" | "image" | "compiling" | "template";
+export type SlideSpec = { role: SlideRole; index: number; total: number };
+
+type Phase = "intro" | "primary" | "secondary" | "image" | "compiling" | "template";
 
 type Preview = { url: string | null; failed: boolean };
 
-export default function HeroBuilder({
+export default function SlideBuilder({
+  spec,
   content,
   images,
-  heroTemplates,
+  templates,
   onComplete,
 }: {
+  spec: SlideSpec;
   content: ContentBundle;
   images: ImageBundle;
-  heroTemplates: TemplateMeta[];
-  onComplete: (result: HeroResult) => void;
+  templates: TemplateMeta[];
+  onComplete: (result: SlideResult) => void;
 }) {
+  const role = ROLES[spec.role];
   const [phase, setPhase] = useState<Phase>("intro");
   const [title, setTitle] = useState<string | null>(null);
   const [subtext, setSubtext] = useState<string | null>(null);
   const [imageId, setImageId] = useState<string | null>(null);
   const [previews, setPreviews] = useState<Record<string, Preview>>({});
   const previewUrlsRef = useRef<string[]>([]);
+
+  // Which phase follows, given the role's needs.
+  const afterPrimary: Phase = role.hasSecondary
+    ? "secondary"
+    : role.needsImage
+      ? "image"
+      : "compiling";
+  const afterSecondary: Phase = role.needsImage ? "image" : "compiling";
 
   // Scroll the page to the top whenever the step changes, so the pinned
   // header (and the new question) glide into view together.
@@ -65,7 +81,7 @@ export default function HeroBuilder({
   // Auto-advance the intro.
   useEffect(() => {
     if (phase !== "intro") return;
-    const t = setTimeout(() => setPhase("title"), 1900);
+    const t = setTimeout(() => setPhase("primary"), 1900);
     return () => clearTimeout(t);
   }, [phase]);
 
@@ -76,30 +92,14 @@ export default function HeroBuilder({
     };
   }, []);
 
-  const titleOptions = useMemo(
-    () =>
-      content.cards
-        .filter((c) => c.card.kind === "title")
-        .map((c) => (c.card.kind === "title" ? c.card.text : ""))
-        .slice(0, 5),
-    [content]
-  );
-  const bodyOptions = useMemo(
-    () =>
-      content.cards
-        .filter((c) => c.card.kind === "body" || c.card.kind === "fact")
-        .map((c) =>
-          c.card.kind === "body" || c.card.kind === "fact" ? c.card.text : ""
-        )
-        .slice(0, 5),
-    [content]
-  );
+  const primaryOptions = useMemo(() => role.primary(content), [role, content]);
+  const secondaryOptions = useMemo(() => role.secondary(content), [role, content]);
 
-  // Render the SMM's content into every hero template while the
+  // Render the SMM's content into every template for the role while the
   // "Compiling templates" screen is up.
   async function compileTemplates(): Promise<void> {
     const entries = await Promise.all(
-      heroTemplates.map(async (meta): Promise<[string, Preview]> => {
+      templates.map(async (meta): Promise<[string, Preview]> => {
         try {
           const { slotValues, imageMediaIds } = composeFor(meta, {
             title: title ?? "",
@@ -139,16 +139,16 @@ export default function HeroBuilder({
             transition={{ duration: 0.4 }}
             className="text-[13px] font-semibold uppercase tracking-[0.2em] text-charcoal/40 mb-3"
           >
-            Slide 1
+            Slide {spec.index + 1} of {spec.total}
           </motion.p>
           <motion.h1
-            layoutId="heroLabel"
+            layoutId="slideLabel"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="font-heading font-semibold text-charcoal text-4xl md:text-5xl"
           >
-            Hero
+            {role.label}
           </motion.h1>
         </div>
       </div>
@@ -158,17 +158,17 @@ export default function HeroBuilder({
   /* ── Working layout (pinned title header + current step) ── */
   return (
     <div className="max-w-5xl mx-auto px-5 py-8">
-      {/* Pinned header — Slide 1 · Hero + the chosen title only. */}
+      {/* Pinned header — Slide N · Role + the chosen primary text only. */}
       <div className="mb-9 max-w-3xl">
         <div className="flex items-baseline gap-2.5 mb-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/35">
-            Slide 1
+            Slide {spec.index + 1}
           </span>
           <motion.span
-            layoutId="heroLabel"
+            layoutId="slideLabel"
             className="text-[11px] font-semibold uppercase tracking-[0.16em] text-green-dark"
           >
-            Hero
+            {role.label}
           </motion.span>
         </div>
         {title && (
@@ -189,29 +189,29 @@ export default function HeroBuilder({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       >
-        {phase === "title" && (
+        {phase === "primary" && (
           <ChooseText
-            heading="Choose your hero title"
-            sub="The headline that opens the post. Pick one or write your own."
-            options={titleOptions}
+            heading={role.primaryHeading}
+            sub={role.primarySub}
+            options={primaryOptions}
             allowSkip={false}
             value={title}
             onConfirm={(v) => {
               setTitle(v);
-              setPhase("subtext");
+              setPhase(afterPrimary);
             }}
           />
         )}
-        {phase === "subtext" && (
+        {phase === "secondary" && (
           <ChooseText
-            heading="Add a supporting line"
-            sub="One short line under the headline — or skip it."
-            options={bodyOptions}
+            heading={role.secondaryHeading}
+            sub={role.secondarySub}
+            options={secondaryOptions}
             allowSkip
             value={subtext}
             onConfirm={(v) => {
               setSubtext(v);
-              setPhase("image");
+              setPhase(afterSecondary);
             }}
           />
         )}
@@ -233,10 +233,17 @@ export default function HeroBuilder({
         )}
         {phase === "template" && (
           <TemplateCarousel
-            templates={heroTemplates}
+            templates={templates}
             previews={previews}
             onConfirm={(templateId) =>
-              onComplete({ templateId, title: title ?? "", subtext, imageId })
+              onComplete({
+                role: spec.role,
+                index: spec.index,
+                templateId,
+                title: title ?? "",
+                subtext,
+                imageId,
+              })
             }
           />
         )}

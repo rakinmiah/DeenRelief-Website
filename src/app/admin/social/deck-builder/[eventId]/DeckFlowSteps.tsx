@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState, type ReactNode } from "react";
 import type { SocialPlatform } from "@/lib/social-templates/types";
 import type { EventSummary } from "./DeckFlow";
+import { ROLES, MIDDLE_ROLES, type SlideRole } from "./slideRoles";
 
 /* ─── Step 1 · Preparing ─────────────────────────────────────────── */
 
@@ -279,7 +280,7 @@ export function SlideCountStep({
   return (
     <div>
       <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-charcoal/35 mb-2">
-        Step 2 of 2
+        Step 2 of 3
       </p>
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-2">
         How many slides?
@@ -310,6 +311,94 @@ export function SlideCountStep({
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber" />
               )}
             </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={onConfirm}
+        className="inline-flex items-center gap-2 bg-charcoal text-white text-[14px] font-medium px-5 py-2.5 rounded-xl hover:bg-charcoal/85 transition-colors"
+      >
+        Continue
+        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/* ─── Step 3 · Plan the deck ─────────────────────────────────────── */
+
+export function PlanStep({
+  plan,
+  onChange,
+  onConfirm,
+}: {
+  plan: SlideRole[];
+  onChange: (p: SlideRole[]) => void;
+  onConfirm: () => void;
+}) {
+  const n = plan.length;
+  return (
+    <div>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-charcoal/35 mb-2">
+        Step 3 of 3
+      </p>
+      <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-2">
+        Plan your slides
+      </h1>
+      <p className="text-[13.5px] text-charcoal/55 mb-6 max-w-lg">
+        Slide 1 is your hero and the last is the call to action. Pick what each
+        middle slide covers — here&rsquo;s a starting plan.
+      </p>
+
+      <div className="flex flex-col gap-2 mb-7">
+        {plan.map((role, i) => {
+          const locked = i === 0 || i === n - 1;
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-3 rounded-xl bg-white ring-1 ring-charcoal/8 px-3 py-2.5"
+            >
+              <span className="shrink-0 w-7 h-7 rounded-lg bg-charcoal/5 grid place-items-center text-[12px] font-semibold text-charcoal/50">
+                {i + 1}
+              </span>
+              {locked ? (
+                <span className="flex items-center gap-1.5 text-[14px] font-medium text-charcoal">
+                  {ROLES[role].label}
+                  <svg className="w-3.5 h-3.5 text-charcoal/30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <rect x="5" y="9" width="10" height="7" rx="1.5" />
+                    <path d="M7 9V6.5a3 3 0 0 1 6 0V9" strokeLinecap="round" />
+                  </svg>
+                </span>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {MIDDLE_ROLES.map((r) => {
+                    const on = role === r;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => {
+                          const next = [...plan];
+                          next[i] = r;
+                          onChange(next);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${
+                          on
+                            ? "bg-green text-white"
+                            : "bg-charcoal/[0.04] text-charcoal/60 hover:bg-charcoal/[0.08]"
+                        }`}
+                      >
+                        {ROLES[r].short}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
