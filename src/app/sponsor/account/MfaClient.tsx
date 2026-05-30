@@ -15,7 +15,7 @@ const inputCls =
  * Verifying the first factor steps the current session up to aal2, so the
  * sponsor isn't immediately bounced to the MFA challenge.
  */
-export default function MfaClient() {
+export default function MfaClient({ email }: { email: string }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -24,6 +24,32 @@ export default function MfaClient() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Re-authentication gate: enrolling or disabling 2FA requires re-entering the
+  // password, so a hijacked session can't add its own factor or remove yours.
+  const [reauthFor, setReauthFor] = useState<"enroll" | "disable" | null>(null);
+  const [reauthPw, setReauthPw] = useState("");
+  const [reauthBusy, setReauthBusy] = useState(false);
+
+  async function confirmReauth(e: React.FormEvent) {
+    e.preventDefault();
+    setReauthBusy(true);
+    setError(null);
+    const supabase = createBrowserSupabase();
+    const { error: reErr } = await supabase.auth.signInWithPassword({
+      email,
+      password: reauthPw,
+    });
+    setReauthBusy(false);
+    if (reErr) {
+      setError("That password is incorrect.");
+      return;
+    }
+    const action = reauthFor;
+    setReauthFor(null);
+    setReauthPw("");
+    if (action === "enroll") await startEnroll();
+    else if (action === "disable") await doDisable();
+  }
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
@@ -93,12 +119,8 @@ export default function MfaClient() {
     router.refresh();
   }
 
-  async function disable() {
+  async function doDisable() {
     if (!factorId) return;
-    const ok = window.confirm(
-      "Turn off two-factor authentication? Your account will be protected by your password only."
-    );
-    if (!ok) return;
     setBusy(true);
     setError(null);
     const supabase = createBrowserSupabase();
@@ -132,18 +154,58 @@ export default function MfaClient() {
         </p>
       )}
 
-      {status === "loading" && (
+      {reauthFor && (
+        <form onSubmit={confirmReauth} className="space-y-3 mb-2">
+          <p className="text-sm text-grey">
+            Confirm your password to{" "}
+            {reauthFor === "enroll" ? "turn on" : "turn off"} two-factor
+            authentication.
+          </p>
+          <input
+            type="password"
+            autoComplete="current-password"
+            className={inputCls.replace("w-40", "w-full max-w-xs")}
+            value={reauthPw}
+            onChange={(e) => setReauthPw(e.target.value)}
+            placeholder="Current password"
+            aria-label="Current password"
+            autoFocus
+          />
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={reauthBusy || !reauthPw}
+              className="px-5 py-2.5 rounded-full bg-green text-white text-sm font-semibold shadow-sm hover:bg-green-dark transition-colors disabled:opacity-60"
+            >
+              {reauthBusy ? "Confirming…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setReauthFor(null);
+                setReauthPw("");
+                setError(null);
+              }}
+              className="text-sm text-grey hover:text-charcoal"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {status === "loading" && !reauthFor && (
         <p className="text-sm text-grey">Checking…</p>
       )}
 
-      {status === "off" && (
+      {status === "off" && !reauthFor && (
         <>
           <p className="text-sm text-grey mb-4 leading-[1.7]">
             Add a second step at sign-in using an authenticator app (like Google
             Authenticator or Authy) for extra protection on your account.
           </p>
           <button
-            onClick={startEnroll}
+            onClick={() => setReauthFor("enroll")}
             disabled={busy}
             className="inline-flex items-center justify-center px-5 py-2.5 text-sm rounded-full bg-green text-white font-semibold shadow-sm hover:bg-green-dark transition-colors disabled:opacity-60"
           >
@@ -206,14 +268,14 @@ export default function MfaClient() {
         </div>
       )}
 
-      {status === "on" && (
+      {status === "on" && !reauthFor && (
         <>
           <p className="text-sm text-grey mb-4 leading-[1.7]">
             Two-factor authentication is protecting your account. You&apos;ll be
             asked for a code from your authenticator app when you sign in.
           </p>
           <button
-            onClick={disable}
+            onClick={() => setReauthFor("disable")}
             disabled={busy}
             className="text-sm font-medium text-charcoal/70 hover:text-red-600 transition-colors disabled:opacity-60"
           >

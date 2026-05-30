@@ -56,7 +56,7 @@ export default async function SponsorAccountPage({
               email={email}
               lastSignInAt={user.last_sign_in_at ?? null}
             />
-            <MfaClient />
+            <MfaClient email={email} />
           </section>
 
           {/* Billing self-service via the Stripe-hosted portal */}

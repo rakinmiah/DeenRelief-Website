@@ -237,6 +237,33 @@ export async function countRecentLoginFailures(
 }
 
 /**
+ * Count sign_in_failed rows for a given EMAIL in the rate-limit window — a
+ * per-account throttle so an attacker rotating IPs can't get unlimited guesses
+ * against one account. Fail-open (returns 0) on error, like the IP counter.
+ */
+export async function countRecentLoginFailuresByEmail(
+  email: string | null
+): Promise<number> {
+  if (!email) return 0;
+  try {
+    const supabase = getSupabaseAdmin();
+    const cutoff = new Date(
+      Date.now() - LOGIN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000
+    ).toISOString();
+    const { count, error } = await supabase
+      .from("admin_audit_log")
+      .select("*", { count: "exact", head: true })
+      .eq("action", "sign_in_failed")
+      .ilike("user_email", email.toLowerCase().trim())
+      .gte("created_at", cutoff);
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Audit log row shape for the viewer page. Keeps the column set small
  * — sensitive metadata stays in the jsonb but is rendered only on
  * detail expansion.

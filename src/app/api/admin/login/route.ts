@@ -4,6 +4,7 @@ import { resolveAdminRoleForLogin } from "@/lib/admin-roles";
 import {
   clientIpFromRequest,
   countRecentLoginFailures,
+  countRecentLoginFailuresByEmail,
   logAdminAction,
   LOGIN_RATE_LIMIT_MAX_FAILURES,
   LOGIN_RATE_LIMIT_WINDOW_MINUTES,
@@ -100,6 +101,24 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Email and passphrase required." },
       { status: 400 }
+    );
+  }
+
+  // Per-account throttle (in addition to the per-IP one above) so an attacker
+  // rotating IPs can't get unlimited guesses against a single admin email.
+  const emailFailures = await countRecentLoginFailuresByEmail(email);
+  if (emailFailures >= LOGIN_RATE_LIMIT_MAX_FAILURES) {
+    await logAdminAction({
+      action: "sign_in_rate_limited",
+      userEmail: email,
+      request,
+      metadata: { emailFailures, scope: "per-account" },
+    });
+    return NextResponse.json(
+      {
+        error: `Too many failed attempts for this account. Try again in ${LOGIN_RATE_LIMIT_WINDOW_MINUTES} minutes.`,
+      },
+      { status: 429, headers: { "Retry-After": String(LOGIN_RATE_LIMIT_WINDOW_MINUTES * 60) } }
     );
   }
 

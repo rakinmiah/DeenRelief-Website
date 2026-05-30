@@ -11,6 +11,7 @@ import {
 } from "@/lib/sponsor-consent";
 import { getSponsorByEmail } from "@/lib/sponsorship-admin";
 import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
+import { checkRateLimitByKey } from "@/lib/rate-limit";
 import {
   resolveSponsor,
   updateSponsorDonorDetails,
@@ -151,6 +152,10 @@ export async function requestActivationLinkAction(
   const clean = (email ?? "").toLowerCase().trim();
   if (!clean.includes("@")) return { ok: true };
 
+  // Rate-limit per-email and per-IP. On limit we still report success (never
+  // reveal whether the email exists) but skip the send — caps email-bombing.
+  if (await authThrottled(clean)) return { ok: true };
+
   const sponsor = await getSponsorByEmail(clean);
   if (sponsor) {
     await provisionSponsorAndSendActivation({
@@ -161,4 +166,39 @@ export async function requestActivationLinkAction(
     });
   }
   return { ok: true };
+}
+
+/**
+ * PUBLIC: send a password-reset email, routed server-side so we can throttle
+ * it (the browser path would bypass our rate limit). Always reports success.
+ */
+export async function requestPasswordResetAction(
+  email: string
+): Promise<{ ok: boolean }> {
+  const clean = (email ?? "").toLowerCase().trim();
+  if (!clean.includes("@")) return { ok: true };
+  if (await authThrottled(clean)) return { ok: true };
+
+  try {
+    const supabase = await createServerSupabase();
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+      "https://deenrelief.org";
+    await supabase.auth.resetPasswordForEmail(clean, {
+      redirectTo: `${origin}/sponsor/set-password`,
+    });
+  } catch (err) {
+    console.error("[sponsor] password reset failed:", err);
+  }
+  return { ok: true };
+}
+
+/** True if this email or its requesting IP has exceeded the auth-email limit. */
+async function authThrottled(email: string): Promise<boolean> {
+  const { ip } = await requestContext();
+  const [byEmail, byIp] = await Promise.all([
+    checkRateLimitByKey("sponsor-auth-email", `email:${email}`),
+    checkRateLimitByKey("sponsor-auth-email", `ip:${ip ?? "unknown"}`),
+  ]);
+  return !byEmail.success || !byIp.success;
 }

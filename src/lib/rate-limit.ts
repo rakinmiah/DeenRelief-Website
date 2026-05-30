@@ -49,6 +49,20 @@ const limiters = {
         prefix: "rl:create-intent",
       })
     : null,
+
+  /**
+   * Sponsor activation-link / password-reset requests. Tight, because each
+   * success sends an email to an existing sponsor — caps email-bombing a known
+   * donor and slows account enumeration. Keyed per-email AND per-IP by caller.
+   */
+  "sponsor-auth-email": redis
+    ? new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(3, "900 s"),
+        analytics: true,
+        prefix: "rl:sponsor-auth",
+      })
+    : null,
 } as const;
 
 type LimiterName = keyof typeof limiters;
@@ -84,6 +98,27 @@ export async function checkRateLimit(
 
   const ip = getClientIp(request);
   const result = await limiter.limit(ip);
+  return {
+    success: result.success,
+    limit: result.limit,
+    remaining: result.remaining,
+    reset: result.reset,
+  };
+}
+
+/**
+ * Rate-limit against a named bucket by an EXPLICIT key (e.g. an email or an
+ * `ip:1.2.3.4` string) rather than auto-extracting the IP from a Request.
+ * Use from server actions, which don't get a Request. No-op (success) when
+ * Upstash isn't configured.
+ */
+export async function checkRateLimitByKey(
+  bucket: LimiterName,
+  key: string
+): Promise<RateLimitResult> {
+  const limiter = limiters[bucket];
+  if (!limiter) return { success: true, limit: 0, remaining: 0, reset: 0 };
+  const result = await limiter.limit(key);
   return {
     success: result.success,
     limit: result.limit,

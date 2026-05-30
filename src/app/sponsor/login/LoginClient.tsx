@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
+import { requestPasswordResetAction } from "../actions";
 
 const inputCls =
   "w-full px-4 py-3 rounded-xl bg-white border border-charcoal/15 focus:border-green focus:outline-none focus:ring-2 focus:ring-green/15 text-charcoal text-sm";
@@ -46,15 +47,12 @@ export default function LoginClient() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const supabase = createBrowserSupabase();
-    const redirectTo = `${window.location.origin}/sponsor/set-password`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo,
-    });
+    // Routed through a server action so the send is rate-limited (the direct
+    // browser call would bypass our throttle).
+    await requestPasswordResetAction(email);
     setSubmitting(false);
     // Don't reveal whether the email exists — always show the same confirmation.
     setResetSent(true);
-    if (error) console.error("[sponsor reset]", error.message);
   }
 
   if (mode === "reset") {

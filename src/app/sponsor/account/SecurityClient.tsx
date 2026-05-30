@@ -34,6 +34,8 @@ export default function SecurityClient({
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signoutPrompt, setSignoutPrompt] = useState(false);
+  const [signoutPw, setSignoutPw] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   function reset() {
@@ -81,13 +83,21 @@ export default function SecurityClient({
     router.refresh();
   }
 
-  async function signOutEverywhere() {
-    const ok = window.confirm(
-      "Sign out of every device, including this one? You'll need to sign in again."
-    );
-    if (!ok) return;
+  async function confirmSignOutEverywhere(e: React.FormEvent) {
+    e.preventDefault();
     setSigningOut(true);
+    setMsg(null);
     const supabase = createBrowserSupabase();
+    // Re-verify the password so a ridden session can't force-logout the user.
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: signoutPw,
+    });
+    if (error) {
+      setSigningOut(false);
+      setMsg({ ok: false, text: "That password is incorrect." });
+      return;
+    }
     await supabase.auth.signOut({ scope: "global" });
     router.replace("/sponsor/login");
     router.refresh();
@@ -192,17 +202,56 @@ export default function SecurityClient({
       )}
 
       <div className="mt-5 pt-5 border-t border-charcoal/5">
-        <button
-          onClick={signOutEverywhere}
-          disabled={signingOut}
-          className="text-sm font-medium text-charcoal/70 hover:text-red-600 transition-colors disabled:opacity-60"
-        >
-          {signingOut ? "Signing out…" : "Sign out of all devices"}
-        </button>
-        <p className="mt-1 text-xs text-grey/70">
-          Signs you out everywhere — useful if you&apos;ve used a shared or lost
-          device.
-        </p>
+        {signoutPrompt ? (
+          <form onSubmit={confirmSignOutEverywhere} className="space-y-3">
+            <p className="text-sm text-grey">
+              Confirm your password to sign out of every device.
+            </p>
+            <input
+              type="password"
+              autoComplete="current-password"
+              className={inputCls}
+              value={signoutPw}
+              onChange={(e) => setSignoutPw(e.target.value)}
+              placeholder="Current password"
+              aria-label="Current password"
+              autoFocus
+            />
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={signingOut || !signoutPw}
+                className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/90 transition-colors disabled:opacity-60"
+              >
+                {signingOut ? "Signing out…" : "Sign out everywhere"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSignoutPrompt(false);
+                  setSignoutPw("");
+                  setMsg(null);
+                }}
+                className="text-sm text-grey hover:text-charcoal"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <button
+              onClick={() => setSignoutPrompt(true)}
+              className="text-sm font-medium text-charcoal/70 hover:text-red-600 transition-colors"
+            >
+              Sign out of all devices
+            </button>
+            <p className="mt-1 text-xs text-grey/70">
+              Signs you out everywhere — useful if you&apos;ve used a shared or
+              lost device.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
