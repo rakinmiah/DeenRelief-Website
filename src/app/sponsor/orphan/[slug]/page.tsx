@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
+import { createServerSupabase, requireSponsor } from "@/lib/supabase-server";
 import { logChildMediaAccess } from "@/lib/orphan-media";
 import { clientIpFromRequest } from "@/lib/admin-audit";
 import MediaPlayer from "./MediaPlayer";
@@ -63,8 +63,7 @@ export default async function OrphanProfilePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const user = await getSponsorUser();
-  if (!user) redirect("/sponsor/login");
+  const user = await requireSponsor();
   const { slug } = await params;
 
   const supabase = await createServerSupabase();

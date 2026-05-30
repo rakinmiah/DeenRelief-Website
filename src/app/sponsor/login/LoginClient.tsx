@@ -29,6 +29,14 @@ export default function LoginClient() {
       setSubmitting(false);
       return;
     }
+    // If the sponsor has 2FA enabled, the session is aal1 and must step up to
+    // aal2 — send them to the code challenge before the portal.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.currentLevel === "aal1" && aal.nextLevel === "aal2") {
+      router.replace("/sponsor/mfa");
+      router.refresh();
+      return;
+    }
     // Server components read the refreshed cookie; refresh to land on dashboard.
     router.replace("/sponsor/dashboard");
     router.refresh();

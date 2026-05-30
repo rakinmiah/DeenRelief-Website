@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
+import { createServerSupabase, requireSponsor } from "@/lib/supabase-server";
 
 export const metadata: Metadata = { title: "Your sponsorships" };
 export const dynamic = "force-dynamic";
@@ -35,8 +34,7 @@ function durationLabel(startedOn: string): string {
 }
 
 export default async function SponsorDashboardPage() {
-  const user = await getSponsorUser();
-  if (!user) redirect("/sponsor/login");
+  await requireSponsor();
 
   // RLS scopes this to the signed-in sponsor's own links, and the embedded
   // orphans rows to children they're actively linked to.

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
+import {
+  createServerSupabase,
+  getSponsorUser,
+  sponsorNeedsMfaChallenge,
+} from "@/lib/supabase-server";
 import {
   createSignedOrphanMediaUrl,
   logChildMediaAccess,
@@ -32,6 +36,12 @@ export async function GET(
   const user = await getSponsorUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+  // Block sessions that still owe a second factor (defence in depth — the
+  // orphan page already redirects them, but never serve child media to an
+  // un-stepped-up session).
+  if (await sponsorNeedsMfaChallenge()) {
+    return NextResponse.json({ error: "Verification required." }, { status: 403 });
   }
 
   // RLS-scoped read — the gate. Service-role is NOT used here.

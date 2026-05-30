@@ -1,11 +1,11 @@
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
+import { createServerSupabase, requireSponsor } from "@/lib/supabase-server";
 import { getSponsorById } from "@/lib/sponsorship-admin";
 import { getSponsorProfileView } from "@/lib/sponsor-donor";
 import AccountClient from "./AccountClient";
 import ProfileClient from "./ProfileClient";
 import SecurityClient from "./SecurityClient";
+import MfaClient from "./MfaClient";
 
 export const metadata: Metadata = { title: "Your account" };
 export const dynamic = "force-dynamic";
@@ -31,8 +31,7 @@ export default async function SponsorAccountPage({
 }: {
   searchParams: Promise<{ billing?: string }>;
 }) {
-  const user = await getSponsorUser();
-  if (!user) redirect("/sponsor/login");
+  const user = await requireSponsor();
   const { billing } = await searchParams;
 
   const sponsor = await getSponsorById(user.id);
@@ -83,6 +82,9 @@ export default async function SponsorAccountPage({
             email={email}
             lastSignInAt={user.last_sign_in_at ?? null}
           />
+
+          {/* Two-factor authentication */}
+          <MfaClient />
 
           {/* Your giving (read-only, from the donor record) */}
           {giving && (
