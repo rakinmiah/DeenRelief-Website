@@ -111,6 +111,50 @@ export async function loadUpdates(orphanId: string): Promise<UpdateItem[]> {
   }));
 }
 
+export interface UpdateWithMedia extends UpdateItem {
+  media: GalleryMedia[];
+}
+
+/** Published updates, each with its own media attached (for the timeline). */
+export async function loadUpdatesWithMedia(
+  orphanId: string
+): Promise<UpdateWithMedia[]> {
+  const supabase = await createServerSupabase();
+  const { data: ups } = await supabase
+    .from("orphan_updates")
+    .select("id, title, body_html, period_label, published_at")
+    .eq("orphan_id", orphanId)
+    .eq("published", true)
+    .order("published_at", { ascending: false });
+
+  const list = (ups ?? []).map((u) => ({
+    id: u.id as string,
+    title: (u.title as string) ?? "",
+    bodyHtml: (u.body_html as string) ?? "",
+    periodLabel: (u.period_label as string) ?? null,
+    publishedAt: (u.published_at as string) ?? null,
+  }));
+  const ids = list.map((u) => u.id);
+  const byUpdate = new Map<string, GalleryMedia[]>();
+  if (ids.length > 0) {
+    const { data: media } = await supabase
+      .from("orphan_update_media")
+      .select("id, update_id, kind, caption, sort_order")
+      .in("update_id", ids)
+      .order("sort_order", { ascending: true });
+    for (const m of media ?? []) {
+      const arr = byUpdate.get(m.update_id as string) ?? [];
+      arr.push({
+        id: m.id as string,
+        kind: m.kind as "photo" | "video",
+        caption: (m.caption as string) ?? null,
+      });
+      byUpdate.set(m.update_id as string, arr);
+    }
+  }
+  return list.map((u) => ({ ...u, media: byUpdate.get(u.id) ?? [] }));
+}
+
 /** All media across the child's published updates, newest-update-first. */
 export async function loadGallery(orphanId: string): Promise<GalleryMedia[]> {
   const supabase = await createServerSupabase();
