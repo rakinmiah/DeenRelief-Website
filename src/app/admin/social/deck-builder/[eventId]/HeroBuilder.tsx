@@ -342,7 +342,7 @@ function ChooseText({
   );
 }
 
-/* ─── Choose image (broken thumbs self-hide) ─────────────────────── */
+/* ─── Choose image (category carousels, broken thumbs self-hide) ─── */
 
 function ChooseImage({
   images,
@@ -355,62 +355,91 @@ function ChooseImage({
 }) {
   const [selected, setSelected] = useState<string | null>(value);
   const [broken, setBroken] = useState<Set<string>>(new Set());
+  const markBroken = (id: string) =>
+    setBroken((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
   const visible = images.filter((i) => !broken.has(i.id));
+  const dr = visible.filter((i) => i.source === "dr_library");
+  const ext = visible.filter((i) => i.source === "external");
+
+  const renderCard = (img: ImageCandidate, isFocused: boolean) => {
+    const isSel = selected === img.id;
+    return (
+      <button
+        type="button"
+        onClick={() => setSelected(img.id)}
+        className="block w-full"
+      >
+        <div
+          className={`relative aspect-square rounded-2xl overflow-hidden bg-charcoal/[0.04] transition-shadow ${
+            isSel
+              ? "ring-[3px] ring-green shadow-xl"
+              : isFocused
+                ? "shadow-2xl"
+                : "ring-1 ring-charcoal/10"
+          }`}
+        >
+          <Thumb src={img.thumbnailUrl ?? img.url} onError={() => markBroken(img.id)} />
+          {isSel && (
+            <span className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-green grid place-items-center shadow">
+              <Check className="w-3.5 h-3.5 text-white" />
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-5xl">
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
         Choose your hero image
       </h1>
-      <p className="text-[13.5px] text-charcoal/55 mb-5">
+      <p className="text-[13.5px] text-charcoal/55">
         {visible.length} image{visible.length === 1 ? "" : "s"} matched to this
-        story. Pick the one that carries it.
+        story. Flick through and tap the one that carries it.
       </p>
 
       {visible.length === 0 ? (
-        <p className="text-[13px] text-charcoal/45 mb-5">
+        <p className="text-[13px] text-charcoal/45 mt-6">
           No imagery matched — you can add a photo later in the editor.
         </p>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 mb-5">
-          {visible.map((img) => {
-            const isSel = selected === img.id;
-            return (
-              <button
-                key={img.id}
-                type="button"
-                onClick={() => setSelected(img.id)}
-                className={`relative aspect-square rounded-xl overflow-hidden transition ${
-                  isSel
-                    ? "ring-[3px] ring-green"
-                    : "ring-1 ring-charcoal/10 hover:ring-charcoal/30"
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={img.thumbnailUrl ?? img.url}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover bg-charcoal/5"
-                  onError={() =>
-                    setBroken((prev) => {
-                      const next = new Set(prev);
-                      next.add(img.id);
-                      return next;
-                    })
-                  }
-                />
-                {isSel && (
-                  <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-green grid place-items-center">
-                    <Check className="w-3 h-3 text-white" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        <div className="mt-12 space-y-12">
+          {dr.length > 0 && (
+            <section>
+              <CategoryLabel>Deen Relief library</CategoryLabel>
+              <FocusCarousel
+                items={dr}
+                slot={280}
+                focusScale={1.16}
+                dimScale={0.8}
+                getKey={(i) => i.id}
+                renderItem={renderCard}
+              />
+            </section>
+          )}
+          {ext.length > 0 && (
+            <section>
+              <CategoryLabel>From the web</CategoryLabel>
+              <FocusCarousel
+                items={ext}
+                slot={280}
+                focusScale={1.16}
+                dimScale={0.8}
+                getKey={(i) => i.id}
+                renderItem={renderCard}
+              />
+            </section>
+          )}
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mt-12">
         <button
           type="button"
           disabled={!selected && visible.length > 0}
@@ -431,6 +460,31 @@ function ChooseImage({
         )}
       </div>
     </div>
+  );
+}
+
+function CategoryLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/40 mb-4">
+      {children}
+    </p>
+  );
+}
+
+/** Thumbnail that fades in on load — smooths the image-step entrance. */
+function Thumb({ src, onError }: { src: string; onError: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      onLoad={() => setLoaded(true)}
+      onError={onError}
+      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+        loaded ? "opacity-100" : "opacity-0"
+      }`}
+    />
   );
 }
 
@@ -488,19 +542,33 @@ function CompilingStep({
   );
 }
 
-/* ─── Template focus carousel ────────────────────────────────────── */
+/* ─── Generic focus carousel ─────────────────────────────────────── */
 
-const SLOT = 300; // layout slot width per card
 const GAP = 28;
 
-function TemplateCarousel({
-  templates,
-  previews,
-  onConfirm,
+/**
+ * A non-auto-rotating carousel where the centred item is enlarged and
+ * neighbours shrink + dim. Arrows, dots and horizontal swipe move
+ * focus. Used for both the template chooser and the per-category image
+ * strips. Focus state is internal; pass onFocusChange (a stable setter)
+ * if the parent needs the index (e.g. for a "Use this" button).
+ */
+function FocusCarousel<T>({
+  items,
+  slot,
+  focusScale,
+  dimScale = 0.82,
+  getKey,
+  renderItem,
+  onFocusChange,
 }: {
-  templates: TemplateMeta[];
-  previews: Record<string, Preview>;
-  onConfirm: (templateId: string) => void;
+  items: T[];
+  slot: number;
+  focusScale: number;
+  dimScale?: number;
+  getKey: (item: T, i: number) => string;
+  renderItem: (item: T, isFocused: boolean, i: number) => React.ReactNode;
+  onFocusChange?: (i: number) => void;
 }) {
   const [focused, setFocused] = useState(0);
   const wheelLock = useRef(false);
@@ -514,17 +582,21 @@ function TemplateCarousel({
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  const step = SLOT + GAP;
-  // Translate the row so the focused card sits dead centre.
-  const x = vw / 2 - (focused * step + SLOT / 2);
+  // Clamp if the list shrinks (a broken thumb self-hides mid-carousel).
+  const safe = Math.min(focused, Math.max(0, items.length - 1));
+  useEffect(() => {
+    onFocusChange?.(safe);
+  }, [safe, onFocusChange]);
+
+  const step = slot + GAP;
+  const x = vw / 2 - (safe * step + slot / 2);
 
   function move(delta: number) {
-    setFocused((i) => Math.min(templates.length - 1, Math.max(0, i + delta)));
+    setFocused((i) => Math.min(items.length - 1, Math.max(0, i + delta)));
   }
-
   function onWheel(e: React.WheelEvent) {
-    // Only horizontal-dominant swipes drive the carousel — vertical
-    // wheel keeps scrolling the page so she's never trapped here.
+    // Only horizontal-dominant swipes drive it — vertical wheel keeps
+    // scrolling the page so she's never trapped.
     if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
     if (Math.abs(e.deltaX) < 14 || wheelLock.current) return;
     wheelLock.current = true;
@@ -532,21 +604,15 @@ function TemplateCarousel({
     setTimeout(() => (wheelLock.current = false), 320);
   }
 
+  if (items.length === 0) return null;
+
   return (
     <div>
-      <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
-        Choose your hero template
-      </h1>
-      <p className="text-[13.5px] text-charcoal/55 mb-2">
-        Your title, line and photo are already in each one. Scroll through and
-        pick the look you want.
-      </p>
-
       <div
         ref={viewportRef}
         onWheel={onWheel}
-        className="relative overflow-hidden py-6"
-        style={{ minHeight: SLOT * 1.18 + 80 }}
+        className="relative overflow-hidden flex items-center"
+        style={{ minHeight: slot * focusScale + 120 }}
       >
         <motion.div
           className="flex items-center"
@@ -554,25 +620,87 @@ function TemplateCarousel({
           animate={{ x }}
           transition={{ type: "spring", stiffness: 260, damping: 32 }}
         >
-          {templates.map((meta, i) => {
-            const isFocused = i === focused;
-            const pv = previews[meta.id];
+          {items.map((item, i) => {
+            const isFocused = i === safe;
             return (
-              <motion.button
-                key={meta.id}
-                type="button"
-                onClick={() => (isFocused ? undefined : setFocused(i))}
+              <motion.div
+                key={getKey(item, i)}
+                onClick={() => setFocused(i)}
                 animate={{
-                  scale: isFocused ? 1.16 : 0.84,
-                  opacity: isFocused ? 1 : 0.45,
+                  scale: isFocused ? focusScale : dimScale,
+                  opacity: isFocused ? 1 : 0.4,
                 }}
                 transition={{ type: "spring", stiffness: 260, damping: 30 }}
-                style={{ width: SLOT }}
+                style={{ width: slot }}
                 className="shrink-0 origin-center cursor-pointer"
               >
+                {renderItem(item, isFocused, i)}
+              </motion.div>
+            );
+          })}
+        </motion.div>
+
+        {safe > 0 && <Arrow side="left" onClick={() => move(-1)} />}
+        {safe < items.length - 1 && <Arrow side="right" onClick={() => move(1)} />}
+      </div>
+
+      {items.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5 mt-5">
+          {items.map((item, i) => (
+            <button
+              key={getKey(item, i)}
+              type="button"
+              onClick={() => setFocused(i)}
+              aria-label={`Go to item ${i + 1}`}
+              className={`h-1.5 rounded-full transition-all ${
+                i === safe ? "w-5 bg-green" : "w-1.5 bg-charcoal/20 hover:bg-charcoal/35"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Template focus carousel ────────────────────────────────────── */
+
+function TemplateCarousel({
+  templates,
+  previews,
+  onConfirm,
+}: {
+  templates: TemplateMeta[];
+  previews: Record<string, Preview>;
+  onConfirm: (templateId: string) => void;
+}) {
+  const [focused, setFocused] = useState(0);
+
+  return (
+    <div>
+      <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
+        Choose your hero template
+      </h1>
+      <p className="text-[13.5px] text-charcoal/55">
+        Your title, line and photo are already in each one. Scroll through and
+        pick the look you want.
+      </p>
+
+      <div className="mt-12">
+        <FocusCarousel
+          items={templates}
+          slot={400}
+          focusScale={1.2}
+          dimScale={0.8}
+          getKey={(t) => t.id}
+          onFocusChange={setFocused}
+          renderItem={(meta, isFocused) => {
+            const pv = previews[meta.id];
+            return (
+              <>
                 <div
                   className={`rounded-2xl overflow-hidden bg-charcoal/[0.04] transition-shadow ${
-                    isFocused ? "ring-2 ring-green shadow-xl" : "ring-1 ring-charcoal/10"
+                    isFocused ? "shadow-2xl" : "ring-1 ring-charcoal/10"
                   }`}
                 >
                   <div className="relative aspect-square">
@@ -594,42 +722,19 @@ function TemplateCarousel({
                     )}
                   </div>
                 </div>
-                <p className="text-center text-[12.5px] font-medium text-charcoal mt-2.5">
+                <p className="text-center text-[13px] font-medium text-charcoal mt-3">
                   {meta.name}
                 </p>
-              </motion.button>
+              </>
             );
-          })}
-        </motion.div>
-
-        {/* Arrows */}
-        {focused > 0 && (
-          <Arrow side="left" onClick={() => move(-1)} />
-        )}
-        {focused < templates.length - 1 && (
-          <Arrow side="right" onClick={() => move(1)} />
-        )}
+          }}
+        />
       </div>
 
-      {/* Dots */}
-      <div className="flex items-center justify-center gap-1.5 mb-6">
-        {templates.map((meta, i) => (
-          <button
-            key={meta.id}
-            type="button"
-            onClick={() => setFocused(i)}
-            aria-label={`Go to ${meta.name}`}
-            className={`h-1.5 rounded-full transition-all ${
-              i === focused ? "w-5 bg-green" : "w-1.5 bg-charcoal/20 hover:bg-charcoal/35"
-            }`}
-          />
-        ))}
-      </div>
-
-      <div className="flex justify-center">
+      <div className="flex justify-center mt-10">
         <button
           type="button"
-          onClick={() => onConfirm(templates[focused]!.id)}
+          onClick={() => templates[focused] && onConfirm(templates[focused]!.id)}
           disabled={!templates[focused]}
           className="inline-flex items-center gap-2 bg-amber-dark text-white text-[14px] font-semibold px-6 py-2.5 rounded-xl hover:bg-amber-darker disabled:opacity-30 transition-colors"
         >
