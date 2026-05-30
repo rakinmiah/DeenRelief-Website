@@ -9,8 +9,12 @@ import {
   setUpdateNotification,
   createDataRequest,
 } from "@/lib/sponsor-consent";
-import { getSponsorByEmail } from "@/lib/sponsorship-admin";
+import { getSponsorByEmail, getSponsorById } from "@/lib/sponsorship-admin";
 import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
+import {
+  updateSponsorDonorDetails,
+  type UpdateSponsorDetailsInput,
+} from "@/lib/sponsor-donor";
 
 /**
  * Server actions for the sponsor portal. Each one re-derives the verified
@@ -96,6 +100,17 @@ export async function setMarketingConsentAction(
   if (!user) return { ok: false, error: "Not signed in." };
   const { ip, userAgent } = await requestContext();
   return setMarketingConsent({ sponsorId: user.id, granted, ip, userAgent });
+}
+
+/** Update the sponsor's editable personal details (name, phone, address). */
+export async function updateProfileAction(
+  input: UpdateSponsorDetailsInput
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await getSponsorUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+  const sponsor = await getSponsorById(user.id);
+  if (!sponsor) return { ok: false, error: "Account not found." };
+  return updateSponsorDonorDetails(sponsor, input);
 }
 
 export async function setUpdateNotificationAction(
