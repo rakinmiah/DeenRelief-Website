@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createServerSupabase, requireSponsor } from "@/lib/supabase-server";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { createSignedOrphanMediaUrl } from "@/lib/orphan-media";
 import { resolveSponsor } from "@/lib/sponsor-donor";
 
@@ -8,6 +9,7 @@ export const metadata: Metadata = { title: "Your sponsorships" };
 export const dynamic = "force-dynamic";
 
 interface DashboardOrphan {
+  id: string;
   slug: string;
   displayName: string;
   country: string;
@@ -16,6 +18,16 @@ interface DashboardOrphan {
   startedOn: string | null;
   profilePhotoPath: string | null;
   photoUrl: string | null;
+  hasUnread: boolean;
+}
+
+function NewBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 mb-2 rounded-full bg-green/10 text-green px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide">
+      <span className="w-1.5 h-1.5 rounded-full bg-green" aria-hidden />
+      New update
+    </span>
+  );
 }
 
 function monthsSince(fromIso: string): number {
@@ -76,7 +88,7 @@ export default async function SponsorDashboardPage() {
   const { data } = await supabase
     .from("sponsorships")
     .select(
-      "id, status, started_on, orphans ( slug, display_name, country, region, age_band, profile_photo_path )"
+      "id, status, started_on, orphans ( id, slug, display_name, country, region, age_band, profile_photo_path )"
     )
     .neq("status", "ended")
     .order("created_at", { ascending: true });
@@ -86,6 +98,7 @@ export default async function SponsorDashboardPage() {
       const o = row.orphans as unknown as Record<string, unknown> | null;
       if (!o) return null;
       return {
+        id: o.id as string,
         slug: o.slug as string,
         displayName: (o.display_name as string) ?? "",
         country: (o.country as string) ?? "",
@@ -94,18 +107,59 @@ export default async function SponsorDashboardPage() {
         startedOn: (row.started_on as string) ?? null,
         profilePhotoPath: (o.profile_photo_path as string) ?? null,
         photoUrl: null,
+        hasUnread: false,
       };
     })
     .filter((x): x is DashboardOrphan => x !== null);
 
-  // Mint signed URLs for the child photos.
+  const orphanIds = base.map((c) => c.id);
+
+  // Latest published update per child (RLS-scoped).
+  const latestByOrphan = new Map<string, string>();
+  if (orphanIds.length > 0) {
+    const { data: ups } = await supabase
+      .from("orphan_updates")
+      .select("orphan_id, published_at")
+      .in("orphan_id", orphanIds)
+      .eq("published", true)
+      .order("published_at", { ascending: false });
+    for (const u of ups ?? []) {
+      const oid = u.orphan_id as string;
+      if (!latestByOrphan.has(oid)) latestByOrphan.set(oid, u.published_at as string);
+    }
+  }
+
+  // When this sponsor last opened each child's page (their own access log).
+  const lastViewByOrphan = new Map<string, string>();
+  if (orphanIds.length > 0) {
+    const { data: views } = await getSupabaseAdmin()
+      .from("child_media_access_log")
+      .select("orphan_id, created_at")
+      .eq("sponsor_id", user.id)
+      .eq("action", "view_profile")
+      .in("orphan_id", orphanIds)
+      .order("created_at", { ascending: false });
+    for (const v of views ?? []) {
+      const oid = v.orphan_id as string;
+      if (!lastViewByOrphan.has(oid)) lastViewByOrphan.set(oid, v.created_at as string);
+    }
+  }
+
+  // Mint signed URLs for the child photos + compute the unread flag.
   const children = await Promise.all(
-    base.map(async (c) => ({
-      ...c,
-      photoUrl: c.profilePhotoPath
-        ? await createSignedOrphanMediaUrl(c.profilePhotoPath)
-        : null,
-    }))
+    base.map(async (c) => {
+      const latest = latestByOrphan.get(c.id);
+      const lastView = lastViewByOrphan.get(c.id);
+      const hasUnread =
+        !!latest && (!lastView || new Date(latest) > new Date(lastView));
+      return {
+        ...c,
+        hasUnread,
+        photoUrl: c.profilePhotoPath
+          ? await createSignedOrphanMediaUrl(c.profilePhotoPath)
+          : null,
+      };
+    })
   );
 
   const sponsor = await resolveSponsor(user);
@@ -148,6 +202,7 @@ export default async function SponsorDashboardPage() {
                 className="w-full sm:w-1/2 aspect-[4/3] sm:aspect-auto sm:min-h-[20rem]"
               />
               <div className="p-6 sm:p-8 flex flex-col justify-center">
+                {children[0].hasUnread && <NewBadge />}
                 <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-1.5">
                   The child you sponsor
                 </span>
@@ -173,7 +228,15 @@ export default async function SponsorDashboardPage() {
                 href={`/sponsor/orphan/${c.slug}`}
                 className="group block rounded-2xl border border-charcoal/8 bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-1"
               >
-                <Photo c={c} className="w-full aspect-[4/3]" />
+                <div className="relative">
+                  <Photo c={c} className="w-full aspect-[4/3]" />
+                  {c.hasUnread && (
+                    <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-green shadow-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green" aria-hidden />
+                      New update
+                    </span>
+                  )}
+                </div>
                 <div className="p-5">
                   <h2 className="font-heading font-bold text-xl text-charcoal leading-snug group-hover:text-green transition-colors">
                     {c.displayName}
