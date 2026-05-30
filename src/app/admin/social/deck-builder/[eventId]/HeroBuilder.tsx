@@ -1,19 +1,17 @@
 "use client";
 
 /**
- * HeroBuilder — the guided sub-flow for slide 1 (Phase 9).
+ * HeroBuilder — the guided sub-flow for slide 1 (Phase 9 / 9b).
  *
- * After the wizard, the SMM builds the hero slide one decision at a
- * time, with her choices accumulating in a pinned header:
+ *   intro → title → subtext → image → compiling → template
  *
- *   intro → title → subtext → image → template
- *
- * Intro: "Slide 1" then the category ("Hero") glide to the top via a
- * shared layoutId, then the question + options spawn below. The chosen
- * title (then subtext, then image) stay pinned through every step. The
- * template step renders each hero template LIVE with her actual content
- * composed in, via the render endpoint. On confirm, the finished hero
- * SlideDraft is handed back to the flow.
+ * The chosen TITLE pins to a constant header and stays through every
+ * step (subtext + photo are NOT echoed there — they live only in the
+ * eventual slide). On each step the page scrolls to the top so the
+ * header is always in view. After the image step, a "Compiling
+ * templates" screen actually renders her content into every hero
+ * template up front, then a focus carousel lets her flick through
+ * them — the centred one enlarges so she can see it properly.
  */
 
 import { motion } from "framer-motion";
@@ -25,14 +23,9 @@ import type {
 } from "@/lib/social-templates/types";
 import type { ContentBundle, ImageBundle, SlideDraft } from "./types";
 
-type Phase = "intro" | "title" | "subtext" | "image" | "template";
+type Phase = "intro" | "title" | "subtext" | "image" | "compiling" | "template";
 
-export interface HeroChoice {
-  title: string;
-  subtext: string | null;
-  imageId: string | null;
-  templateId: string;
-}
+type Preview = { url: string | null; failed: boolean };
 
 export default function HeroBuilder({
   content,
@@ -49,6 +42,16 @@ export default function HeroBuilder({
   const [title, setTitle] = useState<string | null>(null);
   const [subtext, setSubtext] = useState<string | null>(null);
   const [imageId, setImageId] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Record<string, Preview>>({});
+  const previewUrlsRef = useRef<string[]>([]);
+
+  // Scroll the page to the top whenever the step changes, so the pinned
+  // header (and the new question) glide into view together.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [phase]);
 
   // Auto-advance the intro.
   useEffect(() => {
@@ -56,6 +59,13 @@ export default function HeroBuilder({
     const t = setTimeout(() => setPhase("title"), 1900);
     return () => clearTimeout(t);
   }, [phase]);
+
+  // Revoke any preview object URLs on unmount.
+  useEffect(() => {
+    return () => {
+      for (const u of previewUrlsRef.current) URL.revokeObjectURL(u);
+    };
+  }, []);
 
   const titleOptions = useMemo(
     () =>
@@ -76,6 +86,39 @@ export default function HeroBuilder({
     [content]
   );
 
+  // Render the SMM's content into every hero template while the
+  // "Compiling templates" screen is up.
+  async function compileTemplates(): Promise<void> {
+    const entries = await Promise.all(
+      heroTemplates.map(async (meta): Promise<[string, Preview]> => {
+        try {
+          const { slotValues, imageMediaIds } = composeFor(meta, {
+            title: title ?? "",
+            subtext,
+            imageId,
+          });
+          const res = await fetch("/api/admin/social-templates/render", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              templateId: meta.id,
+              slotValues,
+              imageMediaIds,
+            }),
+          });
+          if (!res.ok) throw new Error(String(res.status));
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          previewUrlsRef.current.push(url);
+          return [meta.id, { url, failed: false }];
+        } catch {
+          return [meta.id, { url: null, failed: true }];
+        }
+      })
+    );
+    setPreviews(Object.fromEntries(entries));
+  }
+
   function buildHeroSlide(templateId: string): SlideDraft {
     const meta = heroTemplates.find((t) => t.id === templateId)!;
     const { slotValues, imageMediaIds } = composeFor(meta, {
@@ -89,7 +132,7 @@ export default function HeroBuilder({
   /* ── Intro ── */
   if (phase === "intro") {
     return (
-      <div className="min-h-[70vh] grid place-items-center px-5">
+      <div className="min-h-[78vh] grid place-items-center px-5">
         <div className="text-center">
           <motion.p
             initial={{ opacity: 0, y: 8 }}
@@ -113,11 +156,11 @@ export default function HeroBuilder({
     );
   }
 
-  /* ── Working layout (pinned header + current step) ── */
+  /* ── Working layout (pinned title header + current step) ── */
   return (
-    <div className="max-w-3xl mx-auto px-5 py-6">
-      {/* Pinned, accumulating header */}
-      <div className="mb-8">
+    <div className="max-w-5xl mx-auto px-5 py-8">
+      {/* Pinned header — Slide 1 · Hero + the chosen title only. */}
+      <div className="mb-9 max-w-3xl">
         <div className="flex items-baseline gap-2.5 mb-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal/35">
             Slide 1
@@ -138,33 +181,14 @@ export default function HeroBuilder({
             {title}
           </motion.h2>
         )}
-        {subtext && (
-          <motion.p
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-[14px] text-charcoal/65 mt-1.5 max-w-xl"
-          >
-            {subtext}
-          </motion.p>
-        )}
-        {imageId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-3 inline-flex items-center gap-2 text-[12px] text-charcoal/45"
-          >
-            <ImageThumb imageId={imageId} images={images.images} />
-            Photo selected
-          </motion.div>
-        )}
       </div>
 
-      {/* Current sub-step */}
+      {/* Current sub-step — smoother fade/slide on every change. */}
       <motion.div
         key={phase}
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       >
         {phase === "title" && (
           <ChooseText
@@ -198,16 +222,20 @@ export default function HeroBuilder({
             value={imageId}
             onConfirm={(id) => {
               setImageId(id);
-              setPhase("template");
+              setPhase("compiling");
             }}
           />
         )}
+        {phase === "compiling" && (
+          <CompilingStep
+            run={compileTemplates}
+            onDone={() => setPhase("template")}
+          />
+        )}
         {phase === "template" && (
-          <ChooseTemplate
+          <TemplateCarousel
             templates={heroTemplates}
-            title={title ?? ""}
-            subtext={subtext}
-            imageId={imageId}
+            previews={previews}
             onConfirm={(templateId) => onComplete(buildHeroSlide(templateId))}
           />
         )}
@@ -236,11 +264,10 @@ function ChooseText({
   const [selected, setSelected] = useState<string | null>(value);
   const [own, setOwn] = useState("");
   const [writing, setWriting] = useState(false);
-
   const effective = writing ? own.trim() || null : selected;
 
   return (
-    <div>
+    <div className="max-w-3xl">
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
         {heading}
       </h1>
@@ -268,7 +295,6 @@ function ChooseText({
           );
         })}
 
-        {/* Write your own */}
         <button
           type="button"
           onClick={() => setWriting(true)}
@@ -316,7 +342,7 @@ function ChooseText({
   );
 }
 
-/* ─── Choose image ───────────────────────────────────────────────── */
+/* ─── Choose image (broken thumbs self-hide) ─────────────────────── */
 
 function ChooseImage({
   images,
@@ -328,23 +354,26 @@ function ChooseImage({
   onConfirm: (id: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(value);
+  const [broken, setBroken] = useState<Set<string>>(new Set());
+  const visible = images.filter((i) => !broken.has(i.id));
+
   return (
-    <div>
+    <div className="max-w-4xl">
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
         Choose your hero image
       </h1>
       <p className="text-[13.5px] text-charcoal/55 mb-5">
-        {images.length} image{images.length === 1 ? "" : "s"} matched to this
+        {visible.length} image{visible.length === 1 ? "" : "s"} matched to this
         story. Pick the one that carries it.
       </p>
 
-      {images.length === 0 ? (
+      {visible.length === 0 ? (
         <p className="text-[13px] text-charcoal/45 mb-5">
           No imagery matched — you can add a photo later in the editor.
         </p>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 mb-5">
-          {images.map((img) => {
+          {visible.map((img) => {
             const isSel = selected === img.id;
             return (
               <button
@@ -352,20 +381,27 @@ function ChooseImage({
                 type="button"
                 onClick={() => setSelected(img.id)}
                 className={`relative aspect-square rounded-xl overflow-hidden transition ${
-                  isSel ? "ring-[3px] ring-green" : "ring-1 ring-charcoal/10 hover:ring-charcoal/30"
+                  isSel
+                    ? "ring-[3px] ring-green"
+                    : "ring-1 ring-charcoal/10 hover:ring-charcoal/30"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={img.thumbnailUrl ?? img.url}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover bg-charcoal/5"
+                  onError={() =>
+                    setBroken((prev) => {
+                      const next = new Set(prev);
+                      next.add(img.id);
+                      return next;
+                    })
+                  }
                 />
                 {isSel && (
                   <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-green grid place-items-center">
-                    <svg className="w-3 h-3 text-white" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M5 10.5l3.5 3.5L15 6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <Check className="w-3 h-3 text-white" />
                   </span>
                 )}
               </button>
@@ -377,14 +413,14 @@ function ChooseImage({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          disabled={!selected && images.length > 0}
-          onClick={() => selected && onConfirm(selected)}
+          disabled={!selected && visible.length > 0}
+          onClick={() => onConfirm(selected ?? "")}
           className="inline-flex items-center gap-2 bg-charcoal text-white text-[14px] font-medium px-5 py-2.5 rounded-xl hover:bg-charcoal/85 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           Continue
           <Chevron />
         </button>
-        {images.length > 0 && (
+        {visible.length > 0 && (
           <button
             type="button"
             onClick={() => onConfirm("")}
@@ -398,157 +434,242 @@ function ChooseImage({
   );
 }
 
-/* ─── Choose template (live previews) ────────────────────────────── */
+/* ─── Compiling templates (loading) ──────────────────────────────── */
 
-function ChooseTemplate({
+function CompilingStep({
+  run,
+  onDone,
+}: {
+  run: () => Promise<void>;
+  onDone: () => void;
+}) {
+  const [ready, setReady] = useState(false);
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    const startedAt = Date.now();
+    run().finally(() => {
+      // Keep the screen up for a calm minimum even on a fast render.
+      const elapsed = Date.now() - startedAt;
+      const wait = Math.max(0, 1100 - elapsed);
+      setTimeout(() => setReady(true), wait);
+    });
+  }, [run]);
+
+  useEffect(() => {
+    if (ready) {
+      const t = setTimeout(onDone, 350);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [ready, onDone]);
+
+  return (
+    <div className="min-h-[40vh] grid place-items-center">
+      <div className="text-center w-full max-w-sm">
+        <p className="text-[15px] font-medium text-charcoal/80 mb-5">
+          Compiling templates…
+        </p>
+        <div className="h-1.5 rounded-full bg-charcoal/8 overflow-hidden">
+          <motion.div
+            className="h-full bg-green/70 rounded-full"
+            initial={{ width: "10%" }}
+            animate={{ width: ready ? "100%" : "82%" }}
+            transition={{ ease: "easeOut", duration: ready ? 0.35 : 1.1 }}
+          />
+        </div>
+        <p className="text-[12px] text-charcoal/40 mt-3">
+          Dropping your title, line and photo into each layout.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Template focus carousel ────────────────────────────────────── */
+
+const SLOT = 300; // layout slot width per card
+const GAP = 28;
+
+function TemplateCarousel({
   templates,
-  title,
-  subtext,
-  imageId,
+  previews,
   onConfirm,
 }: {
   templates: TemplateMeta[];
-  title: string;
-  subtext: string | null;
-  imageId: string | null;
+  previews: Record<string, Preview>;
   onConfirm: (templateId: string) => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [focused, setFocused] = useState(0);
+  const wheelLock = useRef(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [vw, setVw] = useState(0);
+
+  useEffect(() => {
+    const measure = () => setVw(viewportRef.current?.clientWidth ?? 0);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const step = SLOT + GAP;
+  // Translate the row so the focused card sits dead centre.
+  const x = vw / 2 - (focused * step + SLOT / 2);
+
+  function move(delta: number) {
+    setFocused((i) => Math.min(templates.length - 1, Math.max(0, i + delta)));
+  }
+
+  function onWheel(e: React.WheelEvent) {
+    // Only horizontal-dominant swipes drive the carousel — vertical
+    // wheel keeps scrolling the page so she's never trapped here.
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    if (Math.abs(e.deltaX) < 14 || wheelLock.current) return;
+    wheelLock.current = true;
+    move(e.deltaX > 0 ? 1 : -1);
+    setTimeout(() => (wheelLock.current = false), 320);
+  }
+
   return (
     <div>
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1.5">
         Choose your hero template
       </h1>
-      <p className="text-[13.5px] text-charcoal/55 mb-5">
-        Your title, line and photo are already dropped into each one — pick the
-        look you want.
+      <p className="text-[13.5px] text-charcoal/55 mb-2">
+        Your title, line and photo are already in each one. Scroll through and
+        pick the look you want.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        {templates.map((meta) => (
-          <TemplatePreviewCard
+      <div
+        ref={viewportRef}
+        onWheel={onWheel}
+        className="relative overflow-hidden py-6"
+        style={{ minHeight: SLOT * 1.18 + 80 }}
+      >
+        <motion.div
+          className="flex items-center"
+          style={{ gap: GAP }}
+          animate={{ x }}
+          transition={{ type: "spring", stiffness: 260, damping: 32 }}
+        >
+          {templates.map((meta, i) => {
+            const isFocused = i === focused;
+            const pv = previews[meta.id];
+            return (
+              <motion.button
+                key={meta.id}
+                type="button"
+                onClick={() => (isFocused ? undefined : setFocused(i))}
+                animate={{
+                  scale: isFocused ? 1.16 : 0.84,
+                  opacity: isFocused ? 1 : 0.45,
+                }}
+                transition={{ type: "spring", stiffness: 260, damping: 30 }}
+                style={{ width: SLOT }}
+                className="shrink-0 origin-center cursor-pointer"
+              >
+                <div
+                  className={`rounded-2xl overflow-hidden bg-charcoal/[0.04] transition-shadow ${
+                    isFocused ? "ring-2 ring-green shadow-xl" : "ring-1 ring-charcoal/10"
+                  }`}
+                >
+                  <div className="relative aspect-square">
+                    {pv?.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={pv.url}
+                        alt={meta.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : pv?.failed ? (
+                      <div className="absolute inset-0 grid place-items-center text-[12px] text-charcoal/40">
+                        Preview unavailable
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 grid place-items-center">
+                        <Spinner />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-center text-[12.5px] font-medium text-charcoal mt-2.5">
+                  {meta.name}
+                </p>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        {/* Arrows */}
+        {focused > 0 && (
+          <Arrow side="left" onClick={() => move(-1)} />
+        )}
+        {focused < templates.length - 1 && (
+          <Arrow side="right" onClick={() => move(1)} />
+        )}
+      </div>
+
+      {/* Dots */}
+      <div className="flex items-center justify-center gap-1.5 mb-6">
+        {templates.map((meta, i) => (
+          <button
             key={meta.id}
-            meta={meta}
-            title={title}
-            subtext={subtext}
-            imageId={imageId}
-            selected={selected === meta.id}
-            onSelect={() => setSelected(meta.id)}
+            type="button"
+            onClick={() => setFocused(i)}
+            aria-label={`Go to ${meta.name}`}
+            className={`h-1.5 rounded-full transition-all ${
+              i === focused ? "w-5 bg-green" : "w-1.5 bg-charcoal/20 hover:bg-charcoal/35"
+            }`}
           />
         ))}
       </div>
 
-      <button
-        type="button"
-        disabled={!selected}
-        onClick={() => selected && onConfirm(selected)}
-        className="inline-flex items-center gap-2 bg-amber-dark text-white text-[14px] font-semibold px-5 py-2.5 rounded-xl hover:bg-amber-darker disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-      >
-        Use this template
-        <Chevron />
-      </button>
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => onConfirm(templates[focused]!.id)}
+          disabled={!templates[focused]}
+          className="inline-flex items-center gap-2 bg-amber-dark text-white text-[14px] font-semibold px-6 py-2.5 rounded-xl hover:bg-amber-darker disabled:opacity-30 transition-colors"
+        >
+          Use this template
+          <Chevron />
+        </button>
+      </div>
     </div>
   );
 }
 
-function TemplatePreviewCard({
-  meta,
-  title,
-  subtext,
-  imageId,
-  selected,
-  onSelect,
+function Arrow({
+  side,
+  onClick,
 }: {
-  meta: TemplateMeta;
-  title: string;
-  subtext: string | null;
-  imageId: string | null;
-  selected: boolean;
-  onSelect: () => void;
+  side: "left" | "right";
+  onClick: () => void;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    (async () => {
-      try {
-        const { slotValues, imageMediaIds } = composeFor(meta, {
-          title,
-          subtext,
-          imageId,
-        });
-        const res = await fetch("/api/admin/social-templates/render", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateId: meta.id, slotValues, imageMediaIds }),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        const blob = await res.blob();
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [meta, title, subtext, imageId]);
-
   return (
     <button
       type="button"
-      onClick={onSelect}
-      className={`group text-left rounded-2xl overflow-hidden transition ${
-        selected
-          ? "ring-[3px] ring-green"
-          : "ring-1 ring-charcoal/10 hover:ring-charcoal/30"
-      }`}
+      onClick={onClick}
+      aria-label={side === "left" ? "Previous" : "Next"}
+      className={`absolute top-1/2 -translate-y-1/2 ${
+        side === "left" ? "left-2" : "right-2"
+      } z-10 w-10 h-10 rounded-full bg-white ring-1 ring-charcoal/10 shadow grid place-items-center text-charcoal/60 hover:text-charcoal hover:shadow-md transition`}
     >
-      <div className="relative aspect-square bg-charcoal/[0.04]">
-        {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={meta.name} className="absolute inset-0 w-full h-full object-cover" />
-        ) : failed ? (
-          <div className="absolute inset-0 grid place-items-center text-[12px] text-charcoal/40">
-            Preview unavailable
-          </div>
+      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        {side === "left" ? (
+          <path d="M12 5l-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
         ) : (
-          <div className="absolute inset-0 grid place-items-center">
-            <svg className="w-6 h-6 animate-spin text-charcoal/30" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-              <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          </div>
+          <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
         )}
-        {selected && (
-          <span className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-green grid place-items-center shadow">
-            <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M5 10.5l3.5 3.5L15 6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        )}
-      </div>
-      <div className="px-3 py-2.5 bg-white">
-        <p className="text-[13px] font-medium text-charcoal">{meta.name}</p>
-        <p className="text-[11.5px] text-charcoal/50 leading-snug line-clamp-1 mt-0.5">
-          {meta.description}
-        </p>
-      </div>
+      </svg>
     </button>
   );
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
 
-/** Map the SMM's hero choices into a template's slots by TYPE: her
- *  title → the first text:title slot, her subtext → the first text:body
- *  slot, her image → the first image slot. Choice slots get defaults so
- *  the preview renders cleanly. */
 function composeFor(
   meta: TemplateMeta,
   choice: { title: string; subtext: string | null; imageId: string | null }
@@ -567,7 +688,11 @@ function composeFor(
     } else if (!bodySet && choice.subtext && slot.type === "text:body") {
       slotValues[slot.id] = { type: "text", text: choice.subtext };
       bodySet = true;
-    } else if (!imgSet && choice.imageId && slot.type.startsWith("image:")) {
+    } else if (
+      !imgSet &&
+      choice.imageId &&
+      slot.type.startsWith("image:")
+    ) {
       imageMediaIds[slot.id] = choice.imageId;
       imgSet = true;
     }
@@ -575,29 +700,27 @@ function composeFor(
   return { slotValues, imageMediaIds };
 }
 
-function ImageThumb({
-  imageId,
-  images,
-}: {
-  imageId: string;
-  images: ImageCandidate[];
-}) {
-  const img = images.find((i) => i.id === imageId);
-  if (!img) return null;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={img.thumbnailUrl ?? img.url}
-      alt=""
-      className="w-6 h-6 rounded object-cover ring-1 ring-charcoal/10"
-    />
-  );
-}
-
 function Chevron() {
   return (
     <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Check({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M5 10.5l3.5 3.5L15 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="w-6 h-6 animate-spin text-charcoal/30" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+      <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }

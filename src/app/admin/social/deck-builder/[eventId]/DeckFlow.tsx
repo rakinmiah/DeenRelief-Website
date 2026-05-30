@@ -223,9 +223,9 @@ export default function DeckFlow({
               exit/enter, which left swapped-in steps stuck at opacity 0. */}
           <motion.div
             key={step}
-            initial={{ opacity: 0, x: dir * 24 }}
+            initial={{ opacity: 0, x: dir * 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
           >
               {step === "preparing" && (
                 <PreparingStep
