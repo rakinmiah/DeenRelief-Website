@@ -132,7 +132,7 @@ const template: Template = {
         />
 
         {eyebrow && (
-          <div style={{ alignSelf: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", alignSelf: "center" }}>
             <Eyebrow text={eyebrow} color={DR.amber} />
           </div>
         )}

@@ -48,6 +48,11 @@ interface RenderBody {
 }
 
 export async function POST(request: Request) {
+  // Auth runs OUTSIDE the try/catch. requireAdminSession() throws a
+  // NEXT_REDIRECT control-flow signal for unauthenticated requests;
+  // catching it here would turn a clean login-redirect into a 500
+  // with a stack trace. Let it propagate to Next's redirect handler.
+  await requireAdminSession();
   try {
     return await renderTemplate(request);
   } catch (err) {
@@ -62,8 +67,6 @@ export async function POST(request: Request) {
 }
 
 async function renderTemplate(request: Request): Promise<Response> {
-  await requireAdminSession();
-
   let body: RenderBody;
   try {
     body = (await request.json()) as RenderBody;
