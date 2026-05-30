@@ -114,8 +114,14 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Desktop Donate Button */}
-          <div className="hidden lg:block">
+          {/* Desktop: Sign in + Donate */}
+          <div className="hidden lg:flex items-center gap-5">
+            <Link
+              href="/sponsor/login"
+              className="text-charcoal/70 hover:text-green text-sm font-medium tracking-wide transition-colors duration-200"
+            >
+              Sign in
+            </Link>
             <Button variant="primary" size="sm" href={donateHref}>
               Donate
             </Button>
@@ -198,6 +204,22 @@ export default function Header() {
                     </Link>
                   );
                 })}
+                <Link
+                  href="/sponsor/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`font-medium py-1 text-charcoal/70 hover:text-green text-base transition-all duration-300 mt-1 pt-3 border-t border-charcoal/5 ${
+                    mobileMenuOpen
+                      ? "translate-y-0 opacity-100"
+                      : "-translate-y-2 opacity-0"
+                  }`}
+                  style={{
+                    transitionDelay: mobileMenuOpen
+                      ? `${75 + navLinks.length * 40}ms`
+                      : "0ms",
+                  }}
+                >
+                  Sign in
+                </Link>
               </div>
             </nav>
           </div>
