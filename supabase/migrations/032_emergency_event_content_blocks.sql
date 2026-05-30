@@ -1,4 +1,7 @@
--- Migration 030: add draft_content_blocks columns to emergency_events.
+-- Migration 032: add draft_content_blocks columns to emergency_events.
+-- (Renumbered from 030 → 032 to deconflict with main's 030_blog_posts /
+--  031_orphan_sponsorship. Already applied by content in Supabase as
+--  "030"; re-running this file is a no-op thanks to IF NOT EXISTS.)
 --
 -- Phase 6b — single-stage content extraction. The legacy 3-stage packet
 -- generator (StrategyBriefSchema → LaunchPacketSchema → RevisionListSchema)
