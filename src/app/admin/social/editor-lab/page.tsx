@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdminSession } from "@/lib/admin-session";
+import CanvasDeckEditor from "../deck-builder/[eventId]/editor/CanvasDeckEditor";
 import { DEMO_SLIDE } from "./demo";
-import SlideEditor from "./SlideEditor";
 
 export const metadata: Metadata = {
   title: "Editor Lab | Deen Relief Admin",
@@ -11,16 +11,15 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * /admin/social/editor-lab — a standalone harness for the Canva-style
- * slide editor (Phase 10a/10b). Seeded with a demo hero slide so the
- * canvas + transform mechanics can be exercised in isolation before
- * they're wired into the real deck-builder flow.
+ * /admin/social/editor-lab — standalone harness for the Canva-style
+ * canvas editor (no event, no persistence). Seeded with a demo hero
+ * slide so the canvas mechanics can be exercised in isolation.
  */
 export default async function EditorLabPage() {
   await requireAdminSession();
   return (
     <main className="h-screen w-screen overflow-hidden">
-      <SlideEditor slide={DEMO_SLIDE} />
+      <CanvasDeckEditor initialDeck={[DEMO_SLIDE]} title="Editor lab" />
     </main>
   );
 }

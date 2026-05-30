@@ -5,10 +5,10 @@
  *
  * Geometry is stored in board units; everything here multiplies by
  * `scale` to paint at the current zoom. The node carries data-layer-id
- * so the editor can hand it to react-moveable as a transform target.
+ * so the canvas can hand it to react-moveable as a transform target.
  *
- * Transform model matches Moveable's: position via translate(), spin
- * via rotate() about the default centre origin.
+ * `interactive={false}` (used for filmstrip thumbnails) drops the
+ * pointer handlers + hover ring so it's a pure preview.
  */
 
 import type { CSSProperties } from "react";
@@ -20,12 +20,14 @@ export default function LayerView({
   selected,
   onSelect,
   nodeRef,
+  interactive = true,
 }: {
   layer: Layer;
   scale: number;
-  selected: boolean;
-  onSelect: (id: string) => void;
-  nodeRef: (node: HTMLDivElement | null) => void;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
+  nodeRef?: (node: HTMLDivElement | null) => void;
+  interactive?: boolean;
 }) {
   const base: CSSProperties = {
     position: "absolute",
@@ -36,28 +38,32 @@ export default function LayerView({
     transform: `translate(${layer.x * scale}px, ${layer.y * scale}px) rotate(${layer.rotation}deg)`,
     transformOrigin: "center center",
     opacity: layer.opacity,
-    cursor: layer.locked ? "default" : "move",
+    cursor: !interactive ? "default" : layer.locked ? "default" : "move",
     userSelect: "none",
     boxSizing: "border-box",
+    pointerEvents: interactive ? "auto" : "none",
   };
 
   return (
     <div
       ref={nodeRef}
       data-layer-id={layer.id}
-      onMouseDown={(e) => {
-        if (layer.locked) return;
-        e.stopPropagation();
-        onSelect(layer.id);
-      }}
-      className="group"
+      onMouseDown={
+        interactive
+          ? (e) => {
+              if (layer.locked) return;
+              e.stopPropagation();
+              onSelect?.(layer.id);
+            }
+          : undefined
+      }
+      className={interactive ? "group" : undefined}
       style={base}
     >
       {layer.type === "text" && <TextBody layer={layer} scale={scale} />}
       {layer.type === "image" && <ImageBody layer={layer} scale={scale} />}
       {layer.type === "shape" && <ShapeBody layer={layer} scale={scale} />}
-      {/* a faint outline on hover so empty/transparent layers are findable */}
-      {!selected && !layer.locked && (
+      {interactive && !selected && !layer.locked && (
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 ring-2 ring-sky-400/0 transition group-hover:ring-sky-400/60"
@@ -116,8 +122,7 @@ function ImageBody({
         height: "100%",
         borderRadius: layer.radius * scale,
         overflow: "hidden",
-        background:
-          "linear-gradient(135deg, #2a3f33 0%, #4a5d4f 100%)",
+        background: "linear-gradient(135deg, #2a3f33 0%, #4a5d4f 100%)",
       }}
     >
       {layer.src && (
@@ -168,8 +173,7 @@ function ShapeBody({
           layer.strokeWidth > 0
             ? `${layer.strokeWidth * scale}px solid ${layer.stroke}`
             : "none",
-        borderRadius:
-          layer.shape === "ellipse" ? "50%" : layer.radius * scale,
+        borderRadius: layer.shape === "ellipse" ? "50%" : layer.radius * scale,
         boxSizing: "border-box",
       }}
     />

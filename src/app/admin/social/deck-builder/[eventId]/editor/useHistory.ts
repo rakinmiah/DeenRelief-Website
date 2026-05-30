@@ -23,6 +23,7 @@ export type History<T> = {
   set: (next: T) => void;
   commit: (next: T) => void;
   checkpoint: () => void;
+  reset: (next: T) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -35,8 +36,6 @@ export function useHistory<T>(initial: T): History<T> {
   const [past, setPast] = useState<T[]>([]);
   const [present, setPresent] = useState<T>(initial);
   const [future, setFuture] = useState<T[]>([]);
-  // Mirror of present so checkpoint() can snapshot synchronously even
-  // when called back-to-back before a render.
   const presentRef = useRef(present);
   presentRef.current = present;
 
@@ -57,6 +56,14 @@ export function useHistory<T>(initial: T): History<T> {
       const arr = [...p, presentRef.current];
       return arr.length > LIMIT ? arr.slice(arr.length - LIMIT) : arr;
     });
+    setFuture([]);
+    setPresent(next);
+  }, []);
+
+  // Replace the whole document with NO history (e.g. loading a saved
+  // deck on mount). Clears the stacks.
+  const reset = useCallback((next: T) => {
+    setPast([]);
     setFuture([]);
     setPresent(next);
   }, []);
@@ -86,6 +93,7 @@ export function useHistory<T>(initial: T): History<T> {
     set,
     commit,
     checkpoint,
+    reset,
     undo,
     redo,
     canUndo: past.length > 0,

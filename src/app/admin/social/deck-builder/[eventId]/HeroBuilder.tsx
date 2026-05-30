@@ -21,7 +21,16 @@ import type {
   SlotValues,
   TemplateMeta,
 } from "@/lib/social-templates/types";
-import type { ContentBundle, ImageBundle, SlideDraft } from "./types";
+import type { ContentBundle, ImageBundle } from "./types";
+
+/** What the guided hero builder hands back — raw choices the deck
+ *  seeder turns into a layer preset. */
+export type HeroResult = {
+  templateId: string;
+  title: string;
+  subtext: string | null;
+  imageId: string | null;
+};
 
 type Phase = "intro" | "title" | "subtext" | "image" | "compiling" | "template";
 
@@ -36,7 +45,7 @@ export default function HeroBuilder({
   content: ContentBundle;
   images: ImageBundle;
   heroTemplates: TemplateMeta[];
-  onComplete: (slide: SlideDraft) => void;
+  onComplete: (result: HeroResult) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("intro");
   const [title, setTitle] = useState<string | null>(null);
@@ -117,16 +126,6 @@ export default function HeroBuilder({
       })
     );
     setPreviews(Object.fromEntries(entries));
-  }
-
-  function buildHeroSlide(templateId: string): SlideDraft {
-    const meta = heroTemplates.find((t) => t.id === templateId)!;
-    const { slotValues, imageMediaIds } = composeFor(meta, {
-      title: title ?? "",
-      subtext,
-      imageId,
-    });
-    return { slideId: makeUuid(), templateId, slotValues, imageMediaIds };
   }
 
   /* ── Intro ── */
@@ -236,7 +235,9 @@ export default function HeroBuilder({
           <TemplateCarousel
             templates={heroTemplates}
             previews={previews}
-            onConfirm={(templateId) => onComplete(buildHeroSlide(templateId))}
+            onConfirm={(templateId) =>
+              onComplete({ templateId, title: title ?? "", subtext, imageId })
+            }
           />
         )}
       </motion.div>
@@ -830,9 +831,3 @@ function Spinner() {
   );
 }
 
-function makeUuid(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `s_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
-}
