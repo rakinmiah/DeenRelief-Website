@@ -16,14 +16,18 @@ export function cropImgStyle(crop?: ImageCrop): CSSProperties {
   const scale = crop?.scale ?? 1;
   const fx = 50 + (crop?.ox ?? 0);
   const fy = 50 + (crop?.oy ?? 0);
-  return {
+  const style: CSSProperties = {
     width: "100%",
     height: "100%",
     objectFit: "cover",
     objectPosition: `${fx}% ${fy}%`,
-    transform: scale !== 1 ? `scale(${scale})` : undefined,
-    transformOrigin: `${fx}% ${fy}%`,
   };
+  // Satori rejects `transform: undefined`, so only set it when zoomed.
+  if (scale !== 1) {
+    style.transform = `scale(${scale})`;
+    style.transformOrigin = `${fx}% ${fy}%`;
+  }
+  return style;
 }
 
 /** CSS filter string for the editor preview (null = no filter). */

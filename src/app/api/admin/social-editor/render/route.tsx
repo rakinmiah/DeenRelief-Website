@@ -137,7 +137,7 @@ function wrapperStyle(l: Layer): CSSProperties {
     width: l.w,
     height: l.h,
     transform: `translate(${l.x}px, ${l.y}px) rotate(${l.rotation}deg)`,
-    transformOrigin: "center center",
+    transformOrigin: "50% 50%",
     opacity: l.opacity,
     display: "flex",
   };
