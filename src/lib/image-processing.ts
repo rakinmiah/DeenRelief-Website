@@ -91,6 +91,47 @@ export async function processCatalogImage(
 }
 
 /**
+ * Watermark an image with a confidentiality label, for sponsor downloads of
+ * a child's photo. Composites a semi-transparent "Confidential · Deen Relief"
+ * label across the bottom so the source is visible if the image is ever
+ * re-shared — a deterrent against redistribution. Auto-rotates from EXIF and
+ * strips metadata (incl. any GPS). Returns a JPEG buffer for broad
+ * compatibility.
+ */
+export async function watermarkImage(
+  input: Buffer,
+  label = "Confidential · Deen Relief"
+): Promise<{ buffer: Buffer; contentType: "image/jpeg" }> {
+  const sharpModule = await import("sharp");
+  const sharp = sharpModule.default;
+
+  const base = sharp(input).rotate(); // EXIF orientation first
+  const meta = await base.metadata();
+  const width = meta.width ?? 1200;
+  const height = meta.height ?? 800;
+
+  // Scale the label to the image; clamp so it stays readable but not huge.
+  const fontSize = Math.max(16, Math.min(48, Math.round(width * 0.032)));
+  const padY = Math.round(fontSize * 0.7);
+  const bandH = fontSize + padY * 2;
+
+  const escaped = label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="${height - bandH}" width="${width}" height="${bandH}" fill="rgba(0,0,0,0.42)" />
+    <text x="${width - fontSize * 0.6}" y="${height - padY - fontSize * 0.18}"
+      text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="${fontSize}"
+      font-weight="600" fill="rgba(255,255,255,0.92)" letter-spacing="1">${escaped}</text>
+  </svg>`;
+
+  const out = await base
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .jpeg({ quality: 88 })
+    .toBuffer();
+
+  return { buffer: out, contentType: "image/jpeg" };
+}
+
+/**
  * Cheap header sniff to confirm the upload looks like an image.
  * The browser sets Content-Type on multipart uploads but it's
  * untrusted; we double-check the magic bytes match one of the

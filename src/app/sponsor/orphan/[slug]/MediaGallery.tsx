@@ -117,15 +117,27 @@ export default function MediaGallery({ items }: { items: GalleryItem[] }) {
           role="dialog"
           aria-modal="true"
         >
-          <button
-            onClick={close}
-            className="absolute top-4 right-4 text-white/80 hover:text-white p-2"
-            aria-label="Close"
+          <div
+            className="absolute top-4 right-4 flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
           >
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <a
+              href={`/api/sponsor/media/${open.id}/download`}
+              download
+              className="inline-flex items-center gap-1.5 text-white/85 hover:text-white px-3 py-2 text-sm font-medium"
+              aria-label="Download"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download
+            </a>
+            <button onClick={close} className="text-white/80 hover:text-white p-2" aria-label="Close">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <div
             className="max-w-3xl w-full max-h-[85vh] flex flex-col items-center"
             onClick={(e) => e.stopPropagation()}
@@ -147,6 +159,9 @@ export default function MediaGallery({ items }: { items: GalleryItem[] }) {
             {open.caption && (
               <p className="mt-3 text-sm text-white/70 text-center">{open.caption}</p>
             )}
+            <p className="mt-2 text-xs text-white/45 text-center">
+              For your personal keeping — please don&apos;t share or republish.
+            </p>
           </div>
         </div>
       )}
