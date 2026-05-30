@@ -24,6 +24,40 @@ export interface UpsellChip {
   outcome: string;
 }
 
+// ─── Confirm-step interstitial cards ─────────────────────────────────────────
+// The donation-panel chips above are dynamic (they adapt to the amount) and are
+// shown for MONTHLY gifts. For ONE-TIME gifts we instead show a fixed set of
+// image-led "add a one-off gift" cards at the checkout confirm step (see
+// UpsellInterstitial + the per-campaign upsell-cards.ts configs). These share
+// the icon set below; `Record<UpsellCardIcon, …>` in the renderer keeps it
+// exhaustive.
+
+export type UpsellCardIcon =
+  | "blanket"
+  | "book"
+  | "meal"
+  | "schoolkit"
+  | "child"
+  | "water"
+  | "parcel"
+  | "home"
+  | "kit";
+
+export interface UpsellCard {
+  /** Stable id — written to PaymentIntent metadata for take-rate reporting. */
+  id: string;
+  /** One-off amount added to today's gift, in GBP. */
+  add: number;
+  /** Short card title. */
+  title: string;
+  /** One-line supporting description. */
+  description: string;
+  /** Illustration key used when no `image` is set. */
+  icon: UpsellCardIcon;
+  /** Optional real photo path under /public (overrides the illustration). */
+  image?: string;
+}
+
 export interface UpsellScaleUnit {
   /** £ value of one repeatable unit (e.g. a month of food, a night's stay). */
   gbp: number;

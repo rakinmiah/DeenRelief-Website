@@ -196,8 +196,11 @@ export default function DonationForm() {
         </p>
       )}
 
-      {/* Make your gift go further — adaptive upsell nudges */}
-      {isAmountValid && <DonationUpsell chips={upsellChips} onAdd={handleUpsell} />}
+      {/* Make your gift go further — adaptive upsell nudges (monthly only;
+          one-time gifts get the static add-on cards at checkout instead). */}
+      {isAmountValid && frequency === "monthly" && (
+        <DonationUpsell chips={upsellChips} onAdd={handleUpsell} />
+      )}
 
       {/* Gift Aid callout */}
       {amountForUrl > 0 && isAmountValid && (

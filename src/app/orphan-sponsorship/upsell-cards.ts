@@ -13,22 +13,7 @@
  * such photos are supplied, each card falls back to an on-brand illustration
  * keyed by `icon`.
  */
-export type UpsellCardIcon = "blanket" | "book" | "meal" | "schoolkit" | "child";
-
-export interface UpsellCard {
-  /** Stable id — written to PaymentIntent metadata for take-rate reporting. */
-  id: string;
-  /** One-off amount added to today's gift, in GBP. */
-  add: number;
-  /** Short card title. */
-  title: string;
-  /** One-line supporting description. */
-  description: string;
-  /** Illustration key used when no `image` is set. */
-  icon: UpsellCardIcon;
-  /** Optional real photo path under /public (overrides the illustration). */
-  image?: string;
-}
+import type { UpsellCard } from "@/lib/donation-upsell";
 
 export const ORPHAN_UPSELL_CARDS: UpsellCard[] = [
   {

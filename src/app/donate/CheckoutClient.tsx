@@ -46,7 +46,8 @@ import {
 import { convertGbpForDisplay, isUKDonor } from "@/lib/geo";
 import MonthlyCommitmentModal from "./MonthlyCommitmentModal";
 import UpsellInterstitial from "./UpsellInterstitial";
-import { ORPHAN_UPSELL_CARDS, type UpsellCard } from "@/app/orphan-sponsorship/upsell-cards";
+import { getCheckoutUpsellCards } from "./checkout-upsell-cards";
+import type { UpsellCard } from "@/lib/donation-upsell";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -496,12 +497,14 @@ function CheckoutForm({
     [amountGbp]
   );
 
-  // Confirm-step upsell — one-time orphan sponsorship only. On the first valid
-  // Pay click we open the interstitial; once the donor picks a card or skips,
+  // Confirm-step upsell — ONE-TIME gifts on campaigns that have cards
+  // (orphan, palestine, cancer-care, uk-homeless). On the first valid Pay click
+  // we open the interstitial; once the donor picks a card or skips,
   // `upsellResolved` flips so a retry (e.g. after a card decline) goes straight
   // to payment using `resolvedAddon`.
-  const isOrphanOneTime =
-    campaign === "orphan-sponsorship" && frequency === "one-time";
+  const checkoutUpsellCards = getCheckoutUpsellCards(campaign);
+  const isOneTimeUpsell =
+    frequency === "one-time" && checkoutUpsellCards !== null;
   const [showUpsell, setShowUpsell] = useState(false);
   const [upsellResolved, setUpsellResolved] = useState(false);
   const [resolvedAddon, setResolvedAddon] = useState<UpsellCard | null>(null);
@@ -542,7 +545,7 @@ function CheckoutForm({
     }
 
     // Form is valid — offer the one-off add-on once before charging.
-    if (isOrphanOneTime && !upsellResolved) {
+    if (isOneTimeUpsell && !upsellResolved) {
       setShowUpsell(true);
       return;
     }
@@ -926,7 +929,7 @@ function CheckoutForm({
 
       {showUpsell && (
         <UpsellInterstitial
-          cards={ORPHAN_UPSELL_CARDS}
+          cards={checkoutUpsellCards ?? []}
           baseAmountGbp={amountGbp}
           onSelect={(card) => {
             setUpsellResolved(true);
