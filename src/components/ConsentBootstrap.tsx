@@ -95,7 +95,8 @@ export default function ConsentBootstrap() {
               // gtag.js respects ga-disable-<ID> for every config'd tag,
               // GA4 or Ads alike.
               if (typeof location !== 'undefined' &&
-                  location.pathname.indexOf('/admin') === 0) {
+                  (location.pathname.indexOf('/admin') === 0 ||
+                   location.pathname.indexOf('/sponsor') === 0)) {
                 window['ga-disable-${measurementId}'] = true;
                 ${
                   googleAdsId

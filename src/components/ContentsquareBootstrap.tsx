@@ -86,13 +86,15 @@ export default function ContentsquareBootstrap() {
   useEffect(() => {
     if (!tagId) return;
 
-    // Trustees signing into /admin/* should never have their session
-    // recorded by Contentsquare. We bail out of injection entirely on
-    // initial admin loads — companion AdminAnalyticsExclusion handles
-    // client-side route changes via setTrackerOptOut.
+    // Trustees in /admin/* and sponsors in the private /sponsor/* portal
+    // (children's data) must never have their session recorded by
+    // Contentsquare. Bail out of injection entirely on initial loads of those
+    // areas — companion AdminAnalyticsExclusion handles client-side route
+    // changes via setTrackerOptOut.
     if (
       typeof location !== "undefined" &&
-      location.pathname.startsWith("/admin")
+      (location.pathname.startsWith("/admin") ||
+        location.pathname.startsWith("/sponsor"))
     ) {
       return;
     }

@@ -39,19 +39,23 @@ export default function AdminAnalyticsExclusion() {
 
   useEffect(() => {
     if (!measurementId) return;
-    const isAdmin = pathname.startsWith("/admin");
+    // Suppress analytics on BOTH the admin tool (/admin/*) and the private
+    // sponsor portal (/sponsor/*) — the sponsor account holds children's data
+    // and must not be tracked by GA4 / Contentsquare.
+    const isPrivate =
+      pathname.startsWith("/admin") || pathname.startsWith("/sponsor");
 
     // Google's official opt-out flag — gtag respects it on every event.
-    // Setting to false re-enables once the user leaves /admin/*.
+    // Setting to false re-enables once the user leaves the private areas.
     (window as unknown as Record<string, boolean>)[
       `ga-disable-${measurementId}`
-    ] = isAdmin;
+    ] = isPrivate;
 
-    // Contentsquare: only push opt-out when entering admin. Don't
+    // Contentsquare: only push opt-out when entering a private area. Don't
     // auto-opt-IN on leaving — that's the consent listener's job, since
     // the donor may not have granted Contentsquare consent in the first
     // place.
-    if (isAdmin) {
+    if (isPrivate) {
       const w = window as unknown as { _uxa?: unknown[] };
       if (w._uxa) {
         w._uxa.push(["setTrackerOptOut"]);
