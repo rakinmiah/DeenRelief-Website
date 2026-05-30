@@ -8,7 +8,7 @@ import { useEffect, useId, useRef, useState } from "react";
  * food, schooling and healthcare can't be switched on one month and off the
  * next. So before a donor commits to a recurring sponsorship we ask them to
  * acknowledge (and tick a box) that they intend to keep it going for at least
- * 6–12 months. They can still cancel anytime — this sets the ethical
+ * a year. They can still cancel anytime — this sets the ethical
  * expectation, it isn't a contract.
  *
  * The donor must either agree (checkbox + confirm) or take the explicit
@@ -73,7 +73,7 @@ export default function MonthlyCommitmentModal({
             <p>
               Because of this, we ask sponsors to commit to{" "}
               <strong className="text-charcoal font-semibold">
-                at least 6 months — ideally a full year
+                at least a full year
               </strong>{" "}
               of giving. A sponsorship that stops suddenly can leave a child
               without supplies they were counting on, and finding replacement
@@ -97,7 +97,7 @@ export default function MonthlyCommitmentModal({
             />
             <span className="flex-1 text-[14px] text-charcoal leading-snug">
               I understand and intend to keep my sponsorship going for at least
-              6–12 months so the child I support has stable, uninterrupted care.
+              a year so the child I support has stable, uninterrupted care.
             </span>
           </label>
 

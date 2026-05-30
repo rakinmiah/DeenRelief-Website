@@ -106,7 +106,7 @@ export default function CheckoutClient({
 
   // Monthly orphan sponsorships carry an ethical commitment: a child comes to
   // depend on the recurring gift, so we ask the donor to acknowledge an
-  // intended 6–12 month commitment (ticking a box) before they reach the
+  // intended one-year commitment (ticking a box) before they reach the
   // details form. Required only for this campaign + frequency; all other
   // checkouts skip the gate entirely (agreed defaults to true).
   const commitmentRequired =
