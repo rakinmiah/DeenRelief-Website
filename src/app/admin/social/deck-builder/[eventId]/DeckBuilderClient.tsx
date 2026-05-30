@@ -30,11 +30,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { arrayMove } from "@dnd-kit/sortable";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -47,6 +43,7 @@ import type {
   TemplateMeta,
 } from "@/lib/social-templates/types";
 import ContentCardItem from "./ContentCard";
+import Filmstrip from "./Filmstrip";
 import ImageCardItem from "./ImageCard";
 import SlideEditor, { type PreviewState } from "./SlideEditor";
 import TemplatePicker from "./TemplatePicker";
@@ -74,6 +71,9 @@ export default function DeckBuilderClient({
 }: Props) {
   const [platform, setPlatform] = useState<SocialPlatform>("instagram");
   const [slides, setSlides] = useState<SlideDraft[]>([]);
+  // Which slide the big editor shows. The filmstrip selects; add/remove
+  // keep this valid (see the sync effect below).
+  const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
   const [templateGroups, setTemplateGroups] = useState<TemplateGroups>({});
   const [templatesById, setTemplatesById] = useState<
     Record<string, TemplateMeta>
@@ -289,6 +289,18 @@ export default function DeckBuilderClient({
   }, []);
 
   // ── DnD handlers ────────────────────────────────────────────────────
+  // Keep the selected slide valid: when a draft loads or the selected
+  // slide disappears, fall back to the first slide (or none).
+  useEffect(() => {
+    if (slides.length === 0) {
+      if (selectedSlideId !== null) setSelectedSlideId(null);
+      return;
+    }
+    if (!selectedSlideId || !slides.some((s) => s.slideId === selectedSlideId)) {
+      setSelectedSlideId(slides[0]!.slideId);
+    }
+  }, [slides, selectedSlideId]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
@@ -351,11 +363,22 @@ export default function DeckBuilderClient({
       ...prev,
       { slideId, templateId: meta.id, slotValues, imageMediaIds: {} },
     ]);
+    setSelectedSlideId(slideId); // jump to the slide just added
     setPickerOpen(false);
   }, []);
 
   const removeSlide = useCallback((slideId: string) => {
-    setSlides((prev) => prev.filter((s) => s.slideId !== slideId));
+    setSlides((prev) => {
+      const idx = prev.findIndex((s) => s.slideId === slideId);
+      const next = prev.filter((s) => s.slideId !== slideId);
+      // If we removed the selected slide, select a neighbour.
+      setSelectedSlideId((cur) => {
+        if (cur !== slideId) return cur;
+        if (next.length === 0) return null;
+        return next[Math.min(idx, next.length - 1)]!.slideId;
+      });
+      return next;
+    });
   }, []);
 
   const clearSlot = useCallback((slideId: string, slotId: string) => {
@@ -508,6 +531,45 @@ export default function DeckBuilderClient({
     return [...bySection.values()];
   }, [contentByKind]);
 
+  // ── Filmstrip support ───────────────────────────────────────────────
+  const selectedSlide = useMemo(
+    () => slides.find((s) => s.slideId === selectedSlideId) ?? null,
+    [slides, selectedSlideId]
+  );
+
+  // slideId → latest ready preview URL (for the filmstrip thumbnails).
+  const previewBySlide = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    for (const s of slides) {
+      let url: string | null = null;
+      for (const [k, v] of Object.entries(previewStates)) {
+        if (k.startsWith(`${s.slideId}:`) && v.state === "ready") {
+          url = v.url;
+          break;
+        }
+      }
+      m[s.slideId] = url;
+    }
+    return m;
+  }, [slides, previewStates]);
+
+  // slideId → has at least one required slot still empty.
+  const incompleteBySlide = useMemo(() => {
+    const m: Record<string, boolean> = {};
+    for (const s of slides) {
+      const t = templatesById[s.templateId];
+      m[s.slideId] = t
+        ? t.slots.some((sl) => {
+            if (!sl.required) return false;
+            if (sl.type.startsWith("image:")) return !s.imageMediaIds[sl.id];
+            if (sl.type.startsWith("choice:")) return false;
+            return s.slotValues[sl.id] === undefined;
+          })
+        : false;
+    }
+    return m;
+  }, [slides, templatesById]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -584,50 +646,49 @@ export default function DeckBuilderClient({
           )}
         </aside>
 
-        {/* MIDDLE: slide timeline */}
-        <section className="flex flex-col gap-4 min-w-0">
+        {/* MIDDLE: selected slide editor (hero) + filmstrip */}
+        <section className="flex flex-col gap-3 min-w-0">
           {slides.length === 0 ? (
             <EmptyDeckPrompt
               onAdd={() => setPickerOpen(true)}
               disabled={comingSoon}
             />
           ) : (
-            <SortableContext
-              items={slides.map((s) => `slide:${s.slideId}`)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="flex flex-col gap-3">
-                {slides.map((s, i) => (
-                  <SlideEditor
-                    key={s.slideId}
-                    slide={s}
-                    index={i}
-                    template={templatesById[s.templateId] ?? null}
-                    previewState={
-                      previewStates[`${s.slideId}:${configKey(s)}`] ?? {
-                        state: "idle",
-                      }
-                    }
-                    resolveImageThumb={resolveImageThumb}
-                    onRemove={() => removeSlide(s.slideId)}
-                    onClearSlot={(slotId) => clearSlot(s.slideId, slotId)}
-                    onSetChoice={(slotId, v) => setChoice(s.slideId, slotId, v)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          )}
-          {slides.length > 0 && !comingSoon && (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="group/add w-full flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-medium text-charcoal/45 border border-dashed border-charcoal/15 hover:border-green/40 hover:text-charcoal/75 hover:bg-green/[0.03] transition"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M10 5v10M5 10h10" strokeLinecap="round" />
-              </svg>
-              Add a slide
-            </button>
+            <>
+              {selectedSlide && (
+                <SlideEditor
+                  slide={selectedSlide}
+                  index={slides.findIndex(
+                    (s) => s.slideId === selectedSlide.slideId
+                  )}
+                  template={templatesById[selectedSlide.templateId] ?? null}
+                  previewState={
+                    previewStates[
+                      `${selectedSlide.slideId}:${configKey(selectedSlide)}`
+                    ] ?? { state: "idle" }
+                  }
+                  resolveImageThumb={resolveImageThumb}
+                  onRemove={() => removeSlide(selectedSlide.slideId)}
+                  onClearSlot={(slotId) =>
+                    clearSlot(selectedSlide.slideId, slotId)
+                  }
+                  onSetChoice={(slotId, v) =>
+                    setChoice(selectedSlide.slideId, slotId, v)
+                  }
+                />
+              )}
+              {!comingSoon && (
+                <Filmstrip
+                  slides={slides}
+                  selectedId={selectedSlideId}
+                  previewBySlide={previewBySlide}
+                  incompleteBySlide={incompleteBySlide}
+                  onSelect={setSelectedSlideId}
+                  onRemove={removeSlide}
+                  onAdd={() => setPickerOpen(true)}
+                />
+              )}
+            </>
           )}
         </section>
 

@@ -12,8 +12,6 @@
  */
 
 import { useDndContext, useDroppable } from "@dnd-kit/core";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
   canDropContentInSlot,
   canDropImageInSlot,
@@ -53,15 +51,6 @@ export default function SlideEditor({
   onClearSlot,
   onSetChoice,
 }: Props) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: `slide:${slide.slideId}` });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
   // Slots that are required but still empty — drives the quiet
   // "incomplete" hint, not a render error.
   const incompleteCount = template
@@ -69,29 +58,9 @@ export default function SlideEditor({
     : 0;
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="group/slide rounded-2xl bg-white ring-1 ring-charcoal/8 hover:ring-charcoal/15 transition-shadow"
-    >
+    <div className="group/slide rounded-2xl bg-white ring-1 ring-charcoal/8">
       {/* ── Header ── */}
       <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-charcoal/25 hover:text-charcoal/55 -ml-1 p-0.5 transition-colors"
-          aria-label="Drag to reorder"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-            <circle cx="7" cy="5" r="1.4" />
-            <circle cx="13" cy="5" r="1.4" />
-            <circle cx="7" cy="10" r="1.4" />
-            <circle cx="13" cy="10" r="1.4" />
-            <circle cx="7" cy="15" r="1.4" />
-            <circle cx="13" cy="15" r="1.4" />
-          </svg>
-        </button>
         <span className="grid place-items-center w-5 h-5 rounded-md bg-charcoal/5 text-[11px] font-semibold text-charcoal/60 shrink-0">
           {index + 1}
         </span>
@@ -110,7 +79,7 @@ export default function SlideEditor({
         <button
           type="button"
           onClick={onRemove}
-          className="ml-auto text-[12px] text-charcoal/35 hover:text-red opacity-0 group-hover/slide:opacity-100 transition-opacity px-1.5 py-0.5"
+          className="ml-auto text-[12px] text-charcoal/35 hover:text-red transition-colors px-1.5 py-0.5"
           aria-label={`Remove slide ${index + 1}`}
         >
           Remove
