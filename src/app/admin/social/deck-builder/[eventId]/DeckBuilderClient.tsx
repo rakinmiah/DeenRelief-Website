@@ -60,6 +60,15 @@ interface Props {
   eventId: string;
   eventTitle: string;
   backHref: string;
+  /** When reached via the wizard, the content + images are already
+   *  fetched — pass them in to skip the re-fetch and the loading flash. */
+  initialContent?: ContentBundle;
+  initialImages?: ImageBundle;
+  initialPlatform?: SocialPlatform;
+  /** When the wizard hands off with a chosen slide count and the saved
+   *  draft is empty, pre-seed an editable scaffold of this many slides
+   *  (hero → … → cta). She can fully edit/reorder/swap afterwards. */
+  seedSlideCount?: number;
 }
 
 const COMING_SOON_PLATFORMS: SocialPlatform[] = ["facebook", "x"];
@@ -68,8 +77,14 @@ export default function DeckBuilderClient({
   eventId,
   eventTitle,
   backHref,
+  initialContent,
+  initialImages,
+  initialPlatform,
+  seedSlideCount,
 }: Props) {
-  const [platform, setPlatform] = useState<SocialPlatform>("instagram");
+  const [platform, setPlatform] = useState<SocialPlatform>(
+    initialPlatform ?? "instagram"
+  );
   const [slides, setSlides] = useState<SlideDraft[]>([]);
   // Which slide the big editor shows. The filmstrip selects; add/remove
   // keep this valid (see the sync effect below).
@@ -78,16 +93,18 @@ export default function DeckBuilderClient({
   const [templatesById, setTemplatesById] = useState<
     Record<string, TemplateMeta>
   >({});
-  // Real data only — never seed fake "mock" content/images. We show a
-  // loading state, then real data or a quiet empty/retry state. (The
-  // old MOCK fallback flashed placeholder "Wikimedia placeholder…"
-  // images on a slow cold start, which read as broken.)
-  const [content, setContent] = useState<ContentBundle>({ cards: [] });
-  const [images, setImages] = useState<ImageBundle>({ images: [] });
-  const [contentLoading, setContentLoading] = useState(true);
+  // Real data only — never seed fake "mock" content/images. When the
+  // wizard pre-fetched them, seed from props and skip the loading state.
+  const [content, setContent] = useState<ContentBundle>(
+    initialContent ?? { cards: [] }
+  );
+  const [images, setImages] = useState<ImageBundle>(
+    initialImages ?? { images: [] }
+  );
+  const [contentLoading, setContentLoading] = useState(!initialContent);
   const [imagesStatus, setImagesStatus] = useState<
     "loading" | "ready" | "error"
-  >("loading");
+  >(initialImages ? "ready" : "loading");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeDrag, setActiveDrag] = useState<DragPayload | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
@@ -125,7 +142,9 @@ export default function DeckBuilderClient({
     let cancelled = false;
 
     async function load() {
-      // Templates list
+      // Templates list — kept in a local `groups` so the draft block
+      // below can scaffold without waiting on the async setState.
+      let groups: TemplateGroups = {};
       try {
         const res = await fetch(
           `/api/admin/social-templates/list?platform=${platform}`,
@@ -133,9 +152,10 @@ export default function DeckBuilderClient({
         );
         if (res.ok && !cancelled) {
           const json = (await res.json()) as { groups: TemplateGroups };
-          setTemplateGroups(json.groups ?? {});
+          groups = json.groups ?? {};
+          setTemplateGroups(groups);
           const flat: Record<string, TemplateMeta> = {};
-          for (const list of Object.values(json.groups ?? {})) {
+          for (const list of Object.values(groups)) {
             for (const t of list) flat[t.id] = t;
           }
           setTemplatesById(flat);
@@ -144,7 +164,8 @@ export default function DeckBuilderClient({
         // non-fatal — picker shows empty state
       }
 
-      // Saved draft (if any)
+      // Saved draft (if any). When empty and the wizard handed off a
+      // seedSlideCount, pre-seed an editable scaffold.
       try {
         const res = await fetch(
           `/api/admin/social-deck-drafts/${eventId}?platform=${platform}`,
@@ -155,7 +176,12 @@ export default function DeckBuilderClient({
             slides: SlideDraft[];
             exists: boolean;
           };
-          if (json.exists) setSlides(json.slides);
+          if (json.exists && json.slides.length > 0) {
+            setSlides(json.slides);
+          } else if (seedSlideCount && seedSlideCount > 0) {
+            const seeded = scaffoldDeck(seedSlideCount, groups);
+            if (seeded.length > 0) setSlides(seeded);
+          }
         }
       } catch {
         // empty deck
@@ -163,23 +189,26 @@ export default function DeckBuilderClient({
         if (!cancelled) setDraftLoaded(true);
       }
 
-      // Content extraction — real data only, with a loading flag.
-      try {
-        const res = await fetch(
-          `/api/admin/social-content/${eventId}/extract`,
-          { cache: "no-store" }
-        );
-        if (res.ok && !cancelled) {
-          const json = (await res.json()) as ContentBundle;
-          setContent({ cards: Array.isArray(json.cards) ? json.cards : [] });
+      // Content extraction — skip the fetch when the wizard pre-loaded it.
+      if (!initialContent) {
+        try {
+          const res = await fetch(
+            `/api/admin/social-content/${eventId}/extract`,
+            { cache: "no-store" }
+          );
+          if (res.ok && !cancelled) {
+            const json = (await res.json()) as ContentBundle;
+            setContent({ cards: Array.isArray(json.cards) ? json.cards : [] });
+          }
+        } catch {
+          // leave content empty — the column shows an empty state
+        } finally {
+          if (!cancelled) setContentLoading(false);
         }
-      } catch {
-        // leave content empty — the column shows an empty state
-      } finally {
-        if (!cancelled) setContentLoading(false);
       }
 
-      // Images
+      // Images — skip when the wizard pre-loaded them.
+      if (initialImages) return;
       await loadImages();
     }
 
@@ -774,6 +803,54 @@ function makeUuid(): string {
     return crypto.randomUUID();
   }
   return `s_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
+/** Build an editable starter deck of `count` slides from the available
+ *  template groups: a hero first, a CTA last, and a sensible spread of
+ *  fact / stat / response / tiers / testimony in between. Choice slots
+ *  get their declared defaults so each slide renders immediately. The
+ *  SMM can reorder, swap templates, and fill freely afterwards — this
+ *  is a scaffold, not a cage. */
+function scaffoldDeck(
+  count: number,
+  groups: TemplateGroups
+): SlideDraft[] {
+  const firstOf = (cat: string): TemplateMeta | null => groups[cat]?.[0] ?? null;
+  const hero = firstOf("hero");
+  const cta = firstOf("cta");
+  const middlePool = ["fact", "stat", "response", "tiers", "testimony", "chapter"]
+    .map(firstOf)
+    .filter((t): t is TemplateMeta => t != null);
+
+  const chosen: TemplateMeta[] = [];
+  if (hero) chosen.push(hero);
+  const middleCount = Math.max(0, count - chosen.length - (cta ? 1 : 0));
+  for (let k = 0; k < middleCount && middlePool.length > 0; k++) {
+    chosen.push(middlePool[k % middlePool.length]!);
+  }
+  if (cta && chosen.length < count) chosen.push(cta);
+  // If the registry was sparse, pad with whatever hero/first template we have.
+  while (chosen.length < count && (hero || middlePool[0])) {
+    chosen.push(hero ?? middlePool[0]!);
+  }
+
+  return chosen.slice(0, count).map((meta) => {
+    const slotValues: SlotValues = {};
+    for (const slot of meta.slots) {
+      if (
+        slot.type.startsWith("choice:") &&
+        typeof slot.defaultValue === "string"
+      ) {
+        slotValues[slot.id] = { type: "choice", value: slot.defaultValue };
+      }
+    }
+    return {
+      slideId: makeUuid(),
+      templateId: meta.id,
+      slotValues,
+      imageMediaIds: {},
+    };
+  });
 }
 
 /** Stable preview cache key — every change to templateId / slotValues

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
+import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import { getEmergencyEventById } from "@/lib/first-response";
-import DeckBuilderClient from "./DeckBuilderClient";
+import DeckFlow, { type EventSummary } from "./DeckFlow";
 
 export const metadata: Metadata = {
   title: "Deck Builder | Deen Relief Admin",
@@ -13,22 +13,14 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * /admin/social/deck-builder/[eventId] — Phase 6e Compose page.
+ * /admin/social/deck-builder/[eventId] — guided deck flow (Phase 8).
  *
- * The SMM-facing deck builder. Three columns:
- *   • LEFT   content cards extracted from the event (titles, body,
- *            facts, quotes, hashtags, tier rows, captions). Draggable.
- *   • MIDDLE deck timeline — vertical stack of slides composed from
- *            templates, each showing a live PNG preview.
- *   • RIGHT  image gallery — DR library + external imagery candidates.
- *            Draggable.
+ * A thin server shell: loads the event, then hands off to the DeckFlow
+ * wizard (preparing → summary → platform → slide count → build). The
+ * wizard fires the real extraction + image fetches up front and leads
+ * the SMM into the composer with her choices applied.
  *
- * The page is a thin server shell — it loads the event (so we can show
- * the title in the top bar) and hands off to the client component that
- * does all the drag-and-drop, live-preview, and auto-save work.
- *
- * Accessible to both 'admin' and 'social' roles (this is THE primary
- * SMM tool).
+ * Accessible to both 'admin' and 'social' roles (THE primary SMM tool).
  */
 export default async function DeckBuilderPage({
   params,
@@ -40,11 +32,30 @@ export default async function DeckBuilderPage({
   const event = await getEmergencyEventById(eventId);
   if (!event) notFound();
 
+  const summary: EventSummary = {
+    id: event.id,
+    title: event.title,
+    summary: event.summary,
+    eventType: event.eventType,
+    countryIso: event.countryIso,
+    region: event.region,
+    source: event.source,
+    matchedCampaigns: event.matchedCampaigns.map((slug) =>
+      isValidCampaign(slug) ? CAMPAIGNS[slug as CampaignSlug] : slug
+    ),
+    detectedAtLabel: event.detectedAt
+      ? event.detectedAt.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : null,
+  };
+
   return (
     <main className="min-h-screen bg-[#FAFAF7]">
-      <DeckBuilderClient
-        eventId={event.id}
-        eventTitle={event.title}
+      <DeckFlow
+        event={summary}
         backHref={`/admin/social/first-response/legacy/${event.id}`}
       />
     </main>
