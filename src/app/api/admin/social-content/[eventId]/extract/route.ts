@@ -1,55 +1,47 @@
 /**
- * POST /api/admin/social-content/:eventId/extract
+ * /api/admin/social-content/:eventId/extract
  *
- * Phase 6b — single-stage content extraction endpoint.
+ * Phase 6b — single-stage content extraction. Phase 6e integration
+ * adds a GET variant that returns the flattened `cards` array the
+ * deck-builder Compose UI consumes directly.
  *
- * Looks up the emergency event by id, runs the Phase 6b content-block
- * extraction (with the per-event cache on emergency_events.draft_content_blocks
- * — see migration 030), and returns the typed ContentBlocks JSON for the
- * deck-builder UI to consume.
+ *   GET  → { eventId, cards: Array<{id, card: ContentCard}>, usage }
+ *          Used by the Compose page on load.
+ *   POST → same shape as GET. Kept for callers that prefer the
+ *          POST verb for "extract" (it's a write-through cache).
  *
- * Replaces the legacy 3-stage launch-packet generator
- * (src/lib/first-response-packet.ts + its slide / social-image / pptx
- * routes). The legacy code stays untouched for now — downstream consumers
- * (the slide-render pipeline, the pptx export) still depend on
- * LaunchPacketSchema. They need to migrate to ContentBlocks before the
- * legacy file can be deleted.
- *
- * Auth: standard requireAdminSession() pattern, same as every other
- * /api/admin/* route in the project.
+ * Both paths call the same extractContentBlocksWithDefaultClient
+ * function under the hood. The per-event SHA-256 cache on
+ * emergency_events.draft_content_blocks means a Compose-page reload
+ * costs zero Claude tokens.
  */
 
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-session";
 import { getEmergencyEventById } from "@/lib/first-response";
-import { extractContentBlocksWithDefaultClient } from "@/lib/social-content-extraction";
+import {
+  extractContentBlocksWithDefaultClient,
+  flattenBlocksToCards,
+} from "@/lib/social-content-extraction";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Single Claude call with effort:"high" — typical wall time 15–30s on a
-// cold cache, ~1s on a hash hit. 60s gives plenty of headroom on
-// Vercel Pro for the rare slow-cold-start case.
 export const maxDuration = 60;
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
+async function run(eventId: string) {
   await requireAdminSession();
-  const { eventId } = await params;
-
   const event = await getEmergencyEventById(eventId);
   if (!event) {
     return NextResponse.json({ error: "Event not found." }, { status: 404 });
   }
-
   try {
     const { blocks, inputTokens, outputTokens } =
       await extractContentBlocksWithDefaultClient(event);
-
+    const cards = flattenBlocksToCards(blocks);
     return NextResponse.json({
       eventId,
       blocks,
+      cards,
       usage: { inputTokens, outputTokens },
     });
   } catch (err) {
@@ -63,4 +55,20 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  const { eventId } = await params;
+  return run(eventId);
+}
+
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  const { eventId } = await params;
+  return run(eventId);
 }

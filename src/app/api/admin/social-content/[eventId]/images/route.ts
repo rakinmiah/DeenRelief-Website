@@ -100,6 +100,10 @@ export async function GET(
     total: candidates.length,
     drCount: drCandidates.length,
     externalCount: candidates.length - drCandidates.length,
+    // Both field names are populated so consumers can use either.
+    // `images` matches the deck-builder Compose UI's ImageBundle
+    // shape; `candidates` is the original Phase 6c contract.
+    images: candidates,
     candidates,
   });
 }
