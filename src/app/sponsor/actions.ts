@@ -8,6 +8,8 @@ import {
   setMarketingConsent,
   createDataRequest,
 } from "@/lib/sponsor-consent";
+import { getSponsorByEmail } from "@/lib/sponsorship-admin";
+import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
 
 /**
  * Server actions for the sponsor portal. Each one re-derives the verified
@@ -111,4 +113,28 @@ export async function requestErasureAction(): Promise<{
   const user = await getSponsorUser();
   if (!user) return { ok: false, error: "Not signed in." };
   return createDataRequest({ sponsorId: user.id, requestType: "erasure" });
+}
+
+/**
+ * PUBLIC (unauthenticated): re-send an activation link to a sponsor whose
+ * link expired. Only sends if a sponsor account already exists for that
+ * email — it can't be used to email arbitrary addresses. Always reports
+ * success so it never reveals whether an email is registered.
+ */
+export async function requestActivationLinkAction(
+  email: string
+): Promise<{ ok: boolean }> {
+  const clean = (email ?? "").toLowerCase().trim();
+  if (!clean.includes("@")) return { ok: true };
+
+  const sponsor = await getSponsorByEmail(clean);
+  if (sponsor) {
+    await provisionSponsorAndSendActivation({
+      email: sponsor.contactEmail,
+      fullName: sponsor.fullName,
+      stripeCustomerId: sponsor.stripeCustomerId,
+      variant: "invite",
+    });
+  }
+  return { ok: true };
 }

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   linkSponsorshipAction,
   setSponsorshipStatusAction,
+  resendActivationAction,
 } from "@/app/admin/sponsorship/actions";
-import type { SponsorshipStatus } from "@/lib/sponsorship-admin";
+import type { SponsorshipStatus, SponsorStatus } from "@/lib/sponsorship-admin";
 
 interface LinkRow {
   id: string;
@@ -26,10 +27,12 @@ const STATUS_STYLE: Record<SponsorshipStatus, string> = {
 
 export default function SponsorDetailClient({
   sponsorId,
+  status,
   links,
   orphans,
 }: {
   sponsorId: string;
+  status: SponsorStatus;
   links: LinkRow[];
   orphans: { id: string; label: string }[];
 }) {
@@ -37,7 +40,20 @@ export default function SponsorDetailClient({
   const [orphanId, setOrphanId] = useState("");
   const [subId, setSubId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handleResend() {
+    setResending(true);
+    setMsg(null);
+    const result = await resendActivationAction(sponsorId);
+    setResending(false);
+    setMsg(
+      result.ok
+        ? { ok: true, text: "Activation email re-sent." }
+        : { ok: false, text: result.error ?? "Couldn't send." }
+    );
+  }
 
   async function handleLink(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +85,38 @@ export default function SponsorDetailClient({
 
   return (
     <div className="space-y-7">
+      <section className="rounded-xl border border-charcoal/10 bg-white p-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-sm font-semibold text-charcoal">
+              Account activation
+            </h2>
+            <p className="text-xs text-grey/70 mt-0.5">
+              {status === "invited"
+                ? "Invited — hasn't set a password yet."
+                : status === "active"
+                ? "Active. Re-sending sends a fresh set-password link."
+                : `Status: ${status}.`}
+            </p>
+          </div>
+          <button
+            onClick={handleResend}
+            disabled={resending}
+            className="px-4 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors disabled:opacity-60"
+          >
+            {resending ? "Sending…" : "Resend activation email"}
+          </button>
+        </div>
+        {msg && (
+          <p
+            className={`mt-3 text-sm ${msg.ok ? "text-green" : "text-red-600"}`}
+            role="status"
+          >
+            {msg.text}
+          </p>
+        )}
+      </section>
+
       <section>
         <h2 className="text-xs font-bold uppercase tracking-wide text-grey mb-2">
           Sponsored children ({links.length})

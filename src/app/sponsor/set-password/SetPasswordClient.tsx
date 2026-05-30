@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserSupabase } from "@/lib/supabase-browser";
-import { setPasswordAction } from "../actions";
+import { setPasswordAction, requestActivationLinkAction } from "../actions";
 
 const inputCls =
   "w-full px-4 py-3 rounded-xl bg-white border border-charcoal/15 focus:border-green focus:outline-none focus:ring-2 focus:ring-green/15 text-charcoal text-sm";
@@ -20,6 +20,10 @@ export default function SetPasswordClient() {
   const [marketing, setMarketing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "Request a new link" flow shown when the link is expired.
+  const [requestEmail, setRequestEmail] = useState("");
+  const [requesting, setRequesting] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
 
   // Establish the session from whatever the activation link delivered:
   //   - tokens in the URL hash (#access_token=…&refresh_token=…) for implicit
@@ -85,15 +89,59 @@ export default function SetPasswordClient() {
     return <p className="text-sm text-grey">Checking your link…</p>;
   }
 
+  async function handleRequestLink(e: React.FormEvent) {
+    e.preventDefault();
+    setRequesting(true);
+    await requestActivationLinkAction(requestEmail);
+    setRequesting(false);
+    setRequestSent(true);
+  }
+
   if (!hasSession) {
     return (
-      <div className="rounded-lg bg-amber-light/50 border border-amber/30 px-4 py-3 text-sm text-amber-dark">
-        This activation link is invalid or has expired. Please ask us to resend
-        your invite, or use{" "}
-        <a href="/sponsor/login" className="underline">
-          forgot password
-        </a>{" "}
-        if you already set one.
+      <div className="space-y-5">
+        <div className="rounded-xl bg-amber-light/50 border border-amber/20 px-4 py-3 text-sm text-amber-dark leading-relaxed">
+          This activation link is invalid or has expired. Enter your email below
+          and we&apos;ll send you a fresh one.
+        </div>
+
+        {requestSent ? (
+          <div className="rounded-xl bg-green-light px-4 py-3 text-sm text-green leading-relaxed">
+            If an account exists for that email, we&apos;ve sent a new activation
+            link. Please check your inbox.
+          </div>
+        ) : (
+          <form onSubmit={handleRequestLink} className="space-y-4">
+            <div>
+              <label className={labelCls} htmlFor="request-email">
+                Email
+              </label>
+              <input
+                id="request-email"
+                type="email"
+                autoComplete="email"
+                className={inputCls}
+                value={requestEmail}
+                onChange={(e) => setRequestEmail(e.target.value)}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={requesting}
+              className="w-full px-6 py-3 rounded-full bg-green text-white font-semibold hover:bg-green-dark transition-colors disabled:opacity-60"
+            >
+              {requesting ? "Sending…" : "Send me a new link"}
+            </button>
+          </form>
+        )}
+
+        <p className="text-sm text-grey text-center">
+          Already set a password?{" "}
+          <a href="/sponsor/login" className="text-green hover:underline">
+            Sign in
+          </a>
+        </p>
       </div>
     );
   }

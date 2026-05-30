@@ -27,6 +27,11 @@ export interface SendSponsorInviteInput {
   toName: string;
   /** Supabase Auth action link → /sponsor/set-password. */
   actionLink: string;
+  /**
+   * 'welcome' = automatic email after a donor starts a monthly sponsorship.
+   * 'invite'  = admin manually invited them. Only changes the copy.
+   */
+  variant?: "invite" | "welcome";
 }
 
 export interface SendSponsorInviteResult {
@@ -41,7 +46,10 @@ export async function sendSponsorInviteEmail(
   if (!key) return { messageId: null, error: "RESEND_API_KEY not configured" };
   if (!input.toEmail) return { messageId: null, error: "Recipient email is empty" };
 
-  const subject = `Activate your ${CHARITY_NAME} sponsorship account`;
+  const subject =
+    input.variant === "welcome"
+      ? `Welcome to ${CHARITY_NAME} — activate your sponsor account`
+      : `Activate your ${CHARITY_NAME} sponsorship account`;
   const html = renderHtml(input);
   const text = renderText(input);
 
@@ -82,6 +90,12 @@ export async function sendSponsorInviteEmail(
 // Templates
 // ─────────────────────────────────────────────────────────────────
 
+function introLine(variant: SendSponsorInviteInput["variant"]): string {
+  return variant === "welcome"
+    ? `Thank you for sponsoring a child through ${CHARITY_NAME} — and welcome. Your monthly sponsorship is now set up. We've created a private account where you can follow their progress — written updates, photos, and videos we'll share with you over time.`
+    : `Thank you for sponsoring a child through ${CHARITY_NAME}. We've created a private account where you can follow their progress — monthly written updates, photos, and videos we'll share with you over time.`;
+}
+
 function renderHtml(input: SendSponsorInviteInput): string {
   const firstName = input.toName.split(" ")[0] || "there";
   return `<!DOCTYPE html>
@@ -96,9 +110,7 @@ function renderHtml(input: SendSponsorInviteInput): string {
             <td style="padding:32px 40px;">
               <p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Dear ${escapeHtml(firstName)},</p>
               <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
-                Thank you for sponsoring a child through ${escapeHtml(CHARITY_NAME)}. We've created a
-                private account where you can follow their progress — monthly written updates, photos,
-                and videos we'll share with you over time.
+                ${escapeHtml(introLine(input.variant))}
               </p>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
                 To activate your account, set your password using the secure link below.
@@ -139,7 +151,7 @@ function renderText(input: SendSponsorInviteInput): string {
   return [
     `Dear ${firstName},`,
     ``,
-    `Thank you for sponsoring a child through ${CHARITY_NAME}. We've created a private account where you can follow their progress — monthly written updates, photos, and videos.`,
+    introLine(input.variant),
     ``,
     `Activate your account and set your password here:`,
     input.actionLink,

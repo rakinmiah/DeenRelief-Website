@@ -578,7 +578,13 @@ export async function getSponsorById(id: string): Promise<SponsorProfile | null>
   return data ? mapSponsor(data) : null;
 }
 
-/** Upsert the sponsor_profiles row for an already-created auth user. */
+/**
+ * Upsert the sponsor_profiles row for an auth user. A NEW row starts as
+ * 'invited'; an EXISTING row keeps its current status (so re-sending an
+ * activation link to an already-active sponsor doesn't reset them). Only
+ * fills blank fields on an existing row — never blanks out data we already
+ * hold (e.g. a known stripe_customer_id).
+ */
 export async function upsertSponsorProfile(input: {
   id: string;
   fullName: string;
@@ -587,22 +593,61 @@ export async function upsertSponsorProfile(input: {
   invitedByEmail?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from("sponsor_profiles").upsert(
-    {
-      id: input.id,
-      full_name: input.fullName.trim(),
+  const existing = await getSponsorById(input.id);
+
+  if (existing) {
+    const patch: Row = {
+      // Backfill name only if we didn't have one; never overwrite with blank.
+      full_name: existing.fullName || input.fullName.trim(),
       contact_email: input.contactEmail.toLowerCase().trim(),
-      stripe_customer_id: input.stripeCustomerId ?? null,
-      invited_by_email: input.invitedByEmail?.toLowerCase().trim() ?? null,
-      status: "invited",
-    },
-    { onConflict: "id" }
-  );
+    };
+    if (input.stripeCustomerId && !existing.stripeCustomerId) {
+      patch.stripe_customer_id = input.stripeCustomerId;
+    }
+    if (input.invitedByEmail && !existing.invitedByEmail) {
+      patch.invited_by_email = input.invitedByEmail.toLowerCase().trim();
+    }
+    const { error } = await supabase
+      .from("sponsor_profiles")
+      .update(patch)
+      .eq("id", input.id);
+    if (error) {
+      console.error("[sponsorship-admin] upsertSponsorProfile update failed:", error.message);
+      return { ok: false, error: "Couldn't save the sponsor profile." };
+    }
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("sponsor_profiles").insert({
+    id: input.id,
+    full_name: input.fullName.trim(),
+    contact_email: input.contactEmail.toLowerCase().trim(),
+    stripe_customer_id: input.stripeCustomerId ?? null,
+    invited_by_email: input.invitedByEmail?.toLowerCase().trim() ?? null,
+    status: "invited",
+  });
   if (error) {
-    console.error("[sponsorship-admin] upsertSponsorProfile failed:", error.message);
+    console.error("[sponsorship-admin] upsertSponsorProfile insert failed:", error.message);
     return { ok: false, error: "Couldn't save the sponsor profile." };
   }
   return { ok: true };
+}
+
+/** Look up a sponsor_profiles row by email (case-insensitive). */
+export async function getSponsorByEmail(
+  email: string
+): Promise<SponsorProfile | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("sponsor_profiles")
+    .select(SPONSOR_COLUMNS)
+    .ilike("contact_email", email.toLowerCase().trim())
+    .maybeSingle();
+  if (error) {
+    console.error("[sponsorship-admin] getSponsorByEmail failed:", error.message);
+    return null;
+  }
+  return data ? mapSponsor(data) : null;
 }
 
 export async function setSponsorStatus(

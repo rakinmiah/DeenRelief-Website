@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { requireSponsorshipAccess } from "@/lib/admin-session";
 import { logAdminAction, type AdminAction } from "@/lib/admin-audit";
-import { getSupabaseAdmin } from "@/lib/supabase";
 import {
   createOrphan,
   updateOrphan,
@@ -16,7 +15,7 @@ import {
   getMediaRowById,
   deleteMediaRow,
   getOrphanById,
-  upsertSponsorProfile,
+  getSponsorById,
   setSponsorStatus,
   createSponsorshipLink,
   setSponsorshipStatus,
@@ -26,7 +25,7 @@ import {
   type SponsorshipStatus,
 } from "@/lib/sponsorship-admin";
 import { deleteOrphanMedia } from "@/lib/orphan-media";
-import { sendSponsorInviteEmail } from "@/lib/sponsor-invite-email";
+import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
 
 /**
  * Server actions for /admin/sponsorship.
@@ -154,17 +153,9 @@ export async function deleteMediaAction(
 // Sponsors + invites
 // ─────────────────────────────────────────────────────────────────
 
-function siteOrigin(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    "https://deenrelief.org"
-  );
-}
-
 /**
- * Invite a sponsor: create (or fetch) the Supabase Auth user, upsert their
- * sponsor_profiles row, generate a single-use action link, and email it via
- * Resend. Optionally link them to an orphan in the same step.
+ * Invite a sponsor: provision the account + email a branded activation link,
+ * optionally linking them to an orphan in the same step.
  */
 export async function inviteSponsorAction(input: {
   email: string;
@@ -173,87 +164,63 @@ export async function inviteSponsorAction(input: {
   orphanId?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const session = await requireSponsorshipAccess();
-  const email = input.email.toLowerCase().trim();
-  if (!email.includes("@")) {
-    return { ok: false, error: "That doesn't look like a valid email." };
-  }
-
-  const supabase = getSupabaseAdmin();
-  const redirectTo = `${siteOrigin()}/sponsor/set-password`;
-
-  // Generate an invite link. This creates the auth.users row if absent.
-  // We use the link's `hashed_token` (not the raw action_link) to build a
-  // URL to our own callback, which verifies it server-side via verifyOtp.
-  // That sidesteps client-flow (PKCE vs implicit) ambiguity that otherwise
-  // makes the raw link land on a page with no session ("link expired").
-  const { data, error } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo },
-  });
-
-  let userId = data?.user?.id ?? null;
-  let tokenHash = data?.properties?.hashed_token ?? null;
-  let linkType: "invite" | "recovery" = "invite";
-
-  // If the user already exists, generateLink('invite') errors — fall back to
-  // a recovery link so we can still (re-)send them an activation email.
-  if (error || !userId || !tokenHash) {
-    const recovery = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo },
-    });
-    if (recovery.error || !recovery.data?.properties?.hashed_token) {
-      console.error("[sponsorship] invite link generation failed:", error?.message ?? recovery.error?.message);
-      return { ok: false, error: "Couldn't generate the invite link." };
-    }
-    userId = recovery.data.user?.id ?? userId;
-    tokenHash = recovery.data.properties.hashed_token;
-    linkType = "recovery";
-  }
-
-  if (!userId) return { ok: false, error: "Couldn't resolve the sponsor account." };
-
-  const actionLink =
-    `${siteOrigin()}/sponsor/auth/callback` +
-    `?token_hash=${encodeURIComponent(tokenHash)}` +
-    `&type=${linkType}` +
-    `&next=${encodeURIComponent("/sponsor/set-password")}`;
-
-  await upsertSponsorProfile({
-    id: userId,
+  const result = await provisionSponsorAndSendActivation({
+    email: input.email,
     fullName: input.fullName,
-    contactEmail: email,
     stripeCustomerId: input.stripeCustomerId ?? null,
     invitedByEmail: session.email,
+    variant: "invite",
   });
 
-  if (input.orphanId) {
+  // Link the orphan if the account exists, even if the email send failed.
+  if (result.userId && input.orphanId) {
     await createSponsorshipLink({
-      sponsorId: userId,
+      sponsorId: result.userId,
       orphanId: input.orphanId,
       createdByEmail: session.email,
     });
-    await audit("sponsorship_linked", session.email, userId, {
+    await audit("sponsorship_linked", session.email, result.userId, {
       orphanId: input.orphanId,
     });
   }
 
-  const sent = await sendSponsorInviteEmail({
-    toEmail: email,
-    toName: input.fullName,
-    actionLink,
-  });
-  if (sent.error) {
-    // The account + link exist; only the email send failed. Surface it so
-    // the coordinator can retry or copy the link manually.
-    await audit("sponsor_invited", session.email, userId, { email, emailError: sent.error });
-    return { ok: false, error: `Account created but email failed: ${sent.error}` };
+  if (!result.ok) {
+    if (result.userId) {
+      await audit("sponsor_invited", session.email, result.userId, {
+        email: input.email,
+        emailError: result.error,
+      });
+    }
+    return { ok: false, error: result.error };
   }
 
-  await audit("sponsor_invited", session.email, userId, { email });
+  await audit("sponsor_invited", session.email, result.userId ?? null, {
+    email: input.email,
+  });
   revalidatePath("/admin/sponsorship/sponsors");
+  return { ok: true };
+}
+
+/** Re-send the activation email to a sponsor who hasn't set a password yet. */
+export async function resendActivationAction(
+  sponsorId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await requireSponsorshipAccess();
+  const sponsor = await getSponsorById(sponsorId);
+  if (!sponsor) return { ok: false, error: "Sponsor not found." };
+
+  const result = await provisionSponsorAndSendActivation({
+    email: sponsor.contactEmail,
+    fullName: sponsor.fullName,
+    stripeCustomerId: sponsor.stripeCustomerId,
+    variant: "invite",
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  await audit("sponsor_invited", session.email, sponsorId, {
+    email: sponsor.contactEmail,
+    resend: true,
+  });
   return { ok: true };
 }
 

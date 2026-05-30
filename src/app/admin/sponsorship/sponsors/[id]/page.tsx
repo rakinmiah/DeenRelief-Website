@@ -51,6 +51,7 @@ export default async function SponsorDetailPage({
 
       <SponsorDetailClient
         sponsorId={id}
+        status={sponsor.status}
         links={links.map((l) => ({
           id: l.id,
           orphanLabel: orphanLabels.get(l.orphanId) ?? l.orphanId,

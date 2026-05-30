@@ -56,6 +56,8 @@ import {
   BAZAAR_STRIPE_METADATA_VALUE,
 } from "@/lib/bazaar-config";
 import type { ShippingAddress } from "@/lib/bazaar-types";
+import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
+import { getSponsorByEmail } from "@/lib/sponsorship-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -789,10 +791,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   // Failure here is non-fatal — receipt still sends without the pathway.
   let pathwaySlug: string | null = null;
   let pathwayLabel: string | null = null;
+  let subscriptionCampaign: string | null = null;
   try {
     const sub = await stripe.subscriptions.retrieve(subscriptionId);
     pathwaySlug = (sub.metadata?.pathway as string | undefined) ?? null;
     pathwayLabel = (sub.metadata?.pathway_label as string | undefined) ?? null;
+    subscriptionCampaign = (sub.metadata?.campaign as string | undefined) ?? null;
   } catch (err) {
     console.warn("[webhook] subscription retrieve for pathway failed:", err);
   }
@@ -820,6 +824,13 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     if (updErr) throw new Error(`Invoice paid update failed: ${updErr.message}`);
 
     await dispatchReceipt(existing as DonationRow, piId ?? invoice.id!, completedAt, customerId, [], pathwaySlug, pathwayLabel);
+
+    // Auto-onboard orphan sponsors on their FIRST payment (this month-1
+    // branch runs once per subscription). Fire-and-forget — never let it
+    // affect the payment record or the webhook's 2xx response.
+    if (subscriptionCampaign === "orphan-sponsorship") {
+      await onboardOrphanSponsor(existing.donor_id, customerId);
+    }
     return;
   }
 
@@ -868,6 +879,58 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   }
 
   await dispatchReceipt(inserted as DonationRow, piId ?? invoice.id!, completedAt, customerId, [], pathwaySlug, pathwayLabel);
+}
+
+/**
+ * Create a sponsor account for a new orphan-sponsorship donor and email them
+ * a welcome + activation link. Looks up the donor's email/name from the
+ * `donors` row (already written by /confirm before the first payment).
+ *
+ * Strictly non-fatal: any failure is logged and swallowed so the payment
+ * record and the webhook's 2xx response are never affected. Skips donors who
+ * already have an ACTIVE sponsor account (e.g. sponsoring a second child) so
+ * we don't send a "set your password" email to someone who already has one.
+ */
+async function onboardOrphanSponsor(
+  donorId: string,
+  customerId?: string
+): Promise<void> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: donor } = await supabase
+      .from("donors")
+      .select("email, full_name, first_name, last_name")
+      .eq("id", donorId)
+      .maybeSingle();
+    if (!donor?.email) return;
+
+    const existingSponsor = await getSponsorByEmail(donor.email as string);
+    if (existingSponsor && existingSponsor.status === "active") {
+      // Already has a working account — record the customer id if missing,
+      // but don't re-send an activation email.
+      console.log(
+        `[webhook] orphan sponsor ${donor.email} already active — skipping activation email.`
+      );
+      return;
+    }
+
+    const fullName =
+      (donor.full_name as string) ||
+      [donor.first_name, donor.last_name].filter(Boolean).join(" ") ||
+      "Friend";
+
+    const result = await provisionSponsorAndSendActivation({
+      email: donor.email as string,
+      fullName,
+      stripeCustomerId: customerId ?? null,
+      variant: "welcome",
+    });
+    if (!result.ok) {
+      console.error("[webhook] orphan sponsor onboarding email failed:", result.error);
+    }
+  } catch (err) {
+    console.error("[webhook] orphan sponsor auto-onboarding threw:", err);
+  }
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
