@@ -609,9 +609,12 @@ export default function DeckBuilderClient({
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="w-full border-2 border-dashed border-charcoal/15 hover:border-amber/40 hover:bg-amber-light/30 text-charcoal/65 hover:text-charcoal text-[13px] font-semibold py-3 rounded-xl transition-colors"
+              className="group/add w-full flex items-center justify-center gap-1.5 rounded-xl py-3 text-[13px] font-medium text-charcoal/45 border border-dashed border-charcoal/15 hover:border-green/40 hover:text-charcoal/75 hover:bg-green/[0.03] transition"
             >
-              + Add slide
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M10 5v10M5 10h10" strokeLinecap="round" />
+              </svg>
+              Add a slide
             </button>
           )}
         </section>
@@ -847,9 +850,10 @@ function AutoSaveBadge({
 function ComingSoonBanner({ platform }: { platform: SocialPlatform }) {
   const label = platform === "facebook" ? "Facebook" : "X (Twitter)";
   return (
-    <div className="bg-amber-light/50 border border-amber/30 rounded-xl px-3 py-3 text-[12px] text-charcoal/75 leading-snug">
-      <span className="font-bold">{label} — coming soon.</span> Only Instagram
-      is wired end-to-end for the MVP. Switch back to Instagram to compose.
+    <div className="rounded-xl bg-amber-light/40 ring-1 ring-amber/20 px-3.5 py-3 text-[12px] text-charcoal/70 leading-relaxed">
+      <span className="font-semibold text-charcoal/85">{label} — coming soon.</span>{" "}
+      Only Instagram is wired end-to-end for now. Switch back to Instagram to
+      compose.
     </div>
   );
 }
@@ -862,21 +866,27 @@ function EmptyDeckPrompt({
   disabled: boolean;
 }) {
   return (
-    <div className="border-2 border-dashed border-charcoal/15 rounded-2xl p-10 text-center bg-white">
-      <h2 className="font-heading font-bold text-charcoal text-lg mb-2">
-        Empty deck
+    <div className="rounded-2xl bg-white ring-1 ring-charcoal/8 px-8 py-14 text-center">
+      <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-green/[0.07] grid place-items-center">
+        <svg className="w-6 h-6 text-green/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <rect x="4" y="4" width="16" height="16" rx="2.5" />
+          <path d="M12 9v6M9 12h6" strokeLinecap="round" />
+        </svg>
+      </div>
+      <h2 className="font-heading font-semibold text-charcoal text-[17px] mb-1.5">
+        Start your carousel
       </h2>
-      <p className="text-charcoal/65 text-[13px] max-w-md mx-auto mb-4 leading-relaxed">
-        Pick a template to add your first slide. Drag content from the left
-        column into the slide&apos;s slots — the preview re-renders as you go.
+      <p className="text-charcoal/55 text-[13px] max-w-sm mx-auto mb-5 leading-relaxed">
+        Add a slide, then drag headlines, facts and photos onto it. The preview
+        updates as you go.
       </p>
       <button
         type="button"
         onClick={onAdd}
         disabled={disabled}
-        className="bg-amber-dark text-white text-[12.5px] font-bold uppercase tracking-[0.06em] px-4 py-2 rounded-md hover:bg-amber-darker disabled:opacity-40 disabled:cursor-not-allowed"
+        className="bg-amber-dark text-white text-[13px] font-semibold px-4 py-2 rounded-lg hover:bg-amber-darker disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
       >
-        + Add slide
+        Add a slide
       </button>
     </div>
   );
