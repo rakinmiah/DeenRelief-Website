@@ -21,7 +21,7 @@ export function cropImgStyle(crop?: ImageCrop): CSSProperties {
     height: "100%",
     objectFit: "cover",
     objectPosition: `${fx}% ${fy}%`,
-    transform: scale !== 1 ? `scale(${scale})` : "none",
+    transform: scale !== 1 ? `scale(${scale})` : undefined,
     transformOrigin: `${fx}% ${fy}%`,
   };
 }

@@ -115,10 +115,16 @@ async function render(request: Request): Promise<Response> {
     </div>
   );
 
-  return new ImageResponse(element, {
+  // Render to a buffer INSIDE the try/catch so Satori errors surface as
+  // readable text instead of a framework 500 (ImageResponse otherwise
+  // throws lazily while streaming, outside our handler).
+  const ir = new ImageResponse(element, {
     width: slide.width,
     height: slide.height,
     fonts: fonts.length ? fonts : undefined,
+  });
+  const png = await ir.arrayBuffer();
+  return new Response(png, {
     headers: { "Cache-Control": "private, no-store", "Content-Type": "image/png" },
   });
 }

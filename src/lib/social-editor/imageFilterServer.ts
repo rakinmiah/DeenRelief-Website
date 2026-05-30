@@ -9,7 +9,6 @@
  * SERVER ONLY — import from the render route, never from client code.
  */
 
-import sharp from "sharp";
 import type { ImageFilter } from "./types";
 
 export async function applyFilter(
@@ -17,6 +16,8 @@ export async function applyFilter(
   filter: ImageFilter | undefined
 ): Promise<Buffer> {
   if (!filter || filter === "none") return buf;
+  // Lazy import so a sharp init problem can't crash the route module.
+  const sharp = (await import("sharp")).default;
   let s = sharp(buf);
   switch (filter) {
     case "mono":
