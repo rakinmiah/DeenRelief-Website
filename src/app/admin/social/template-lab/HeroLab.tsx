@@ -82,7 +82,7 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
       },
       {
         id: "hero-f",
-        label: "F · Brand logo cover (real logo)",
+        label: "F · Brand cover",
         c: {
           primary: "Stand with",
           accent: "Gaza.",
@@ -94,7 +94,7 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
       },
       {
         id: "hero-g",
-        label: "G · Side rail (asymmetric)",
+        label: "G · Editorial dispatch",
         c: {
           primary: "No safe place",
           accent: "to shelter.",
@@ -111,8 +111,9 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         c: {
           primary: "2.1m",
           accent: "in need.",
-          secondary:
-            "Nearly the entire population now depends on humanitarian aid to survive.",
+          // Short stat descriptor — the design wants a punchy label, not a
+          // full sentence (a long one wraps to 4 lines and overwhelms).
+          secondary: "Now depend on humanitarian aid.",
           imageUrl: null,
           eyebrow: "By the numbers · Gaza",
           logo,
@@ -132,7 +133,7 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
       },
       {
         id: "hero-j",
-        label: "J · Corner card",
+        label: "J · Framed two-tone",
         c: {
           primary: "A winter without\nshelter.",
           secondary:

@@ -414,8 +414,10 @@ function heroStat(c: SlideContent): EditorSlide {
   const eyebrowY = groupTop;
   const figureY = eyebrowY + 32 + 10;
   const labelY = figureY + figureH + 10;
-  // Footnote beats pinned bottom (y = 1080 - 78 - height), 230px wide.
-  const beatW = 230;
+  // Footnote beats pinned bottom (y = 1080 - 78 - height). Wide enough that
+  // a two-word uppercase eyebrow ("AND STILL COUNTING") stays on one line —
+  // at 230 it wrapped and collided with the caption beneath it.
+  const beatW = 300;
   const beatH = 132;
   const beatY = B - 78 - beatH;
   const leftX = 78;
