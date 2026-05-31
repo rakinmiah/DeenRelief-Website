@@ -40,9 +40,10 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         c: {
           primary: "Gaza, after",
           accent: "the ceasefire.",
-          secondary: null,
+          secondary:
+            "Four months after the truce, the bombardment has not stopped.",
           imageUrl: null,
-          eyebrow: "A Deen Relief field report",
+          eyebrow: "Emergency Appeal · Palestine",
           logo,
         },
       },
