@@ -34,11 +34,17 @@ export default function LoginFormClient() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error ?? "Invalid credentials.");
       }
-      // Cookie is now set by the server. Route based on the role
-      // returned in the response — social users land on /admin/social
-      // (their tools) rather than /admin/donations (where they'd be
-      // bounced away by the role guard).
+      // Cookie is now set by the server.
       const body = await res.json().catch(() => ({}));
+      // A one-time temporary password forces a password change before
+      // anything else (the server also gates this server-side).
+      if (body?.mustChange) {
+        router.push("/admin/change-password");
+        return;
+      }
+      // Route based on the role returned in the response — social users
+      // land on /admin/social (their tools) rather than /admin/donations
+      // (where they'd be bounced away by the role guard).
       const landingByRole: Record<string, string> = {
         social: "/admin/social",
         writer: "/admin/blog",

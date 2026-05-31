@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { signAdminSession } from "@/lib/signed-token";
-import { resolveAdminRoleForLogin } from "@/lib/admin-roles";
+import { resolveAdminLogin } from "@/lib/admin-roles";
+import { verifyAdminPassword } from "@/lib/admin-password";
 import {
   clientIpFromRequest,
   countRecentLoginFailures,
@@ -146,36 +147,40 @@ export async function POST(request: Request) {
     );
   }
 
-  // Resolve role (DB lookup + env-allowlist bootstrap). null = unknown
-  // email. We then pick the role-appropriate passphrase to compare
-  // against. Unknown email still triggers a passphrase compare against
-  // adminPassphrase so the request timing doesn't reveal whether the
-  // email is in the allowlist — uniform DB hit + uniform compare for
-  // every request.
-  const role: "admin" | "social" | "writer" | "sponsorship" | null =
-    await resolveAdminRoleForLogin(email);
+  // Resolve role + per-user password state (DB lookup + env-allowlist
+  // bootstrap). null = unknown email.
+  const loginInfo = await resolveAdminLogin(email);
+  const role = loginInfo?.role ?? null;
 
-  // Pick the expected passphrase by role. For unknown emails we still
-  // compare against adminPassphrase (or empty string fallback) so the
-  // compare cost is constant.
-  const expectedPassphrase =
-    role === "social"
-      ? socialPassphrase
-      : role === "writer"
-      ? writerPassphrase
-      : role === "sponsorship"
-      ? sponsorshipPassphrase
-      : adminPassphrase;
+  // Two credential modes per account (migration 035):
+  //   - password_hash SET → the account signs in with its OWN password.
+  //     The shared role passphrase does NOT work for it (no backdoor).
+  //   - password_hash NULL → the account uses the shared role passphrase
+  //     (existing behaviour — e.g. info@, socialmedia@).
+  // For an unknown email we still run a constant-time passphrase compare
+  // so timing doesn't reveal whether the email is in the allowlist.
+  let authed = false;
+  let mustChange = false;
 
-  // Guard against the per-role passphrase being unset — treat as
-  // rejection. This keeps the error generic (still "Invalid credentials")
-  // so an attacker can't tell which role's passphrase is missing.
-  const passphraseConfigured = expectedPassphrase.length > 0;
-  const passphraseMatch =
-    passphraseConfigured && secureCompare(passphrase, expectedPassphrase);
+  if (loginInfo?.passwordHash) {
+    authed = await verifyAdminPassword(passphrase, loginInfo.passwordHash);
+    mustChange = loginInfo.mustChange;
+  } else {
+    const expectedPassphrase =
+      role === "social"
+        ? socialPassphrase
+        : role === "writer"
+        ? writerPassphrase
+        : role === "sponsorship"
+        ? sponsorshipPassphrase
+        : adminPassphrase;
+    const passphraseConfigured = expectedPassphrase.length > 0;
+    authed =
+      passphraseConfigured && secureCompare(passphrase, expectedPassphrase);
+  }
 
   // After this point, `role` is narrowed to a real role (not null).
-  if (!role || !passphraseMatch) {
+  if (!role || !authed) {
     // Audit log the failure. The next-attempts-until-rate-limit count
     // helps trustees diagnose "I keep getting locked out" issues.
     await logAdminAction({
@@ -186,7 +191,8 @@ export async function POST(request: Request) {
         // Record which side failed (timing-safe to log AFTER the fact)
         // for forensic purposes. Never returned to the client.
         emailKnown: role !== null,
-        passphraseMatched: passphraseMatch,
+        credentialMode: loginInfo?.passwordHash ? "password" : "passphrase",
+        matched: authed,
       },
     });
     return NextResponse.json(
@@ -197,9 +203,10 @@ export async function POST(request: Request) {
 
   // Mint signed session token + set cookie. Role is baked into the
   // payload so page guards don't need a DB round-trip on every render.
+  // mustChange forces the user through /admin/change-password first.
   let token: string;
   try {
-    token = signAdminSession(email, role);
+    token = signAdminSession(email, role, { mustChange });
   } catch {
     // signAdminSession throws if APP_SECRET is missing.
     return NextResponse.json(
@@ -228,11 +235,14 @@ export async function POST(request: Request) {
     metadata: { role },
   });
 
-  return new NextResponse(JSON.stringify({ ok: true, email, role }), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Set-Cookie": cookie,
-    },
-  });
+  return new NextResponse(
+    JSON.stringify({ ok: true, email, role, mustChange }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Set-Cookie": cookie,
+      },
+    }
+  );
 }

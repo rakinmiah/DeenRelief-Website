@@ -130,6 +130,13 @@ export interface AdminSessionPayload {
    * and sponsor links in /admin/sponsorship — no donor financials.
    */
   role?: "admin" | "social" | "writer" | "sponsorship";
+  /**
+   * When true, the account holds a one-time temporary password and must
+   * set a new one before using the admin app. Page guards redirect such
+   * sessions to /admin/change-password until it's cleared (migration
+   * 035). Absent/false for normal sessions.
+   */
+  mustChange?: boolean;
   /** Unix seconds at which the session expires. 8h default. */
   exp: number;
   iat: number;
@@ -145,14 +152,16 @@ const DEFAULT_ADMIN_TTL_SECONDS = 8 * 60 * 60; // 8 hours
 export function signAdminSession(
   email: string,
   role: "admin" | "social" | "writer" | "sponsorship" = "admin",
-  ttlSeconds: number = DEFAULT_ADMIN_TTL_SECONDS
+  opts: { ttlSeconds?: number; mustChange?: boolean } = {}
 ): string {
+  const { ttlSeconds = DEFAULT_ADMIN_TTL_SECONDS, mustChange = false } = opts;
   const now = Math.floor(Date.now() / 1000);
   const payload: AdminSessionPayload = {
     email: email.toLowerCase().trim(),
     role,
     exp: now + ttlSeconds,
     iat: now,
+    ...(mustChange ? { mustChange: true } : {}),
   };
   const payloadB64 = b64urlEncode(JSON.stringify(payload));
   const signature = createHmac("sha256", getSecret())

@@ -58,8 +58,8 @@ export default function AdminShell({
   const groups = visibleGroups(role);
   const homeHref = flatVisible(role)[0]?.href ?? "/admin/donations";
 
-  // The login page renders standalone without chrome.
-  if (pathname === "/admin/login") {
+  // The login + change-password pages render standalone without chrome.
+  if (pathname === "/admin/login" || pathname === "/admin/change-password") {
     return <>{children}</>;
   }
 

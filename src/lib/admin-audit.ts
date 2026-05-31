@@ -23,6 +23,7 @@ export type AdminAction =
   | "sign_in_failed"
   | "sign_in_rate_limited"
   | "sign_out"
+  | "admin_password_changed"
   | "view_gift_aid_csv"
   | "view_donations_csv"
   | "view_reconciliation_csv"
