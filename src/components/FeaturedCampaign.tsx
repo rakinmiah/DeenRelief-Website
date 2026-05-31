@@ -6,25 +6,13 @@ import Link from "next/link";
 import Button from "./Button";
 import ProofTag from "./ProofTag";
 import Skeleton from "./Skeleton";
+import {
+  defaultTierValue,
+  type CampaignHero,
+  type HeroFrequency as Frequency,
+} from "@/lib/campaign-hero";
 
 const MIN_AMOUNT = 5;
-
-const donationAmounts = {
-  "one-time": [
-    { value: 25, label: "£25", outcome: "Provides emergency food for a family in Gaza" },
-    { value: 50, label: "£50", outcome: "Feeds a displaced family in Gaza for one week", default: true },
-    { value: 100, label: "£100", outcome: "Supplies clean water for a community in Gaza" },
-    { value: 250, label: "£250", outcome: "Provides shelter materials for a displaced family in Gaza" },
-  ],
-  monthly: [
-    { value: 10, label: "£10", outcome: "Provides ongoing food support for a child in Gaza" },
-    { value: 25, label: "£25", outcome: "Feeds a displaced family in Gaza every month" },
-    { value: 50, label: "£50", outcome: "Sustains clean water access for a community in Gaza", default: true },
-    { value: 100, label: "£100", outcome: "Covers monthly medical supplies for a family in Gaza" },
-  ],
-};
-
-type Frequency = "one-time" | "monthly";
 
 /** Skeleton shown while the donation panel is loading (e.g. waiting for Stripe). */
 export function DonationPanelSkeleton() {
@@ -52,9 +40,10 @@ export function DonationPanelSkeleton() {
   );
 }
 
-export default function FeaturedCampaign() {
-  const [frequency, setFrequency] = useState<Frequency>("one-time");
-  const [selectedAmount, setSelectedAmount] = useState(50);
+export default function FeaturedCampaign({ hero }: { hero: CampaignHero }) {
+  const donationAmounts = hero.amounts;
+  const [frequency, setFrequency] = useState<Frequency>(hero.defaultFrequency);
+  const [selectedAmount, setSelectedAmount] = useState(() => defaultTierValue(hero));
   const [customAmount, setCustomAmount] = useState("");
 
   const amounts = donationAmounts[frequency];
@@ -68,8 +57,9 @@ export default function FeaturedCampaign() {
   const handleFrequencyChange = (f: Frequency) => {
     setFrequency(f);
     setCustomAmount("");
-    const defaultAmount = donationAmounts[f].find((a) => a.default);
-    setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][1].value);
+    const tiers = donationAmounts[f];
+    const defaultAmount = tiers.find((a) => a.default);
+    setSelectedAmount(defaultAmount?.value ?? tiers[0].value);
   };
 
   return (
@@ -79,29 +69,29 @@ export default function FeaturedCampaign() {
           {/* Image */}
           <div className="relative rounded-2xl overflow-hidden aspect-[5/4]">
               <Image
-                src="/images/palestine-relief.webp"
-                alt="Deen Relief worker distributing aid to a woman in a Palestine displacement camp"
+                src={hero.image.src}
+                alt={hero.image.alt}
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"
               />
-              {/* Urgent Appeal badge */}
-              <span className="absolute top-3 left-3 z-10 inline-block text-[10px] font-bold tracking-[0.08em] uppercase text-amber-dark bg-amber-light px-3 py-1 rounded-md">
-                Urgent Appeal
-              </span>
-              <ProofTag location="Gaza" date="2026" />
+              {hero.eyebrow && (
+                <span className="absolute top-3 left-3 z-10 inline-block text-[10px] font-bold tracking-[0.08em] uppercase text-amber-dark bg-amber-light px-3 py-1 rounded-md">
+                  {hero.eyebrow}
+                </span>
+              )}
+              {hero.proofTag && (
+                <ProofTag location={hero.proofTag.location} date={hero.proofTag.date} />
+              )}
           </div>
 
           {/* Content */}
           <div>
             <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal mb-4 leading-tight">
-              Palestine Emergency Relief
+              {hero.title}
             </h2>
             <p className="text-grey text-base sm:text-[1.0625rem] mb-8 leading-[1.7]">
-              Donate to Palestine and help displaced families in Gaza
-              who urgently need food, clean water, shelter, and medical
-              supplies. Every donation is delivered directly through our
-              on-the-ground teams.
+              {hero.blurb}
             </p>
 
             {/* Donation Amount Selector */}
@@ -205,7 +195,7 @@ export default function FeaturedCampaign() {
               <Button
                 variant="primary"
                 size="lg"
-                href={`/donate?campaign=palestine&amount=${amountForUrl}&frequency=${frequency}`}
+                href={`/donate?campaign=${hero.slug}&amount=${amountForUrl}&frequency=${frequency}`}
                 className="w-full sm:w-auto"
               >
                 Donate £{amountForUrl.toLocaleString()}
