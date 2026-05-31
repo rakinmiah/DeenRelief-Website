@@ -53,7 +53,12 @@ export async function prepareImage(
   buf: Buffer,
   filter: ImageFilter | undefined,
   maxDim: number,
-  fallbackMime: string
+  fallbackMime: string,
+  /** When set (a solid hex colour), flatten transparent art onto it and
+   *  emit a JPEG. resvg/Satori intermittently drops transparent PNGs on
+   *  full-size (1080²) canvases; an opaque JPEG renders reliably. Use for
+   *  logos / cut-outs that sit on a known solid background. */
+  flattenBg?: string
 ): Promise<{ data: Buffer; mime: string }> {
   const hasFilter = !!filter && filter !== "none";
   try {
@@ -62,7 +67,7 @@ export async function prepareImage(
     const meta = await img.metadata();
     const longest = Math.max(meta.width ?? 0, meta.height ?? 0);
     const tooBig = longest > maxDim;
-    if (!tooBig && !hasFilter) {
+    if (!tooBig && !hasFilter && !flattenBg) {
       return { data: buf, mime: fallbackMime };
     }
     if (tooBig) {
@@ -75,6 +80,12 @@ export async function prepareImage(
       case "bright": img = img.modulate({ brightness: 1.12, saturation: 1.12 }).linear(1.05, -6); break;
       case "faded": img = img.modulate({ saturation: 0.78, brightness: 1.06 }).linear(0.9, 12); break;
       default: break;
+    }
+    if (flattenBg) {
+      return {
+        data: await img.flatten({ background: flattenBg }).jpeg({ quality: 92 }).toBuffer(),
+        mime: "image/jpeg",
+      };
     }
     const hasAlpha = meta.hasAlpha ?? false;
     if (hasAlpha) {

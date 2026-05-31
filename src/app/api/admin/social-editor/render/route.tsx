@@ -70,7 +70,14 @@ async function render(request: Request): Promise<Response> {
         // hard so oversized source art still rasterises; photos get a
         // generous cap.
         const maxDim = l.objectFit === "contain" ? 700 : 1600;
-        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime);
+        // Contain images (logos / cut-outs) on a solid-colour slide are
+        // flattened onto that colour and emitted as JPEG — transparent PNGs
+        // intermittently drop out of resvg on full-size 1080² canvases.
+        const flattenBg =
+          l.objectFit === "contain" && slide.background.startsWith("#")
+            ? slide.background
+            : undefined;
+        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime, flattenBg);
         return [l.id, `data:${mime};base64,${data.toString("base64")}`] as const;
       } catch {
         return [l.id, null] as const;
