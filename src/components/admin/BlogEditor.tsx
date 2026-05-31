@@ -17,6 +17,7 @@ import {
 } from "@/app/admin/blog/actions";
 import type { AdminBlogPost } from "@/lib/blog-admin";
 import type { BlogFaq } from "@/lib/blog";
+import { StatusBadge } from "@/components/admin/ui";
 
 /**
  * The blog CMS editor — a TipTap WYSIWYG body plus the post's metadata
@@ -28,20 +29,6 @@ import type { BlogFaq } from "@/lib/blog";
  * only admins publish. The server actions re-check authorisation, so
  * the buttons here are UX, not the security boundary.
  */
-
-const STATUS_LABEL: Record<AdminBlogPost["status"], string> = {
-  draft: "Draft",
-  in_review: "In review",
-  published: "Published",
-  archived: "Archived",
-};
-
-const STATUS_STYLE: Record<AdminBlogPost["status"], string> = {
-  draft: "bg-grey-light text-grey",
-  in_review: "bg-amber-light text-amber-dark",
-  published: "bg-green-light text-green",
-  archived: "bg-red-50 text-red-600",
-};
 
 export default function BlogEditor({
   post,
@@ -213,11 +200,7 @@ export default function BlogEditor({
         >
           ← All posts
         </button>
-        <span
-          className={`text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${STATUS_STYLE[status]}`}
-        >
-          {STATUS_LABEL[status]}
-        </span>
+        <StatusBadge domain="blog" status={status} />
       </div>
 
       {message && (

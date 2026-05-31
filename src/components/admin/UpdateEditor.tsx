@@ -9,6 +9,7 @@ import {
   deleteMediaAction,
 } from "@/app/admin/sponsorship/actions";
 import type { OrphanUpdate, OrphanUpdateMediaRow } from "@/lib/sponsorship-admin";
+import { StatusBadge } from "@/components/admin/ui";
 
 const labelCls =
   "block text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5";
@@ -170,15 +171,10 @@ export default function UpdateEditor({
           >
             {published ? "Unpublish" : "Publish"}
           </button>
-          <span
-            className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full ${
-              published
-                ? "bg-green-light text-green"
-                : "bg-grey-light text-grey"
-            }`}
-          >
-            {published ? "Published" : "Draft"}
-          </span>
+          <StatusBadge
+            domain="blog"
+            status={published ? "published" : "draft"}
+          />
           {msg && (
             <span
               className={`text-sm ${msg.ok ? "text-green" : "text-red-600"}`}
