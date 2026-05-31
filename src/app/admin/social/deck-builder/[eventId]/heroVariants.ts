@@ -69,8 +69,8 @@ export const HERO_VARIANTS: TemplateMeta[] = [
   },
   {
     id: "hero-f",
-    name: "Brand logo cover",
-    description: "The real Deen Relief logo, large and centered on forest — a branded opener or closing card.",
+    name: "Brand cover",
+    description: "Gold-framed crest — emblem diamond, the DEEN RELIEF wordmark and tagline, centered on forest.",
     platforms: ["instagram", "facebook"],
     category: "hero",
     aspect: "square",
@@ -80,8 +80,8 @@ export const HERO_VARIANTS: TemplateMeta[] = [
   },
   {
     id: "hero-g",
-    name: "Side rail",
-    description: "Asymmetric forest-soft left rail with a gold spine; headline set off to the right.",
+    name: "Editorial dispatch",
+    description: "Asymmetric layout with a vertical gold spine, a rotated dateline, and a bottom-anchored headline.",
     platforms: ["instagram", "facebook"],
     category: "hero",
     aspect: "square",
@@ -92,7 +92,7 @@ export const HERO_VARIANTS: TemplateMeta[] = [
   {
     id: "hero-h",
     name: "Stat-led",
-    description: "One oversized figure as the headline, with a supporting beat beneath the gold rule.",
+    description: "One giant figure centered on forest, an Anton label beneath, and two footnote beats at the foot.",
     platforms: ["instagram", "facebook"],
     category: "hero",
     aspect: "square",
@@ -103,7 +103,7 @@ export const HERO_VARIANTS: TemplateMeta[] = [
   {
     id: "hero-i",
     name: "Quote-led",
-    description: "Testimony cover — an oversized gold quotation mark over the quote, with attribution.",
+    description: "Testimony cover — an oversized gold open-quote over a large cream quote, with attribution.",
     platforms: ["instagram", "facebook"],
     category: "hero",
     aspect: "square",
@@ -113,8 +113,8 @@ export const HERO_VARIANTS: TemplateMeta[] = [
   },
   {
     id: "hero-j",
-    name: "Corner card",
-    description: "Full-bleed photo with a framed forest corner card holding the eyebrow and headline.",
+    name: "Framed two-tone",
+    description: "Gold-bordered card: a forest panel carries the headline, a cream band below holds the support copy.",
     platforms: ["instagram", "facebook"],
     category: "hero",
     aspect: "square",

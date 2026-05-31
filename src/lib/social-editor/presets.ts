@@ -28,6 +28,8 @@ const C = {
   cream: "#F7F3E8",
   creamDim: "rgba(247,243,232,0.72)",
   amber: "#D4A843",
+  goldDeep: "#A9842B", // gold ink on cream (J's URL)
+  forestDim: "rgba(22,56,39,0.74)", // forest ink, dimmed (on cream bands)
   charcoal: "#1A1A2E",
   green: "#2D6A2E",
 } as const;
@@ -200,41 +202,6 @@ function wordmark(x: number, y: number, _logo: BrandLogo | null | undefined, col
   ];
 }
 
-/** A LARGE, centred brand lockup for a prominent placement. Prefers the
- *  REAL raster logo (which only rasterises in Satori at larger sizes —
- *  here it's big, so it renders), sized to its true aspect and centred on
- *  the board. When no logo asset is resolved, falls back gracefully to a
- *  scaled-up vector diamond + wordmark lockup. Returns the layers plus
- *  the y at which the artwork ends, so a caller can stack a rule beneath. */
-function logoLockup(
-  cx: number,
-  topY: number,
-  maxW: number,
-  logo: BrandLogo | null | undefined,
-  color: string = C.cream
-): { layers: Layer[]; bottom: number } {
-  if (logo) {
-    // Real wide ~6:1 PNG — size to width, derive height from aspect.
-    const w = Math.min(maxW, 760);
-    const h = Math.round(w / logo.aspect);
-    return {
-      layers: [image({ x: Math.round(cx - w / 2), y: topY, w, h, src: logo.url, objectFit: "contain" })],
-      bottom: topY + h,
-    };
-  }
-  // Vector fallback — a stacked diamond over the wordmark, scaled up.
-  const dia = 40;
-  const wmSize = 64;
-  const lockW = Math.min(maxW, 640);
-  return {
-    layers: [
-      shape({ x: Math.round(cx - dia / 2), y: topY, w: dia, h: dia, shape: "rect", fill: C.amber, rotation: 45 }),
-      text({ x: Math.round(cx - lockW / 2), y: topY + dia + 28, w: lockW, h: wmSize + 16, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: wmSize, fontWeight: 700, uppercase: true, letterSpacing: 8, color, align: "center" }),
-    ],
-    bottom: topY + dia + 28 + wmSize,
-  };
-}
-
 // HERO A — photo-led full-bleed
 function heroPhotoFull(c: SlideContent): EditorSlide {
   const W = B - 2 * HPAD;
@@ -336,121 +303,218 @@ function heroCaption(c: SlideContent): EditorSlide {
   );
 }
 
-// HERO F — brand cover with the REAL logo, prominent + centred
+// HERO F — Brand cover: gold-framed crest with the DEEN RELIEF wordmark,
+// emblem diamond, and a centred brand column on a radial glow.
 function heroLogoCover(c: SlideContent): EditorSlide {
   const cx = Math.round(B / 2);
-  const W = B - 2 * HPAD;
-  const lock = logoLockup(cx, 372, 760, c.logo);
-  const headSize = 76;
-  const headY = lock.bottom + 70;
-  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
+  const FPAD = 46; // outer pad → the gold frame
+  const frameW = B - 2 * FPAD; // 988
+  const FGLOW =
+    "radial-gradient(120% 70% at 50% 18%, #1C432F 0%, rgba(28,67,47,0) 60%)";
+  // Centred brand column, both axes — measured top-down then nudged so the
+  // optical centre lands mid-board. Gaps ≈ 34px between beats.
+  const dia = 132;
+  const colTop = 248; // tuned so the column is vertically centred in-frame
+  const diaY = colTop;
+  const eyebrowY = diaY + dia + 34; // 414
+  const wmY = eyebrowY + 32 + 34; // 480 — eyebrow box + gap
+  const wmSize = 124;
+  const wmH = Math.round(2 * wmSize * 0.86 + 16); // 2 lines @ lh 0.86
+  const ruleY = wmY + wmH + 34;
+  const taglineY = ruleY + 3 + 34;
+  // Gold emblem diamond + a thin forest inner keyline (inset 22 → ~88px).
+  const innerDia = 88;
   return slide(
     [
-      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      hEyebrow(c.eyebrow, HPAD, 300, W, "center"),
-      ...lock.layers,
-      goldBar(Math.round((B - 92) / 2), lock.bottom + 34, 92),
-      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize, "center"),
-      text({ x: HPAD, y: headBottom + 28, w: W, h: 30, text: "deenrelief.org · Charity No. 1158608", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 4, color: C.creamDim, align: "center" }),
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: FGLOW, locked: true }),
+      // The 2px gold frame — a transparent rect with a gold border.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      // Emblem: gold diamond with a forest keyline diamond centred inside.
+      shape({ x: Math.round(cx - dia / 2), y: diaY, w: dia, h: dia, shape: "rect", fill: C.amber, rotation: 45 }),
+      shape({ x: Math.round(cx - innerDia / 2), y: Math.round(diaY + (dia - innerDia) / 2), w: innerDia, h: innerDia, shape: "rect", fill: "transparent", stroke: C.forest, strokeWidth: 2, rotation: 45 }),
+      // Eyebrow (gold), wordmark (cream Anton, 2 lines), rule, tagline.
+      text({ x: HPAD, y: eyebrowY, w: B - 2 * HPAD, h: 32, text: c.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: wmY, w: B - 2 * HPAD, h: wmH, text: "DEEN\nRELIEF", fontFamily: ANTON, fontSize: wmSize, fontWeight: 400, uppercase: true, lineHeight: 0.86, letterSpacing: 2.5, color: C.cream, align: "center" }),
+      shape({ x: Math.round(cx - 48), y: ruleY, w: 96, h: 3, shape: "rect", fill: C.amber }),
+      text({ x: HPAD, y: taglineY, w: B - 2 * HPAD, h: 30, text: "Relief with dignity · Since 2009", fontFamily: BARLOW, fontSize: 28, fontWeight: 600, uppercase: true, letterSpacing: 7, color: C.creamDim, align: "center" }),
+      // Footer — pinned ~48px above the frame foot, 56px insets.
+      shape({ x: FPAD + 56, y: B - FPAD - 48 - 9, w: 9, h: 9, shape: "rect", fill: C.amber, rotation: 45 }),
+      text({ x: FPAD + 56 + 20, y: B - FPAD - 48 - 12, w: 480, h: 28, text: "Registered Charity 1180042", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.creamDim }),
+      text({ x: B - FPAD - 56 - 420, y: B - FPAD - 48 - 12, w: 420, h: 28, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.creamDim, align: "right" }),
     ],
     C.forest
   );
 }
 
-// HERO G — asymmetric left rail + offset headline
+// HERO G — Asymmetric editorial: vertical gold spine, a rotated dateline
+// reading upward, and a bottom-anchored headline block off to the right.
 function heroSidebar(c: SlideContent): EditorSlide {
-  const railW = 132;
-  const textX = railW + 64;
-  const W = B - textX - HPAD;
+  const textX = 352;
+  const W = B - textX - 64; // right inset 64 → ~664
   const headSize = 92;
+  const headSecondary = c.secondary;
+  // The block is bottom-anchored ~y912 and grows upward. Lay it out
+  // bottom-up: body, rule, headline, eyebrow.
+  const blockBottom = 912;
+  const bodyH = 120;
+  const bodyW = 520;
+  const bodyY = blockBottom - bodyH;
+  const ruleY = bodyY - 16; // gold rule sits above the body
+  // Headline block sits above the rule; size it from its line count.
+  const headMain = balanceLines(c.primary, W, headSize);
+  const headLines = headMain.split("\n").length + (c.accent && c.accent.trim() ? balanceLines(c.accent, W, headSize).split("\n").length : 0);
+  const headH = Math.round(headLines * headSize * 0.96 + 12);
+  const headY = ruleY - 26 - headH;
+  const eyebrowY = headY - 26 - 32;
+  // Vertical dateline: a text box rotated -90° so it reads upward. Box is
+  // sized to the text; centred on the spine column (~x300).
+  const dateBoxW = 240;
+  const dateBoxH = 32;
+  const dateCx = 300;
+  const dateCy = 320; // optical centre of the rotated line
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      // Forest-soft rail with a gold spine + vertical-feel eyebrow band.
-      shape({ x: 0, y: 0, w: railW, h: B, shape: "rect", fill: C.forestSoft, locked: true }),
-      shape({ x: railW - 6, y: 0, w: 6, h: B, shape: "rect", fill: C.amber, locked: true }),
-      ...wordmark(textX, HPAD, c.logo),
-      hEyebrow(c.eyebrow, textX, 360, W),
-      goldBar(textX, 408),
-      ...headlineBlock(c.primary, c.accent, textX, 452, W, headSize),
-      ...(c.secondary
-        ? [hBody(c.secondary, textX, headlineBottom(c.primary, c.accent, W, headSize, 452) + 34, W, 160)]
+      // Vertical gold spine.
+      shape({ x: 320, y: 168, w: 3, h: 744, shape: "rect", fill: C.amber, locked: true }),
+      // Corner row: wordmark left, "Dispatch" tag right.
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Dispatch", B - HPAD - 420, HPAD + 6, 420, "right"),
+      // Rotated dateline reading upward (rotation -90), gold.
+      text({ x: Math.round(dateCx - dateBoxW / 2), y: Math.round(dateCy - dateBoxH / 2), w: dateBoxW, h: dateBoxH, text: "Gaza · 2026", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 8, color: C.amber, align: "center", rotation: -90 }),
+      // Editorial block — eyebrow (creamDim, NOT gold), headline, rule, body.
+      text({ x: textX, y: eyebrowY, w: W, h: 32, text: c.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.creamDim }),
+      ...headlineBlock(c.primary, c.accent, textX, headY, W, headSize),
+      goldBar(textX, ruleY, 64),
+      ...(headSecondary
+        ? [hBody(headSecondary, textX, bodyY + 13, bodyW, bodyH)]
         : []),
     ],
     C.forest
   );
 }
 
-// HERO H — stat-led: giant figure + supporting beat
+// HERO H — Stat-led: a giant numeral as hero, an Anton label beneath, and
+// two footnote beats pinned to the foot (left + right).
 function heroStat(c: SlideContent): EditorSlide {
   const W = B - 2 * HPAD;
-  // A long stat phrase drops the type size a notch so a 2-line figure
-  // still clears the rule + supporting beat below it.
-  const statSize = c.primary.replace(/\n/g, " ").length > 14 ? 150 : 196;
-  const headY = 440;
-  const headBottom = headlineBottom(c.primary, c.accent, W, statSize, headY);
-  const barY = headBottom + 34;
+  // c.primary is the giant figure (e.g. "62K"); c.secondary is the label
+  // (e.g. "PALESTINIANS\nKILLED IN GAZA.").
+  const figure = c.primary;
+  const figureSize = 400;
+  const figureH = Math.round(figureSize * 0.78 + 20);
+  const labelText = c.secondary ?? "";
+  const labelSize = 58;
+  const labelLines = labelText ? labelText.split("\n").length : 1;
+  const labelH = Math.round(labelLines * labelSize * 0.96 + 12);
+  // Centre the figure+label group around the board middle. Group: eyebrow
+  // (32) + gap 10 + figure + gap 10 + label.
+  const groupH = 32 + 10 + figureH + 10 + labelH;
+  const groupTop = Math.round((B - groupH) / 2) - 20; // slight optical lift
+  const eyebrowY = groupTop;
+  const figureY = eyebrowY + 32 + 10;
+  const labelY = figureY + figureH + 10;
+  // Footnote beats pinned bottom (y = 1080 - 78 - height), 230px wide.
+  const beatW = 230;
+  const beatH = 132;
+  const beatY = B - 78 - beatH;
+  const leftX = 78;
+  const rightX = B - 78 - beatW; // 772
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
       ...wordmark(HPAD, HPAD, c.logo),
-      hTag("By the numbers", 582, HPAD + 6, 420, "right"),
-      hEyebrow(c.eyebrow, HPAD, 380, W),
-      // The headline IS the stat — oversized Anton, gold accent tail.
-      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, statSize),
-      goldBar(HPAD, barY),
-      ...(c.secondary ? [hBody(c.secondary, HPAD, barY + 26, W, 180)] : []),
+      hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      // Centred column: eyebrow, giant figure, label.
+      text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.78, letterSpacing: -4, color: C.amber, align: "center" }),
+      ...(labelText
+        ? [text({ x: HPAD, y: labelY, w: W, h: labelH, text: labelText, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" })]
+        : []),
+      // LEFT beat: tick, eyebrow line, body.
+      shape({ x: leftX, y: beatY, w: 32, h: 3, shape: "rect", fill: C.amber }),
+      text({ x: leftX, y: beatY + 16, w: beatW, h: 28, text: "Since Oct 2023", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.cream }),
+      text({ x: leftX, y: beatY + 50, w: beatW, h: 70, text: "Verified by the Gaza Health Ministry.", fontFamily: BARLOW, fontSize: 23, fontWeight: 400, lineHeight: 1.26, color: C.creamDim }),
+      // RIGHT beat: right-aligned tick, eyebrow line, body.
+      shape({ x: rightX + beatW - 32, y: beatY, w: 32, h: 3, shape: "rect", fill: C.amber }),
+      text({ x: rightX, y: beatY + 16, w: beatW, h: 28, text: "And still counting", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.cream, align: "right" }),
+      text({ x: rightX, y: beatY + 50, w: beatW, h: 70, text: "The toll rises with every passing week.", fontFamily: BARLOW, fontSize: 23, fontWeight: 400, lineHeight: 1.26, color: C.creamDim, align: "right" }),
     ],
     C.forest
   );
 }
 
-// HERO I — quote-led testimony cover
+// HERO I — Quote-led: an oversized open-quote, a large cream quote set tight
+// beneath it, and a one-line attribution row (rule + name + role).
 function heroQuote(c: SlideContent): EditorSlide {
   const W = B - 2 * HPAD;
-  const quoteSize = 60;
-  const quoteY = 392;
-  const quoteH = 360;
+  const quoteW = Math.min(W, 880);
+  const quoteSize = 66;
+  // Vertically-centred content stack: open-quote, quote, attribution.
+  const markH = 150; // open-quote box clamped ~150 tall
+  const quoteLines = Math.min(4, Math.max(1, Math.ceil((c.primary.length * quoteSize * 0.52) / quoteW)));
+  const quoteH = Math.round(quoteLines * quoteSize * 1.14 + 16);
+  const attrH = 40;
+  const groupH = markH + 6 + quoteH + 30 + attrH;
+  const groupTop = Math.round((B - groupH) / 2) + 10; // optical centre
+  const markY = groupTop;
+  const quoteY = markY + markH + 6;
+  const attrY = quoteY + quoteH + 30;
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
       ...wordmark(HPAD, HPAD, c.logo),
-      hTag("In their words", 582, HPAD + 6, 420, "right"),
-      // Oversized gold quotation mark anchor.
-      text({ x: HPAD - 4, y: 248, w: 220, h: 180, text: "“", fontFamily: BARLOW, fontSize: 200, fontWeight: 700, color: C.amber, opacity: 0.9 }),
-      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: c.primary, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 600, lineHeight: 1.22, color: C.cream }),
-      goldBar(HPAD, quoteY + quoteH + 6),
-      ...(c.secondary
-        ? [text({ x: HPAD, y: quoteY + quoteH + 30, w: W, h: 40, text: `— ${c.secondary}`, fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber })]
-        : []),
+      hTag("In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      // Oversized gold open-quote, clamped tall so the quote sits tight under.
+      text({ x: HPAD - 6, y: markY, w: 260, h: markH, text: "“", fontFamily: ANTON, fontSize: 300, fontWeight: 400, lineHeight: 0.8, color: C.amber }),
+      // The quote — all cream (no inline gold), Barlow 500.
+      text({ x: HPAD, y: quoteY, w: quoteW, h: quoteH, text: c.primary, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.14, color: C.cream }),
+      // Attribution row: rule + name + role, on one line.
+      goldBar(HPAD, attrY + 14, 52),
+      text({ x: HPAD + 52 + 20, y: attrY, w: 360, h: attrH, text: c.secondary ?? "", fontFamily: BARLOW, fontSize: 28, fontWeight: 700, color: C.cream }),
     ],
     C.forest
   );
 }
 
-// HERO J — full-bleed photo with a forest corner card
+// HERO J — Framed two-tone: a gold-bordered card with a forest top panel
+// (~70%) carrying the headline, and a cream bottom band (~30%) holding the
+// support copy + URL in dark ink.
 function heroCornerCard(c: SlideContent): EditorSlide {
-  const cardX = 64;
-  const cardY = 560;
-  const cardW = 720;
-  const cardH = B - cardY - 64; // 456
-  const innerX = cardX + 52;
-  const innerW = cardW - 104;
-  const headSize = 62;
-  const headY = cardY + 132;
+  const FPAD = 40; // outer pad → the 1000×1000 frame
+  const frameW = B - 2 * FPAD; // 1000
+  const bandH = 300; // cream band ≈ 30%
+  const bandY = B - FPAD - bandH; // ~740
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset; // 888
+  const headSize = 96;
+  // Headline is bottom-anchored in the forest panel, just above the band.
+  const headMain = balanceLines(c.primary, innerW, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 16);
+  const headY = bandY - 40 - headH; // 40px clear above the band
+  // Topbar + eyebrow near the panel top.
+  const barY = FPAD + inset;
+  const eyebrowY = barY + 30 + 40;
   return slide(
     [
-      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
-      ...wordmark(HPAD, HPAD, c.logo),
-      hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
-      // The card: forest panel with a gold top edge — a framed caption.
-      shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
-      shape({ x: cardX, y: cardY, w: cardW, h: 6, shape: "rect", fill: C.amber, locked: true }),
-      hEyebrow(c.eyebrow, innerX, cardY + 56, innerW),
-      ...headlineBlock(c.primary, c.accent, innerX, headY, innerW, headSize),
+      // Forest base fills the whole frame; the cream band paints over the foot.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+      shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+      // Topbar: wordmark + "Palestine Appeal" tag.
+      ...wordmark(innerX, barY, c.logo),
+      hTag("Palestine Appeal", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
+      // Eyebrow (gold) + headline (cream, bottom-anchored in the forest panel).
+      text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: c.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
+      text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      // Cream band: dark support copy (left) + gold-deep URL (right).
       ...(c.secondary
-        ? [hBody(c.secondary, innerX, headlineBottom(c.primary, c.accent, innerW, headSize, headY) + 22, innerW, 120)]
+        ? [text({ x: innerX, y: bandY + Math.round((bandH - 110) / 2), w: 540, h: 110, text: c.secondary, fontFamily: BARLOW, fontSize: 28, fontWeight: 400, lineHeight: 1.3, color: C.forestDim })]
         : []),
+      text({ x: FPAD + frameW - inset - 420, y: bandY + Math.round((bandH - 52) / 2), w: 420, h: 52, text: "deenrelief.org", fontFamily: ANTON, fontSize: 44, fontWeight: 400, color: C.goldDeep, align: "right" }),
+      // The 2px gold border framing the whole 1000×1000 card, on top.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
     ],
     C.forest
   );
