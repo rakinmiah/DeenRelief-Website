@@ -116,9 +116,11 @@ function hHead(t: string, x: number, y: number, w: number, h: number, size: numb
 }
 
 /** Balance a headline into ~2 lines at the word break that most evens the
- *  halves — so live SMM copy wraps cleanly. Respects manual "\n". */
-function balanceLines(t: string): string {
+ *  halves — but only when it won't fit on one line. Respects manual "\n".
+ *  Anton is very condensed (~0.46em/char), used to estimate the width. */
+function balanceLines(t: string, maxWidth: number, size: number): string {
   if (t.includes("\n")) return t;
+  if (t.length * size * 0.46 <= maxWidth) return t; // already fits one line
   const words = t.trim().split(/\s+/);
   if (words.length < 3) return t;
   let best = t;
@@ -147,13 +149,13 @@ function headlineBlock(
   align: TextAlign = "left"
 ): Layer[] {
   const lh = size * 0.96;
-  const main = balanceLines(primary);
+  const main = balanceLines(primary, w, size);
   const mainLines = main.split("\n").length;
   const layers: Layer[] = [
     hHead(main, x, y, w, Math.round(mainLines * lh + 12), size, align, C.cream),
   ];
   if (accent && accent.trim()) {
-    const acc = balanceLines(accent);
+    const acc = balanceLines(accent, w, size);
     const accLines = acc.split("\n").length;
     layers.push(
       hHead(acc, x, Math.round(y + mainLines * lh), w, Math.round(accLines * lh + 12), size, align, C.amber)
@@ -175,9 +177,9 @@ function hTag(t: string, x: number, y: number, w: number, align: TextAlign = "le
  *  "DEEN RELIEF" type lockup when no logo is uploaded. */
 function wordmark(x: number, y: number, logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
   if (logo?.url) {
-    const h = 42;
+    const h = 48;
     const w = Math.max(60, Math.round(h * (logo.aspect || 4)));
-    return [image({ x, y, w, h, src: logo.url, objectFit: "contain", locked: true })];
+    return [image({ x, y: y - 4, w, h, src: logo.url, objectFit: "contain", locked: true })];
   }
   return [
     shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: C.amber, rotation: 45 }),
@@ -239,9 +241,9 @@ function heroTopPanel(c: SlideContent): EditorSlide {
 function heroCrest(c: SlideContent): EditorSlide {
   const layers: Layer[] = [];
   if (c.logo?.url) {
-    const h = 54;
+    const h = 70;
     const w = Math.max(80, Math.round(h * (c.logo.aspect || 4)));
-    layers.push(image({ x: Math.round((B - w) / 2), y: 316, w, h, src: c.logo.url, objectFit: "contain", locked: true }));
+    layers.push(image({ x: Math.round((B - w) / 2), y: 300, w, h, src: c.logo.url, objectFit: "contain", locked: true }));
   } else {
     layers.push(shape({ x: Math.round((B - 30) / 2), y: 310, w: 30, h: 30, shape: "rect", fill: C.amber, rotation: 45 }));
     layers.push(text({ x: HPAD, y: 356, w: B - 2 * HPAD, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 7, color: C.cream, align: "center" }));
