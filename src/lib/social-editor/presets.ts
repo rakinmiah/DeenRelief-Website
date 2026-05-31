@@ -120,14 +120,13 @@ function goldBar(x: number, y: number, w: number = 64): ShapeLayer {
 function hTag(t: string, x: number, y: number, w: number, align: TextAlign = "left", opacity = 0.62): TextLayer {
   return text({ x, y, w, h: 30, text: t, fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity, align });
 }
-/** Corner brand mark: the real DR logo when uploaded, else a diamond +
- *  wordmark type lockup matching the design. */
-function wordmark(x: number, y: number, logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
-  if (logo?.url) {
-    const h = 38;
-    const w = Math.max(60, Math.round(h * (logo.aspect || 4)));
-    return [image({ x, y, w, h, src: logo.url, objectFit: "contain", locked: true })];
-  }
+/** Corner brand mark: the diamond + "DEEN RELIEF" wordmark type lockup
+ *  (vector/text → always crisp in Satori). The real PNG logo is a wide
+ *  lockup-with-tagline ill-suited to this minimal corner, and the export
+ *  pipeline only rasterises JPEGs — so the real logo is reserved for a
+ *  prominent placement (e.g. the CTA slide) via an SVG variant. `_logo`
+ *  is threaded through for when that lands. */
+function wordmark(x: number, y: number, _logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
   return [
     shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: C.amber, rotation: 45 }),
     text({ x: x + 32, y, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color }),
@@ -187,14 +186,8 @@ function heroTopPanel(c: SlideContent): EditorSlide {
 // HERO D — centered crest
 function heroCrest(c: SlideContent): EditorSlide {
   const layers: Layer[] = [];
-  if (c.logo?.url) {
-    const h = 46;
-    const w = Math.max(80, Math.round(h * (c.logo.aspect || 4)));
-    layers.push(image({ x: Math.round((B - w) / 2), y: 312, w, h, src: c.logo.url, objectFit: "contain", locked: true }));
-  } else {
-    layers.push(shape({ x: Math.round((B - 30) / 2), y: 310, w: 30, h: 30, shape: "rect", fill: C.amber, rotation: 45 }));
-    layers.push(text({ x: HPAD, y: 356, w: B - 2 * HPAD, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 7, color: C.cream, align: "center" }));
-  }
+  layers.push(shape({ x: Math.round((B - 30) / 2), y: 310, w: 30, h: 30, shape: "rect", fill: C.amber, rotation: 45 }));
+  layers.push(text({ x: HPAD, y: 356, w: B - 2 * HPAD, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 7, color: C.cream, align: "center" }));
   layers.push(hEyebrow(c.eyebrow, HPAD, 408, B - 2 * HPAD, "center"));
   layers.push(hHead(c.primary, HPAD, 470, B - 2 * HPAD, 210, 104, "center"));
   layers.push(goldBar(Math.round((B - 92) / 2), 714, 92));

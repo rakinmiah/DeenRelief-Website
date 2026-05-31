@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function TemplateLabPage() {
   await requireAdminSession();
 
-  const { logo, uploaded } = await resolveBrandLogo("logo-on-dark");
+  const { logo } = await resolveBrandLogo("logo-on-dark");
 
-  return <HeroLab logo={logo} hasLogo={uploaded} />;
+  return <HeroLab logo={logo} />;
 }
