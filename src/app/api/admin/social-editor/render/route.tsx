@@ -179,7 +179,9 @@ function renderInner(l: Layer, uri: string | null) {
           height: "100%",
           borderRadius: l.radius,
           overflow: "hidden",
-          background: "#2a3f33",
+          // Transparent for `contain` images (logos / cut-out graphics) so
+          // they sit directly on the slide; loading-tint only for photos.
+          background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
         }}
       >
         {uri ? (
@@ -187,7 +189,12 @@ function renderInner(l: Layer, uri: string | null) {
           <img
             src={uri}
             alt=""
-            style={{ ...cropImgStyle(l.crop), width: l.w, height: l.h }}
+            style={{
+              ...cropImgStyle(l.crop),
+              width: l.w,
+              height: l.h,
+              objectFit: l.objectFit,
+            }}
           />
         ) : null}
       </div>

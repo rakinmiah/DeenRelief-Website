@@ -181,7 +181,11 @@ function ImageBody({
         height: "100%",
         borderRadius: layer.radius * scale,
         overflow: "hidden",
-        background: "linear-gradient(135deg, #2a3f33 0%, #4a5d4f 100%)",
+        // Transparent for contain-fit cut-outs (logos); loading-tint for photos.
+        background:
+          layer.objectFit === "contain"
+            ? "transparent"
+            : "linear-gradient(135deg, #2a3f33 0%, #4a5d4f 100%)",
       }}
     >
       {layer.src && (
@@ -194,6 +198,7 @@ function ImageBody({
             ...cropImgStyle(layer.crop),
             display: "block",
             pointerEvents: "none",
+            objectFit: layer.objectFit,
             filter: filterCss(layer.filter),
           }}
         />
