@@ -431,12 +431,14 @@ function heroStat(c: SlideContent): EditorSlide {
   const labelSize = 58;
   const labelLines = labelText ? labelText.split("\n").length : 1;
   const labelH = Math.round(labelLines * labelSize * 0.96 + 12);
-  // Centre the figure+label group around the board middle. Group: eyebrow
-  // (32) + gap 10 + figure + gap 10 + label.
-  const groupH = 32 + 10 + figureH + 10 + labelH;
-  const groupTop = Math.round((B - groupH) / 2) - 20; // slight optical lift
+  // Centre the figure+label group around the board middle. The eyebrow→figure
+  // gap is generous: the 400px Anton numeral (lineHeight 0.78) overflows its
+  // line box upward, so a small gap lets it merge into the eyebrow above.
+  const eyeGap = 60;
+  const groupH = 32 + eyeGap + figureH + 10 + labelH;
+  const groupTop = Math.round((B - groupH) / 2) - 14; // slight optical lift
   const eyebrowY = groupTop;
-  const figureY = eyebrowY + 32 + 10;
+  const figureY = eyebrowY + 32 + eyeGap;
   const labelY = figureY + figureH + 10;
   // Footnote beats pinned bottom (y = 1080 - 78 - height). Wide enough that
   // a two-word uppercase eyebrow ("AND STILL COUNTING") stays on one line —
