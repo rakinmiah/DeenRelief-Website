@@ -19,7 +19,7 @@ import { requireAdminSession } from "@/lib/admin-session";
 import { loadGoogleFont } from "@/lib/social-templates/fonts";
 import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
-import { applyFilter } from "@/lib/social-editor/imageFilterServer";
+import { prepareImage } from "@/lib/social-editor/imageFilterServer";
 import type { EditorSlide, Layer } from "@/lib/social-editor/types";
 
 export const runtime = "nodejs";
@@ -63,11 +63,13 @@ async function render(request: Request): Promise<Response> {
         });
         if (!res.ok) return [l.id, null] as const;
         const raw = Buffer.from(await res.arrayBuffer());
-        const out = await applyFilter(raw, l.filter);
-        const mime = l.filter && l.filter !== "none"
-          ? "image/png"
-          : res.headers.get("content-type") ?? "image/jpeg";
-        return [l.id, `data:${mime};base64,${out.toString("base64")}`] as const;
+        const fallbackMime = res.headers.get("content-type") ?? "image/jpeg";
+        // Logos / cut-outs (contain) are small on the board — cap them
+        // hard so oversized source art still rasterises; photos get a
+        // generous cap.
+        const maxDim = l.objectFit === "contain" ? 700 : 1600;
+        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime);
+        return [l.id, `data:${mime};base64,${data.toString("base64")}`] as const;
       } catch {
         return [l.id, null] as const;
       }

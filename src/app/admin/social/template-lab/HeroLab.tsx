@@ -38,7 +38,8 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         id: "hero-b",
         label: "B · Typography-only cover",
         c: {
-          primary: "Gaza, after\nthe ceasefire.",
+          primary: "Gaza, after",
+          accent: "the ceasefire.",
           secondary: null,
           imageUrl: null,
           eyebrow: "A Deen Relief field report",

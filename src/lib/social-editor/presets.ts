@@ -87,6 +87,9 @@ export type SlideContent = {
   secondary: string | null;
   imageUrl: string | null;
   eyebrow: string;
+  /** Optional gold accent tail rendered on its own line below the cream
+   *  headline — the library's two-tone treatment. */
+  accent?: string | null;
   /** Auto-selected brand logo for this slide's background (on-dark for
    *  forest, on-light for cream). Null → fall back to a type lockup. */
   logo?: BrandLogo | null;
@@ -108,8 +111,55 @@ const GLOW =
 function hEyebrow(t: string, x: number, y: number, w: number, align: TextAlign = "left"): TextLayer {
   return text({ x, y, w, h: 32, text: t, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align });
 }
-function hHead(t: string, x: number, y: number, w: number, h: number, size: number, align: TextAlign = "left"): TextLayer {
-  return text({ x, y, w, h, text: t, fontFamily: ANTON, fontSize: size, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align });
+function hHead(t: string, x: number, y: number, w: number, h: number, size: number, align: TextAlign = "left", color: string = C.cream): TextLayer {
+  return text({ x, y, w, h, text: t, fontFamily: ANTON, fontSize: size, fontWeight: 400, uppercase: true, lineHeight: 0.96, color, align });
+}
+
+/** Balance a headline into ~2 lines at the word break that most evens the
+ *  halves — so live SMM copy wraps cleanly. Respects manual "\n". */
+function balanceLines(t: string): string {
+  if (t.includes("\n")) return t;
+  const words = t.trim().split(/\s+/);
+  if (words.length < 3) return t;
+  let best = t;
+  let bestDiff = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(" ");
+    const b = words.slice(i).join(" ");
+    const diff = Math.abs(a.length - b.length);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = `${a}\n${b}`;
+    }
+  }
+  return best;
+}
+
+/** A headline as a cream main block + an optional gold accent block on its
+ *  own line(s) below — the library's signature two-tone treatment. */
+function headlineBlock(
+  primary: string,
+  accent: string | null | undefined,
+  x: number,
+  y: number,
+  w: number,
+  size: number,
+  align: TextAlign = "left"
+): Layer[] {
+  const lh = size * 0.96;
+  const main = balanceLines(primary);
+  const mainLines = main.split("\n").length;
+  const layers: Layer[] = [
+    hHead(main, x, y, w, Math.round(mainLines * lh + 12), size, align, C.cream),
+  ];
+  if (accent && accent.trim()) {
+    const acc = balanceLines(accent);
+    const accLines = acc.split("\n").length;
+    layers.push(
+      hHead(acc, x, Math.round(y + mainLines * lh), w, Math.round(accLines * lh + 12), size, align, C.amber)
+    );
+  }
+  return layers;
 }
 function hBody(t: string, x: number, y: number, w: number, h: number): TextLayer {
   return text({ x, y, w, h, text: t, fontFamily: BARLOW, fontSize: 28, fontWeight: 400, lineHeight: 1.34, color: C.creamDim });
@@ -120,13 +170,15 @@ function goldBar(x: number, y: number, w: number = 64): ShapeLayer {
 function hTag(t: string, x: number, y: number, w: number, align: TextAlign = "left", opacity = 0.62): TextLayer {
   return text({ x, y, w, h: 30, text: t, fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity, align });
 }
-/** Corner brand mark: the diamond + "DEEN RELIEF" wordmark type lockup
- *  (vector/text → always crisp in Satori). The real PNG logo is a wide
- *  lockup-with-tagline ill-suited to this minimal corner, and the export
- *  pipeline only rasterises JPEGs — so the real logo is reserved for a
- *  prominent placement (e.g. the CTA slide) via an SVG variant. `_logo`
- *  is threaded through for when that lands. */
-function wordmark(x: number, y: number, _logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
+/** Corner brand mark: the real DR logo (downscaled at export so the
+ *  oversized source art rasterises), falling back to a diamond +
+ *  "DEEN RELIEF" type lockup when no logo is uploaded. */
+function wordmark(x: number, y: number, logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
+  if (logo?.url) {
+    const h = 42;
+    const w = Math.max(60, Math.round(h * (logo.aspect || 4)));
+    return [image({ x, y, w, h, src: logo.url, objectFit: "contain", locked: true })];
+  }
   return [
     shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: C.amber, rotation: 45 }),
     text({ x: x + 32, y, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color }),
@@ -142,7 +194,7 @@ function heroPhotoFull(c: SlideContent): EditorSlide {
       ...wordmark(HPAD, HPAD, c.logo),
       hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, 643, 924),
-      hHead(c.primary, HPAD, 695, 924, 178, 86),
+      ...headlineBlock(c.primary, c.accent, HPAD, 695, 924, 86),
       goldBar(HPAD, 900),
       ...(c.secondary ? [hBody(c.secondary, 164, 887, 674, 120)] : []),
     ],
@@ -158,7 +210,7 @@ function heroTypeCover(c: SlideContent): EditorSlide {
       ...wordmark(HPAD, HPAD, c.logo),
       hTag("Field Report", 582, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, 383, 924),
-      hHead(c.primary, HPAD, 443, 924, 280, 132),
+      ...headlineBlock(c.primary, c.accent, HPAD, 443, 924, 132),
       goldBar(HPAD, 985),
       hTag("deenrelief.org", 162, 977, 600, "left", 0.8),
     ],
@@ -175,7 +227,7 @@ function heroTopPanel(c: SlideContent): EditorSlide {
       ...wordmark(HPAD, HPAD, c.logo),
       hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, 660, 924),
-      hHead(c.primary, HPAD, 712, 924, 170, 80),
+      ...headlineBlock(c.primary, c.accent, HPAD, 712, 924, 80),
       goldBar(HPAD, 917),
       ...(c.secondary ? [hBody(c.secondary, 164, 904, 754, 92)] : []),
     ],
@@ -186,10 +238,16 @@ function heroTopPanel(c: SlideContent): EditorSlide {
 // HERO D — centered crest
 function heroCrest(c: SlideContent): EditorSlide {
   const layers: Layer[] = [];
-  layers.push(shape({ x: Math.round((B - 30) / 2), y: 310, w: 30, h: 30, shape: "rect", fill: C.amber, rotation: 45 }));
-  layers.push(text({ x: HPAD, y: 356, w: B - 2 * HPAD, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 7, color: C.cream, align: "center" }));
+  if (c.logo?.url) {
+    const h = 54;
+    const w = Math.max(80, Math.round(h * (c.logo.aspect || 4)));
+    layers.push(image({ x: Math.round((B - w) / 2), y: 316, w, h, src: c.logo.url, objectFit: "contain", locked: true }));
+  } else {
+    layers.push(shape({ x: Math.round((B - 30) / 2), y: 310, w: 30, h: 30, shape: "rect", fill: C.amber, rotation: 45 }));
+    layers.push(text({ x: HPAD, y: 356, w: B - 2 * HPAD, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 7, color: C.cream, align: "center" }));
+  }
   layers.push(hEyebrow(c.eyebrow, HPAD, 408, B - 2 * HPAD, "center"));
-  layers.push(hHead(c.primary, HPAD, 470, B - 2 * HPAD, 210, 104, "center"));
+  layers.push(...headlineBlock(c.primary, c.accent, HPAD, 470, B - 2 * HPAD, 104, "center"));
   layers.push(goldBar(Math.round((B - 92) / 2), 714, 92));
   layers.push(text({ x: HPAD, y: 751, w: B - 2 * HPAD, h: 30, text: "A community response · 2026", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 4.5, color: C.creamDim, align: "center" }));
   return slide(layers, C.forest);
@@ -205,7 +263,7 @@ function heroCaption(c: SlideContent): EditorSlide {
       hTag("Field Report", 582, HPAD + 6, 420, "right"),
       shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
       hEyebrow(c.eyebrow, HPAD, barTop + 42, B - 2 * HPAD),
-      hHead(c.primary, HPAD, barTop + 86, B - 2 * HPAD, 64, 56),
+      ...headlineBlock(c.primary, c.accent, HPAD, barTop + 86, B - 2 * HPAD, 56),
       text({ x: HPAD, y: barTop + 160, w: B - 2 * HPAD, h: 30, text: "Photograph — Deen Relief field team", fontFamily: BARLOW, fontSize: 23, fontWeight: 500, color: C.creamDim }),
     ],
     C.forest
