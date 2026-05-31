@@ -69,15 +69,19 @@ async function render(request: Request): Promise<Response> {
         // Logos / cut-outs (contain) are small on the board — cap them
         // hard so oversized source art still rasterises; photos get a
         // generous cap.
-        const maxDim = l.objectFit === "contain" ? 700 : 1600;
-        // Contain images (logos / cut-outs) on a solid-colour slide are
-        // flattened onto that colour and emitted as JPEG — transparent PNGs
-        // intermittently drop out of resvg on full-size 1080² canvases.
-        const flattenBg =
-          l.objectFit === "contain" && slide.background.startsWith("#")
-            ? slide.background
-            : undefined;
-        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime, flattenBg);
+        const isContain = l.objectFit === "contain";
+        const maxDim = isContain ? 700 : 1600;
+        // Satori silently drops objectFit:"contain" images. For contain
+        // layers we letterbox the art to the layer box here, then paint it
+        // with "cover" below (faithful — it's already exactly box-sized).
+        const containBox = isContain
+          ? {
+              w: Math.max(1, Math.round(l.w)),
+              h: Math.max(1, Math.round(l.h)),
+              bg: slide.background.startsWith("#") ? slide.background : undefined,
+            }
+          : undefined;
+        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime, containBox);
         return [l.id, `data:${mime};base64,${data.toString("base64")}`] as const;
       } catch {
         return [l.id, null] as const;
@@ -206,7 +210,10 @@ function renderInner(l: Layer, uri: string | null) {
               ...cropImgStyle(l.crop),
               width: l.w,
               height: l.h,
-              objectFit: l.objectFit,
+              // Always "cover": Satori drops objectFit:"contain", so contain
+              // layers are pre-letterboxed to the box (above) and shown here
+              // with cover — exact box size means no crop.
+              objectFit: "cover",
             }}
           />
         ) : null}

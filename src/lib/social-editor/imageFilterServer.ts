@@ -54,11 +54,13 @@ export async function prepareImage(
   filter: ImageFilter | undefined,
   maxDim: number,
   fallbackMime: string,
-  /** When set (a solid hex colour), flatten transparent art onto it and
-   *  emit a JPEG. resvg/Satori intermittently drops transparent PNGs on
-   *  full-size (1080²) canvases; an opaque JPEG renders reliably. Use for
-   *  logos / cut-outs that sit on a known solid background. */
-  flattenBg?: string
+  /** For `contain`-fit layers: letterbox the art to this exact box (px)
+   *  so the render route can paint it with objectFit:"cover". Satori's
+   *  objectFit:"contain" silently drops the image; "cover" of a
+   *  pre-letterboxed, box-sized image is faithful (no crop). `bg` (solid
+   *  hex) fills the letterbox bars + makes it an opaque JPEG; omit it to
+   *  keep transparency. */
+  containBox?: { w: number; h: number; bg?: string }
 ): Promise<{ data: Buffer; mime: string }> {
   const hasFilter = !!filter && filter !== "none";
   try {
@@ -67,7 +69,7 @@ export async function prepareImage(
     const meta = await img.metadata();
     const longest = Math.max(meta.width ?? 0, meta.height ?? 0);
     const tooBig = longest > maxDim;
-    if (!tooBig && !hasFilter && !flattenBg) {
+    if (!tooBig && !hasFilter && !containBox) {
       return { data: buf, mime: fallbackMime };
     }
     if (tooBig) {
@@ -81,11 +83,17 @@ export async function prepareImage(
       case "faded": img = img.modulate({ saturation: 0.78, brightness: 1.06 }).linear(0.9, 12); break;
       default: break;
     }
-    if (flattenBg) {
-      return {
-        data: await img.flatten({ background: flattenBg }).jpeg({ quality: 92 }).toBuffer(),
-        mime: "image/jpeg",
-      };
+    if (containBox) {
+      img = img.resize({
+        width: containBox.w,
+        height: containBox.h,
+        fit: "contain",
+        background: containBox.bg ?? { r: 0, g: 0, b: 0, alpha: 0 },
+      });
+      if (containBox.bg) {
+        return { data: await img.jpeg({ quality: 92 }).toBuffer(), mime: "image/jpeg" };
+      }
+      return { data: await img.png().toBuffer(), mime: "image/png" };
     }
     const hasAlpha = meta.hasAlpha ?? false;
     if (hasAlpha) {
