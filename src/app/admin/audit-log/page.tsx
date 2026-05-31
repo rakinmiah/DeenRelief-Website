@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireRoleAdmin } from "@/lib/admin-session";
 import {
-  fetchAdminAuditLog,
+  fetchAdminAuditLogPage,
   type AdminAction,
   type AdminAuditLogRow,
 } from "@/lib/admin-audit";
@@ -9,11 +9,14 @@ import { formatAdminDate } from "@/lib/admin-donations";
 import { TONE_CLASSES, type StatusTone } from "@/lib/admin-status";
 import { cn } from "@/lib/cn";
 import {
+  Button,
   PageHeader,
   ResponsiveTable,
   EmptyState,
   type Column,
 } from "@/components/admin/ui";
+
+const PAGE_SIZE = 50;
 
 export const metadata: Metadata = {
   title: "Audit log | Deen Relief Admin",
@@ -268,13 +271,22 @@ function AuditDetail({ row }: { row: AdminAuditLogRow }) {
  * The metadata jsonb is rendered as collapsed JSON in a <details>
  * element so trustees can drill in without bloating the row height.
  *
- * Filtering: Phase 4 — for now the table fits on one page at our
- * scale and trustees can Ctrl-F. Add server-side filters once the log
- * exceeds a few thousand rows.
+ * Pagination: 50 rows per page, newest first, navigated via ?page=N
+ * (zero-based). hasMore is detected by over-fetching one row, so there's
+ * no separate COUNT query. Server-side filtering is a later phase.
  */
-export default async function AdminAuditLogPage() {
+export default async function AdminAuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   await requireRoleAdmin();
-  const rows = await fetchAdminAuditLog(200);
+  const sp = await searchParams;
+  const requestedPage = Number.parseInt(sp.page ?? "0", 10);
+  const { rows, hasMore, page } = await fetchAdminAuditLogPage(
+    Number.isFinite(requestedPage) ? requestedPage : 0,
+    PAGE_SIZE
+  );
 
   const columns: Column<AdminAuditLogRow>[] = [
     {
@@ -351,17 +363,50 @@ export default async function AdminAuditLogPage() {
         columns={columns}
         empty={
           <EmptyState
-            title="No admin actions logged yet"
-            description="The first entry will be your sign-in."
+            title={page > 0 ? "Nothing on this page" : "No admin actions logged yet"}
+            description={
+              page > 0
+                ? "You've reached the end of the log."
+                : "The first entry will be your sign-in."
+            }
           />
         }
       />
 
-      {rows.length > 0 && (
-        <p className="mt-4 text-[11px] text-charcoal/40">
-          Showing the {rows.length} most recent actions. Older entries remain in
-          the database.
-        </p>
+      {(rows.length > 0 || page > 0) && (
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <p className="text-[11px] text-charcoal/40">
+            Page {page + 1} · {PAGE_SIZE} per page · newest first
+          </p>
+          <div className="flex items-center gap-2">
+            {page > 0 ? (
+              <Button
+                href={`/admin/audit-log?page=${page - 1}`}
+                variant="outline"
+                size="sm"
+              >
+                ← Newer
+              </Button>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-charcoal/10 px-3 py-1.5 text-sm font-semibold text-charcoal/30">
+                ← Newer
+              </span>
+            )}
+            {hasMore ? (
+              <Button
+                href={`/admin/audit-log?page=${page + 1}`}
+                variant="outline"
+                size="sm"
+              >
+                Older →
+              </Button>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-charcoal/10 px-3 py-1.5 text-sm font-semibold text-charcoal/30">
+                Older →
+              </span>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );

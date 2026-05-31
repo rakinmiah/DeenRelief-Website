@@ -283,22 +283,9 @@ export interface AdminAuditLogRow {
  * Fetch the most-recent N audit log entries for the viewer page.
  * Sorted by created_at DESC — newest first.
  */
-export async function fetchAdminAuditLog(
-  limit = 200
-): Promise<AdminAuditLogRow[]> {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("admin_audit_log")
-    .select("id, user_email, action, target_id, ip, user_agent, metadata, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error("[admin-audit] fetchAdminAuditLog failed:", error);
-    return [];
-  }
-
-  return (data ?? []).map((r) => ({
+/** Map a raw admin_audit_log row to the typed shape. */
+function mapAuditRow(r: Record<string, unknown>): AdminAuditLogRow {
+  return {
     id: r.id as string,
     userEmail: (r.user_email as string | null) ?? null,
     action: r.action as AdminAction,
@@ -307,5 +294,71 @@ export async function fetchAdminAuditLog(
     userAgent: (r.user_agent as string | null) ?? null,
     metadata: (r.metadata as Record<string, unknown> | null) ?? null,
     createdAt: r.created_at as string,
-  }));
+  };
+}
+
+const AUDIT_SELECT =
+  "id, user_email, action, target_id, ip, user_agent, metadata, created_at";
+
+export async function fetchAdminAuditLog(
+  limit = 200
+): Promise<AdminAuditLogRow[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("admin_audit_log")
+    .select(AUDIT_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[admin-audit] fetchAdminAuditLog failed:", error);
+    return [];
+  }
+
+  return (data ?? []).map((r) => mapAuditRow(r as Record<string, unknown>));
+}
+
+export interface AdminAuditLogPage {
+  rows: AdminAuditLogRow[];
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Paginated audit-log fetch. `page` is zero-based. We over-fetch a
+ * single extra row to learn whether a next page exists, avoiding a
+ * separate COUNT query (the log can grow large and exact totals aren't
+ * worth a second round-trip).
+ */
+export async function fetchAdminAuditLogPage(
+  page = 0,
+  pageSize = 50
+): Promise<AdminAuditLogPage> {
+  const safePage = Math.max(0, Math.floor(page));
+  const safeSize = Math.min(200, Math.max(1, Math.floor(pageSize)));
+  const from = safePage * safeSize;
+  // `range` is inclusive on both ends, so this asks for safeSize + 1 rows.
+  const to = from + safeSize;
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("admin_audit_log")
+    .select(AUDIT_SELECT)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error("[admin-audit] fetchAdminAuditLogPage failed:", error);
+    return { rows: [], hasMore: false, page: safePage, pageSize: safeSize };
+  }
+
+  const all = (data ?? []).map((r) => mapAuditRow(r as Record<string, unknown>));
+  const hasMore = all.length > safeSize;
+  return {
+    rows: all.slice(0, safeSize),
+    hasMore,
+    page: safePage,
+    pageSize: safeSize,
+  };
 }
