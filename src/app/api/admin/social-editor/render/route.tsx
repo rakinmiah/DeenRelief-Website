@@ -49,8 +49,10 @@ async function render(request: Request): Promise<Response> {
   }
 
   // Resolve image layers → filtered data URIs (parallel, fault-tolerant).
+  // Hidden layers are skipped so the export matches the editor (WYSIWYG).
   const imageLayers = slide.layers.filter(
-    (l): l is Extract<Layer, { type: "image" }> => l.type === "image" && !!l.src
+    (l): l is Extract<Layer, { type: "image" }> =>
+      l.type === "image" && !!l.src && !l.hidden
   );
   const uriEntries = await Promise.all(
     imageLayers.map(async (l) => {
@@ -109,11 +111,13 @@ async function render(request: Request): Promise<Response> {
         overflow: "hidden",
       }}
     >
-      {slide.layers.map((l) => (
-        <div key={l.id} style={wrapperStyle(l)}>
-          {renderInner(l, uris.get(l.id) ?? null)}
-        </div>
-      ))}
+      {slide.layers
+        .filter((l) => !l.hidden)
+        .map((l) => (
+          <div key={l.id} style={wrapperStyle(l)}>
+            {renderInner(l, uris.get(l.id) ?? null)}
+          </div>
+        ))}
     </div>
   );
 

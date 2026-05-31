@@ -2,22 +2,25 @@
 
 /**
  * CanvasDeckEditor — the Canva-style editor wired into the real deck
- * builder (Phase 10 wiring + 10c/10d/10f).
+ * builder.
  *
  * Owns the whole deck: a filmstrip of EditorSlides, deck-level
- * undo/redo, zoom, the add-layer rail, a contextual top toolbar, inline
- * text editing, an image picker, and PNG export. Edits autosave to the
+ * undo/redo, zoom, the add-layer rail, a contextual top toolbar, a
+ * layers panel, multi-select with align/distribute, inline text
+ * editing, an image picker, and PNG export. Edits autosave to the
  * existing deck-draft store (encoded as __canvas__ slides).
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import {
   type EditorSlide,
   type Layer,
   type ShapeKind,
   makeLayerId,
+  layerAABB,
+  unionAABB,
 } from "@/lib/social-editor/types";
 import { googleFontsHref } from "@/lib/social-editor/fonts";
 import LayerView from "./LayerView";
@@ -25,7 +28,13 @@ import SlideCanvas from "./SlideCanvas";
 import { useHistory } from "./useHistory";
 import { loadDeck, saveDeck } from "./deckStore";
 import { exportDeck } from "./exportDeck";
-import { ContextToolbar, ImagePicker } from "./editorToolbar";
+import {
+  ContextToolbar,
+  ImagePicker,
+  LayersPanel,
+  AlignToolbar,
+  type AlignKind,
+} from "./editorToolbar";
 import {
   ToolbarBtn,
   RailBtn,
@@ -34,6 +43,9 @@ import {
   PlusIcon,
   TrashIcon,
   ChevronIcon,
+  LayersIcon,
+  TextIcon,
+  ShapeIcon,
 } from "./editorUi";
 
 export default function CanvasDeckEditor({
@@ -63,20 +75,27 @@ export default function CanvasDeckEditor({
   const deck = history.state;
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [scale, setScale] = useState(0.5);
   const [hydrated, setHydrated] = useState(!persist);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [exporting, setExporting] = useState(false);
+  const [showLayers, setShowLayers] = useState(true);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef(0.5);
+  // Clipboard for copy/paste (board-space layer snapshots).
+  const clipboard = useRef<Layer[]>([]);
 
   const ai = Math.min(activeIndex, deck.length - 1);
   const activeSlide = deck[ai]!;
-  const selected = activeSlide.layers.find((l) => l.id === selectedId) ?? null;
+  const selectedLayers = useMemo(
+    () => activeSlide.layers.filter((l) => selectedIds.includes(l.id)),
+    [activeSlide.layers, selectedIds]
+  );
+  const single = selectedLayers.length === 1 ? selectedLayers[0]! : null;
 
   /* ── Load the editor fonts once ──────────────────────────────── */
   useEffect(() => {
@@ -137,7 +156,6 @@ export default function CanvasDeckEditor({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSlide.width, activeSlide.height]);
 
   /* ── Mutation helpers ────────────────────────────────────────── */
@@ -150,13 +168,31 @@ export default function CanvasDeckEditor({
     [deck, ai, history]
   );
 
-  function mutateSelected(patch: Partial<Layer>) {
-    if (!selected) return;
-    setActiveLayers(
-      activeSlide.layers.map((l) => (l.id === selected.id ? ({ ...l, ...patch } as Layer) : l)),
-      true
-    );
-  }
+  // Patch every selected layer (toolbar / property edits). When exactly
+  // one is selected this is a normal single edit.
+  const mutateSelected = useCallback(
+    (patch: Partial<Layer>) => {
+      if (selectedIds.length === 0) return;
+      setActiveLayers(
+        activeSlide.layers.map((l) =>
+          selectedIds.includes(l.id) ? ({ ...l, ...patch } as Layer) : l
+        ),
+        true
+      );
+    },
+    [activeSlide.layers, selectedIds, setActiveLayers]
+  );
+
+  // Patch a SPECIFIC layer by id (layers panel: rename / hide / lock).
+  const mutateLayer = useCallback(
+    (id: string, patch: Partial<Layer>) => {
+      setActiveLayers(
+        activeSlide.layers.map((l) => (l.id === id ? ({ ...l, ...patch } as Layer) : l)),
+        true
+      );
+    },
+    [activeSlide.layers, setActiveLayers]
+  );
 
   function commitText(id: string, text: string) {
     setActiveLayers(
@@ -170,42 +206,163 @@ export default function CanvasDeckEditor({
 
   function addLayer(layer: Layer) {
     setActiveLayers([...activeSlide.layers, layer], true);
-    setSelectedId(layer.id);
+    setSelectedIds([layer.id]);
   }
 
   function deleteSelected() {
-    if (!selectedId) return;
-    setActiveLayers(activeSlide.layers.filter((l) => l.id !== selectedId), true);
-    setSelectedId(null);
+    if (selectedIds.length === 0) return;
+    setActiveLayers(activeSlide.layers.filter((l) => !selectedIds.includes(l.id)), true);
+    setSelectedIds([]);
   }
 
   function duplicateSelected() {
-    if (!selected) return;
-    const copy = { ...selected, id: makeLayerId(), x: selected.x + 24, y: selected.y + 24 } as Layer;
-    setActiveLayers([...activeSlide.layers, copy], true);
-    setSelectedId(copy.id);
+    if (selectedLayers.length === 0) return;
+    const copies = selectedLayers.map(
+      (l) => ({ ...l, id: makeLayerId(), x: l.x + 24, y: l.y + 24 } as Layer)
+    );
+    setActiveLayers([...activeSlide.layers, ...copies], true);
+    setSelectedIds(copies.map((c) => c.id));
+  }
+
+  function copySelected() {
+    if (selectedLayers.length === 0) return;
+    clipboard.current = selectedLayers.map((l) => ({ ...l }));
+  }
+
+  function pasteClipboard() {
+    if (clipboard.current.length === 0) return;
+    const copies = clipboard.current.map(
+      (l) => ({ ...l, id: makeLayerId(), x: l.x + 32, y: l.y + 32 } as Layer)
+    );
+    setActiveLayers([...activeSlide.layers, ...copies], true);
+    setSelectedIds(copies.map((c) => c.id));
   }
 
   function toggleLock() {
-    if (!selected) return;
-    mutateSelected({ locked: !selected.locked });
+    if (selectedLayers.length === 0) return;
+    // Mirror the first selection's state across the whole selection.
+    const next = !selectedLayers[0]!.locked;
+    setActiveLayers(
+      activeSlide.layers.map((l) =>
+        selectedIds.includes(l.id) ? ({ ...l, locked: next } as Layer) : l
+      ),
+      true
+    );
   }
 
-  function reorderLayer(dir: "forward" | "backward") {
-    if (!selectedId) return;
+  /* ── Z-order ─────────────────────────────────────────────────── */
+  function arrange(dir: "forward" | "backward" | "front" | "back") {
+    if (selectedIds.length === 0) return;
     const ls = [...activeSlide.layers];
-    const i = ls.findIndex((l) => l.id === selectedId);
-    if (i < 0) return;
-    const j = dir === "forward" ? Math.min(ls.length - 1, i + 1) : Math.max(0, i - 1);
-    if (i === j) return;
-    const [item] = ls.splice(i, 1);
-    ls.splice(j, 0, item!);
+    const sel = ls.filter((l) => selectedIds.includes(l.id));
+    const rest = ls.filter((l) => !selectedIds.includes(l.id));
+    if (dir === "front") {
+      setActiveLayers([...rest, ...sel], true);
+      return;
+    }
+    if (dir === "back") {
+      setActiveLayers([...sel, ...rest], true);
+      return;
+    }
+    // forward / backward: single-step shuffle of each selected item,
+    // processed in an order that prevents members colliding.
+    const order = dir === "forward" ? [...ls].reverse() : ls;
+    const arr = [...ls];
+    for (const item of order) {
+      if (!selectedIds.includes(item.id)) continue;
+      const i = arr.findIndex((l) => l.id === item.id);
+      const j = dir === "forward" ? i + 1 : i - 1;
+      if (j < 0 || j >= arr.length) continue;
+      if (selectedIds.includes(arr[j]!.id)) continue; // don't swap past another selected
+      [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+    }
+    setActiveLayers(arr, true);
+  }
+
+  // Layers panel drag-drop reorder: move `id` to sit just before
+  // `beforeId` in PANEL (front-first) order, i.e. just AFTER it in the
+  // array's z-order.
+  function reorderTo(id: string, beforeId: string | null) {
+    const ls = [...activeSlide.layers];
+    const from = ls.findIndex((l) => l.id === id);
+    if (from < 0) return;
+    const [item] = ls.splice(from, 1);
+    if (beforeId == null) {
+      ls.push(item!);
+    } else {
+      const to = ls.findIndex((l) => l.id === beforeId);
+      // Panel shows front-first; dropping ONTO beforeId should place the
+      // dragged layer directly in front of (above) it → array index just
+      // after the target.
+      ls.splice(Math.max(0, to) + 1, 0, item!);
+    }
     setActiveLayers(ls, true);
+  }
+
+  /* ── Align / distribute ──────────────────────────────────────── */
+  function align(kind: AlignKind) {
+    if (selectedLayers.length === 0) return;
+    // With one selection we align to the slide; with several, to the
+    // selection's bounding box (Canva behaviour).
+    const toSlide = selectedLayers.length === 1;
+    const bounds = toSlide
+      ? { x: 0, y: 0, w: activeSlide.width, h: activeSlide.height }
+      : unionAABB(selectedLayers)!;
+
+    if (kind === "dist-h" || kind === "dist-v") {
+      distribute(kind === "dist-h" ? "h" : "v");
+      return;
+    }
+
+    const patches = new Map<string, Partial<Layer>>();
+    for (const l of selectedLayers) {
+      const b = layerAABB(l);
+      // Offset between the layer's stored top-left and its AABB top-left
+      // (non-zero when rotated) — keep it so rotated boxes align by AABB.
+      const offX = l.x - b.x;
+      const offY = l.y - b.y;
+      if (kind === "left") patches.set(l.id, { x: bounds.x + offX });
+      else if (kind === "right") patches.set(l.id, { x: bounds.x + bounds.w - b.w + offX });
+      else if (kind === "hcenter") patches.set(l.id, { x: bounds.x + (bounds.w - b.w) / 2 + offX });
+      else if (kind === "top") patches.set(l.id, { y: bounds.y + offY });
+      else if (kind === "bottom") patches.set(l.id, { y: bounds.y + bounds.h - b.h + offY });
+      else if (kind === "vcenter") patches.set(l.id, { y: bounds.y + (bounds.h - b.h) / 2 + offY });
+    }
+    setActiveLayers(
+      activeSlide.layers.map((l) => (patches.has(l.id) ? ({ ...l, ...patches.get(l.id) } as Layer) : l)),
+      true
+    );
+  }
+
+  function distribute(axis: "h" | "v") {
+    if (selectedLayers.length < 3) return;
+    const items = selectedLayers
+      .map((l) => ({ l, b: layerAABB(l) }))
+      .sort((a, b) => (axis === "h" ? a.b.x - b.b.x : a.b.y - b.b.y));
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    const startEdge = axis === "h" ? first.b.x : first.b.y;
+    const endEdge = axis === "h" ? last.b.x + last.b.w : last.b.y + last.b.h;
+    const totalSize = items.reduce((s, it) => s + (axis === "h" ? it.b.w : it.b.h), 0);
+    const span = endEdge - startEdge;
+    const gap = (span - totalSize) / (items.length - 1);
+    let cursor = startEdge;
+    const patches = new Map<string, Partial<Layer>>();
+    for (const it of items) {
+      const size = axis === "h" ? it.b.w : it.b.h;
+      const off = axis === "h" ? it.l.x - it.b.x : it.l.y - it.b.y;
+      patches.set(it.l.id, axis === "h" ? { x: cursor + off } : { y: cursor + off });
+      cursor += size + gap;
+    }
+    setActiveLayers(
+      activeSlide.layers.map((l) => (patches.has(l.id) ? ({ ...l, ...patches.get(l.id) } as Layer) : l)),
+      true
+    );
   }
 
   /* ── Image picker ────────────────────────────────────────────── */
   function onPickImage(img: ImageCandidate) {
-    if (picker === "replace" && selected && selected.type === "image") {
+    if (picker === "replace" && single && single.type === "image") {
       mutateSelected({ src: img.url, mediaId: img.id, crop: undefined, filter: undefined });
     } else {
       addLayer({
@@ -232,30 +389,77 @@ export default function CanvasDeckEditor({
   }
   function addShape(shape: ShapeKind) {
     addLayer({
-      id: makeLayerId(), type: "shape", x: cx - 150, y: cy - (shape === "line" ? 0 : 150),
+      id: makeLayerId(), type: "shape", x: cx - 150, y: cy - (shape === "line" ? 4 : 150),
       w: 300, h: shape === "line" ? 8 : 300, rotation: 0, opacity: 1, locked: false,
       shape, fill: shape === "line" ? "transparent" : "#2D6A2E", stroke: "#2D6A2E",
       strokeWidth: shape === "line" ? 8 : 0, radius: shape === "rect" ? 16 : 0,
     });
   }
 
+  /* ── Selection helpers ───────────────────────────────────────── */
+  const selectOne = useCallback((id: string | null, additive: boolean) => {
+    setEditingId(null);
+    if (id == null) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds((cur) =>
+      additive
+        ? cur.includes(id)
+          ? cur.filter((x) => x !== id)
+          : [...cur, id]
+        : [id]
+    );
+  }, []);
+
+  const selectMarquee = useCallback(
+    (rect: { x: number; y: number; w: number; h: number }, additive: boolean) => {
+      const hit = activeSlide.layers
+        .filter((l) => !l.hidden && !l.locked)
+        .filter((l) => {
+          const b = layerAABB(l);
+          return (
+            b.x < rect.x + rect.w &&
+            b.x + b.w > rect.x &&
+            b.y < rect.y + rect.h &&
+            b.y + b.h > rect.y
+          );
+        })
+        .map((l) => l.id);
+      setSelectedIds((cur) => (additive ? Array.from(new Set([...cur, ...hit])) : hit));
+    },
+    [activeSlide.layers]
+  );
+
   /* ── Slide operations ────────────────────────────────────────── */
   function addSlide() {
     const next = [...deck, blankSlide(activeSlide.width, activeSlide.height)];
     history.commit(next);
     setActiveIndex(next.length - 1);
-    setSelectedId(null);
+    setSelectedIds([]);
   }
   function deleteSlide(i: number) {
     if (deck.length <= 1) return;
     const next = deck.filter((_, idx) => idx !== i);
     history.commit(next);
     setActiveIndex(Math.max(0, Math.min(i, next.length - 1)));
-    setSelectedId(null);
+    setSelectedIds([]);
+  }
+  function duplicateSlide(i: number) {
+    const src = deck[i]!;
+    const clone: EditorSlide = {
+      ...src,
+      id: `sl_${makeLayerId().slice(3)}`,
+      layers: src.layers.map((l) => ({ ...l, id: makeLayerId() } as Layer)),
+    };
+    const next = [...deck.slice(0, i + 1), clone, ...deck.slice(i + 1)];
+    history.commit(next);
+    setActiveIndex(i + 1);
+    setSelectedIds([]);
   }
   function selectSlide(i: number) {
     setActiveIndex(i);
-    setSelectedId(null);
+    setSelectedIds([]);
     setEditingId(null);
   }
 
@@ -276,23 +480,69 @@ export default function CanvasDeckEditor({
       const editable = (e.target as HTMLElement)?.isContentEditable;
       if (tag === "INPUT" || tag === "TEXTAREA" || editable) return;
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "z") {
+      const k = e.key.toLowerCase();
+
+      if (mod && k === "z") {
         e.preventDefault();
         if (e.shiftKey) history.redo();
         else history.undo();
         return;
       }
-      if (mod && e.key.toLowerCase() === "y") {
+      if (mod && k === "y") {
         e.preventDefault();
         history.redo();
         return;
       }
-      if (!selected || selected.locked) return;
+      if (mod && k === "a") {
+        e.preventDefault();
+        setSelectedIds(activeSlide.layers.filter((l) => !l.hidden && !l.locked).map((l) => l.id));
+        return;
+      }
+      if (mod && k === "c") {
+        e.preventDefault();
+        copySelected();
+        return;
+      }
+      if (mod && k === "v") {
+        e.preventDefault();
+        pasteClipboard();
+        return;
+      }
+      if (mod && k === "d") {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
+      // z-order: Cmd+] / Cmd+[ (with shift = front/back)
+      if (mod && (k === "]" || e.key === "]")) {
+        e.preventDefault();
+        arrange(e.shiftKey ? "front" : "forward");
+        return;
+      }
+      if (mod && (k === "[" || e.key === "[")) {
+        e.preventDefault();
+        arrange(e.shiftKey ? "back" : "backward");
+        return;
+      }
+      if (e.key === "Escape") {
+        setSelectedIds([]);
+        setEditingId(null);
+        return;
+      }
+      if (selectedIds.length === 0) return;
       if (e.key === "Backspace" || e.key === "Delete") {
         e.preventDefault();
         deleteSelected();
         return;
       }
+      if (k === "enter" && single && single.type === "text" && !single.locked) {
+        e.preventDefault();
+        setEditingId(single.id);
+        return;
+      }
+      // Arrow nudge — skip locked-only selections.
+      const movable = selectedLayers.some((l) => !l.locked);
+      if (!movable) return;
       const step = e.shiftKey ? 10 : 1;
       const map: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step],
@@ -300,15 +550,21 @@ export default function CanvasDeckEditor({
       const d = map[e.key];
       if (d) {
         e.preventDefault();
-        mutateSelected({ x: selected.x + d[0], y: selected.y + d[1] });
+        setActiveLayers(
+          activeSlide.layers.map((l) =>
+            selectedIds.includes(l.id) && !l.locked ? ({ ...l, x: l.x + d[0], y: l.y + d[1] } as Layer) : l
+          ),
+          true
+        );
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, deck, ai]);
+  }, [selectedIds, selectedLayers, single, deck, ai]);
 
   const zoomPct = Math.round(scale * 100);
+  const showAlign = selectedLayers.length >= 1;
 
   return (
     <div className="flex flex-col h-full bg-[#F4F4F2]">
@@ -331,6 +587,7 @@ export default function CanvasDeckEditor({
                 {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
               </span>
             )}
+            <ToolbarBtn label="Layers" active={showLayers} onClick={() => setShowLayers((v) => !v)}><LayersIcon /></ToolbarBtn>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => setScale((s) => Math.max(0.05, s / 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">−</button>
               <button type="button" onClick={() => setScale(fitRef.current)} className="text-[12px] tabular-nums text-charcoal/60 w-11 text-center hover:text-charcoal">{zoomPct}%</button>
@@ -348,13 +605,26 @@ export default function CanvasDeckEditor({
         </div>
 
         {/* Contextual toolbar */}
-        {selected && !editingId && (
-          <div className="flex items-center px-4 pb-2 border-t border-charcoal/5 pt-1.5 min-h-[48px]">
-            <ContextToolbar
-              layer={selected}
-              onChange={mutateSelected}
-              onReplaceImage={() => setPicker("replace")}
-            />
+        {(single || showAlign) && !editingId && (
+          <div className="flex items-center gap-2 px-4 pb-2 border-t border-charcoal/5 pt-1.5 min-h-[48px] overflow-x-auto">
+            {single && (
+              <ContextToolbar
+                layer={single}
+                onChange={mutateSelected}
+                onReplaceImage={() => setPicker("replace")}
+                onDuplicate={duplicateSelected}
+                onDelete={deleteSelected}
+                onArrange={arrange}
+              />
+            )}
+            {selectedLayers.length > 1 && (
+              <span className="text-[12.5px] text-charcoal/50 whitespace-nowrap">{selectedLayers.length} selected</span>
+            )}
+            {showAlign && (
+              <div className="ml-auto shrink-0">
+                <AlignToolbar onAlign={align} canDistribute={selectedLayers.length >= 3} />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -362,35 +632,36 @@ export default function CanvasDeckEditor({
       <div className="flex flex-1 min-h-0">
         {/* Left rail */}
         <div className="w-[72px] bg-white border-r border-charcoal/8 flex flex-col items-center py-3 gap-1 shrink-0">
-          <RailBtn label="Text" onClick={addText}><span className="text-[19px] font-bold">T</span></RailBtn>
+          <RailBtn label="Text" onClick={addText}><TextIcon /></RailBtn>
           <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
-          <RailBtn label="Rect" onClick={() => addShape("rect")}><span className="block w-5 h-5 rounded-[4px] border-2 border-current" /></RailBtn>
-          <RailBtn label="Circle" onClick={() => addShape("ellipse")}><span className="block w-5 h-5 rounded-full border-2 border-current" /></RailBtn>
-          <RailBtn label="Line" onClick={() => addShape("line")}><span className="block w-5 h-0.5 bg-current" /></RailBtn>
+          <RailBtn label="Rect" onClick={() => addShape("rect")}><ShapeIcon kind="rect" /></RailBtn>
+          <RailBtn label="Circle" onClick={() => addShape("ellipse")}><ShapeIcon kind="ellipse" /></RailBtn>
+          <RailBtn label="Line" onClick={() => addShape("line")}><ShapeIcon kind="line" /></RailBtn>
         </div>
 
         {/* Center: canvas + filmstrip */}
         <div className="flex-1 min-w-0 flex flex-col">
           <div
             ref={viewportRef}
-            onMouseDown={() => { setSelectedId(null); setEditingId(null); }}
+            onMouseDown={() => { setSelectedIds([]); setEditingId(null); }}
             className="flex-1 min-h-0 overflow-auto grid place-items-center p-10"
           >
             <SlideCanvas
               key={activeSlide.id}
               slide={activeSlide}
               scale={scale}
-              selectedId={selectedId}
+              selectedIds={selectedIds}
               editingId={editingId}
-              onSelect={setSelectedId}
-              onStartEdit={(id) => { setSelectedId(id); setEditingId(id); }}
+              onSelect={selectOne}
+              onStartEdit={(id) => { setSelectedIds([id]); setEditingId(id); }}
               onCommitText={commitText}
               onCheckpoint={history.checkpoint}
               onLayersCommit={(layers) => setActiveLayers(layers, false)}
-              onReorder={reorderLayer}
+              onReorder={arrange}
               onDuplicate={duplicateSelected}
               onToggleLock={toggleLock}
               onDelete={deleteSelected}
+              onMarquee={selectMarquee}
             />
           </div>
 
@@ -405,6 +676,7 @@ export default function CanvasDeckEditor({
                 canDelete={deck.length > 1}
                 onSelect={() => selectSlide(i)}
                 onDelete={() => deleteSlide(i)}
+                onDuplicate={() => duplicateSlide(i)}
               />
             ))}
             <button
@@ -417,6 +689,26 @@ export default function CanvasDeckEditor({
             </button>
           </div>
         </div>
+
+        {/* Right: layers panel */}
+        {showLayers && (
+          <LayersPanel
+            layers={activeSlide.layers}
+            selectedIds={selectedIds}
+            onSelect={selectOne}
+            onToggleHidden={(id) => {
+              const l = activeSlide.layers.find((x) => x.id === id);
+              if (l) mutateLayer(id, { hidden: !l.hidden });
+            }}
+            onToggleLock={(id) => {
+              const l = activeSlide.layers.find((x) => x.id === id);
+              if (l) mutateLayer(id, { locked: !l.locked });
+            }}
+            onRename={(id, name) => mutateLayer(id, { name: name.trim() || undefined })}
+            onReorder={reorderTo}
+            onClose={() => setShowLayers(false)}
+          />
+        )}
       </div>
 
       {picker && (
@@ -434,6 +726,7 @@ function SlideThumb({
   canDelete,
   onSelect,
   onDelete,
+  onDuplicate,
 }: {
   slide: EditorSlide;
   index: number;
@@ -441,6 +734,7 @@ function SlideThumb({
   canDelete: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const size = 84;
   const s = size / slide.width;
@@ -457,16 +751,26 @@ function SlideThumb({
         ))}
       </button>
       <span className="absolute -bottom-0.5 left-1 text-[10px] font-semibold text-charcoal/40">{index + 1}</span>
-      {canDelete && (
+      <div className="absolute -top-1.5 -right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">
         <button
           type="button"
-          onClick={onDelete}
-          aria-label="Delete slide"
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white ring-1 ring-charcoal/15 shadow grid place-items-center text-charcoal/50 opacity-0 group-hover:opacity-100 hover:text-red-600 transition"
+          onClick={onDuplicate}
+          aria-label="Duplicate slide"
+          className="w-5 h-5 rounded-full bg-white ring-1 ring-charcoal/15 shadow grid place-items-center text-charcoal/50 hover:text-green text-[12px] leading-none"
         >
-          <span className="block w-3 h-3"><TrashIcon /></span>
+          +
         </button>
-      )}
+        {canDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label="Delete slide"
+            className="w-5 h-5 rounded-full bg-white ring-1 ring-charcoal/15 shadow grid place-items-center text-charcoal/50 hover:text-red-600"
+          >
+            <span className="block w-3 h-3"><TrashIcon /></span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

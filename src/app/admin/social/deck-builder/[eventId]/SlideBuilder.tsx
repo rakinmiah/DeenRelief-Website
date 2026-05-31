@@ -22,7 +22,7 @@ import type {
 } from "@/lib/social-templates/types";
 import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
 import type { ContentBundle, ImageBundle } from "./types";
-import { ROLES, type SlideRole } from "./slideRoles";
+import { ROLES, pickImageId, type SlideRole } from "./slideRoles";
 
 /** What the guided builder hands back per slide — raw choices the deck
  *  seeder turns into a layer preset. */
@@ -57,20 +57,37 @@ export default function SlideBuilder({
   onComplete: (result: SlideResult) => void;
 }) {
   const role = ROLES[spec.role];
-  const [phase, setPhase] = useState<Phase>("intro");
-  const [title, setTitle] = useState<string | null>(null);
-  const [subtext, setSubtext] = useState<string | null>(null);
-  const [imageId, setImageId] = useState<string | null>(null);
+
+  const primaryOptions = useMemo(() => role.primary(content), [role, content]);
+  const secondaryOptions = useMemo(() => role.secondary(content), [role, content]);
+  const hasImages = images.images.length > 0;
+
+  // Only the FIRST slide plays the full role intro; later slides open
+  // straight on the primary question so a long deck isn't a string of
+  // identical title cards. The pinned header still names the role.
+  const [phase, setPhase] = useState<Phase>(spec.index === 0 ? "intro" : "primary");
+  // Pre-select the top-ranked option so "Continue" is a single tap — she
+  // can still tap another option or write her own before confirming.
+  const [title, setTitle] = useState<string | null>(primaryOptions[0] ?? null);
+  const [subtext, setSubtext] = useState<string | null>(secondaryOptions[0] ?? null);
+  // Pre-pick a sensible default photo so the image step is a one-tap
+  // confirm too (she can still flick to another or choose "No photo").
+  const [imageId, setImageId] = useState<string | null>(() =>
+    pickImageId(spec.role, images, new Set())
+  );
   const [previews, setPreviews] = useState<Record<string, Preview>>({});
   const previewUrlsRef = useRef<string[]>([]);
 
-  // Which phase follows, given the role's needs.
-  const afterPrimary: Phase = role.hasSecondary
+  // Which phase follows, given the role's needs — auto-skipping any step
+  // with no real choice (no secondary options, or no imagery matched).
+  const wantsSecondary = role.hasSecondary && secondaryOptions.length > 0;
+  const wantsImage = role.needsImage && hasImages;
+  const afterPrimary: Phase = wantsSecondary
     ? "secondary"
-    : role.needsImage
+    : wantsImage
       ? "image"
       : "compiling";
-  const afterSecondary: Phase = role.needsImage ? "image" : "compiling";
+  const afterSecondary: Phase = wantsImage ? "image" : "compiling";
 
   // Scroll the page to the top whenever the step changes, so the pinned
   // header (and the new question) glide into view together.
@@ -80,10 +97,10 @@ export default function SlideBuilder({
     }
   }, [phase]);
 
-  // Auto-advance the intro.
+  // Auto-advance the intro (snappier dwell — it only plays on slide 1).
   useEffect(() => {
     if (phase !== "intro") return;
-    const t = setTimeout(() => setPhase("primary"), 1900);
+    const t = setTimeout(() => setPhase("primary"), 1300);
     return () => clearTimeout(t);
   }, [phase]);
 
@@ -93,9 +110,6 @@ export default function SlideBuilder({
       for (const u of previewUrlsRef.current) URL.revokeObjectURL(u);
     };
   }, []);
-
-  const primaryOptions = useMemo(() => role.primary(content), [role, content]);
-  const secondaryOptions = useMemo(() => role.secondary(content), [role, content]);
 
   // Render the SMM's content into every template for the role while the
   // "Compiling templates" screen is up.
@@ -164,6 +178,27 @@ export default function SlideBuilder({
   /* ── Working layout (pinned title header + current step) ── */
   return (
     <div className="max-w-5xl mx-auto px-5 py-8">
+      {/* Overall deck progress — slide x of n across the whole deck. */}
+      <div className="mb-6 max-w-3xl flex items-center gap-3">
+        <div className="flex-1 flex items-center gap-1.5">
+          {Array.from({ length: spec.total }).map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                i < spec.index
+                  ? "bg-green/70"
+                  : i === spec.index
+                    ? "bg-green"
+                    : "bg-charcoal/10"
+              }`}
+            />
+          ))}
+        </div>
+        <span className="text-[11px] font-medium text-charcoal/40 tabular-nums shrink-0">
+          {spec.index + 1} / {spec.total}
+        </span>
+      </div>
+
       {/* Pinned header — Slide N · Role + the chosen primary text only. */}
       <div className="mb-9 max-w-3xl">
         <div className="flex items-baseline gap-2.5 mb-1">

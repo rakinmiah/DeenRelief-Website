@@ -8,7 +8,8 @@
  * and which template category to show.
  */
 
-import type { ContentBundle } from "./types";
+import type { ContentBundle, ImageBundle } from "./types";
+import type { ImageCandidate } from "@/lib/social-templates/types";
 
 export type SlideRole = "hero" | "fact" | "stat" | "testimony" | "response" | "cta";
 
@@ -97,6 +98,119 @@ export const ROLES: Record<SlideRole, RoleConfig> = {
 
 /** Roles she can assign to the middle slides. */
 export const MIDDLE_ROLES: SlideRole[] = ["fact", "stat", "testimony", "response"];
+
+/* ─── Smart defaults (quick-draft + skip-friendly detailed mode) ───── */
+
+/**
+ * A fallback template id per role that `presetForTemplate` recognises by
+ * `includes()`. Used when the registry returned no templates for a role's
+ * category, or to seed a sensible default before any real template list
+ * is known. The hero default points at the photo-led variant when a photo
+ * exists, falling back to the typography cover when it doesn't (handled by
+ * `defaultTemplateId`).
+ */
+const ROLE_FALLBACK_TEMPLATE: Record<SlideRole, string> = {
+  hero: "hero-a",
+  fact: "fact-photo",
+  stat: "stat",
+  testimony: "testimony-portrait",
+  response: "response",
+  cta: "cta",
+};
+
+/**
+ * Pick the default template id for a role given the available registry
+ * templates and whether the slide will carry a photo. Prefers the first
+ * registry template (the curated lead option); else a preset-routable
+ * fallback. For the hero/photo-bearing roles with no image, prefers a
+ * type-led variant so the slide isn't a photo frame with no photo.
+ */
+export function defaultTemplateId(
+  role: SlideRole,
+  templates: { id: string }[],
+  hasImage: boolean
+): string {
+  if (role === "hero") {
+    // hero-b (typography cover) and hero-d (crest) need no photo.
+    if (!hasImage) {
+      const typeLed = templates.find((t) => /hero-b|hero-d|typography|crest|cover/i.test(t.id));
+      if (typeLed) return typeLed.id;
+      return "hero-b";
+    }
+    return templates[0]?.id ?? ROLE_FALLBACK_TEMPLATE.hero;
+  }
+  if (role === "fact" && !hasImage) {
+    // Prefer the typography fact layout when there's no photo.
+    const typeLed = templates.find((t) => /typograph|text/i.test(t.id) && !/photo/i.test(t.id));
+    if (typeLed) return typeLed.id;
+    return "fact-typography";
+  }
+  return templates[0]?.id ?? ROLE_FALLBACK_TEMPLATE[role];
+}
+
+/** The top (first-ranked) primary option for a role, or "" if none. */
+export function topPrimary(role: SlideRole, content: ContentBundle): string {
+  return ROLES[role].primary(content)[0] ?? "";
+}
+
+/** The top secondary option for a role (only when the role uses one). */
+export function topSecondary(role: SlideRole, content: ContentBundle): string | null {
+  if (!ROLES[role].hasSecondary) return null;
+  return ROLES[role].secondary(content)[0] ?? null;
+}
+
+/**
+ * Choose a sensible default image for a role from the candidate pool.
+ * Prefers the Deen Relief library over external imagery, and skips an
+ * image already used by an earlier slide where possible so the draft
+ * isn't visually repetitive. Returns null when the role takes no photo
+ * or no imagery matched.
+ */
+export function pickImageId(
+  role: SlideRole,
+  images: ImageBundle,
+  used: Set<string>
+): string | null {
+  if (!ROLES[role].needsImage) return null;
+  const pool = images.images;
+  if (pool.length === 0) return null;
+  const rank = (i: ImageCandidate) => (i.source === "dr_library" ? 0 : 1);
+  const sorted = [...pool].sort((a, b) => rank(a) - rank(b));
+  const fresh = sorted.find((i) => !used.has(i.id));
+  return (fresh ?? sorted[0])!.id;
+}
+
+/** One fully auto-filled slide result-shape (sans index/template wiring). */
+export type SlideDraftFill = {
+  role: SlideRole;
+  title: string;
+  subtext: string | null;
+  imageId: string | null;
+};
+
+/**
+ * Auto-fill every slide of a plan with the top content + a matched image,
+ * de-duplicating image use across slides. Templates are resolved
+ * separately (they depend on the per-role registry list, which the deck
+ * flow holds). Powers QUICK DRAFT and seeds the editable review outline.
+ */
+export function autoFillPlan(
+  plan: SlideRole[],
+  content: ContentBundle,
+  images: ImageBundle
+): SlideDraftFill[] {
+  const used = new Set<string>();
+  return plan.map((role) => {
+    const imageId = pickImageId(role, images, used);
+    if (imageId) used.add(imageId);
+    return {
+      role,
+      title: topPrimary(role, content),
+      subtext: topSecondary(role, content),
+      imageId,
+    };
+  });
+}
 
 /** A sensible default plan given the count + what content exists. */
 export function suggestPlan(count: number, content: ContentBundle): SlideRole[] {

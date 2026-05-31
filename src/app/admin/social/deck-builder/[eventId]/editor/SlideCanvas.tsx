@@ -1,13 +1,17 @@
 "use client";
 
 /**
- * SlideCanvas — the editable stage for ONE slide (extracted in the
- * Phase 10 wiring so the deck editor can reuse it per slide).
+ * SlideCanvas — the editable stage for ONE slide.
  *
  * Fully controlled: it renders `slide.layers` at `scale`, runs
- * react-moveable on the selected layer, and reports geometry changes
- * back up. History lives in the parent — this component just signals
- * onCheckpoint at gesture start and onLayersCommit at gesture end.
+ * react-moveable on the current selection (single OR a group of
+ * targets), and reports geometry changes back up. History lives in the
+ * parent — this component signals onCheckpoint at gesture start and
+ * onLayersCommit at gesture end.
+ *
+ * Snapping: vertical/horizontal slide guidelines (edges + centre) plus
+ * element guidelines (other layers' edges/centres) drive smart-guide
+ * snapping while dragging/resizing.
  */
 
 import Moveable from "react-moveable";
@@ -19,7 +23,7 @@ import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./edit
 export default function SlideCanvas({
   slide,
   scale,
-  selectedId,
+  selectedIds,
   editingId,
   onSelect,
   onStartEdit,
@@ -30,35 +34,55 @@ export default function SlideCanvas({
   onDuplicate,
   onToggleLock,
   onDelete,
+  onMarquee,
 }: {
   slide: EditorSlide;
   scale: number;
-  selectedId: string | null;
+  selectedIds: string[];
   editingId: string | null;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string | null, additive: boolean) => void;
   onStartEdit: (id: string) => void;
   onCommitText: (id: string, text: string) => void;
   onCheckpoint: () => void;
   onLayersCommit: (layers: Layer[]) => void;
-  onReorder: (dir: "forward" | "backward") => void;
+  onReorder: (dir: "forward" | "backward" | "front" | "back") => void;
   onDuplicate: () => void;
   onToggleLock: () => void;
   onDelete: () => void;
+  /** Box-select rectangle finished (board-unit rect). */
+  onMarquee: (rect: { x: number; y: number; w: number; h: number }, additive: boolean) => void;
 }) {
   const layers = slide.layers;
-  const [target, setTarget] = useState<HTMLElement | null>(null);
   const moveableRef = useRef<Moveable>(null);
   const nodes = useRef<Map<string, HTMLElement>>(new Map());
+  const [targets, setTargets] = useState<HTMLElement[]>([]);
+  const [elementGuidelines, setElementGuidelines] = useState<HTMLElement[]>([]);
 
-  const selected = layers.find((l) => l.id === selectedId) ?? null;
+  const selectedLayers = layers.filter((l) => selectedIds.includes(l.id));
+  const single = selectedLayers.length === 1 ? selectedLayers[0]! : null;
+  const isGroup = selectedLayers.length > 1;
 
+  // Resolve selection ids → live DOM nodes whenever the selection or the
+  // layer list changes; likewise the snap guideline elements (every
+  // other visible, unselected layer's node). Done in an effect so the
+  // ref map is read AFTER paint, never during render.
   useEffect(() => {
-    setTarget(selectedId ? nodes.current.get(selectedId) ?? null : null);
-  }, [selectedId, layers]);
+    setTargets(
+      selectedIds
+        .map((id) => nodes.current.get(id))
+        .filter((n): n is HTMLElement => !!n)
+    );
+    setElementGuidelines(
+      layers
+        .filter((l) => !l.hidden && !selectedIds.includes(l.id))
+        .map((l) => nodes.current.get(l.id))
+        .filter((n): n is HTMLElement => !!n)
+    );
+  }, [selectedIds, layers]);
 
   useEffect(() => {
     moveableRef.current?.updateRect();
-  }, [scale, layers, target]);
+  }, [scale, layers, targets]);
 
   const registerNode = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -68,12 +92,13 @@ export default function SlideCanvas({
     []
   );
 
-  function commitGeom(id: string, patch: Partial<Layer>) {
+  function commitGeom(patches: Record<string, Partial<Layer>>) {
     onLayersCommit(
-      layers.map((l) => (l.id === id ? ({ ...l, ...patch } as Layer) : l))
+      layers.map((l) => (patches[l.id] ? ({ ...l, ...patches[l.id] } as Layer) : l))
     );
   }
 
+  /* ── Snap guidelines (slide edges + centre) ──────────────────── */
   const vGuides = useMemo(
     () => [0, (slide.width * scale) / 2, slide.width * scale],
     [slide.width, scale]
@@ -82,24 +107,50 @@ export default function SlideCanvas({
     () => [0, (slide.height * scale) / 2, slide.height * scale],
     [slide.height, scale]
   );
-  const elementGuidelines = useMemo(
-    () =>
-      layers
-        .filter((l) => l.id !== selectedId)
-        .map((l) => nodes.current.get(l.id))
-        .filter((n): n is HTMLElement => !!n),
-    [layers, selectedId]
-  );
 
   const stageW = slide.width * scale;
   const stageH = slide.height * scale;
+
+  /* ── Marquee (box) selection over empty artboard ─────────────── */
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [marquee, setMarquee] = useState<null | { x0: number; y0: number; x1: number; y1: number; additive: boolean }>(null);
+
+  function startMarquee(e: React.MouseEvent) {
+    if (e.button !== 0) return;
+    const host = stageRef.current;
+    if (!host) return;
+    const r = host.getBoundingClientRect();
+    const x0 = e.clientX - r.left;
+    const y0 = e.clientY - r.top;
+    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+    if (!additive) onSelect(null, false);
+    setMarquee({ x0, y0, x1: x0, y1: y0, additive });
+    const move = (ev: MouseEvent) => {
+      setMarquee((m) => (m ? { ...m, x1: ev.clientX - r.left, y1: ev.clientY - r.top } : m));
+    };
+    const up = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const ex = ev.clientX - r.left;
+      const ey = ev.clientY - r.top;
+      const bx = Math.min(x0, ex) / scale;
+      const by = Math.min(y0, ey) / scale;
+      const bw = Math.abs(ex - x0) / scale;
+      const bh = Math.abs(ey - y0) / scale;
+      setMarquee(null);
+      if (bw > 3 || bh > 3) onMarquee({ x: bx, y: by, w: bw, h: bh }, additive);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
 
   return (
     <div className="relative shrink-0" style={{ width: stageW, height: stageH }}>
       {/* Artboard */}
       <div
+        ref={stageRef}
         onMouseDown={(e) => {
-          if (e.currentTarget === e.target) onSelect(null);
+          if (e.currentTarget === e.target) startMarquee(e);
           e.stopPropagation();
         }}
         className="absolute inset-0 shadow-[0_8px_40px_rgba(0,0,0,0.10)]"
@@ -110,7 +161,8 @@ export default function SlideCanvas({
             key={l.id}
             layer={l}
             scale={scale}
-            selected={l.id === selectedId}
+            selected={l.id === single?.id}
+            multiSelected={isGroup && selectedIds.includes(l.id)}
             editing={l.id === editingId}
             onSelect={onSelect}
             onStartEdit={onStartEdit}
@@ -118,30 +170,43 @@ export default function SlideCanvas({
             nodeRef={registerNode(l.id)}
           />
         ))}
+
+        {/* Marquee rectangle */}
+        {marquee && (
+          <div
+            className="absolute border border-green/70 bg-green/10 pointer-events-none"
+            style={{
+              left: Math.min(marquee.x0, marquee.x1),
+              top: Math.min(marquee.y0, marquee.y1),
+              width: Math.abs(marquee.x1 - marquee.x0),
+              height: Math.abs(marquee.y1 - marquee.y0),
+            }}
+          />
+        )}
       </div>
 
-      {/* Floating mini-toolbar above the selection */}
-      {selected && !editingId && (
+      {/* Floating mini-toolbar above a single selection */}
+      {single && !editingId && (
         <div
           className="absolute z-20 flex items-center gap-0.5 bg-white rounded-lg shadow-lg ring-1 ring-charcoal/10 px-1 py-1"
           style={{
-            left: (selected.x + selected.w / 2) * scale,
-            top: selected.y * scale,
+            left: (single.x + single.w / 2) * scale,
+            top: single.y * scale,
             transform: "translate(-50%, calc(-100% - 16px))",
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <MiniBtn label="Forward" onClick={() => onReorder("forward")}>
+          <MiniBtn label="Bring forward" onClick={() => onReorder("forward")}>
             <LayerUpIcon />
           </MiniBtn>
-          <MiniBtn label="Backward" onClick={() => onReorder("backward")}>
+          <MiniBtn label="Send backward" onClick={() => onReorder("backward")}>
             <LayerUpIcon down />
           </MiniBtn>
           <MiniBtn label="Duplicate" onClick={onDuplicate}>
             <DuplicateIcon />
           </MiniBtn>
-          <MiniBtn label={selected.locked ? "Unlock" : "Lock"} onClick={onToggleLock} active={selected.locked}>
-            <LockIcon open={!selected.locked} />
+          <MiniBtn label={single.locked ? "Unlock" : "Lock"} onClick={onToggleLock} active={single.locked}>
+            <LockIcon open={!single.locked} />
           </MiniBtn>
           <MiniBtn label="Delete" onClick={onDelete} danger>
             <TrashIcon />
@@ -149,35 +214,58 @@ export default function SlideCanvas({
         </div>
       )}
 
-      {/* Transform controls */}
-      {target && selected && !selected.locked && !editingId && (
+      {/* Transform controls (single OR group) */}
+      {targets.length > 0 && !editingId && (single ? !single.locked : true) && (
         <Moveable
           ref={moveableRef}
-          target={target}
+          target={isGroup ? targets : targets[0]!}
           draggable
-          resizable
-          rotatable
+          resizable={!isGroup}
+          rotatable={!isGroup}
           rotationPosition="bottom"
           origin={false}
           throttleDrag={0}
           throttleResize={0}
           throttleRotate={0}
+          keepRatio={false}
           snappable
           snapThreshold={6}
           snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
+          snapGap
           verticalGuidelines={vGuides}
           horizontalGuidelines={hGuides}
           elementGuidelines={elementGuidelines}
+          /* ── Single drag ── */
           onDragStart={onCheckpoint}
           onDrag={({ target: t, transform }) => {
             (t as HTMLElement).style.transform = transform;
           }}
           onDragEnd={({ lastEvent }) => {
-            if (!lastEvent || !selectedId) return;
+            if (!lastEvent || !single) return;
             const [tx, ty] = lastEvent.beforeTranslate;
-            commitGeom(selectedId, { x: tx / scale, y: ty / scale });
+            commitGeom({ [single.id]: { x: tx / scale, y: ty / scale } });
           }}
+          /* ── Group drag ── */
+          onDragGroupStart={onCheckpoint}
+          onDragGroup={({ events }) => {
+            events.forEach((ev) => {
+              (ev.target as HTMLElement).style.transform = ev.transform;
+            });
+          }}
+          onDragGroupEnd={({ events }) => {
+            const patches: Record<string, Partial<Layer>> = {};
+            events.forEach((ev) => {
+              const last = ev.lastEvent;
+              if (!last) return;
+              const id = (ev.target as HTMLElement).dataset.layerId;
+              if (!id) return;
+              const [tx, ty] = last.beforeTranslate;
+              patches[id] = { x: tx / scale, y: ty / scale };
+            });
+            if (Object.keys(patches).length) commitGeom(patches);
+          }}
+          /* ── Resize ── */
           onResizeStart={onCheckpoint}
           onResize={({ target: t, width, height, drag }) => {
             const el = t as HTMLElement;
@@ -186,22 +274,25 @@ export default function SlideCanvas({
             el.style.transform = drag.transform;
           }}
           onResizeEnd={({ lastEvent }) => {
-            if (!lastEvent || !selectedId) return;
+            if (!lastEvent || !single) return;
             const [tx, ty] = lastEvent.drag.beforeTranslate;
-            commitGeom(selectedId, {
-              w: lastEvent.width / scale,
-              h: lastEvent.height / scale,
-              x: tx / scale,
-              y: ty / scale,
+            commitGeom({
+              [single.id]: {
+                w: lastEvent.width / scale,
+                h: lastEvent.height / scale,
+                x: tx / scale,
+                y: ty / scale,
+              },
             });
           }}
+          /* ── Rotate ── */
           onRotateStart={onCheckpoint}
           onRotate={({ target: t, transform }) => {
             (t as HTMLElement).style.transform = transform;
           }}
           onRotateEnd={({ lastEvent }) => {
-            if (!lastEvent || !selectedId) return;
-            commitGeom(selectedId, { rotation: lastEvent.rotation });
+            if (!lastEvent || !single) return;
+            commitGeom({ [single.id]: { rotation: lastEvent.rotation } });
           }}
         />
       )}

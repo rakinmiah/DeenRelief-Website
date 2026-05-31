@@ -18,15 +18,23 @@ import type { SocialPlatform } from "@/lib/social-templates/types";
 import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
 import CanvasDeckEditor from "./editor/CanvasDeckEditor";
 import {
+  ModeStep,
   PlanStep,
   PlatformStep,
   PreparingStep,
+  ReviewStep,
   SlideCountStep,
   SummaryStep,
 } from "./DeckFlowSteps";
 import SlideBuilder, { type SlideResult } from "./SlideBuilder";
 import { HERO_VARIANTS } from "./heroVariants";
-import { ROLES, suggestPlan, type SlideRole } from "./slideRoles";
+import {
+  ROLES,
+  autoFillPlan,
+  defaultTemplateId,
+  suggestPlan,
+  type SlideRole,
+} from "./slideRoles";
 import type { ContentBundle, ImageBundle, TemplateGroups } from "./types";
 
 export interface EventSummary {
@@ -41,9 +49,28 @@ export interface EventSummary {
   detectedAtLabel: string | null;
 }
 
-type Step = "preparing" | "summary" | "platform" | "count" | "plan" | "slides" | "build";
+type Step =
+  | "preparing"
+  | "summary"
+  | "platform"
+  | "count"
+  | "plan"
+  | "mode"
+  | "review"
+  | "slides"
+  | "build";
 
-const ORDER: Step[] = ["preparing", "summary", "platform", "count", "plan", "slides", "build"];
+const ORDER: Step[] = [
+  "preparing",
+  "summary",
+  "platform",
+  "count",
+  "plan",
+  "mode",
+  "review",
+  "slides",
+  "build",
+];
 
 export default function DeckFlow({
   event,
@@ -147,16 +174,45 @@ export default function DeckFlow({
     });
   }, [results, images, eyebrow]);
 
+  // The template options for a given slide role — faithful Hero variants
+  // for the hero step, the registry group otherwise. Shared by the guided
+  // builder loop and the review/quick-draft template resolution.
+  const templatesForRole = useMemo(() => {
+    return (role: SlideRole) =>
+      ROLES[role].category === "hero" ? HERO_VARIANTS : groups[ROLES[role].category] ?? [];
+  }, [groups]);
+
   function go(next: Step) {
     setDir(ORDER.indexOf(next) > ORDER.indexOf(step) ? 1 : -1);
     setStep(next);
   }
 
-  function startBuilding(p: SlideRole[]) {
+  // Detailed mode: run the per-slide guided builder loop.
+  function startGuided(p: SlideRole[]) {
     setPlan(p);
     setResults([]);
     setCurrentSlide(0);
     go("slides");
+  }
+
+  // Quick draft: auto-fill every slide (top content + matched image +
+  // default template per role) and drop her on the editable review
+  // outline, one screen to confirm or tweak before the canvas opens.
+  function startQuick(p: SlideRole[]) {
+    setPlan(p);
+    if (!content || !images) return;
+    const fills = autoFillPlan(p, content, images);
+    const seeded: SlideResult[] = fills.map((f, index) => ({
+      role: f.role,
+      index,
+      title: f.title,
+      subtext: f.subtext,
+      imageId: f.imageId,
+      templateId: defaultTemplateId(f.role, templatesForRole(f.role), !!f.imageId),
+    }));
+    setResults(seeded);
+    setCurrentSlide(0);
+    go("review");
   }
 
   /* ── Full-bleed: the canvas editor ───────────────────────────── */
@@ -180,19 +236,13 @@ export default function DeckFlow({
   /* ── Full-bleed: the per-slide guided builder loop ───────────── */
   if (step === "slides" && content && images && plan.length > 0) {
     const role = plan[currentSlide]!;
-    // Faithful, layer-rendered Hero variants drive the hero step; other
-    // roles still come from the template registry until they're ported.
-    const templates =
-      ROLES[role].category === "hero"
-        ? HERO_VARIANTS
-        : groups[ROLES[role].category] ?? [];
     return (
       <SlideBuilder
         key={currentSlide}
         spec={{ role, index: currentSlide, total: plan.length }}
         content={content}
         images={images}
-        templates={templates}
+        templates={templatesForRole(role)}
         eyebrow={eyebrow}
         onComplete={(result) => {
           setResults((prev) => {
@@ -201,8 +251,24 @@ export default function DeckFlow({
             return next;
           });
           if (currentSlide + 1 < plan.length) setCurrentSlide((s) => s + 1);
-          else go("build");
+          else go("review");
         }}
+      />
+    );
+  }
+
+  /* ── Full-bleed: the batch review / outline ──────────────────── */
+  if (step === "review" && content && images && results.length > 0) {
+    return (
+      <ReviewStep
+        results={results}
+        content={content}
+        images={images}
+        eyebrow={eyebrow}
+        templatesForRole={templatesForRole}
+        onChange={setResults}
+        onBack={() => go("mode")}
+        onConfirm={() => go("build")}
       />
     );
   }
@@ -222,6 +288,7 @@ export default function DeckFlow({
                 if (step === "platform") go("summary");
                 else if (step === "count") go("platform");
                 else if (step === "plan") go("count");
+                else if (step === "mode") go("plan");
               }}
               className="text-charcoal/45 hover:text-charcoal text-[13px] flex items-center gap-1"
             >
@@ -269,7 +336,7 @@ export default function DeckFlow({
                 onPick={(p) => {
                   setPlatform(p);
                   if (p === "instagram" || p === "facebook") go("count");
-                  else startBuilding(["hero"]); // X = single image
+                  else startQuick(["hero"]); // X = single image → straight to review
                 }}
               />
             )}
@@ -290,7 +357,14 @@ export default function DeckFlow({
               <PlanStep
                 plan={plan}
                 onChange={setPlan}
-                onConfirm={() => startBuilding(plan)}
+                onConfirm={() => go("mode")}
+              />
+            )}
+            {step === "mode" && (
+              <ModeStep
+                slideCount={plan.length}
+                onQuick={() => startQuick(plan)}
+                onGuided={() => startGuided(plan)}
               />
             )}
           </motion.div>

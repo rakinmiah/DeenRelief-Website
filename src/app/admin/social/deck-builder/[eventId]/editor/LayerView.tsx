@@ -19,6 +19,7 @@ export default function LayerView({
   layer,
   scale,
   selected,
+  multiSelected,
   editing,
   onSelect,
   onStartEdit,
@@ -29,13 +30,19 @@ export default function LayerView({
   layer: Layer;
   scale: number;
   selected?: boolean;
+  /** Part of a multi-selection (shows a persistent outline, no moveable). */
+  multiSelected?: boolean;
   editing?: boolean;
-  onSelect?: (id: string) => void;
+  onSelect?: (id: string, additive: boolean) => void;
   onStartEdit?: (id: string) => void;
   onCommitText?: (id: string, text: string) => void;
   nodeRef?: (node: HTMLDivElement | null) => void;
   interactive?: boolean;
 }) {
+  // Hidden layers are dropped from the canvas AND the export route skips
+  // them; thumbnails render them out too.
+  if (layer.hidden) return null;
+
   const base: CSSProperties = {
     position: "absolute",
     left: 0,
@@ -60,7 +67,7 @@ export default function LayerView({
           ? (e) => {
               if (layer.locked) return;
               e.stopPropagation();
-              onSelect?.(layer.id);
+              onSelect?.(layer.id, e.shiftKey || e.metaKey || e.ctrlKey);
             }
           : undefined
       }
@@ -85,7 +92,10 @@ export default function LayerView({
       )}
       {layer.type === "image" && <ImageBody layer={layer} scale={scale} />}
       {layer.type === "shape" && <ShapeBody layer={layer} scale={scale} />}
-      {interactive && !selected && !layer.locked && (
+      {interactive && multiSelected && (
+        <span aria-hidden className="pointer-events-none absolute inset-0 ring-2 ring-green" />
+      )}
+      {interactive && !selected && !multiSelected && !layer.locked && (
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 ring-2 ring-sky-400/0 transition group-hover:ring-sky-400/60"

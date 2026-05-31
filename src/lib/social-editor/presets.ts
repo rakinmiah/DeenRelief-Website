@@ -163,6 +163,22 @@ function headlineBlock(
   }
   return layers;
 }
+/** The y of the baseline foot of a `headlineBlock` — mirrors its own
+ *  line-counting math so callers can stack a rule/body directly beneath
+ *  a headline that may wrap to two lines (or carry a gold accent tail). */
+function headlineBottom(
+  primary: string,
+  accent: string | null | undefined,
+  w: number,
+  size: number,
+  y: number
+): number {
+  const lh = size * 0.96;
+  const mainLines = balanceLines(primary, w, size).split("\n").length;
+  let lines = mainLines;
+  if (accent && accent.trim()) lines += balanceLines(accent, w, size).split("\n").length;
+  return Math.round(y + lines * lh);
+}
 function hBody(t: string, x: number, y: number, w: number, h: number): TextLayer {
   return text({ x, y, w, h, text: t, fontFamily: BARLOW, fontSize: 28, fontWeight: 400, lineHeight: 1.34, color: C.creamDim });
 }
@@ -184,18 +200,63 @@ function wordmark(x: number, y: number, _logo: BrandLogo | null | undefined, col
   ];
 }
 
+/** A LARGE, centred brand lockup for a prominent placement. Prefers the
+ *  REAL raster logo (which only rasterises in Satori at larger sizes —
+ *  here it's big, so it renders), sized to its true aspect and centred on
+ *  the board. When no logo asset is resolved, falls back gracefully to a
+ *  scaled-up vector diamond + wordmark lockup. Returns the layers plus
+ *  the y at which the artwork ends, so a caller can stack a rule beneath. */
+function logoLockup(
+  cx: number,
+  topY: number,
+  maxW: number,
+  logo: BrandLogo | null | undefined,
+  color: string = C.cream
+): { layers: Layer[]; bottom: number } {
+  if (logo) {
+    // Real wide ~6:1 PNG — size to width, derive height from aspect.
+    const w = Math.min(maxW, 760);
+    const h = Math.round(w / logo.aspect);
+    return {
+      layers: [image({ x: Math.round(cx - w / 2), y: topY, w, h, src: logo.url, objectFit: "contain" })],
+      bottom: topY + h,
+    };
+  }
+  // Vector fallback — a stacked diamond over the wordmark, scaled up.
+  const dia = 40;
+  const wmSize = 64;
+  const lockW = Math.min(maxW, 640);
+  return {
+    layers: [
+      shape({ x: Math.round(cx - dia / 2), y: topY, w: dia, h: dia, shape: "rect", fill: C.amber, rotation: 45 }),
+      text({ x: Math.round(cx - lockW / 2), y: topY + dia + 28, w: lockW, h: wmSize + 16, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: wmSize, fontWeight: 700, uppercase: true, letterSpacing: 8, color, align: "center" }),
+    ],
+    bottom: topY + dia + 28 + wmSize,
+  };
+}
+
 // HERO A — photo-led full-bleed
 function heroPhotoFull(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const hasBody = !!c.secondary;
+  // With supporting copy, drop the eyebrow/headline higher so the gold
+  // rule + body have room to stack cleanly above the foot; without it,
+  // sit the headline lower for a more grounded, photo-led feel.
+  const eyebrowY = hasBody ? 590 : 643;
+  const headY = eyebrowY + 52;
+  const headSize = 84;
+  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
+  const barY = headBottom + 28;
   return slide(
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 410, w: B, h: B - 410, shape: "rect", fill: SCRIM, locked: true }),
       ...wordmark(HPAD, HPAD, c.logo),
       hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
-      hEyebrow(c.eyebrow, HPAD, 643, 924),
-      ...headlineBlock(c.primary, c.accent, HPAD, 695, 924, 86),
-      goldBar(HPAD, 900),
-      ...(c.secondary ? [hBody(c.secondary, 164, 887, 674, 120)] : []),
+      hEyebrow(c.eyebrow, HPAD, eyebrowY, W),
+      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize),
+      goldBar(HPAD, barY),
+      ...(hasBody ? [hBody(c.secondary!, HPAD, barY + 24, W, 120)] : []),
     ],
     C.forest
   );
@@ -219,16 +280,21 @@ function heroTypeCover(c: SlideContent): EditorSlide {
 
 // HERO C — top photo, bottom forest panel
 function heroTopPanel(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const headSize = 80;
+  const headY = 712;
+  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
+  const barY = headBottom + 24;
   return slide(
     [
       image({ x: 0, y: 0, w: B, h: 594, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 333, w: B, h: 261, shape: "rect", fill: SCRIM, locked: true }),
       ...wordmark(HPAD, HPAD, c.logo),
       hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
-      hEyebrow(c.eyebrow, HPAD, 660, 924),
-      ...headlineBlock(c.primary, c.accent, HPAD, 712, 924, 80),
-      goldBar(HPAD, 917),
-      ...(c.secondary ? [hBody(c.secondary, 164, 904, 754, 92)] : []),
+      hEyebrow(c.eyebrow, HPAD, 660, W),
+      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize),
+      goldBar(HPAD, barY),
+      ...(c.secondary ? [hBody(c.secondary, HPAD, barY + 22, W, 92)] : []),
     ],
     C.forest
   );
@@ -248,16 +314,143 @@ function heroCrest(c: SlideContent): EditorSlide {
 
 // HERO E — documentary caption bar over full-bleed photo
 function heroCaption(c: SlideContent): EditorSlide {
-  const barTop = 850;
+  const W = B - 2 * HPAD;
+  const headSize = 56;
+  // Size the foot bar to the content: eyebrow + headline (1–2 lines) +
+  // a credit line, all comfortably inside the bar above the board edge.
+  const twoLine = headlineBottom(c.primary, c.accent, W, headSize, 0) > Math.round(headSize * 0.96) + 4;
+  const barTop = twoLine ? 770 : 850;
+  const headY = barTop + 86;
+  const captionY = headlineBottom(c.primary, c.accent, W, headSize, headY) + 24;
   return slide(
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       ...wordmark(HPAD, HPAD, c.logo),
       hTag("Field Report", 582, HPAD + 6, 420, "right"),
       shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
-      hEyebrow(c.eyebrow, HPAD, barTop + 42, B - 2 * HPAD),
-      ...headlineBlock(c.primary, c.accent, HPAD, barTop + 86, B - 2 * HPAD, 56),
-      text({ x: HPAD, y: barTop + 160, w: B - 2 * HPAD, h: 30, text: "Photograph — Deen Relief field team", fontFamily: BARLOW, fontSize: 23, fontWeight: 500, color: C.creamDim }),
+      hEyebrow(c.eyebrow, HPAD, barTop + 42, W),
+      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize),
+      text({ x: HPAD, y: captionY, w: W, h: 30, text: "Photograph — Deen Relief field team", fontFamily: BARLOW, fontSize: 23, fontWeight: 500, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// HERO F — brand cover with the REAL logo, prominent + centred
+function heroLogoCover(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const lock = logoLockup(cx, 372, 760, c.logo);
+  const headSize = 76;
+  const headY = lock.bottom + 70;
+  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      hEyebrow(c.eyebrow, HPAD, 300, W, "center"),
+      ...lock.layers,
+      goldBar(Math.round((B - 92) / 2), lock.bottom + 34, 92),
+      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize, "center"),
+      text({ x: HPAD, y: headBottom + 28, w: W, h: 30, text: "deenrelief.org · Charity No. 1158608", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 4, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// HERO G — asymmetric left rail + offset headline
+function heroSidebar(c: SlideContent): EditorSlide {
+  const railW = 132;
+  const textX = railW + 64;
+  const W = B - textX - HPAD;
+  const headSize = 92;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      // Forest-soft rail with a gold spine + vertical-feel eyebrow band.
+      shape({ x: 0, y: 0, w: railW, h: B, shape: "rect", fill: C.forestSoft, locked: true }),
+      shape({ x: railW - 6, y: 0, w: 6, h: B, shape: "rect", fill: C.amber, locked: true }),
+      ...wordmark(textX, HPAD, c.logo),
+      hEyebrow(c.eyebrow, textX, 360, W),
+      goldBar(textX, 408),
+      ...headlineBlock(c.primary, c.accent, textX, 452, W, headSize),
+      ...(c.secondary
+        ? [hBody(c.secondary, textX, headlineBottom(c.primary, c.accent, W, headSize, 452) + 34, W, 160)]
+        : []),
+    ],
+    C.forest
+  );
+}
+
+// HERO H — stat-led: giant figure + supporting beat
+function heroStat(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  // A long stat phrase drops the type size a notch so a 2-line figure
+  // still clears the rule + supporting beat below it.
+  const statSize = c.primary.replace(/\n/g, " ").length > 14 ? 150 : 196;
+  const headY = 440;
+  const headBottom = headlineBottom(c.primary, c.accent, W, statSize, headY);
+  const barY = headBottom + 34;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the numbers", 582, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, HPAD, 380, W),
+      // The headline IS the stat — oversized Anton, gold accent tail.
+      ...headlineBlock(c.primary, c.accent, HPAD, headY, W, statSize),
+      goldBar(HPAD, barY),
+      ...(c.secondary ? [hBody(c.secondary, HPAD, barY + 26, W, 180)] : []),
+    ],
+    C.forest
+  );
+}
+
+// HERO I — quote-led testimony cover
+function heroQuote(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quoteSize = 60;
+  const quoteY = 392;
+  const quoteH = 360;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("In their words", 582, HPAD + 6, 420, "right"),
+      // Oversized gold quotation mark anchor.
+      text({ x: HPAD - 4, y: 248, w: 220, h: 180, text: "“", fontFamily: BARLOW, fontSize: 200, fontWeight: 700, color: C.amber, opacity: 0.9 }),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: c.primary, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 600, lineHeight: 1.22, color: C.cream }),
+      goldBar(HPAD, quoteY + quoteH + 6),
+      ...(c.secondary
+        ? [text({ x: HPAD, y: quoteY + quoteH + 30, w: W, h: 40, text: `— ${c.secondary}`, fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber })]
+        : []),
+    ],
+    C.forest
+  );
+}
+
+// HERO J — full-bleed photo with a forest corner card
+function heroCornerCard(c: SlideContent): EditorSlide {
+  const cardX = 64;
+  const cardY = 560;
+  const cardW = 720;
+  const cardH = B - cardY - 64; // 456
+  const innerX = cardX + 52;
+  const innerW = cardW - 104;
+  const headSize = 62;
+  const headY = cardY + 132;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
+      // The card: forest panel with a gold top edge — a framed caption.
+      shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
+      shape({ x: cardX, y: cardY, w: cardW, h: 6, shape: "rect", fill: C.amber, locked: true }),
+      hEyebrow(c.eyebrow, innerX, cardY + 56, innerW),
+      ...headlineBlock(c.primary, c.accent, innerX, headY, innerW, headSize),
+      ...(c.secondary
+        ? [hBody(c.secondary, innerX, headlineBottom(c.primary, c.accent, innerW, headSize, headY) + 22, innerW, 120)]
+        : []),
     ],
     C.forest
   );
@@ -366,6 +559,11 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("hero-c")) return heroTopPanel(c);
   if (id.includes("hero-d")) return heroCrest(c);
   if (id.includes("hero-e")) return heroCaption(c);
+  if (id.includes("hero-f")) return heroLogoCover(c);
+  if (id.includes("hero-g")) return heroSidebar(c);
+  if (id.includes("hero-h")) return heroStat(c);
+  if (id.includes("hero-i")) return heroQuote(c);
+  if (id.includes("hero-j")) return heroCornerCard(c);
   if (id.includes("hero-typography")) return heroTypeCover(c);
   if (id.includes("hero-panel")) return heroTopPanel(c);
   if (id.includes("hero")) return heroPhotoFull(c);

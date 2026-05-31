@@ -80,6 +80,68 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
           logo,
         },
       },
+      {
+        id: "hero-f",
+        label: "F · Brand logo cover (real logo)",
+        c: {
+          primary: "Stand with",
+          accent: "Gaza.",
+          secondary: null,
+          imageUrl: null,
+          eyebrow: "Emergency Appeal · Palestine",
+          logo,
+        },
+      },
+      {
+        id: "hero-g",
+        label: "G · Side rail (asymmetric)",
+        c: {
+          primary: "No safe place",
+          accent: "to shelter.",
+          secondary:
+            "Across the Strip, families are sleeping in tents as winter sets in.",
+          imageUrl: null,
+          eyebrow: "From Gaza · 25 May 2026",
+          logo,
+        },
+      },
+      {
+        id: "hero-h",
+        label: "H · Stat-led",
+        c: {
+          primary: "2.1m",
+          accent: "in need.",
+          secondary:
+            "Nearly the entire population now depends on humanitarian aid to survive.",
+          imageUrl: null,
+          eyebrow: "By the numbers · Gaza",
+          logo,
+        },
+      },
+      {
+        id: "hero-i",
+        label: "I · Quote-led",
+        c: {
+          primary:
+            "We rebuild what we can with our hands, and we wait for the world to remember us.",
+          secondary: "Aid worker, Khan Younis",
+          imageUrl: null,
+          eyebrow: "In their words",
+          logo,
+        },
+      },
+      {
+        id: "hero-j",
+        label: "J · Corner card",
+        c: {
+          primary: "A winter without\nshelter.",
+          secondary:
+            "Tens of thousands face the cold in tents and the rubble of their homes.",
+          imageUrl: SAMPLE_IMG,
+          eyebrow: "From Gaza · 25 May 2026",
+          logo,
+        },
+      },
     ],
     [logo]
   );
@@ -95,15 +157,16 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
     >
       <div style={{ maxWidth: 1320, margin: "0 auto" }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A1A2E", margin: 0 }}>
-          Template Lab — Hero pilot
+          Template Lab — Hero library
         </h1>
         <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 760 }}>
-          Faithful layer port of the five Claude&nbsp;Design Hero layouts, rendered
-          through the real Satori export pipeline (sample copy + photo). Refined:
-          two-tone gold accent (Hero B), balanced headline line-breaks, tuned
-          spacing. Corner mark is the vector diamond + wordmark lockup; the raster
-          logo only rasterises at larger sizes, so it's reserved for a prominent
-          placement (CTA slide).
+          Ten Hero layouts in the Deen&nbsp;Relief Slide Library system, rendered
+          through the real Satori export pipeline (sample copy + photo). A–E are the
+          faithful Claude&nbsp;Design ports (collision/overflow tuned); F–J add new
+          structures: a real-logo brand cover, an asymmetric side rail, a stat-led
+          cover, a quote-led cover, and a corner-card layout. Small corner marks are
+          the vector diamond + wordmark lockup; the raster logo only rasterises at
+          larger sizes, so it&apos;s used large and centered on Hero&nbsp;F.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 26 }}>
           {variants.map((v) => (

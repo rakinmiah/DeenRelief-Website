@@ -1,185 +1,13 @@
 "use client";
 
 /**
- * Shared chrome for the canvas editor (Phase 10e wiring) — the
- * right-rail property panel + the small buttons/icons used by the
- * top bar, left rail and the on-canvas mini-toolbar. Kept in one
- * place so SlideCanvas and CanvasDeckEditor stay in sync.
+ * Shared chrome for the canvas editor — the small buttons, numeric
+ * inputs and the icon set used by the top bar, left rail, the layers
+ * panel, the contextual toolbar and the on-canvas mini-toolbar. Kept
+ * in one place so every surface stays visually in sync.
  */
 
-import type { Layer } from "@/lib/social-editor/types";
-
-/* ─── Right-rail quick properties ─────────────────────────────────── */
-
-export function SelectionPanel({
-  layer,
-  onChange,
-}: {
-  layer: Layer;
-  onChange: (patch: Partial<Layer>) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal/40">
-        {layer.type}
-      </p>
-
-      {layer.type === "text" && (
-        <>
-          <Field label="Text">
-            <textarea
-              value={layer.text}
-              onChange={(e) => onChange({ text: e.target.value })}
-              rows={3}
-              className="w-full rounded-lg ring-1 ring-charcoal/10 px-2.5 py-2 text-[13px] resize-none focus:outline-none focus:ring-green/50"
-            />
-          </Field>
-          <Field label={`Size · ${Math.round(layer.fontSize)}`}>
-            <input
-              type="range"
-              min={12}
-              max={220}
-              value={layer.fontSize}
-              onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-              className="w-full accent-green"
-            />
-          </Field>
-          <Field label="Colour">
-            <ColorRow value={layer.color} onChange={(color) => onChange({ color })} />
-          </Field>
-          <div className="flex gap-1.5">
-            <Toggle on={layer.fontWeight >= 700} onClick={() => onChange({ fontWeight: layer.fontWeight >= 700 ? 400 : 700 })}>B</Toggle>
-            <Toggle on={layer.italic} onClick={() => onChange({ italic: !layer.italic })}><span className="italic">I</span></Toggle>
-            <Toggle on={layer.uppercase} onClick={() => onChange({ uppercase: !layer.uppercase })}>AA</Toggle>
-            <div className="flex-1" />
-            <Align value={layer.align} onChange={(align) => onChange({ align })} />
-          </div>
-        </>
-      )}
-
-      {layer.type === "shape" && (
-        <>
-          <Field label="Fill">
-            <ColorRow value={layer.fill} onChange={(fill) => onChange({ fill })} />
-          </Field>
-          {layer.shape === "line" && (
-            <Field label="Colour">
-              <ColorRow value={layer.stroke} onChange={(stroke) => onChange({ stroke })} />
-            </Field>
-          )}
-        </>
-      )}
-
-      {layer.type === "image" && (
-        <Field label="Image URL">
-          <input
-            value={layer.src}
-            onChange={(e) => onChange({ src: e.target.value })}
-            placeholder="https://…"
-            className="w-full rounded-lg ring-1 ring-charcoal/10 px-2.5 py-2 text-[12px] focus:outline-none focus:ring-green/50"
-          />
-        </Field>
-      )}
-
-      <Field label={`Opacity · ${Math.round(layer.opacity * 100)}%`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={layer.opacity * 100}
-          onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })}
-          className="w-full accent-green"
-        />
-      </Field>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-medium text-charcoal/50">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function ColorRow({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const swatches = ["#163827", "#2D6A2E", "#D4A843", "#F7F3E8", "#1A1A2E", "#FFFFFF", "#C0392B"];
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {swatches.map((s) => (
-        <button
-          key={s}
-          type="button"
-          onClick={() => onChange(s)}
-          className={`w-6 h-6 rounded-full ring-1 ring-charcoal/15 ${value.toLowerCase() === s.toLowerCase() ? "outline outline-2 outline-offset-1 outline-green" : ""}`}
-          style={{ background: s }}
-        />
-      ))}
-      <input
-        type="color"
-        value={value.startsWith("#") ? value : "#000000"}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-6 h-6 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0"
-      />
-    </div>
-  );
-}
-
-function Toggle({
-  on,
-  onClick,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-9 h-8 rounded-md text-[13px] font-semibold transition ${on ? "bg-green text-white" : "ring-1 ring-charcoal/10 text-charcoal/70 hover:ring-charcoal/30"}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Align({
-  value,
-  onChange,
-}: {
-  value: "left" | "center" | "right";
-  onChange: (v: "left" | "center" | "right") => void;
-}) {
-  const opts: Array<"left" | "center" | "right"> = ["left", "center", "right"];
-  return (
-    <div className="flex gap-0.5">
-      {opts.map((o) => (
-        <button
-          key={o}
-          type="button"
-          onClick={() => onChange(o)}
-          className={`w-8 h-8 grid place-items-center rounded-md ${value === o ? "bg-green/10 text-green" : "text-charcoal/55 hover:bg-charcoal/5"}`}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.4">
-            <line x1="2" y1="4" x2="14" y2="4" strokeLinecap="round" />
-            <line x1="2" y1="8" x2={o === "left" ? 10 : o === "center" ? 13 : 14} y2="8" strokeLinecap="round" transform={o === "center" ? "translate(-1.5 0)" : o === "right" ? "translate(0 0)" : ""} />
-            <line x1="2" y1="12" x2="11" y2="12" strokeLinecap="round" />
-          </svg>
-        </button>
-      ))}
-    </div>
-  );
-}
+import type { ReactNode } from "react";
 
 /* ─── Buttons ─────────────────────────────────────────────────────── */
 
@@ -187,12 +15,14 @@ export function ToolbarBtn({
   label,
   onClick,
   disabled,
+  active,
   children,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  children: React.ReactNode;
+  active?: boolean;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -201,7 +31,9 @@ export function ToolbarBtn({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="w-8 h-8 grid place-items-center rounded-md text-charcoal/65 hover:bg-charcoal/5 disabled:opacity-25 disabled:hover:bg-transparent"
+      className={`w-8 h-8 grid place-items-center rounded-md disabled:opacity-25 disabled:hover:bg-transparent transition ${
+        active ? "bg-green/10 text-green" : "text-charcoal/65 hover:bg-charcoal/5"
+      }`}
     >
       {children}
     </button>
@@ -215,7 +47,7 @@ export function RailBtn({
 }: {
   label: string;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -235,12 +67,14 @@ export function MiniBtn({
   children,
   danger,
   active,
+  disabled,
 }: {
   label: string;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
   danger?: boolean;
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -248,7 +82,8 @@ export function MiniBtn({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`w-8 h-8 grid place-items-center rounded-md transition ${
+      disabled={disabled}
+      className={`w-8 h-8 grid place-items-center rounded-md transition disabled:opacity-25 ${
         danger
           ? "text-charcoal/60 hover:bg-red-50 hover:text-red-600"
           : active
@@ -259,6 +94,60 @@ export function MiniBtn({
       {children}
     </button>
   );
+}
+
+/** Compact labelled numeric input used by the property toolbar
+ *  (position / size / rotation). Commits on blur and Enter. */
+export function NumField({
+  label,
+  value,
+  onCommit,
+  width = 56,
+  min,
+  max,
+  suffix,
+}: {
+  label: string;
+  value: number;
+  onCommit: (v: number) => void;
+  width?: number;
+  min?: number;
+  max?: number;
+  suffix?: string;
+}) {
+  return (
+    <label className="flex items-center gap-1 h-9 px-1.5 rounded-lg ring-1 ring-charcoal/10">
+      <span className="text-[11px] font-semibold text-charcoal/40 select-none">{label}</span>
+      <input
+        type="number"
+        defaultValue={Math.round(value)}
+        key={Math.round(value)}
+        min={min}
+        max={max}
+        onBlur={(e) => commit(e.target, value, onCommit, min, max)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        style={{ width }}
+        className="text-[12.5px] tabular-nums bg-transparent text-charcoal/85 focus:outline-none text-right"
+      />
+      {suffix && <span className="text-[11px] text-charcoal/35 select-none">{suffix}</span>}
+    </label>
+  );
+}
+
+function commit(
+  el: HTMLInputElement,
+  fallback: number,
+  onCommit: (v: number) => void,
+  min?: number,
+  max?: number
+) {
+  let v = Number(el.value);
+  if (!Number.isFinite(v)) v = fallback;
+  if (min != null) v = Math.max(min, v);
+  if (max != null) v = Math.min(max, v);
+  onCommit(v);
 }
 
 /* ─── Icons ───────────────────────────────────────────────────────── */
@@ -318,10 +207,92 @@ export function PlusIcon() {
     </svg>
   );
 }
-export function ChevronIcon({ dir = "right" }: { dir?: "right" | "left" }) {
+export function ChevronIcon({ dir = "right" }: { dir?: "right" | "left" | "up" | "down" }) {
+  const rot = dir === "left" ? 180 : dir === "up" ? -90 : dir === "down" ? 90 : 0;
   return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" style={dir === "left" ? { transform: "scaleX(-1)" } : undefined}>
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ transform: `rotate(${rot}deg)` }}>
       <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+export function EyeIcon({ off }: { off?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="10" cy="10" r="2.4" />
+      {off && <path d="M3 3l14 14" strokeLinecap="round" />}
+    </svg>
+  );
+}
+export function TextIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M4 6V4.5h12V6M10 4.5v11M7.5 15.5h5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+export function ShapeIcon({ kind }: { kind: "rect" | "ellipse" | "line" }) {
+  if (kind === "ellipse") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <circle cx="10" cy="10" r="6" />
+      </svg>
+    );
+  }
+  if (kind === "line") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 14L16 6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="4" y="5" width="12" height="10" rx="1.5" />
+    </svg>
+  );
+}
+export function LayersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M10 3l7 4-7 4-7-4 7-4z" strokeLinejoin="round" />
+      <path d="M3 11l7 4 7-4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+export function GripIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+      <circle cx="7" cy="5" r="1.3" /><circle cx="13" cy="5" r="1.3" />
+      <circle cx="7" cy="10" r="1.3" /><circle cx="13" cy="10" r="1.3" />
+      <circle cx="7" cy="15" r="1.3" /><circle cx="13" cy="15" r="1.3" />
+    </svg>
+  );
+}
+
+/** Align icons. `axis` = which edge/line we align to. */
+export function AlignIcon({ kind }: { kind: "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom" }) {
+  // A bar + two boxes snapped to it.
+  const c = "currentColor";
+  switch (kind) {
+    case "left":
+      return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="3" y="3" width="1.4" height="14" fill={c} /><rect x="6" y="5" width="9" height="3.5" rx="1" fill={c} opacity="0.85" /><rect x="6" y="11.5" width="6" height="3.5" rx="1" fill={c} opacity="0.55" /></svg>;
+    case "right":
+      return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="15.6" y="3" width="1.4" height="14" fill={c} /><rect x="5" y="5" width="9" height="3.5" rx="1" fill={c} opacity="0.85" /><rect x="8" y="11.5" width="6" height="3.5" rx="1" fill={c} opacity="0.55" /></svg>;
+    case "hcenter":
+      return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="9.3" y="3" width="1.4" height="14" fill={c} /><rect x="3.5" y="5" width="13" height="3.5" rx="1" fill={c} opacity="0.85" /><rect x="6" y="11.5" width="8" height="3.5" rx="1" fill={c} opacity="0.55" /></svg>;
+    case "top":
+      return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="1.4" fill={c} /><rect x="5" y="6" width="3.5" height="9" rx="1" fill={c} opacity="0.85" /><rect x="11.5" y="6" width="3.5" height="6" rx="1" fill={c} opacity="0.55" /></svg>;
+    case "bottom":
+      return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="3" y="15.6" width="14" height="1.4" fill={c} /><rect x="5" y="5" width="3.5" height="9" rx="1" fill={c} opacity="0.85" /><rect x="11.5" y="8" width="3.5" height="6" rx="1" fill={c} opacity="0.55" /></svg>;
+    case "vcenter":
+      return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="3" y="9.3" width="14" height="1.4" fill={c} /><rect x="5" y="3.5" width="3.5" height="13" rx="1" fill={c} opacity="0.85" /><rect x="11.5" y="6" width="3.5" height="8" rx="1" fill={c} opacity="0.55" /></svg>;
+  }
+}
+export function DistributeIcon({ axis }: { axis: "h" | "v" }) {
+  const c = "currentColor";
+  if (axis === "h") {
+    return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="2.5" y="6" width="2.5" height="8" rx="1" fill={c} /><rect x="8.75" y="6" width="2.5" height="8" rx="1" fill={c} /><rect x="15" y="6" width="2.5" height="8" rx="1" fill={c} /></svg>;
+  }
+  return <svg width="16" height="16" viewBox="0 0 20 20"><rect x="6" y="2.5" width="8" height="2.5" rx="1" fill={c} /><rect x="6" y="8.75" width="8" height="2.5" rx="1" fill={c} /><rect x="6" y="15" width="8" height="2.5" rx="1" fill={c} /></svg>;
 }

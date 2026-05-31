@@ -29,6 +29,14 @@ export type LayerBase = {
   opacity: number;
   /** Locked layers can't be selected/transformed on the canvas. */
   locked: boolean;
+  /** Optional custom label shown in the layers panel. When unset the
+   *  panel derives a label from the layer's content/type. Editor-only;
+   *  the export route ignores it. */
+  name?: string;
+  /** Hidden layers are skipped on the canvas, the layers panel marks
+   *  them, and the export route should SKIP them. Defaults to visible
+   *  (undefined === false), so older drafts round-trip unchanged. */
+  hidden?: boolean;
 };
 
 export type TextAlign = "left" | "center" | "right";
@@ -113,3 +121,65 @@ export function makeLayerId(): string {
 }
 
 export const DEFAULT_BOARD = 1080;
+
+/** Human label for a layer in the layers panel / mini-toolbar. Uses a
+ *  custom `name` when set, otherwise derives one from the content. */
+export function layerLabel(layer: Layer): string {
+  if (layer.name && layer.name.trim()) return layer.name.trim();
+  if (layer.type === "text") {
+    const t = layer.text.replace(/\s+/g, " ").trim();
+    return t ? (t.length > 24 ? `${t.slice(0, 24)}…` : t) : "Text";
+  }
+  if (layer.type === "image") return "Image";
+  return layer.shape === "rect"
+    ? "Rectangle"
+    : layer.shape === "ellipse"
+      ? "Ellipse"
+      : "Line";
+}
+
+/** Axis-aligned bounding box of a layer accounting for rotation about
+ *  its centre. Returns board-unit min/max corners — used for align /
+ *  distribute and multi-select bounds. */
+export function layerAABB(l: LayerBase): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+} {
+  const cx = l.x + l.w / 2;
+  const cy = l.y + l.h / 2;
+  if (!l.rotation) {
+    return { x: l.x, y: l.y, w: l.w, h: l.h, cx, cy };
+  }
+  const rad = (l.rotation * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const bw = l.w * cos + l.h * sin;
+  const bh = l.w * sin + l.h * cos;
+  return { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh, cx, cy };
+}
+
+/** Combined AABB of several layers (board units). */
+export function unionAABB(layers: LayerBase[]): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} | null {
+  if (layers.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const l of layers) {
+    const b = layerAABB(l);
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w);
+    maxY = Math.max(maxY, b.y + b.h);
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
