@@ -143,6 +143,65 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
           logo,
         },
       },
+      {
+        id: "hero-k",
+        label: "K · Split diptych",
+        c: {
+          primary: "Aid is running out.",
+          secondary:
+            "Stocks of food, fuel and clean water are nearly gone across the Strip.",
+          imageUrl: SAMPLE_IMG,
+          eyebrow: "From Gaza · 25 May 2026",
+          logo,
+        },
+      },
+      {
+        id: "hero-l",
+        label: "L · Lower-third broadcast",
+        c: {
+          primary: "No safe place",
+          accent: "to shelter.",
+          secondary: null,
+          imageUrl: SAMPLE_IMG,
+          eyebrow: "Gaza City · 25 May 2026",
+          logo,
+        },
+      },
+      {
+        id: "hero-m",
+        label: "M · Inset card",
+        c: {
+          primary: "Aid is running out.",
+          secondary:
+            "Stocks of food, fuel and clean water are nearly gone across the Strip.",
+          imageUrl: SAMPLE_IMG,
+          eyebrow: "From Gaza · 25 May 2026",
+          logo,
+        },
+      },
+      {
+        id: "hero-n",
+        label: "N · Window crop",
+        c: {
+          primary: "One family among millions.",
+          secondary: null,
+          imageUrl: SAMPLE_IMG,
+          eyebrow: "Rafah · 24 May 2026",
+          logo,
+        },
+      },
+      {
+        id: "hero-o",
+        label: "O · Duotone poster",
+        c: {
+          primary: "Stand with",
+          accent: "Gaza.",
+          secondary: null,
+          imageUrl: SAMPLE_IMG,
+          eyebrow: "Emergency Appeal · Palestine",
+          logo,
+        },
+      },
     ],
     [logo]
   );
@@ -161,13 +220,14 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
           Template Lab — Hero library
         </h1>
         <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 760 }}>
-          Ten Hero layouts in the Deen&nbsp;Relief Slide Library system, rendered
-          through the real Satori export pipeline (sample copy + photo). A–E are the
-          faithful Claude&nbsp;Design ports (collision/overflow tuned); F–J add new
-          structures: a real-logo brand cover, an asymmetric side rail, a stat-led
-          cover, a quote-led cover, and a corner-card layout. Small corner marks are
-          the vector diamond + wordmark lockup; the raster logo only rasterises at
-          larger sizes, so it&apos;s used large and centered on Hero&nbsp;F.
+          Fifteen Hero layouts in the Deen&nbsp;Relief Slide Library system, rendered
+          through the real Satori export pipeline (sample copy + photo). A–J are the
+          art-directed ports (top scrims on photo heroes, balanced compositions, a
+          keyline crest); K–O add image-led structures: a split diptych, a lower-third
+          broadcast with a proof tag, an inset card, a window crop, and a duotone
+          poster. Small corner marks are the vector diamond + wordmark lockup; the
+          raster logo only rasterises at larger sizes, so it&apos;s used large and
+          centered on Hero&nbsp;F.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 26 }}>
           {variants.map((v) => (
