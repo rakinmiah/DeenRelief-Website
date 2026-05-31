@@ -28,6 +28,7 @@ import {
 } from "./DeckFlowSteps";
 import SlideBuilder, { type SlideResult } from "./SlideBuilder";
 import { HERO_VARIANTS } from "./heroVariants";
+import { MIDDLE_VARIANTS } from "./middleVariants";
 import {
   ROLES,
   autoFillPlan,
@@ -178,8 +179,12 @@ export default function DeckFlow({
   // for the hero step, the registry group otherwise. Shared by the guided
   // builder loop and the review/quick-draft template resolution.
   const templatesForRole = useMemo(() => {
-    return (role: SlideRole) =>
-      ROLES[role].category === "hero" ? HERO_VARIANTS : groups[ROLES[role].category] ?? [];
+    return (role: SlideRole) => {
+      const cat = ROLES[role].category;
+      if (cat === "hero") return HERO_VARIANTS;
+      // New type-only middles drive from a local list (no registry entries).
+      return MIDDLE_VARIANTS[cat] ?? groups[cat] ?? [];
+    };
   }, [groups]);
 
   function go(next: Step) {

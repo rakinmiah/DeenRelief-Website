@@ -11,7 +11,16 @@
 import type { ContentBundle, ImageBundle } from "./types";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 
-export type SlideRole = "hero" | "fact" | "stat" | "testimony" | "response" | "cta";
+export type SlideRole =
+  | "hero"
+  | "fact"
+  | "stat"
+  | "testimony"
+  | "response"
+  | "tiers"
+  | "beforeafter"
+  | "multistat"
+  | "cta";
 
 export type RoleConfig = {
   label: string;
@@ -50,6 +59,11 @@ const CTA_HEADLINES = [
   "Be their witness.",
   "Help reaches the frontline.",
 ];
+// Headings for the new type-only middle slides (the structured rows live in
+// the preset as editable defaults; these set the line above them).
+const TIER_HEADINGS = ["Where your gift goes", "Where your zakat goes", "What your support provides"];
+const BEFOREAFTER_HEADINGS = ["Then and now", "What has changed", "Before. After."];
+const MULTISTAT_HEADINGS = ["By the numbers", "The scale of need", "What the data shows"];
 
 export const ROLES: Record<SlideRole, RoleConfig> = {
   hero: {
@@ -87,6 +101,27 @@ export const ROLES: Record<SlideRole, RoleConfig> = {
     secondaryHeading: "Add a supporting line", secondarySub: "Optional second line.",
     primary: bodies, secondary: bodies,
   },
+  tiers: {
+    label: "What your gift does", short: "Tiers", description: "The donation impact ladder.",
+    category: "tiers", needsImage: false, hasSecondary: false,
+    primaryHeading: "Heading for the ladder", primarySub: "The line above the £30 / £100 / £250 tiers.",
+    secondaryHeading: "", secondarySub: "",
+    primary: () => TIER_HEADINGS, secondary: () => [],
+  },
+  beforeafter: {
+    label: "Before / after", short: "Before/After", description: "A then-and-now contrast.",
+    category: "beforeafter", needsImage: false, hasSecondary: true,
+    primaryHeading: "Choose the contrast headline", primarySub: "The line that frames the change.",
+    secondaryHeading: "Add a source", secondarySub: "Where the figures come from — or skip.",
+    primary: () => BEFOREAFTER_HEADINGS, secondary: bodies,
+  },
+  multistat: {
+    label: "By the numbers", short: "Multi-stat", description: "Three figures on one slide.",
+    category: "multistat", needsImage: false, hasSecondary: false,
+    primaryHeading: "Choose the heading", primarySub: "The line above the three figures.",
+    secondaryHeading: "", secondarySub: "",
+    primary: () => MULTISTAT_HEADINGS, secondary: () => [],
+  },
   cta: {
     label: "Call to action", short: "CTA", description: "The closing ask.",
     category: "cta", needsImage: false, hasSecondary: false,
@@ -97,7 +132,7 @@ export const ROLES: Record<SlideRole, RoleConfig> = {
 };
 
 /** Roles she can assign to the middle slides. */
-export const MIDDLE_ROLES: SlideRole[] = ["fact", "stat", "testimony", "response"];
+export const MIDDLE_ROLES: SlideRole[] = ["fact", "stat", "testimony", "response", "tiers", "beforeafter", "multistat"];
 
 /* ─── Smart defaults (quick-draft + skip-friendly detailed mode) ───── */
 
@@ -115,6 +150,9 @@ const ROLE_FALLBACK_TEMPLATE: Record<SlideRole, string> = {
   stat: "stat",
   testimony: "testimony-portrait",
   response: "response",
+  tiers: "tiers-a",
+  beforeafter: "beforeafter-a",
+  multistat: "multistat-a",
   cta: "cta",
 };
 

@@ -715,6 +715,108 @@ function heroDuotonePoster(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── New middle-slide types (v1 — Phase 2 replaces with the polished 10) ─ */
+
+// DONATION TIERS — "what your gift does": a heading + an impact ladder
+// (amount + impact line per tier) on a forest field. Tier rows are sensible
+// DR defaults the SMM edits on the canvas.
+function tiersLadder(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = c.primary || "Where your gift goes";
+  const tiers = [
+    { amt: "£30", label: "Emergency food parcel for a family" },
+    { amt: "£100", label: "Winter shelter kit" },
+    { amt: "£250", label: "Urgent medical aid" },
+  ];
+  const headSize = 76;
+  const headY = 232;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const ruleY = headY + headH + 24;
+  const rowsTop = ruleY + 56;
+  const rowGap = 150;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  tiers.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 240, h: 96, text: t.amt, fontFamily: ANTON, fontSize: 88, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 256, y: y + 22, w: W - 256, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+    if (i < tiers.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 28, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  layers.push(footer(C.creamDim));
+  return slide(layers, C.forest);
+}
+
+// BEFORE / AFTER — a then-and-now contrast: two stat columns split by a gold
+// divider, an optional headline, and a source line. Figures are defaults.
+function beforeAfter(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const before = { eyebrow: "Before · Oct 2023", num: "36", label: "Hospitals functioning" };
+  const after = { eyebrow: "Now · May 2026", num: "7", label: "Hospitals functioning" };
+  const numY = 432;
+  const numSize = 196;
+  const colW = Math.round((B - 2 * HPAD - 80) / 2); // 422
+  const leftX = HPAD;
+  const rightX = cx + 40;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    ...(c.primary
+      ? [hHead(balanceLines(c.primary, W, 60), HPAD, 232, W, 80, 60, "center", C.cream)]
+      : []),
+    shape({ x: cx - 1, y: 384, w: 2, h: 320, shape: "rect", fill: C.amber, locked: true }),
+    // BEFORE column.
+    text({ x: leftX, y: numY - 54, w: colW, h: 32, text: before.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    text({ x: leftX, y: numY, w: colW, h: 200, text: before.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream, align: "center" }),
+    text({ x: leftX, y: numY + 196, w: colW, h: 60, text: before.label, fontFamily: BARLOW, fontSize: 25, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+    // AFTER column.
+    text({ x: rightX, y: numY - 54, w: colW, h: 32, text: after.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "center" }),
+    text({ x: rightX, y: numY, w: colW, h: 200, text: after.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "center" }),
+    text({ x: rightX, y: numY + 196, w: colW, h: 60, text: after.label, fontFamily: BARLOW, fontSize: 25, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+    text({ x: HPAD, y: B - 140, w: W, h: 30, text: c.secondary || "Source: WHO · 2026", fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim, align: "center" }),
+  ];
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT — "by the numbers": three numbered figures stacked on forest.
+function multiStatStack(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = c.primary || "By the numbers";
+  const rows = [
+    { num: "2.3M", label: "facing acute food insecurity" },
+    { num: "1.9M", label: "displaced from their homes" },
+    { num: "90%", label: "of water unsafe to drink" },
+  ];
+  const headSize = 72;
+  const headY = 232;
+  const headH = Math.round(headSize * 0.96 + 12);
+  const ruleY = headY + headH + 22;
+  const rowsTop = ruleY + 52;
+  const rowGap = 156;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(balanceLines(heading, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  rows.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y: y + 8, w: 60, h: 36, text: `0${i + 1}`, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, color: C.amber }));
+    layers.push(text({ x: HPAD + 76, y, w: 300, h: 96, text: r.num, fontFamily: ANTON, fontSize: 84, fontWeight: 400, color: C.cream }));
+    layers.push(text({ x: HPAD + 410, y: y + 28, w: W - 410, h: 64, text: r.label, fontFamily: BARLOW, fontSize: 28, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }));
+    if (i < rows.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 30, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  return slide(layers, C.forest);
+}
+
 /* ─── Fact presets ────────────────────────────────────────────────── */
 function factTypography(c: SlideContent): EditorSlide {
   return slide(
@@ -831,6 +933,10 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("hero-typography")) return heroTypeCover(c);
   if (id.includes("hero-panel")) return heroTopPanel(c);
   if (id.includes("hero")) return heroPhotoFull(c);
+  // New middle types — multistat BEFORE the generic "stat" match below.
+  if (id.includes("tiers")) return tiersLadder(c);
+  if (id.includes("beforeafter") || id.includes("before-after")) return beforeAfter(c);
+  if (id.includes("multistat") || id.includes("multi-stat")) return multiStatStack(c);
   if (id.includes("fact-photo")) return factPhoto(c);
   if (id.includes("fact")) return factTypography(c);
   if (id.includes("stat")) return statHeadline(c);

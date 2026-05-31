@@ -203,6 +203,39 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
           logo,
         },
       },
+      {
+        id: "tiers-a",
+        label: "Donation tiers · Impact ladder",
+        c: {
+          primary: "Where your gift goes",
+          secondary: null,
+          imageUrl: null,
+          eyebrow: "Palestine Appeal",
+          logo,
+        },
+      },
+      {
+        id: "beforeafter-a",
+        label: "Before / After · Then & now",
+        c: {
+          primary: "Healthcare in collapse",
+          secondary: "Source: WHO · May 2026",
+          imageUrl: null,
+          eyebrow: "Palestine Appeal",
+          logo,
+        },
+      },
+      {
+        id: "multistat-a",
+        label: "Multi-stat · By the numbers",
+        c: {
+          primary: "Gaza today",
+          secondary: null,
+          imageUrl: null,
+          eyebrow: "By the numbers",
+          logo,
+        },
+      },
     ],
     [logo]
   );
