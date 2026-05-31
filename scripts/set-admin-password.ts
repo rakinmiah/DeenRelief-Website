@@ -17,10 +17,13 @@
  *
  * Role defaults to 'admin' (full access). Re-running for an existing
  * email issues a fresh temporary password (handy for "I forgot mine").
+ *
+ * Uses Supabase's REST (PostgREST) API directly via fetch — NOT
+ * @supabase/supabase-js, whose client eagerly opens a realtime
+ * WebSocket that Node 20 doesn't support.
  */
 
 import crypto from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 import { hashAdminPassword } from "../src/lib/admin-password";
 
 function getEnv(name: string): string {
@@ -62,53 +65,61 @@ async function main() {
     process.exit(1);
   }
 
-  const supabase = createClient(
-    getEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
+  const baseUrl = getEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
+  const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const restUrl = `${baseUrl}/rest/v1/admin_users`;
+  const headers = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    "Content-Type": "application/json",
+  };
 
   const tempPassword = generateTempPassword();
   const passwordHash = await hashAdminPassword(tempPassword);
   const now = new Date().toISOString();
 
-  const { data: existing, error: lookupErr } = await supabase
-    .from("admin_users")
-    .select("id")
-    .ilike("email", email)
-    .maybeSingle();
-
-  if (lookupErr) {
-    console.error("Lookup failed:", lookupErr.message);
+  // Look up an existing row (case-insensitive exact match via ilike).
+  const lookupRes = await fetch(
+    `${restUrl}?select=id&email=ilike.${encodeURIComponent(email)}`,
+    { headers }
+  );
+  if (!lookupRes.ok) {
+    console.error(`Lookup failed (${lookupRes.status}):`, await lookupRes.text());
     process.exit(1);
   }
+  const existing = (await lookupRes.json()) as Array<{ id: string }>;
 
-  if (existing) {
-    const { error } = await supabase
-      .from("admin_users")
-      .update({
+  if (existing.length > 0) {
+    const res = await fetch(`${restUrl}?id=eq.${existing[0].id}`, {
+      method: "PATCH",
+      headers: { ...headers, Prefer: "return=minimal" },
+      body: JSON.stringify({
         role,
         password_hash: passwordHash,
         must_change_password: true,
         password_updated_at: now,
-      })
-      .eq("id", existing.id);
-    if (error) {
-      console.error("Update failed:", error.message);
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Update failed (${res.status}):`, await res.text());
       process.exit(1);
     }
     console.log(`Updated existing admin_users row for ${email}.`);
   } else {
-    const { error } = await supabase.from("admin_users").insert({
-      email,
-      role,
-      password_hash: passwordHash,
-      must_change_password: true,
-      password_updated_at: now,
-      created_by_email: "set-admin-password-script",
+    const res = await fetch(restUrl, {
+      method: "POST",
+      headers: { ...headers, Prefer: "return=minimal" },
+      body: JSON.stringify({
+        email,
+        role,
+        password_hash: passwordHash,
+        must_change_password: true,
+        password_updated_at: now,
+        created_by_email: "set-admin-password-script",
+      }),
     });
-    if (error) {
-      console.error("Insert failed:", error.message);
+    if (!res.ok) {
+      console.error(`Insert failed (${res.status}):`, await res.text());
       process.exit(1);
     }
     console.log(`Created admin_users row for ${email} (role=${role}).`);
