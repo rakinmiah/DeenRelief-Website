@@ -25,6 +25,7 @@ import {
   SummaryStep,
 } from "./DeckFlowSteps";
 import SlideBuilder, { type SlideResult } from "./SlideBuilder";
+import { HERO_VARIANTS } from "./heroVariants";
 import { ROLES, suggestPlan, type SlideRole } from "./slideRoles";
 import type { ContentBundle, ImageBundle, TemplateGroups } from "./types";
 
@@ -179,7 +180,12 @@ export default function DeckFlow({
   /* ── Full-bleed: the per-slide guided builder loop ───────────── */
   if (step === "slides" && content && images && plan.length > 0) {
     const role = plan[currentSlide]!;
-    const templates = groups[ROLES[role].category] ?? [];
+    // Faithful, layer-rendered Hero variants drive the hero step; other
+    // roles still come from the template registry until they're ported.
+    const templates =
+      ROLES[role].category === "hero"
+        ? HERO_VARIANTS
+        : groups[ROLES[role].category] ?? [];
     return (
       <SlideBuilder
         key={currentSlide}
@@ -187,6 +193,7 @@ export default function DeckFlow({
         content={content}
         images={images}
         templates={templates}
+        eyebrow={eyebrow}
         onComplete={(result) => {
           setResults((prev) => {
             const next = [...prev];

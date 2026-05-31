@@ -18,9 +18,9 @@ import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ImageCandidate,
-  SlotValues,
   TemplateMeta,
 } from "@/lib/social-templates/types";
+import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
 import type { ContentBundle, ImageBundle } from "./types";
 import { ROLES, type SlideRole } from "./slideRoles";
 
@@ -46,12 +46,14 @@ export default function SlideBuilder({
   content,
   images,
   templates,
+  eyebrow,
   onComplete,
 }: {
   spec: SlideSpec;
   content: ContentBundle;
   images: ImageBundle;
   templates: TemplateMeta[];
+  eyebrow: string;
   onComplete: (result: SlideResult) => void;
 }) {
   const role = ROLES[spec.role];
@@ -98,22 +100,26 @@ export default function SlideBuilder({
   // Render the SMM's content into every template for the role while the
   // "Compiling templates" screen is up.
   async function compileTemplates(): Promise<void> {
+    const imageUrl = imageId
+      ? images.images.find((i) => i.id === imageId)?.url ?? null
+      : null;
+    const sc: SlideContent = {
+      primary: title ?? "",
+      secondary: subtext,
+      imageUrl,
+      eyebrow,
+      logo: null,
+    };
     const entries = await Promise.all(
       templates.map(async (meta): Promise<[string, Preview]> => {
         try {
-          const { slotValues, imageMediaIds } = composeFor(meta, {
-            title: title ?? "",
-            subtext,
-            imageId,
-          });
-          const res = await fetch("/api/admin/social-templates/render", {
+          // Preview through the SAME layer pipeline the canvas seeds from,
+          // so the card she picks is exactly what opens in the editor.
+          const slide = presetForTemplate(meta.id, sc);
+          const res = await fetch("/api/admin/social-editor/render", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              templateId: meta.id,
-              slotValues,
-              imageMediaIds,
-            }),
+            body: JSON.stringify({ slide }),
           });
           if (!res.ok) throw new Error(String(res.status));
           const blob = await res.blob();
@@ -782,36 +788,6 @@ function Arrow({
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
-
-function composeFor(
-  meta: TemplateMeta,
-  choice: { title: string; subtext: string | null; imageId: string | null }
-): { slotValues: SlotValues; imageMediaIds: Record<string, string> } {
-  const slotValues: SlotValues = {};
-  const imageMediaIds: Record<string, string> = {};
-  let titleSet = false;
-  let bodySet = false;
-  let imgSet = false;
-  for (const slot of meta.slots) {
-    if (slot.type.startsWith("choice:") && typeof slot.defaultValue === "string") {
-      slotValues[slot.id] = { type: "choice", value: slot.defaultValue };
-    } else if (!titleSet && slot.type === "text:title") {
-      slotValues[slot.id] = { type: "text", text: choice.title };
-      titleSet = true;
-    } else if (!bodySet && choice.subtext && slot.type === "text:body") {
-      slotValues[slot.id] = { type: "text", text: choice.subtext };
-      bodySet = true;
-    } else if (
-      !imgSet &&
-      choice.imageId &&
-      slot.type.startsWith("image:")
-    ) {
-      imageMediaIds[slot.id] = choice.imageId;
-      imgSet = true;
-    }
-  }
-  return { slotValues, imageMediaIds };
-}
 
 function Chevron() {
   return (
