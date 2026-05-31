@@ -136,6 +136,8 @@ function TextBody({
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-start",
+    alignItems:
+      layer.align === "center" ? "center" : layer.align === "right" ? "flex-end" : "flex-start",
     fontFamily: layer.fontFamily,
     fontSize: layer.fontSize * scale,
     fontWeight: layer.fontWeight,

@@ -170,6 +170,11 @@ function renderInner(l: Layer, uri: string | null) {
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-start",
+          // Cross-axis (horizontal) placement of the text block. In a flex
+          // column, textAlign alone doesn't move a shrink-wrapped line, so
+          // centred/right text pins left without this.
+          alignItems:
+            l.align === "center" ? "center" : l.align === "right" ? "flex-end" : "flex-start",
           fontFamily: bareFamily(l.fontFamily),
           fontSize: l.fontSize,
           fontWeight: nearestWeight(bareFamily(l.fontFamily), l.fontWeight),
