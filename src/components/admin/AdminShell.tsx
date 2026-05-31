@@ -6,60 +6,34 @@ import { useState } from "react";
 import AdminNotificationBell from "./AdminNotificationBell";
 import AdminPushPrompt from "./AdminPushPrompt";
 import AdminMobileDrawer from "./AdminMobileDrawer";
+import { visibleGroups, flatVisible, type AdminRole } from "./admin-nav";
 
 /**
- * Shared admin chrome. Two distinct layouts inside the same
- * component — driven by Tailwind responsive utilities:
+ * Shared admin chrome. Two layouts inside one component, switched by
+ * Tailwind's `lg` breakpoint:
  *
- *   md+ (desktop / tablet landscape):
- *     Full horizontal nav across the header. Wordmark on the
- *     left, eight nav pills, bell + signed-in email + Sign out
- *     button on the right.
+ *   lg+ (desktop):
+ *     A fixed ~240px left sidebar — wordmark + notification bell on
+ *     top, the role-filtered nav grouped under labelled sections
+ *     (Giving · Bazaar · Programmes · Content · Social), then a
+ *     footer with the push toggle, signed-in identity and Sign out.
+ *     Main content is offset right with `lg:pl-60`.
  *
- *   <md (phone):
- *     Slim 56px header — hamburger button on the left, wordmark
- *     centred-ish, bell icon on the right. Tapping hamburger
- *     opens a slide-out drawer with the full nav, signed-in
- *     identity and Sign out button (see AdminMobileDrawer).
+ *   <lg (phone / tablet portrait):
+ *     A slim 56px top bar — hamburger on the left, wordmark centred,
+ *     bell on the right. The hamburger opens AdminMobileDrawer, which
+ *     renders the SAME grouped nav.
  *
- * The drawer pattern matches the main charity site's mobile
- * menu so trustees moving between admin + public site share
- * one mental model. Same component would work for a future
- * bottom-tab-bar variant if we ever change our minds, but
- * drawer scales to 8+ nav items without compromise.
+ * Why the move from the old horizontal pill row to a sidebar: 11 flat
+ * pills overflowed the header and gave every destination equal weight.
+ * A grouped sidebar scales, signals hierarchy, and matches the
+ * sidebar-first pattern of the tools trustees already use (Linear,
+ * Stripe, Notion). The single source of truth for the nav lives in
+ * admin-nav.tsx so this surface and the drawer never drift.
  *
- * PWA standalone mode: the top header uses
- * env(safe-area-inset-top) for padding so iPhone notch + status
- * bar don't clip when the admin is installed to the home screen.
+ * PWA standalone: the mobile top bar pads with env(safe-area-inset-top)
+ * so the iPhone notch doesn't clip it.
  */
-/**
- * Full nav set, tagged with the roles that should see each entry.
- *
- *   'admin' → trustee / staff (full DR Admin)
- *   'social' → social media manager (Campaign Command Center, /now
- *              spotlight, short links, First Response, per-post
- *              performance — no donor PII, no bazaar, no financials)
- *
- * Items can list either or both roles. Defence in depth: the page
- * itself ALSO calls requireRoleAdmin() for admin-only pages, so hiding
- * here is UX-only and not the security boundary.
- */
-type AdminRole = "admin" | "social" | "writer" | "sponsorship";
-
-const NAV_ITEMS: { href: string; label: string; roles: AdminRole[] }[] = [
-  { href: "/admin/social", label: "Social", roles: ["admin", "social"] },
-  { href: "/admin/blog", label: "Blog", roles: ["admin", "writer"] },
-  { href: "/admin/sponsorship", label: "Sponsorship", roles: ["admin", "sponsorship"] },
-  { href: "/admin/donations", label: "Donations", roles: ["admin"] },
-  { href: "/admin/recurring", label: "Recurring", roles: ["admin"] },
-  { href: "/admin/bazaar/orders", label: "Bazaar Orders", roles: ["admin"] },
-  { href: "/admin/bazaar/inquiries", label: "Bazaar Inquiries", roles: ["admin"] },
-  { href: "/admin/bazaar/catalog", label: "Bazaar Catalog", roles: ["admin"] },
-  { href: "/admin/media", label: "Media", roles: ["admin"] },
-  { href: "/admin/reports", label: "Reports", roles: ["admin"] },
-  { href: "/admin/audit-log", label: "Audit log", roles: ["admin"] },
-];
-
 export default function AdminShell({
   children,
   signedInAs = "info@deenrelief.org",
@@ -68,10 +42,9 @@ export default function AdminShell({
   children: React.ReactNode;
   signedInAs?: string;
   /**
-   * Role of the signed-in user. Controls which nav items are rendered
-   * and (via AdminMobileDrawer) which appear in the mobile slide-out.
-   * Defaults to 'admin' so any place that hasn't been updated to pass
-   * the role keeps working as before — backward compat.
+   * Role of the signed-in user. Controls which nav groups/items are
+   * rendered in both the sidebar and the mobile drawer. Defaults to
+   * 'admin' for backward compat with any caller not yet passing a role.
    */
   role?: AdminRole;
 }) {
@@ -79,18 +52,13 @@ export default function AdminShell({
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Filter nav by role once per render. Cheap; avoids spreading the
-  // role check across every map() below.
-  const visibleNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
-  // The wordmark in both desktop + mobile headers links to a "home"
-  // route. Use the first nav item the current role can see — for
-  // admins that's /admin/social (the new section is first in the nav
-  // for both roles), for social-only users that's also /admin/social.
-  // Falls back if for some reason the list is empty.
-  const homeHref = visibleNav[0]?.href ?? "/admin/social";
+  // Role-filtered nav, computed once. `homeHref` is the first item the
+  // role can actually reach, so the wordmark never dead-ends a
+  // non-admin user (e.g. a writer lands on /admin/blog).
+  const groups = visibleGroups(role);
+  const homeHref = flatVisible(role)[0]?.href ?? "/admin/donations";
 
-  // The login page renders standalone without the admin chrome —
-  // there's no session to sign out of and no nav to traverse.
+  // The login page renders standalone without chrome.
   if (pathname === "/admin/login") {
     return <>{children}</>;
   }
@@ -104,127 +72,135 @@ export default function AdminShell({
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col print:bg-white print:min-h-0">
-      {/* print:hidden hides the admin nav so printing a page
-          (e.g. /admin/bazaar/orders/[id] for a packing slip)
-          captures just the page content, not the chrome. */}
-      <header
-        className="bg-white border-b border-charcoal/10 sticky top-0 z-30 print:hidden"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* ── Desktop row (md+) ── */}
-          <div className="hidden md:flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <Link
-                href={homeHref}
-                className="block"
-                aria-label="Deen Relief Admin home"
-              >
-                <span className="block text-[10px] font-bold tracking-[0.18em] uppercase text-amber-dark leading-tight">
-                  Deen Relief
-                </span>
-                <span className="block text-charcoal font-heading font-semibold text-base leading-tight">
-                  Admin
-                </span>
-              </Link>
-              <nav
-                className="flex items-center gap-1"
-                aria-label="Admin sections"
-              >
-                {visibleNav.map((item) => {
+    <div className="min-h-screen bg-cream print:bg-white print:min-h-0">
+      {/* ── Desktop sidebar (lg+) ── print:hidden so a printed page
+          (e.g. a packing slip) captures only the content. */}
+      <aside className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-60 bg-white border-r border-charcoal/10 z-30 print:hidden">
+        {/* Header — wordmark + notification bell */}
+        <div className="flex items-center justify-between px-5 py-[18px] border-b border-charcoal/8">
+          <Link href={homeHref} className="block" aria-label="Deen Relief Admin home">
+            <span className="block text-[10px] font-bold tracking-[0.18em] uppercase text-amber-dark leading-tight">
+              Deen Relief
+            </span>
+            <span className="block text-charcoal font-heading font-semibold text-base leading-tight">
+              Admin
+            </span>
+          </Link>
+          <AdminNotificationBell />
+        </div>
+
+        {/* Grouped nav */}
+        <nav
+          className="flex-1 overflow-y-auto px-3 py-4 space-y-5"
+          aria-label="Admin sections"
+        >
+          {groups.map((group) => (
+            <div key={group.label}>
+              <p className="px-2.5 mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-charcoal/40">
+                {group.label}
+              </p>
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                        isActive
-                          ? "bg-charcoal text-white"
-                          : "text-charcoal/70 hover:text-charcoal hover:bg-charcoal/5"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${
+                          isActive
+                            ? "bg-charcoal text-white font-semibold"
+                            : "text-charcoal/75 hover:bg-charcoal/5 hover:text-charcoal font-medium"
+                        }`}
+                      >
+                        <span className={isActive ? "text-white" : "text-charcoal/45"}>
+                          {item.icon}
+                        </span>
+                        {item.label}
+                      </Link>
+                    </li>
                   );
                 })}
-              </nav>
+              </ul>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* "Enable notifications" toggle — hidden if the device
-                  doesn't support push, or if iOS Safari isn't in
-                  standalone mode. Renders next to the bell on
-                  desktop only; the mobile chrome is too cramped. */}
-              <span className="hidden lg:inline">
-                <AdminPushPrompt />
-              </span>
-              <AdminNotificationBell />
-              <span className="hidden sm:inline text-sm text-charcoal/60">
-                {signedInAs}
-              </span>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="px-3 py-1.5 rounded-full text-sm font-medium text-charcoal/70 hover:text-charcoal hover:bg-charcoal/5 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
+          ))}
+        </nav>
 
-          {/* ── Mobile row (<md) ── */}
-          <div className="md:hidden flex items-center justify-between h-14">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open navigation menu"
-              className="w-11 h-11 -ml-2 flex items-center justify-center text-charcoal/80 hover:bg-charcoal/5 rounded-full transition-colors"
+        {/* Footer — push toggle + signed-in identity + sign out */}
+        <div className="border-t border-charcoal/8 p-4">
+          <div className="mb-3">
+            <AdminPushPrompt />
+          </div>
+          <p className="text-[10px] uppercase tracking-[0.1em] font-bold text-charcoal/40 mb-0.5">
+            Signed in
+          </p>
+          <p className="text-[12px] text-charcoal/70 break-all mb-2.5">{signedInAs}</p>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="w-full px-3 py-1.5 rounded-full text-sm font-medium text-charcoal/70 border border-charcoal/15 hover:bg-cream hover:text-charcoal transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Mobile / tablet top bar (<lg) ── */}
+      <header
+        className="lg:hidden bg-white border-b border-charcoal/10 sticky top-0 z-30 print:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="px-4 flex items-center justify-between h-14">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation menu"
+            className="w-11 h-11 -ml-2 flex items-center justify-center text-charcoal/80 hover:bg-charcoal/5 rounded-full transition-colors"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+              aria-hidden="true"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-                />
-              </svg>
-            </button>
-            <Link
-              href={homeHref}
-              className="block text-center"
-              aria-label="Deen Relief Admin home"
-            >
-              <span className="block text-[9px] font-bold tracking-[0.18em] uppercase text-amber-dark leading-tight">
-                Deen Relief
-              </span>
-              <span className="block text-charcoal font-heading font-semibold text-sm leading-tight">
-                Admin
-              </span>
-            </Link>
-            <div className="-mr-1">
-              <AdminNotificationBell />
-            </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+              />
+            </svg>
+          </button>
+          <Link
+            href={homeHref}
+            className="block text-center"
+            aria-label="Deen Relief Admin home"
+          >
+            <span className="block text-[9px] font-bold tracking-[0.18em] uppercase text-amber-dark leading-tight">
+              Deen Relief
+            </span>
+            <span className="block text-charcoal font-heading font-semibold text-sm leading-tight">
+              Admin
+            </span>
+          </Link>
+          <div className="-mr-1">
+            <AdminNotificationBell />
           </div>
         </div>
       </header>
 
-      {/* The slide-out drawer with the full nav, mounted always
-          so its open/close transition animates smoothly. */}
+      {/* Slide-out drawer — always mounted so its transition animates. */}
       <AdminMobileDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         signedInAs={signedInAs}
         onSignOut={handleSignOut}
-        navItems={visibleNav}
+        role={role}
       />
 
-      <div className="flex-1">{children}</div>
+      {/* Main content — offset by the sidebar on desktop. */}
+      <div className="lg:pl-60">{children}</div>
     </div>
   );
 }

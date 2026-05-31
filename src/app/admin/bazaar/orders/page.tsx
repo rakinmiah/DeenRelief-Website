@@ -14,8 +14,20 @@ import {
   formatPence,
 } from "@/lib/bazaar-format";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { resolveStatus } from "@/lib/admin-status";
 import PullToRefresh from "@/components/admin/PullToRefresh";
+import {
+  Button,
+  PageHeader,
+  StatusBadge,
+  ResponsiveTable,
+  EmptyState,
+  type Column,
+} from "@/components/admin/ui";
 import BazaarOrdersFilters from "./BazaarOrdersFilters";
+
+/** Row shape returned by fetchAdminBazaarOrders. */
+type OrderListRow = { order: BazaarOrderRow; itemCount: number };
 
 export const metadata: Metadata = {
   title: "Orders | Bazaar Admin",
@@ -123,6 +135,92 @@ export default async function AdminBazaarOrdersPage({
 
   const justDeleted = params.deleted === "1";
 
+  // Column definitions drive both the desktop table and the mobile
+  // cards. `order` (receipt #) is the primary link column; `total` is
+  // pulled up beside it on mobile.
+  const orderColumns: Column<OrderListRow>[] = [
+    {
+      key: "order",
+      header: "Order",
+      primary: true,
+      cell: ({ order }) => (
+        <span className="inline-flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-xs text-charcoal">
+            {bazaarReceiptNumber(order.id)}
+          </span>
+          {!order.livemode && (
+            <span
+              title="Stripe test-mode order — created by a developer, no real money moved"
+              className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-[0.1em] bg-amber-dark/15 text-amber-dark border border-amber-dark/30"
+            >
+              Test
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "placed",
+      header: "Placed",
+      cell: ({ order }) => formatAdminDate(order.createdAt),
+      cellClassName: "whitespace-nowrap text-charcoal/70",
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      cell: ({ order }) => (
+        <div>
+          <div className="text-charcoal font-medium">
+            {order.shippingAddress?.name ?? "—"}
+          </div>
+          <div className="text-charcoal/50 text-xs break-all">
+            {order.contactEmail || "—"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "items",
+      header: "Items",
+      cell: ({ itemCount }) => itemCount,
+      cellClassName: "text-charcoal/70",
+    },
+    {
+      key: "total",
+      header: "Total",
+      align: "right",
+      secondary: true,
+      cell: ({ order }) => (
+        <span className="text-charcoal font-semibold whitespace-nowrap">
+          {formatPence(order.totalPence)}
+        </span>
+      ),
+    },
+    {
+      key: "service",
+      header: "Service",
+      cell: ({ order }) => {
+        const svc = deriveServiceFromShippingPence(order.shippingPence);
+        if (!svc) return <span className="text-charcoal/40 text-[12px]">—</span>;
+        return (
+          <span className="text-charcoal/80 text-[12px]">
+            {BAZAAR_SERVICE_SHORT_LABEL[svc]}
+            {order.shippingPence === 0 && (
+              <span className="block text-[10px] text-green-dark font-semibold">Free</span>
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: ({ order }) => (
+        <StatusBadge domain="bazaarOrder" status={order.status} variant="outline" />
+      ),
+    },
+  ];
+
   return (
     <PullToRefresh>
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -132,27 +230,21 @@ export default async function AdminBazaarOrdersPage({
           The audit log keeps a permanent record of what was removed.
         </p>
       )}
-      {/* Page header */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-            Bazaar
-          </span>
-          <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-            Orders
-          </h1>
-          <p className="text-grey text-sm mt-2 max-w-2xl">
-            Tap a tile to jump straight to that subset. Newest first.
-          </p>
-        </div>
-        <a
-          href="/api/admin/bazaar/export-click-and-drop"
-          title="Download a Royal Mail Click & Drop CSV of every order currently awaiting fulfilment."
-          className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-cream transition-colors whitespace-nowrap"
-        >
-          Export Click &amp; Drop CSV
-        </a>
-      </div>
+      <PageHeader
+        eyebrow="Bazaar"
+        title="Orders"
+        description="Tap a tile to jump straight to that subset. Newest first."
+        actions={
+          <Button
+            href="/api/admin/bazaar/export-click-and-drop"
+            prefetch={false}
+            variant="outline"
+            size="sm"
+          >
+            Export Click &amp; Drop CSV
+          </Button>
+        }
+      />
 
       {/* Stats strip — each tile is clickable */}
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
@@ -199,7 +291,7 @@ export default async function AdminBazaarOrdersPage({
               key={s}
               className="inline-block px-2.5 py-1 rounded-full bg-charcoal/8 text-charcoal border border-charcoal/15"
             >
-              {STATUS_LABEL[s]}
+              {resolveStatus("bazaarOrder", s).label}
             </span>
           ))}
           {filters.from && (
@@ -226,103 +318,24 @@ export default async function AdminBazaarOrdersPage({
         </div>
       )}
 
-      {/* Order table */}
-      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-        {rows.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-charcoal/60 text-sm">
-              {hasActiveFilters
+      {/* One definition → desktop table on md+, stacked cards below. */}
+      <ResponsiveTable<OrderListRow>
+        rows={rows}
+        getRowKey={(r) => r.order.id}
+        rowHref={(r) => `/admin/bazaar/orders/${r.order.id}`}
+        rowLabel={(r) => `Order ${bazaarReceiptNumber(r.order.id)}`}
+        columns={orderColumns}
+        empty={
+          <EmptyState
+            title={hasActiveFilters ? "No matching orders" : "No orders yet"}
+            description={
+              hasActiveFilters
                 ? "No orders match these filters."
-                : "No orders yet. The first checkout will appear here."}
-            </p>
-          </div>
-        ) : (
-          <>
-          {/* Mobile card list (<md). Each row becomes a tap-target
-              card with the order's most important signal — total +
-              status — surfaced above receipt#/customer/service. The
-              desktop table below stays unchanged. */}
-          <ul className="md:hidden divide-y divide-charcoal/8">
-            {rows.map(({ order, itemCount }) => {
-              const chosenService = deriveServiceFromShippingPence(order.shippingPence);
-              const receiptNum = bazaarReceiptNumber(order.id);
-              return (
-                <li key={order.id}>
-                  <Link
-                    href={`/admin/bazaar/orders/${order.id}`}
-                    className="block px-4 py-4 active:bg-cream/40 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-1">
-                      <p className="font-mono text-[11px] text-charcoal/60">
-                        {receiptNum}
-                      </p>
-                      <p className="text-charcoal font-heading font-semibold text-base whitespace-nowrap">
-                        {formatPence(order.totalPence)}
-                      </p>
-                    </div>
-                    <p className="text-charcoal text-sm font-medium truncate">
-                      {order.shippingAddress?.name ?? order.contactEmail ?? "—"}
-                    </p>
-                    <p className="text-charcoal/50 text-[12px] mt-0.5">
-                      {formatAdminDate(order.createdAt)} · {itemCount}{" "}
-                      {itemCount === 1 ? "item" : "items"}
-                      {chosenService && (
-                        <>
-                          {" · "}
-                          {BAZAAR_SERVICE_SHORT_LABEL[chosenService]}
-                        </>
-                      )}
-                    </p>
-                    <div className="mt-2">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border ${STATUS_STYLES[order.status]}`}
-                      >
-                        {STATUS_LABEL[order.status]}
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm min-w-[860px]">
-              <thead className="bg-cream border-b border-charcoal/10">
-                <tr className="text-left">
-                  {[
-                    "Order",
-                    "Placed",
-                    "Customer",
-                    "Items",
-                    "Total",
-                    "Service",
-                    "Status",
-                    "",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-charcoal/8">
-                {rows.map(({ order, itemCount }) => (
-                  <BazaarOrderRowView
-                    key={order.id}
-                    order={order}
-                    itemCount={itemCount}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </>
-        )}
-      </div>
+                : "The first checkout will appear here."
+            }
+          />
+        }
+      />
 
       {rows.length > 0 && (
         <p className="mt-4 text-[11px] text-charcoal/40">
@@ -337,94 +350,3 @@ export default async function AdminBazaarOrdersPage({
   );
 }
 
-const STATUS_STYLES: Record<BazaarOrderRow["status"], string> = {
-  pending_payment: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  paid: "bg-amber-light text-amber-dark border-amber/30",
-  fulfilled: "bg-blue-50 text-blue-800 border-blue-200",
-  delivered: "bg-green/10 text-green-dark border-green/30",
-  refunded: "bg-red-50 text-red-700 border-red-200",
-  cancelled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  abandoned: "bg-charcoal/8 text-charcoal/40 border-charcoal/10",
-};
-
-const STATUS_LABEL: Record<BazaarOrderRow["status"], string> = {
-  pending_payment: "Pending",
-  paid: "Paid",
-  fulfilled: "Shipped",
-  delivered: "Delivered",
-  refunded: "Refunded",
-  cancelled: "Cancelled",
-  abandoned: "Abandoned",
-};
-
-function BazaarOrderRowView({
-  order,
-  itemCount,
-}: {
-  order: BazaarOrderRow;
-  itemCount: number;
-}) {
-  const customerName = order.shippingAddress?.name ?? "—";
-  const chosenService = deriveServiceFromShippingPence(order.shippingPence);
-  return (
-    <tr className="hover:bg-cream/50 transition-colors">
-      <td className="px-5 py-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs text-charcoal">
-            {bazaarReceiptNumber(order.id)}
-          </span>
-          {!order.livemode && (
-            <span
-              title="Stripe test-mode order — created by a developer, no real money moved"
-              className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-[0.1em] bg-amber-dark/15 text-amber-dark border border-amber-dark/30"
-            >
-              Test
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="px-5 py-4 text-charcoal/70 whitespace-nowrap">
-        {formatAdminDate(order.createdAt)}
-      </td>
-      <td className="px-5 py-4">
-        <div className="text-charcoal font-medium">{customerName}</div>
-        <div className="text-charcoal/50 text-xs break-all">
-          {order.contactEmail || "—"}
-        </div>
-      </td>
-      <td className="px-5 py-4 text-charcoal/70">{itemCount}</td>
-      <td className="px-5 py-4 text-charcoal font-medium whitespace-nowrap">
-        {formatPence(order.totalPence)}
-      </td>
-      <td className="px-5 py-4 whitespace-nowrap">
-        {chosenService ? (
-          <span className="text-charcoal/80 text-[12px]">
-            {BAZAAR_SERVICE_SHORT_LABEL[chosenService]}
-            {order.shippingPence === 0 && (
-              <span className="block text-[10px] text-green-dark font-semibold">
-                Free
-              </span>
-            )}
-          </span>
-        ) : (
-          <span className="text-charcoal/40 text-[12px]">—</span>
-        )}
-      </td>
-      <td className="px-5 py-4">
-        <span
-          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[order.status]}`}
-        >
-          {STATUS_LABEL[order.status]}
-        </span>
-      </td>
-      <td className="px-5 py-4 text-right whitespace-nowrap">
-        <Link
-          href={`/admin/bazaar/orders/${order.id}`}
-          className="text-green text-sm font-medium hover:underline"
-        >
-          Open →
-        </Link>
-      </td>
-    </tr>
-  );
-}

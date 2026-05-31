@@ -4,19 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { inviteSponsorAction } from "@/app/admin/sponsorship/actions";
-import type { SponsorProfile, SponsorStatus } from "@/lib/sponsorship-admin";
+import type { SponsorProfile } from "@/lib/sponsorship-admin";
+import { StatusBadge } from "@/components/admin/ui";
 
 const labelCls =
   "block text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5";
 const inputCls =
   "w-full px-3.5 py-2.5 rounded-lg bg-white border border-charcoal/15 focus:border-green focus:outline-none focus:ring-2 focus:ring-green/15 text-charcoal text-sm";
-
-const STATUS_STYLE: Record<SponsorStatus, string> = {
-  invited: "bg-amber-light text-amber-dark",
-  active: "bg-green-light text-green",
-  suspended: "bg-red-50 text-red-600",
-  closed: "bg-grey-light text-grey",
-};
 
 export default function SponsorsClient({
   sponsors,
@@ -167,11 +161,7 @@ export default function SponsorsClient({
                     {s.contactEmail}
                   </p>
                 </div>
-                <span
-                  className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2 py-1 rounded-full ${STATUS_STYLE[s.status]}`}
-                >
-                  {s.status}
-                </span>
+                <StatusBadge domain="sponsor" status={s.status} className="shrink-0" />
               </Link>
             ))}
           </div>

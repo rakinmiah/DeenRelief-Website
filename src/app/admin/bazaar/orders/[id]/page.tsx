@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/admin-session";
-import {
-  fetchAdminBazaarOrderById,
-  type BazaarOrderRow,
-} from "@/lib/bazaar-db";
+import { fetchAdminBazaarOrderById } from "@/lib/bazaar-db";
+import { resolveStatus } from "@/lib/admin-status";
+import { PageHeader, StatusBadge } from "@/components/admin/ui";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import {
   BAZAAR_SERVICE_FULL_LABEL,
@@ -38,26 +37,6 @@ export const dynamic = "force-dynamic";
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const STATUS_BADGE: Record<BazaarOrderRow["status"], string> = {
-  pending_payment: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  paid: "bg-amber-light text-amber-dark border-amber/30",
-  fulfilled: "bg-blue-50 text-blue-800 border-blue-200",
-  delivered: "bg-green/10 text-green-dark border-green/30",
-  refunded: "bg-red-50 text-red-700 border-red-200",
-  cancelled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  abandoned: "bg-charcoal/8 text-charcoal/40 border-charcoal/10",
-};
-
-const STATUS_LABEL: Record<BazaarOrderRow["status"], string> = {
-  pending_payment: "Pending payment",
-  paid: "Awaiting fulfilment",
-  fulfilled: "Shipped",
-  delivered: "Delivered",
-  refunded: "Refunded",
-  cancelled: "Cancelled",
-  abandoned: "Abandoned",
-};
 
 // SERVICE_LABEL moved to bazaar-format.ts as BAZAAR_SERVICE_FULL_LABEL.
 
@@ -246,30 +225,20 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
       {/* ─── Screen-only admin view ──────────────────────────── */}
       <div className="print:hidden">
       {/* Page header */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link
-            href="/admin/bazaar/orders"
-            className="text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors"
-          >
-            ← All orders
-          </Link>
-          <h1 className="text-charcoal font-heading font-semibold text-xl sm:text-2xl mt-1 font-mono">
-            {receiptNum}
-          </h1>
-          <p className="text-charcoal/50 text-[11px] mt-1 font-mono break-all">
-            DB id: {order.id}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <PackingSlipPrintButton />
-          <span
-            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_BADGE[order.status]}`}
-          >
-            {STATUS_LABEL[order.status]}
-          </span>
-        </div>
-      </div>
+      <PageHeader
+        backHref="/admin/bazaar/orders"
+        backLabel="All orders"
+        title={<span className="font-mono">{receiptNum}</span>}
+        description={
+          <span className="font-mono text-[11px] break-all">DB id: {order.id}</span>
+        }
+        actions={
+          <>
+            <PackingSlipPrintButton />
+            <StatusBadge domain="bazaarOrder" status={order.status} variant="outline" />
+          </>
+        }
+      />
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         {/* Main column — line items, address, customer */}
@@ -418,7 +387,7 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
               <span className="font-semibold text-charcoal">
                 {formatPence(order.totalPence)}
               </span>{" "}
-              · {STATUS_LABEL[order.status]}
+              · {resolveStatus("bazaarOrder", order.status).label}
             </>
           }
         >
@@ -562,12 +531,6 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
           </div>
           <ul className="divide-y divide-charcoal/8 border border-charcoal/10 rounded-2xl overflow-hidden bg-white">
             {linkedInquiries.map((inq) => {
-              const statusStyles: Record<string, string> = {
-                open: "bg-amber-light text-amber-dark border-amber/30",
-                replied: "bg-green/10 text-green-dark border-green/30",
-                closed:
-                  "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-              };
               return (
                 <li key={inq.id}>
                   <Link
@@ -584,14 +547,11 @@ export default async function AdminBazaarOrderDetailPage({ params }: RouteParams
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${
-                          statusStyles[inq.status] ??
-                          statusStyles.closed
-                        }`}
-                      >
-                        {inq.status}
-                      </span>
+                      <StatusBadge
+                        domain="bazaarInquiry"
+                        status={inq.status}
+                        variant="outline"
+                      />
                       <span className="text-green text-sm font-medium">
                         Open →
                       </span>

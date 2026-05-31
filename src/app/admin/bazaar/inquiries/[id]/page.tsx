@@ -5,10 +5,10 @@ import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchInquiryById,
   type BazaarInquiryMessageRow,
-  type InquiryStatus,
 } from "@/lib/bazaar-inquiries";
 import { bazaarReceiptNumber } from "@/lib/bazaar-order-email";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { PageHeader, StatusBadge } from "@/components/admin/ui";
 import InquiryReplyClient from "./InquiryReplyClient";
 import MobileActionPanel from "@/components/admin/MobileActionPanel";
 
@@ -40,36 +40,28 @@ export default async function AdminInquiryDetailPage({
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link
-          href="/admin/bazaar/inquiries"
-          className="text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors"
-        >
-          ← All inquiries
-        </Link>
-        <div className="mt-2 flex flex-wrap items-baseline justify-between gap-3">
-          <div>
-            <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-              {inquiry.subject}
-            </h1>
-            <p className="text-charcoal/50 text-[12px] mt-1">
-              From{" "}
-              <span className="text-charcoal font-medium">
-                {inquiry.customerName}
-              </span>{" "}
-              ·{" "}
-              <a
-                href={`mailto:${inquiry.customerEmail}`}
-                className="font-mono underline hover:text-charcoal transition-colors"
-              >
-                {inquiry.customerEmail}
-              </a>{" "}
-              · opened {formatAdminDate(inquiry.createdAt)}
-            </p>
-          </div>
-          <StatusBadge status={inquiry.status} />
-        </div>
-      </div>
+      <PageHeader
+        backHref="/admin/bazaar/inquiries"
+        backLabel="All inquiries"
+        title={inquiry.subject}
+        description={
+          <>
+            From{" "}
+            <span className="text-charcoal font-medium">{inquiry.customerName}</span>{" "}
+            ·{" "}
+            <a
+              href={`mailto:${inquiry.customerEmail}`}
+              className="font-mono underline hover:text-charcoal transition-colors"
+            >
+              {inquiry.customerEmail}
+            </a>{" "}
+            · opened {formatAdminDate(inquiry.createdAt)}
+          </>
+        }
+        actions={
+          <StatusBadge domain="bazaarInquiry" status={inquiry.status} variant="outline" />
+        }
+      />
 
       {/* Linked order banner — surfaces the order context up-front
           if the customer cited a matchable receipt. */}
@@ -183,20 +175,5 @@ function Message({ message }: { message: BazaarInquiryMessageRow }) {
         {message.body}
       </p>
     </li>
-  );
-}
-
-function StatusBadge({ status }: { status: InquiryStatus }) {
-  const styles: Record<InquiryStatus, string> = {
-    open: "bg-amber-light text-amber-dark border-amber/30",
-    replied: "bg-green/10 text-green-dark border-green/30",
-    closed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  };
-  return (
-    <span
-      className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${styles[status]}`}
-    >
-      {status}
-    </span>
   );
 }

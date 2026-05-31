@@ -6,6 +6,7 @@ import {
   fetchCampaignBreakdown,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import { PageHeader } from "@/components/admin/ui";
 
 export const metadata: Metadata = {
   title: "Reports | Deen Relief Admin",
@@ -39,18 +40,11 @@ export default async function AdminReportsPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-          Reports
-        </span>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-          Financial reports
-        </h1>
-        <p className="text-grey text-sm mt-2 max-w-2xl">
-          Pre-built views of the donations data, ready to download for
-          trustee meetings, the annual return, and HMRC Gift Aid reclaims.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Reports"
+        title="Financial reports"
+        description="Pre-built views of the donations data, ready to download for trustee meetings, the annual return, and HMRC Gift Aid reclaims."
+      />
 
       {/* Quick reports grid */}
       <div className="grid sm:grid-cols-2 gap-4 mb-10">

@@ -9,6 +9,7 @@ import {
 } from "@/lib/sponsorship-admin";
 import { createSignedOrphanMediaUrl } from "@/lib/orphan-media";
 import { createUpdateAction } from "../../actions";
+import { PageHeader, Button, StatusBadge } from "@/components/admin/ui";
 import OrphanEditor from "@/components/admin/OrphanEditor";
 
 export const metadata: Metadata = {
@@ -39,19 +40,12 @@ export default async function OrphanDetailPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <Link
-        href="/admin/sponsorship"
-        className="text-sm text-grey hover:text-charcoal transition-colors"
-      >
-        ← All profiles
-      </Link>
-
-      <h1 className="mt-3 text-2xl font-heading font-bold text-charcoal">
-        {orphan.displayName || "Unnamed profile"}
-      </h1>
-      <p className="text-sm text-grey mb-6">
-        {activeSponsors} active sponsor{activeSponsors === 1 ? "" : "s"}.
-      </p>
+      <PageHeader
+        backHref="/admin/sponsorship"
+        backLabel="All profiles"
+        title={orphan.displayName || "Unnamed profile"}
+        description={`${activeSponsors} active sponsor${activeSponsors === 1 ? "" : "s"}.`}
+      />
 
       <OrphanEditor orphan={orphan} photoUrl={photoUrl} />
 
@@ -62,12 +56,9 @@ export default async function OrphanDetailPage({
             Updates ({updates.length})
           </h2>
           <form action={createUpdateForThisOrphan}>
-            <button
-              type="submit"
-              className="px-3.5 py-1.5 text-sm rounded-lg bg-green text-white font-medium hover:bg-green-dark transition-colors"
-            >
+            <Button type="submit" variant="secondary" size="sm">
               + New update
-            </button>
+            </Button>
           </form>
         </div>
         {updates.length === 0 ? (
@@ -94,15 +85,11 @@ export default async function OrphanDetailPage({
                     {u.authorEmail}
                   </p>
                 </div>
-                <span
-                  className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2 py-1 rounded-full ${
-                    u.published
-                      ? "bg-green-light text-green"
-                      : "bg-grey-light text-grey"
-                  }`}
-                >
-                  {u.published ? "Published" : "Draft"}
-                </span>
+                <StatusBadge
+                  domain="blog"
+                  status={u.published ? "published" : "draft"}
+                  className="shrink-0"
+                />
               </Link>
             ))}
           </div>

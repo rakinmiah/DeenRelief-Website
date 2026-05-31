@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchGiftAidEligible,
   formatAdminDateOnly,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import {
+  Button,
+  PageHeader,
+  StatCard,
+  ResponsiveTable,
+  EmptyState,
+  type Column,
+} from "@/components/admin/ui";
 
 export const metadata: Metadata = {
   title: "Gift Aid claim export | Deen Relief Admin",
@@ -13,6 +20,8 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+type GiftAidRow = Awaited<ReturnType<typeof fetchGiftAidEligible>>[number];
 
 /**
  * Gift Aid claim export — wired to real Supabase data.
@@ -54,71 +63,96 @@ export default async function AdminGiftAidExportPage() {
     0
   );
 
+  const previewColumns: Column<GiftAidRow>[] = [
+    {
+      key: "donor",
+      header: "Donor",
+      primary: true,
+      cell: (d) => (
+        <div>
+          <div className="text-charcoal font-medium text-sm">{d.donorName}</div>
+          <div className="text-charcoal/50 text-xs break-all">{d.donorEmail}</div>
+        </div>
+      ),
+    },
+    {
+      key: "date",
+      header: "Date",
+      cell: (d) => formatAdminDateOnly(d.chargedAt),
+      cellClassName: "whitespace-nowrap text-charcoal/70",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      secondary: true,
+      cell: (d) => (
+        <span className="text-charcoal font-semibold whitespace-nowrap">
+          {formatPence(d.amountPence)}
+        </span>
+      ),
+    },
+    {
+      key: "giftaid",
+      header: "Gift Aid (25%)",
+      align: "right",
+      cell: (d) => (
+        <span className="text-green-dark font-medium whitespace-nowrap">
+          +{formatPence(d.giftAidReclaimablePence)}
+        </span>
+      ),
+    },
+    {
+      key: "receipt",
+      header: "Receipt",
+      hideOnMobile: true,
+      cell: (d) => (
+        <span className="font-mono text-[11px] text-charcoal/60">{d.receiptNumber}</span>
+      ),
+    },
+  ];
+
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <Link
-          href="/admin/reports"
-          className="inline-block text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors mb-2"
-        >
-          ← Reports
-        </Link>
-        <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-          HMRC Reclaim
-        </span>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-          Gift Aid claim export
-        </h1>
-        <p className="text-grey text-sm mt-2 max-w-2xl">
-          Generate the spreadsheet HMRC needs to process the 25% Gift
-          Aid reclaim. Upload the downloaded file via{" "}
-          <a
-            href="https://www.gov.uk/claim-gift-aid-online"
-            className="underline hover:text-charcoal"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            HMRC&apos;s Charities Online portal
-          </a>
-          .
-        </p>
-      </div>
+      <PageHeader
+        backHref="/admin/reports"
+        backLabel="Reports"
+        eyebrow="HMRC Reclaim"
+        title="Gift Aid claim export"
+        description={
+          <>
+            Generate the spreadsheet HMRC needs to process the 25% Gift Aid
+            reclaim. Upload the downloaded file via{" "}
+            <a
+              href="https://www.gov.uk/claim-gift-aid-online"
+              className="underline hover:text-charcoal"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              HMRC&apos;s Charities Online portal
+            </a>
+            .
+          </>
+        }
+      />
 
       {/* Headline metrics */}
-      <div className="grid sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white border border-charcoal/10 rounded-2xl p-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5">
-            Eligible donations
-          </p>
-          <p className="text-3xl font-heading font-bold text-charcoal">
-            {eligible.length}
-          </p>
-          <p className="text-[12px] text-charcoal/50 mt-0.5">
-            with Gift Aid declaration
-          </p>
-        </div>
-        <div className="bg-white border border-charcoal/10 rounded-2xl p-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5">
-            Total donated
-          </p>
-          <p className="text-3xl font-heading font-bold text-charcoal">
-            {formatPence(totalDonatedPence)}
-          </p>
-          <p className="text-[12px] text-charcoal/50 mt-0.5">
-            from eligible donors
-          </p>
-        </div>
-        <div className="bg-white border border-amber/40 rounded-2xl p-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-amber-dark mb-1.5">
-            Reclaimable from HMRC
-          </p>
-          <p className="text-3xl font-heading font-bold text-charcoal">
-            {formatPence(totalReclaimablePence)}
-          </p>
-          <p className="text-[12px] text-charcoal/50 mt-0.5">
-            25% uplift on eligible
-          </p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <StatCard
+          label="Eligible donations"
+          value={eligible.length.toString()}
+          hint="with Gift Aid declaration"
+        />
+        <StatCard
+          label="Total donated"
+          value={formatPence(totalDonatedPence)}
+          hint="from eligible donors"
+        />
+        <StatCard
+          label="Reclaimable from HMRC"
+          value={formatPence(totalReclaimablePence)}
+          hint="25% uplift on eligible"
+        />
       </div>
 
       {/* Filter + download */}
@@ -149,12 +183,12 @@ export default async function AdminGiftAidExportPage() {
               readOnly
             />
           </div>
-          <a
+          <Button
             href={`/api/admin/export-gift-aid?from=${fromIso}&to=${toIso}`}
-            className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/90 transition-colors whitespace-nowrap text-center"
+            prefetch={false}
           >
             Download HMRC CSV
-          </a>
+          </Button>
         </div>
         <p className="mt-3 text-[11px] text-charcoal/50 leading-relaxed">
           Defaults to the current UK tax year (6 April → 5 April).
@@ -175,79 +209,24 @@ export default async function AdminGiftAidExportPage() {
         <h2 className="text-charcoal font-heading font-semibold text-lg mb-3">
           Preview ({eligible.length} eligible)
         </h2>
-        <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-          {eligible.length === 0 ? (
-            <div className="p-8 text-center text-charcoal/50 text-sm">
-              No Gift-Aid-eligible donations in this tax year yet. Eligible
-              donations from confirmed UK taxpayers appear here as soon as
-              they&apos;re received.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-cream border-b border-charcoal/10">
-                  <tr className="text-left">
-                    {[
-                      "Donor",
-                      "Date",
-                      "Amount",
-                      "Gift Aid (25%)",
-                      "Receipt",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-charcoal/8">
-                  {eligible.map((d) => (
-                    <tr
-                      key={d.donationId}
-                      className="hover:bg-cream/50 transition-colors"
-                    >
-                      <td className="px-5 py-3">
-                        <div className="text-charcoal font-medium text-sm">
-                          {d.donorName}
-                        </div>
-                        <div className="text-charcoal/50 text-xs">
-                          {d.donorEmail}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
-                        {formatAdminDateOnly(d.chargedAt)}
-                      </td>
-                      <td className="px-5 py-3 text-charcoal font-medium whitespace-nowrap">
-                        {formatPence(d.amountPence)}
-                      </td>
-                      <td className="px-5 py-3 text-green-dark font-medium whitespace-nowrap">
-                        +{formatPence(d.giftAidReclaimablePence)}
-                      </td>
-                      <td className="px-5 py-3 font-mono text-[11px] text-charcoal/60">
-                        {d.receiptNumber}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-cream/60 font-semibold">
-                    <td colSpan={2} className="px-5 py-3 text-charcoal">
-                      Total reclaimable
-                    </td>
-                    <td className="px-5 py-3 text-charcoal">
-                      {formatPence(totalDonatedPence)}
-                    </td>
-                    <td className="px-5 py-3 text-green-dark">
-                      +{formatPence(totalReclaimablePence)}
-                    </td>
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ResponsiveTable<GiftAidRow>
+          rows={eligible}
+          getRowKey={(d) => d.donationId}
+          columns={previewColumns}
+          empty={
+            <EmptyState
+              title="No Gift-Aid-eligible donations in this tax year yet"
+              description="Eligible donations from confirmed UK taxpayers appear here as soon as they're received."
+            />
+          }
+        />
+        <p className="mt-3 text-[12px] text-charcoal/60">
+          Total reclaimable:{" "}
+          <strong className="text-green-dark">
+            +{formatPence(totalReclaimablePence)}
+          </strong>{" "}
+          on {formatPence(totalDonatedPence)} donated.
+        </p>
       </section>
     </main>
   );

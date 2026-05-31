@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   cardBrandLabel,
   fetchAdminRecurringById,
-  type AdminRecurringStatus,
 } from "@/lib/admin-recurring";
 import {
   formatAdminDate,
   formatAdminDateOnly,
 } from "@/lib/admin-donations";
 import { formatPence } from "@/lib/bazaar-format";
+import { PageHeader, StatusBadge } from "@/components/admin/ui";
 import RecurringActionsClient from "./RecurringActionsClient";
 
 export const metadata: Metadata = {
@@ -24,28 +23,6 @@ export const dynamic = "force-dynamic";
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const STATUS_STYLES: Record<AdminRecurringStatus, string> = {
-  active: "bg-green/10 text-green-dark border-green/30",
-  trialing: "bg-green/10 text-green-dark border-green/30",
-  past_due: "bg-amber-light text-amber-dark border-amber/30",
-  incomplete: "bg-amber-light text-amber-dark border-amber/30",
-  unpaid: "bg-red-50 text-red-700 border-red-200",
-  paused: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  incomplete_expired: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  canceled: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-};
-
-const STATUS_LABEL: Record<AdminRecurringStatus, string> = {
-  active: "active",
-  trialing: "trialing",
-  past_due: "past due",
-  incomplete: "incomplete",
-  unpaid: "unpaid",
-  paused: "paused",
-  incomplete_expired: "expired",
-  canceled: "cancelled",
-};
 
 export default async function AdminRecurringDetailPage({ params }: RouteParams) {
   await requireRoleAdmin();
@@ -60,30 +37,24 @@ export default async function AdminRecurringDetailPage({ params }: RouteParams) 
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link
-            href="/admin/recurring"
-            className="inline-block text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors mb-1"
-          >
-            ← All recurring
-          </Link>
-          <h1 className="text-charcoal font-heading font-semibold text-xl sm:text-2xl">
+      <PageHeader
+        backHref="/admin/recurring"
+        backLabel="All recurring"
+        title={
+          <>
             {sub.donorName}{" "}
-            <span className="text-charcoal/50 font-normal">
-              · {sub.campaignLabel}
-            </span>
-          </h1>
-          <p className="text-[11px] font-mono text-charcoal/50 mt-1">
+            <span className="text-charcoal/50 font-normal">· {sub.campaignLabel}</span>
+          </>
+        }
+        description={
+          <span className="font-mono text-[11px] text-charcoal/50">
             {sub.stripeSubscriptionId}
-          </p>
-        </div>
-        <span
-          className={`inline-block px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[sub.status]}`}
-        >
-          {STATUS_LABEL[sub.status]}
-        </span>
-      </div>
+          </span>
+        }
+        actions={
+          <StatusBadge domain="recurring" status={sub.status} variant="outline" />
+        }
+      />
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         <div className="space-y-5">

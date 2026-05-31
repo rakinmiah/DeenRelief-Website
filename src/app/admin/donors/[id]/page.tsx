@@ -8,6 +8,7 @@ import {
 } from "@/lib/donor-profile";
 import { formatPence } from "@/lib/bazaar-format";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { PageHeader } from "@/components/admin/ui";
 
 export const metadata: Metadata = {
   title: "Donor profile | Deen Relief Admin",
@@ -56,31 +57,27 @@ export default async function AdminDonorProfilePage({
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Page header */}
-      <div className="mb-6">
-        <Link
-          href="/admin/donations"
-          className="text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors"
-        >
-          ← All donations
-        </Link>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl mt-1">
-          {displayName}
-        </h1>
-        <p className="text-charcoal/60 text-sm mt-1">
-          <a
-            href={`mailto:${donor.email}`}
-            className="text-green underline hover:text-green-dark transition-colors"
-          >
-            {donor.email}
-          </a>
-          {donor.phone && (
-            <>
-              {" · "}
-              <span className="font-mono">{donor.phone}</span>
-            </>
-          )}
-        </p>
-      </div>
+      <PageHeader
+        backHref="/admin/donations"
+        backLabel="All donations"
+        title={displayName}
+        description={
+          <>
+            <a
+              href={`mailto:${donor.email}`}
+              className="text-green underline hover:text-green-dark transition-colors"
+            >
+              {donor.email}
+            </a>
+            {donor.phone && (
+              <>
+                {" · "}
+                <span className="font-mono">{donor.phone}</span>
+              </>
+            )}
+          </>
+        }
+      />
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-6">
         {/* Main column — lifetime stats + timeline */}
