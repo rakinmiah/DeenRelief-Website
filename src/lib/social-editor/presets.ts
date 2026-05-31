@@ -15,6 +15,7 @@ import {
   type TextLayer,
   type ImageLayer,
   type ShapeLayer,
+  type TextAlign,
   makeLayerId,
   DEFAULT_BOARD as B,
 } from "./types";
@@ -22,7 +23,10 @@ import {
 /* ─── Brand tokens + fonts ────────────────────────────────────────── */
 const C = {
   forest: "#163827",
+  forestDeep: "#0F2A1C",
+  forestSoft: "#1C432F",
   cream: "#F7F3E8",
+  creamDim: "rgba(247,243,232,0.72)",
   amber: "#D4A843",
   charcoal: "#1A1A2E",
   green: "#2D6A2E",
@@ -31,6 +35,8 @@ const C = {
 const DISPLAY = "Bowlby One SC"; // heavy headline display
 const SANS = "DM Sans";
 const SERIF = "Source Serif 4";
+const ANTON = "Anton"; // condensed display — the slide-library headline face
+const BARLOW = "Barlow"; // the slide-library text face
 
 /* ─── Layer factories ─────────────────────────────────────────────── */
 function text(p: Partial<TextLayer> & Pick<TextLayer, "x" | "y" | "w" | "h" | "text">): TextLayer {
@@ -70,52 +76,144 @@ function slide(layers: Layer[], background: string): EditorSlide {
 }
 
 /* ─── Content the presets read ────────────────────────────────────── */
+
+/** The DR logo, resolved server-side from the active brand asset. The
+ *  `aspect` (width / height) lets a preset size the logo box to the real
+ *  artwork so `objectFit: contain` fills it with no centring gap. */
+export type BrandLogo = { url: string; aspect: number };
+
 export type SlideContent = {
   primary: string;
   secondary: string | null;
   imageUrl: string | null;
   eyebrow: string;
+  /** Auto-selected brand logo for this slide's background (on-dark for
+   *  forest, on-light for cream). Null → fall back to a type lockup. */
+  logo?: BrandLogo | null;
 };
 
-/* ─── Hero presets (one per hero template) ────────────────────────── */
-function heroMagazine(c: SlideContent): EditorSlide {
+/* ─── Hero design system (faithful port of the Claude Design library) ─
+ *
+ * Five distinct Hero layouts (A–E), reconstructed 1:1 from the verified
+ * `Deen Relief Slide Library` specs. Shared tokens: 78px uniform inset,
+ * Anton 400 headlines (line-height 0.96), Barlow eyebrow/body, gold rule
+ * + diamond motif. Geometry is board units (px on the 1080 board).
+ */
+const HPAD = 78; // uniform artboard inset (--pad)
+const SCRIM =
+  "linear-gradient(to bottom, rgba(15,42,28,0) 0%, rgba(15,42,28,0.55) 45%, rgba(15,42,28,0.94) 100%)";
+const GLOW =
+  "radial-gradient(120% 80% at 100% 0%, #1C432F 0%, rgba(28,67,47,0) 55%)";
+
+function hEyebrow(t: string, x: number, y: number, w: number, align: TextAlign = "left"): TextLayer {
+  return text({ x, y, w, h: 32, text: t, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align });
+}
+function hHead(t: string, x: number, y: number, w: number, h: number, size: number, align: TextAlign = "left"): TextLayer {
+  return text({ x, y, w, h, text: t, fontFamily: ANTON, fontSize: size, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align });
+}
+function hBody(t: string, x: number, y: number, w: number, h: number): TextLayer {
+  return text({ x, y, w, h, text: t, fontFamily: BARLOW, fontSize: 28, fontWeight: 400, lineHeight: 1.34, color: C.creamDim });
+}
+function goldBar(x: number, y: number, w: number = 64): ShapeLayer {
+  return shape({ x, y, w, h: 3, shape: "rect", fill: C.amber });
+}
+function hTag(t: string, x: number, y: number, w: number, align: TextAlign = "left", opacity = 0.62): TextLayer {
+  return text({ x, y, w, h: 30, text: t, fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity, align });
+}
+/** Corner brand mark: the real DR logo when uploaded, else a diamond +
+ *  wordmark type lockup matching the design. */
+function wordmark(x: number, y: number, logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
+  if (logo?.url) {
+    const h = 38;
+    const w = Math.max(60, Math.round(h * (logo.aspect || 4)));
+    return [image({ x, y, w, h, src: logo.url, objectFit: "contain", locked: true })];
+  }
+  return [
+    shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: C.amber, rotation: 45 }),
+    text({ x: x + 32, y, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color }),
+  ];
+}
+
+// HERO A — photo-led full-bleed
+function heroPhotoFull(c: SlideContent): EditorSlide {
   return slide(
     [
-      image({ x: 0, y: 0, w: B, h: 670, src: c.imageUrl ?? "" }),
-      shape({ x: 0, y: 670, w: B, h: B - 670, shape: "rect", fill: C.forest }),
-      rule(56, 724),
-      brandMark(),
-      eyebrowLayer(c.eyebrow, 746),
-      text({ x: 56, y: 792, w: 968, h: 170, text: c.primary, fontFamily: DISPLAY, fontSize: 72, fontWeight: 400, uppercase: true, lineHeight: 1.02, color: C.cream }),
-      ...(c.secondary ? [text({ x: 56, y: 966, w: 920, h: 80, text: c.secondary, fontSize: 24, lineHeight: 1.4, color: C.cream, opacity: 0.82 })] : []),
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 410, w: B, h: B - 410, shape: "rect", fill: SCRIM, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, HPAD, 643, 924),
+      hHead(c.primary, HPAD, 695, 924, 178, 86),
+      goldBar(HPAD, 900),
+      ...(c.secondary ? [hBody(c.secondary, 164, 887, 674, 120)] : []),
     ],
     C.forest
   );
 }
-function heroTypography(c: SlideContent): EditorSlide {
+
+// HERO B — typography-only cover
+function heroTypeCover(c: SlideContent): EditorSlide {
   return slide(
     [
-      brandMark(),
-      rule(56, 360),
-      eyebrowLayer(c.eyebrow, 392),
-      text({ x: 56, y: 440, w: 968, h: 360, text: c.primary, fontFamily: DISPLAY, fontSize: 92, fontWeight: 400, uppercase: true, lineHeight: 1.02, color: C.cream }),
-      ...(c.secondary ? [text({ x: 56, y: 812, w: 900, h: 100, text: c.secondary, fontSize: 26, lineHeight: 1.4, color: C.cream, opacity: 0.82 })] : []),
-      footer(),
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Field Report", 582, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, HPAD, 383, 924),
+      hHead(c.primary, HPAD, 443, 924, 280, 132),
+      goldBar(HPAD, 985),
+      hTag("deenrelief.org", 162, 977, 600, "left", 0.8),
     ],
     C.forest
   );
 }
-function heroPanelRight(c: SlideContent): EditorSlide {
-  const px = 560;
+
+// HERO C — top photo, bottom forest panel
+function heroTopPanel(c: SlideContent): EditorSlide {
   return slide(
     [
-      image({ x: 0, y: 0, w: px, h: B, src: c.imageUrl ?? "" }),
-      shape({ x: px, y: 0, w: B - px, h: B, shape: "rect", fill: C.forest }),
-      text({ x: px + 48, y: 64, w: B - px - 96, h: 40, text: "DEEN RELIEF", fontFamily: SANS, fontSize: 24, fontWeight: 800, uppercase: true, letterSpacing: 1, color: C.cream }),
-      rule(px + 48, 360),
-      text({ x: px + 48, y: 392, w: B - px - 96, h: 36, text: c.eyebrow, fontSize: 20, fontWeight: 600, uppercase: true, letterSpacing: 2, color: C.amber, opacity: 0.9 }),
-      text({ x: px + 48, y: 432, w: B - px - 96, h: 320, text: c.primary, fontFamily: DISPLAY, fontSize: 54, fontWeight: 400, uppercase: true, lineHeight: 1.04, color: C.cream }),
-      ...(c.secondary ? [text({ x: px + 48, y: 760, w: B - px - 96, h: 160, text: c.secondary, fontSize: 22, lineHeight: 1.4, color: C.cream, opacity: 0.82 })] : []),
+      image({ x: 0, y: 0, w: B, h: 594, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 333, w: B, h: 261, shape: "rect", fill: SCRIM, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, HPAD, 660, 924),
+      hHead(c.primary, HPAD, 712, 924, 170, 80),
+      goldBar(HPAD, 917),
+      ...(c.secondary ? [hBody(c.secondary, 164, 904, 754, 92)] : []),
+    ],
+    C.forest
+  );
+}
+
+// HERO D — centered crest
+function heroCrest(c: SlideContent): EditorSlide {
+  const layers: Layer[] = [];
+  if (c.logo?.url) {
+    const h = 46;
+    const w = Math.max(80, Math.round(h * (c.logo.aspect || 4)));
+    layers.push(image({ x: Math.round((B - w) / 2), y: 312, w, h, src: c.logo.url, objectFit: "contain", locked: true }));
+  } else {
+    layers.push(shape({ x: Math.round((B - 30) / 2), y: 310, w: 30, h: 30, shape: "rect", fill: C.amber, rotation: 45 }));
+    layers.push(text({ x: HPAD, y: 356, w: B - 2 * HPAD, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 7, color: C.cream, align: "center" }));
+  }
+  layers.push(hEyebrow(c.eyebrow, HPAD, 408, B - 2 * HPAD, "center"));
+  layers.push(hHead(c.primary, HPAD, 470, B - 2 * HPAD, 210, 104, "center"));
+  layers.push(goldBar(Math.round((B - 92) / 2), 714, 92));
+  layers.push(text({ x: HPAD, y: 751, w: B - 2 * HPAD, h: 30, text: "A community response · 2026", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 4.5, color: C.creamDim, align: "center" }));
+  return slide(layers, C.forest);
+}
+
+// HERO E — documentary caption bar over full-bleed photo
+function heroCaption(c: SlideContent): EditorSlide {
+  const barTop = 850;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Field Report", 582, HPAD + 6, 420, "right"),
+      shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
+      hEyebrow(c.eyebrow, HPAD, barTop + 42, B - 2 * HPAD),
+      hHead(c.primary, HPAD, barTop + 86, B - 2 * HPAD, 64, 56),
+      text({ x: HPAD, y: barTop + 160, w: B - 2 * HPAD, h: 30, text: "Photograph — Deen Relief field team", fontFamily: BARLOW, fontSize: 23, fontWeight: 500, color: C.creamDim }),
     ],
     C.forest
   );
@@ -217,9 +315,16 @@ function ctaDonate(c: SlideContent): EditorSlide {
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
-  if (id.includes("hero-typography")) return heroTypography(c);
-  if (id.includes("hero-panel")) return heroPanelRight(c);
-  if (id.includes("hero")) return heroMagazine(c);
+  // Faithful Hero library (A–E). Specific ids first so "hero-a" doesn't
+  // get swallowed by the generic "hero" match.
+  if (id.includes("hero-a")) return heroPhotoFull(c);
+  if (id.includes("hero-b")) return heroTypeCover(c);
+  if (id.includes("hero-c")) return heroTopPanel(c);
+  if (id.includes("hero-d")) return heroCrest(c);
+  if (id.includes("hero-e")) return heroCaption(c);
+  if (id.includes("hero-typography")) return heroTypeCover(c);
+  if (id.includes("hero-panel")) return heroTopPanel(c);
+  if (id.includes("hero")) return heroPhotoFull(c);
   if (id.includes("fact-photo")) return factPhoto(c);
   if (id.includes("fact")) return factTypography(c);
   if (id.includes("stat")) return statHeadline(c);

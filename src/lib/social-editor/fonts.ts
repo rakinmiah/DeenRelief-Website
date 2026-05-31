@@ -26,6 +26,7 @@ export const FONT_OPTIONS: FontOption[] = [
   { label: "Source Serif", family: "Source Serif 4", weights: [400, 600, 700], category: "serif" },
   { label: "Bowlby One SC", family: "Bowlby One SC", weights: [400], category: "display" },
   { label: "Anton", family: "Anton", weights: [400], category: "display" },
+  { label: "Barlow", family: "Barlow", weights: [400, 500, 600, 700], category: "sans" },
   { label: "Bebas Neue", family: "Bebas Neue", weights: [400], category: "display" },
   { label: "Oswald", family: "Oswald", weights: [400, 600], category: "display" },
   { label: "Poppins", family: "Poppins", weights: [400, 600, 700], category: "sans" },
