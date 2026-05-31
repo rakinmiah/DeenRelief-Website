@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { requireAdminSession } from "@/lib/admin-session";
-import { getActiveBrandAsset } from "@/lib/brand-assets";
-import type { BrandLogo } from "@/lib/social-editor/presets";
+import { resolveBrandLogo } from "@/lib/social-editor/logo";
 import HeroLab from "./HeroLab";
 
 export const metadata: Metadata = {
@@ -20,11 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function TemplateLabPage() {
   await requireAdminSession();
 
-  const asset = await getActiveBrandAsset("logo-on-dark");
-  const logo: BrandLogo | null =
-    asset && asset.width && asset.height
-      ? { url: asset.publicUrl, aspect: asset.width / asset.height }
-      : null;
+  const { logo, uploaded } = await resolveBrandLogo("logo-on-dark");
 
-  return <HeroLab logo={logo} hasLogo={!!asset} />;
+  return <HeroLab logo={logo} hasLogo={uploaded} />;
 }
