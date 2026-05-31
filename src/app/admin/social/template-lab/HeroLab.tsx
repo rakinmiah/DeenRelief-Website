@@ -99,10 +99,11 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         </h1>
         <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 760 }}>
           Faithful layer port of the five Claude&nbsp;Design Hero layouts, rendered
-          through the real Satori export pipeline (sample copy + photo). Now with
-          the real DR logo (downscaled at export so the oversized source art
-          rasterises), the two-tone gold accent (Hero B), and balanced
-          headline line-breaks.
+          through the real Satori export pipeline (sample copy + photo). Refined:
+          two-tone gold accent (Hero B), balanced headline line-breaks, tuned
+          spacing. Corner mark is the vector diamond + wordmark lockup; the raster
+          logo only rasterises at larger sizes, so it's reserved for a prominent
+          placement (CTA slide).
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 26 }}>
           {variants.map((v) => (
