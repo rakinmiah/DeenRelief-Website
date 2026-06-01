@@ -60,7 +60,17 @@ export type LayerBase = {
   flipV?: boolean;
 };
 
-export type TextAlign = "left" | "center" | "right";
+export type TextAlign = "left" | "center" | "right" | "justify";
+
+/** Letter-case treatment, applied via CSS textTransform in BOTH
+ *  renderers. "none" = as-typed. Generalises the older `uppercase`
+ *  boolean (which still works for back-compat — see textCaseFor). */
+export type TextCase = "none" | "upper" | "lower" | "title";
+
+/** Bullet / numbered list mode. The stored `text` is NEVER mutated —
+ *  the marker prefix is DERIVED at render time (see listDisplayText) so
+ *  the canvas and the Satori export show identical markers. */
+export type TextList = "none" | "bullet" | "number";
 
 export type TextLayer = LayerBase & {
   type: "text";
@@ -71,7 +81,16 @@ export type TextLayer = LayerBase & {
   fontWeight: number;
   italic: boolean;
   underline: boolean;
+  /** Legacy UPPERCASE flag. Kept for back-compat with older drafts and
+   *  the preset library; `textCase` (when set) wins. Resolve with
+   *  textCaseFor(). */
   uppercase: boolean;
+  /** Generalised case mode. Undefined falls back to `uppercase`. */
+  textCase?: TextCase;
+  /** Line-through decoration, composed with `underline`. */
+  strikethrough?: boolean;
+  /** Bullet / numbered list mode. undefined === "none". */
+  list?: TextList;
   color: string;
   align: TextAlign;
   /** Multiplier (1.2 = 120%). */
@@ -79,6 +98,65 @@ export type TextLayer = LayerBase & {
   /** Board-unit tracking. */
   letterSpacing: number;
 };
+
+/** Resolve a text layer's effective case mode, honouring the legacy
+ *  `uppercase` boolean when the newer `textCase` is unset. Used by BOTH
+ *  renderers so canvas + export stay in sync. */
+export function textCaseFor(layer: {
+  textCase?: TextCase;
+  uppercase: boolean;
+}): TextCase {
+  if (layer.textCase) return layer.textCase;
+  return layer.uppercase ? "upper" : "none";
+}
+
+/** CSS `textTransform` value for a resolved case mode. */
+export function textTransformCss(c: TextCase): CSSTextTransform {
+  return c === "upper"
+    ? "uppercase"
+    : c === "lower"
+      ? "lowercase"
+      : c === "title"
+        ? "capitalize"
+        : "none";
+}
+
+type CSSTextTransform = "uppercase" | "lowercase" | "capitalize" | "none";
+
+/** CSS `textDecorationLine` for the underline + strikethrough combo.
+ *  Returns "none", "underline", "line-through", or both, so the two
+ *  decorations compose. Honoured identically in canvas + export. */
+export function textDecorationCss(
+  underline: boolean,
+  strikethrough: boolean | undefined
+): string {
+  const parts: string[] = [];
+  if (underline) parts.push("underline");
+  if (strikethrough) parts.push("line-through");
+  return parts.length ? parts.join(" ") : "none";
+}
+
+/** Derive the DISPLAYED text for a list mode by prefixing each non-empty
+ *  line with a marker ("•  " for bullets, "1.  ", "2.  "… for numbers).
+ *  The stored `text` is never mutated. Blank lines are passed through
+ *  un-numbered so spacing survives. Used identically by LayerView and
+ *  the Satori export route so the marker placement matches the PNG. */
+export function listDisplayText(
+  text: string,
+  list: TextList | undefined
+): string {
+  if (!list || list === "none") return text;
+  let n = 0;
+  return text
+    .split("\n")
+    .map((line) => {
+      if (!line.trim()) return line;
+      if (list === "bullet") return `•  ${line}`;
+      n += 1;
+      return `${n}.  ${line}`;
+    })
+    .join("\n");
+}
 
 /** Named colour treatments — applied as CSS filters in the editor and
  *  reproduced with sharp at export so they survive to the PNG. */

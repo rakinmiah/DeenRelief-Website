@@ -21,7 +21,14 @@ import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
 import type { EditorSlide, Layer } from "@/lib/social-editor/types";
-import { cornerRadiusCss, flipTransform } from "@/lib/social-editor/types";
+import {
+  cornerRadiusCss,
+  flipTransform,
+  listDisplayText,
+  textCaseFor,
+  textDecorationCss,
+  textTransformCss,
+} from "@/lib/social-editor/types";
 
 /** box-shadow string from a layer shadow (export = board units, scale 1). */
 function shadowCss(
@@ -189,15 +196,25 @@ function renderInner(l: Layer, uri: string | null) {
           justifyContent: "flex-start",
           // Cross-axis (horizontal) placement of the text block. In a flex
           // column, textAlign alone doesn't move a shrink-wrapped line, so
-          // centred/right text pins left without this.
+          // centred/right text pins left without this. "justify" stretches
+          // lines edge-to-edge, so the block fills the box width.
           alignItems:
-            l.align === "center" ? "center" : l.align === "right" ? "flex-end" : "flex-start",
+            l.align === "center"
+              ? "center"
+              : l.align === "right"
+                ? "flex-end"
+                : l.align === "justify"
+                  ? "stretch"
+                  : "flex-start",
           fontFamily: bareFamily(l.fontFamily),
           fontSize: l.fontSize,
           fontWeight: nearestWeight(bareFamily(l.fontFamily), l.fontWeight),
           fontStyle: l.italic ? "italic" : "normal",
-          textDecoration: l.underline ? "underline" : "none",
-          textTransform: l.uppercase ? "uppercase" : "none",
+          // Mirror LayerView exactly: case + underline/strikethrough +
+          // list markers are derived from the SAME helpers so canvas =
+          // PNG. The stored text is never mutated (list prefix is derived).
+          textDecoration: textDecorationCss(l.underline, l.strikethrough),
+          textTransform: textTransformCss(textCaseFor(l)),
           color: l.color,
           textAlign: l.align,
           lineHeight: l.lineHeight,
@@ -209,7 +226,7 @@ function renderInner(l: Layer, uri: string | null) {
           filter: combineFilter(undefined, l.blur),
         }}
       >
-        {l.text}
+        {listDisplayText(l.text, l.list)}
       </div>
     );
   }

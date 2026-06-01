@@ -13,7 +13,14 @@
 
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { Layer } from "@/lib/social-editor/types";
-import { cornerRadiusCss, flipTransform } from "@/lib/social-editor/types";
+import {
+  cornerRadiusCss,
+  flipTransform,
+  listDisplayText,
+  textCaseFor,
+  textDecorationCss,
+  textTransformCss,
+} from "@/lib/social-editor/types";
 import { cropImgStyle, filterCss } from "@/lib/social-editor/imageStyle";
 
 /** box-shadow string from a layer shadow, scaled to display. */
@@ -156,14 +163,22 @@ function TextBody({
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-start",
+    // Cross-axis placement of the text block. "justify" stretches lines
+    // edge-to-edge, so the block must fill the box width.
     alignItems:
-      layer.align === "center" ? "center" : layer.align === "right" ? "flex-end" : "flex-start",
+      layer.align === "center"
+        ? "center"
+        : layer.align === "right"
+          ? "flex-end"
+          : layer.align === "justify"
+            ? "stretch"
+            : "flex-start",
     fontFamily: layer.fontFamily,
     fontSize: layer.fontSize * scale,
     fontWeight: layer.fontWeight,
     fontStyle: layer.italic ? "italic" : "normal",
-    textDecoration: layer.underline ? "underline" : "none",
-    textTransform: layer.uppercase ? "uppercase" : "none",
+    textDecoration: textDecorationCss(layer.underline, layer.strikethrough),
+    textTransform: textTransformCss(textCaseFor(layer)),
     color: layer.color,
     textAlign: layer.align,
     lineHeight: layer.lineHeight,
@@ -200,7 +215,10 @@ function TextBody({
     );
   }
 
-  return <div style={style}>{layer.text}</div>;
+  // Non-editing: list markers are DERIVED for display (the stored text
+  // stays clean). Editing shows the raw text so markers aren't editable
+  // and never get committed.
+  return <div style={style}>{listDisplayText(layer.text, layer.list)}</div>;
 }
 
 function ImageBody({

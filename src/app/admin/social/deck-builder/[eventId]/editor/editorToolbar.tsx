@@ -16,7 +16,11 @@ import type {
   ImageCrop,
   Layer,
   ShapeKind,
+  TextAlign,
+  TextCase,
+  TextList,
 } from "@/lib/social-editor/types";
+import { listDisplayText, textCaseFor } from "@/lib/social-editor/types";
 import { FONT_OPTIONS, bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { FILTER_PRESETS } from "@/lib/social-editor/imageStyle";
 import {
@@ -179,11 +183,14 @@ function TextControls({
       <Toggle on={layer.fontWeight >= 700} onClick={() => onChange({ fontWeight: layer.fontWeight >= 700 ? 400 : 700 })}>B</Toggle>
       <Toggle on={layer.italic} onClick={() => onChange({ italic: !layer.italic })}><span className="italic">I</span></Toggle>
       <Toggle on={layer.underline} onClick={() => onChange({ underline: !layer.underline })}><span className="underline">U</span></Toggle>
-      <Toggle on={layer.uppercase} onClick={() => onChange({ uppercase: !layer.uppercase })}>AA</Toggle>
+      <Toggle on={!!layer.strikethrough} onClick={() => onChange({ strikethrough: !layer.strikethrough })}><span className="line-through">S</span></Toggle>
+      <CasePopover value={textCaseFor(layer)} onChange={(textCase) => onChange({ textCase, uppercase: textCase === "upper" })} />
 
       <Divider />
 
       <AlignCycle value={layer.align} onChange={(align) => onChange({ align })} />
+      <ListCycle value={layer.list ?? "none"} onChange={(list) => onChange({ list })} />
+      <FitBoxBtn layer={layer} onChange={onChange} />
 
       <Popover label="Spacing">
         {() => (
@@ -195,6 +202,132 @@ function TextControls({
       </Popover>
     </>
   );
+}
+
+/** Case mode dropdown: As-typed / UPPERCASE / lowercase / Title Case.
+ *  Writes `textCase` (and keeps the legacy `uppercase` boolean in sync via
+ *  the caller) so both renderers and older drafts agree. */
+function CasePopover({ value, onChange }: { value: TextCase; onChange: (v: TextCase) => void }) {
+  const OPTS: { id: TextCase; label: string; preview: string }[] = [
+    { id: "none", label: "As typed", preview: "Aa" },
+    { id: "upper", label: "UPPERCASE", preview: "AA" },
+    { id: "lower", label: "lowercase", preview: "aa" },
+    { id: "title", label: "Title Case", preview: "Aa" },
+  ];
+  const current = OPTS.find((o) => o.id === value) ?? OPTS[0]!;
+  return (
+    <Popover label={current.preview}>
+      {(close) => (
+        <div className="w-40 py-1">
+          {OPTS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => { onChange(o.id); close(); }}
+              className={`w-full text-left px-3 py-1.5 text-[13px] hover:bg-charcoal/5 ${value === o.id ? "text-green" : "text-charcoal/75"}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+/** Cycle bullet / numbered / no list. The marker is derived at render
+ *  time in both renderers — this only flips the `list` mode. */
+function ListCycle({ value, onChange }: { value: TextList; onChange: (v: TextList) => void }) {
+  const next: TextList = value === "none" ? "bullet" : value === "bullet" ? "number" : "none";
+  const active = value !== "none";
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(next)}
+      title={`List: ${value === "none" ? "off" : value}`}
+      className={`w-9 h-9 rounded-lg grid place-items-center transition ${active ? "bg-green/10 text-green" : "text-charcoal/65 hover:bg-charcoal/5"}`}
+    >
+      {value === "number" ? <ListNumberIcon /> : <ListBulletIcon />}
+    </button>
+  );
+}
+
+/** "Fit box to text" — measures the rendered text node on the canvas and
+ *  resizes the layer's height (and width when the box is currently
+ *  narrower than the content) to wrap it snugly. Manual (a click) so it
+ *  never fights the user mid-type. Measurement is DOM-based: we clone the
+ *  on-canvas text node's geometry into an off-screen measuring div using
+ *  the layer's own board-unit metrics (scale-independent). */
+function FitBoxBtn({
+  layer,
+  onChange,
+}: {
+  layer: Extract<Layer, { type: "text" }>;
+  onChange: (patch: Partial<Layer>) => void;
+}) {
+  function fit() {
+    const size = measureText(layer);
+    if (size) {
+      onChange({ w: Math.max(1, Math.ceil(size.w)), h: Math.max(1, Math.ceil(size.h)) });
+      return;
+    }
+    // Fallback (no DOM / measurement failed): height from line count.
+    const lines = listDisplayText(layer.text, layer.list).split("\n").length || 1;
+    onChange({ h: Math.max(1, Math.ceil(lines * layer.fontSize * layer.lineHeight)) });
+  }
+  return (
+    <button
+      type="button"
+      onClick={fit}
+      title="Fit box to text"
+      className="w-9 h-9 rounded-lg grid place-items-center text-charcoal/65 hover:bg-charcoal/5 transition"
+    >
+      <FitBoxIcon />
+    </button>
+  );
+}
+
+/** Measure a text layer's natural size in BOARD UNITS by rendering its
+ *  displayed string into an off-screen div with the same typographic
+ *  metrics. Returns board-unit {w,h}; null if the DOM isn't available.
+ *  Width is measured wrapping at the current box width (so multi-line
+ *  text keeps its wrap) and reads the natural content height. */
+function measureText(layer: Extract<Layer, { type: "text" }>): { w: number; h: number } | null {
+  if (typeof document === "undefined") return null;
+  const el = document.createElement("div");
+  el.style.position = "absolute";
+  el.style.visibility = "hidden";
+  el.style.left = "-99999px";
+  el.style.top = "0";
+  el.style.boxSizing = "border-box";
+  // Board units == px here (the off-screen node isn't scaled), matching
+  // the renderers' scale-1 export geometry.
+  el.style.fontFamily = layer.fontFamily;
+  el.style.fontSize = `${layer.fontSize}px`;
+  el.style.fontWeight = String(layer.fontWeight);
+  el.style.fontStyle = layer.italic ? "italic" : "normal";
+  el.style.lineHeight = String(layer.lineHeight);
+  el.style.letterSpacing = `${layer.letterSpacing}px`;
+  el.style.textTransform =
+    textCaseFor(layer) === "upper"
+      ? "uppercase"
+      : textCaseFor(layer) === "lower"
+        ? "lowercase"
+        : textCaseFor(layer) === "title"
+          ? "capitalize"
+          : "none";
+  el.style.whiteSpace = "pre-wrap";
+  el.style.wordBreak = "break-word";
+  // Constrain to the current box width so wrapping (and the measured
+  // height) matches what's on the canvas.
+  el.style.width = `${Math.max(1, layer.w)}px`;
+  el.textContent = listDisplayText(layer.text, layer.list) || " ";
+  document.body.appendChild(el);
+  // Height that snugly wraps the text at the current box width.
+  const h = el.scrollHeight;
+  document.body.removeChild(el);
+  // Respect the user's box width; only snap the height to the content.
+  return { w: layer.w, h };
 }
 
 function ImageControls({
@@ -904,16 +1037,65 @@ function TextBtn({ onClick, children }: { onClick: () => void; children: ReactNo
   );
 }
 
-function AlignCycle({ value, onChange }: { value: "left" | "center" | "right"; onChange: (v: "left" | "center" | "right") => void }) {
-  const next = value === "left" ? "center" : value === "center" ? "right" : "left";
+function AlignCycle({ value, onChange }: { value: TextAlign; onChange: (v: TextAlign) => void }) {
+  // Cycle left → center → right → justify → left.
+  const next: TextAlign =
+    value === "left" ? "center" : value === "center" ? "right" : value === "right" ? "justify" : "left";
+  // Middle rule: justify shows a full-width line (block look); others
+  // shrink/offset to hint the alignment.
+  const mid =
+    value === "justify"
+      ? { x1: 2, x2: 14 }
+      : value === "right"
+        ? { x1: 5, x2: 14 }
+        : value === "left"
+          ? { x1: 2, x2: 11 }
+          : { x1: 4, x2: 12 };
   return (
     <button type="button" onClick={() => onChange(next)} title={`Text align: ${value}`} className="w-9 h-9 rounded-lg grid place-items-center text-charcoal/65 hover:bg-charcoal/5">
       <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
         <line x1="2" y1="4" x2="14" y2="4" strokeLinecap="round" />
-        <line x1={value === "right" ? 5 : 2} y1="8" x2={value === "left" ? 11 : 14} y2="8" strokeLinecap="round" />
-        <line x1="2" y1="12" x2="14" y2="12" strokeLinecap="round" />
+        <line x1={mid.x1} y1="8" x2={mid.x2} y2="8" strokeLinecap="round" />
+        <line x1="2" y1="12" x2={value === "justify" ? 14 : 12} y2="12" strokeLinecap="round" />
       </svg>
     </button>
+  );
+}
+
+function ListBulletIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="3" cy="4" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="3" cy="8" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="3" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <line x1="6.5" y1="4" x2="14" y2="4" strokeLinecap="round" />
+      <line x1="6.5" y1="8" x2="14" y2="8" strokeLinecap="round" />
+      <line x1="6.5" y1="12" x2="14" y2="12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ListNumberIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.4">
+      <text x="1.5" y="5.5" fontSize="5" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text>
+      <text x="1.5" y="10" fontSize="5" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text>
+      <text x="1.5" y="14.5" fontSize="5" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text>
+      <line x1="6.5" y1="4" x2="14" y2="4" strokeLinecap="round" />
+      <line x1="6.5" y1="8.5" x2="14" y2="8.5" strokeLinecap="round" />
+      <line x1="6.5" y1="13" x2="14" y2="13" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** "Fit box to text" — square with a downward double-arrow snapping to a
+ *  baseline. */
+function FitBoxIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="3" width="14" height="14" rx="2" opacity="0.4" />
+      <path d="M10 6.5v5M7.8 9.5L10 11.7l2.2-2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
