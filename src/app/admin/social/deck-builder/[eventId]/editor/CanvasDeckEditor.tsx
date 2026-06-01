@@ -1354,6 +1354,21 @@ export default function CanvasDeckEditor({
                 {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
               </span>
             )}
+            <a
+              href="/admin/social/template-lab/view"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Browse all 95 templates (opens in a new tab)"
+              className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                <rect x="1.5" y="1.5" width="5" height="5" rx="1" />
+                <rect x="9.5" y="1.5" width="5" height="5" rx="1" />
+                <rect x="1.5" y="9.5" width="5" height="5" rx="1" />
+                <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+              </svg>
+              View templates
+            </a>
             <ToolbarBtn label="Layers" active={showLayers} onClick={() => setShowLayers((v) => !v)}><LayersIcon /></ToolbarBtn>
             <div className="flex items-center gap-1">
               <button type="button" title="Zoom out (⌘−)" onClick={() => setScale((s) => Math.max(0.05, s / 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">−</button>
