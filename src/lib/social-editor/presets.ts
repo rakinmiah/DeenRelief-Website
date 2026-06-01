@@ -1629,6 +1629,356 @@ function statBeat(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── Key-Fact design system (one sourced fact per slide, A–J) ────── *
+ *
+ * Ten "Fact" slides — each foregrounds a SINGLE sourced statement
+ * (c.primary, e.g. "9 in 10 families now skip meals every day."), with a
+ * small tag (c.eyebrow) and — always — a SOURCE line (c.secondary, or a
+ * sensible OCHA default). Shared discipline with the Hero/Stat/CTA
+ * systems: 78px insets, Anton uppercase facts (line-height 0.96), Barlow
+ * eyebrow/source, gold rule + diamond motif. Geometry is board units on
+ * the 1080 board. Sensible Gaza-appeal defaults so each renders with
+ * sparse content.
+ */
+
+/** The fact's source line — defaults to OCHA when none is supplied. */
+function factSource(c: SlideContent): string {
+  return (c.secondary && c.secondary.trim()) || "Source: OCHA · 2026";
+}
+function factStatement(c: SlideContent): string {
+  return c.primary || "1 in 2 children in Gaza now go to bed hungry.";
+}
+function factEyebrow(c: SlideContent): string {
+  return c.eyebrow || "Key fact · Gaza";
+}
+/** A small gold "Source:" tag set in uppercase Barlow. */
+function factSourceTag(t: string, x: number, y: number, w: number, color: string = C.amber, align: TextAlign = "left"): TextLayer {
+  return text({ x, y, w, h: 30, text: t, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color, opacity: 0.85, align });
+}
+
+// FACT A — Photo lower-third: full-bleed field photo, a top scrim for the
+// chrome and a strong bottom scrim, the fact in the lower third, a gold
+// rule and a source tag.
+function factPhotoBleed(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const fact = factStatement(c);
+  const factSize = 64;
+  const sourceY = B - HPAD - 28;
+  const ruleY = sourceY - 30;
+  const factMain = balanceLines(fact, W, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 14);
+  const factY = ruleY - 28 - factH;
+  const eyebrowY = factY - 46;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 340, w: B, h: B - 340, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
+      hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      factSourceTag(factSource(c), HPAD, sourceY, W, C.amber),
+    ],
+    C.forest
+  );
+}
+
+// FACT B — Type-led: type-only on forest. Eyebrow, a big Anton fact, a gold
+// rule, and a gold source tag. The plain workhorse — no photo, all
+// typographic authority.
+function factTypeLed(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const fact = factStatement(c);
+  const factSize = 92;
+  const factMain = balanceLines(fact, W, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 16);
+  const factY = 360;
+  const ruleY = factY + factH + 30;
+  const sourceY = ruleY + 40;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(factEyebrow(c), HPAD, factY - 50, W),
+      hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      factSourceTag(factSource(c), HPAD, sourceY, W, C.amber),
+    ],
+    C.forest
+  );
+}
+
+// FACT C — Top photo + panel: photo across the top ~55%, a forest panel
+// below carrying eyebrow + fact + source (the heroTopPanel structure).
+function factTopPanel(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const fact = factStatement(c);
+  const factSize = 62;
+  const eyebrowY = 660;
+  const factY = eyebrowY + 50;
+  const factMain = balanceLines(fact, W, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 12);
+  const ruleY = factY + factH + 24;
+  const sourceY = ruleY + 36;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: 594, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 333, w: B, h: 261, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
+      hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      factSourceTag(factSource(c), HPAD, sourceY, W, C.amber),
+    ],
+    C.forest
+  );
+}
+
+// FACT D — Split: vertical 50/50. Photo on the left half, a forest panel on
+// the right carrying the fact + source (the hero split-diptych structure).
+function factSplit(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2); // 540
+  const pad = 56;
+  const panelX = half + pad; // 596
+  const panelW = B - panelX - pad; // 428
+  const fact = factStatement(c);
+  const factSize = 52;
+  const factMain = balanceLines(fact, panelW, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 12);
+  const eyebrowH = 30, gap1 = 20, gap2 = 24, ruleH = 3, gap3 = 24, sourceH = 30;
+  const coreH = eyebrowH + gap1 + factH + gap2 + ruleH + gap3 + sourceH;
+  const coreTop = Math.round((B - coreH) / 2) + 14;
+  const eyebrowY = coreTop;
+  const factY = eyebrowY + eyebrowH + gap1;
+  const ruleY = factY + factH + gap2;
+  const sourceY = ruleY + ruleH + gap3;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(panelX, HPAD, c.logo),
+      text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: factEyebrow(c), fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
+      hHead(factMain, panelX, factY, panelW, factH, factSize, "left", C.cream),
+      goldBar(panelX, ruleY, 56),
+      factSourceTag(factSource(c), panelX, sourceY, panelW, C.creamDim),
+    ],
+    C.forest
+  );
+}
+
+// FACT E — Keyline card: the fact framed in a gold keyline card (inset 46)
+// on forest, holding eyebrow + fact + source, centred in-frame.
+function factKeyline(c: SlideContent): EditorSlide {
+  const FPAD = 46;
+  const frameW = B - 2 * FPAD; // 988
+  const inset = 64;
+  const innerX = FPAD + inset; // 110
+  const innerW = frameW - 2 * inset; // 860
+  const fact = factStatement(c);
+  const factSize = 76;
+  const factMain = balanceLines(fact, innerW, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 14);
+  const eyebrowH = 32, gap1 = 24, gap2 = 30, ruleH = 3, gap3 = 28, sourceH = 30;
+  const coreH = eyebrowH + gap1 + factH + gap2 + ruleH + gap3 + sourceH;
+  const eyebrowY = Math.round((B - coreH) / 2);
+  const factY = eyebrowY + eyebrowH + gap1;
+  const ruleY = factY + factH + gap2;
+  const sourceY = ruleY + ruleH + gap3;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      // Enclosing 2px gold keyline frame (988×988), inset 46.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      ...wordmark(innerX, FPAD + 30, c.logo),
+      hEyebrow(factEyebrow(c), innerX, eyebrowY, innerW),
+      hHead(factMain, innerX, factY, innerW, factH, factSize, "left", C.cream),
+      goldBar(innerX, ruleY, 64),
+      factSourceTag(factSource(c), innerX, sourceY, innerW, C.amber),
+      text({ x: innerX, y: B - FPAD - 30 - 28, w: innerW, h: 28, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "right" }),
+    ],
+    C.forest
+  );
+}
+
+// FACT F — Lead-in detail: a small lead-in eyebrow, the fact headline, plus
+// one pulled supporting detail line, then a source line.
+function factLeadIn(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const fact = factStatement(c);
+  const factSize = 78;
+  const factMain = balanceLines(fact, W, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 14);
+  const eyebrowY = 268;
+  const factY = eyebrowY + 50;
+  const ruleY = factY + factH + 30;
+  const detailY = ruleY + 30;
+  const sourceY = B - HPAD - 28;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
+      hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      // The pulled supporting detail (Barlow body).
+      hBody("Aid agencies warn the window to prevent famine is closing fast, with deliveries running far below need.", HPAD, detailY, W, 150),
+      factSourceTag(factSource(c), HPAD, sourceY, W, C.creamDim),
+    ],
+    C.forest
+  );
+}
+
+// FACT G — Caption bar: full-bleed photo + a solid forest caption bar at the
+// foot carrying the fact + a photo credit/source (the heroCaption structure).
+function factCaptionBar(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const fact = factStatement(c);
+  const factSize = 54;
+  const factMain = balanceLines(fact, W, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 12);
+  // Size the bar to the content: eyebrow + fact (1–2 lines) + a source line.
+  const barTop = factLines > 1 ? 740 : 820;
+  const eyebrowY = barTop + 42;
+  const factY = eyebrowY + 46;
+  const sourceY = factY + factH + 22;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
+      shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
+      hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
+      hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
+      factSourceTag(factSource(c), HPAD, sourceY, W, C.creamDim),
+    ],
+    C.forest
+  );
+}
+
+// FACT H — Inset card: full-bleed photo with a gold-bordered forest card
+// floated low holding eyebrow + fact + source (the heroInsetCard structure).
+function factInsetCard(c: SlideContent): EditorSlide {
+  const cardX = HPAD; // 78
+  const cardW = B - 2 * HPAD; // 924
+  const cardPad = 54;
+  const innerX = cardX + cardPad;
+  const innerW = cardW - 2 * cardPad; // 816
+  const fact = factStatement(c);
+  const factSize = 58;
+  const factMain = balanceLines(fact, innerW, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 12);
+  const contentH = 32 + 18 + factH + 22 + 30; // eyebrow + gap + fact + gap + source
+  const cardH = contentH + 2 * cardPad;
+  const cardY = B - HPAD - cardH;
+  const eyebrowY = cardY + cardPad;
+  const factY = eyebrowY + 32 + 18;
+  const sourceY = factY + factH + 22;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
+      // Card: solid forest with a gold keyline border.
+      shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
+      shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
+      text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: factEyebrow(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
+      hHead(factMain, innerX, factY, innerW, factH, factSize, "left", C.cream),
+      factSourceTag(factSource(c), innerX, sourceY, innerW, C.creamDim),
+    ],
+    C.forest
+  );
+}
+
+// FACT I — Crest: a quiet centred crest. A gold diamond emblem (forest inner
+// keyline), eyebrow, a centred Anton fact, a gold rule, and a source meta.
+function factCrest(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const fact = factStatement(c);
+  const dia = 46;
+  const innerDia = 30;
+  const factSize = 72;
+  const factMain = balanceLines(fact, W, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 14);
+  const diaY = 250;
+  const eyebrowY = diaY + dia + 40;
+  const factY = eyebrowY + 44;
+  const ruleY = factY + factH + 30;
+  const sourceY = ruleY + 38;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      // Enclosing 2px gold keyline frame (988×988), inset 46.
+      shape({ x: 46, y: 46, w: B - 92, h: B - 92, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      // Emblem: gold diamond + a forest keyline diamond centred inside.
+      shape({ x: Math.round(cx - dia / 2), y: diaY, w: dia, h: dia, shape: "rect", fill: C.amber, rotation: 45 }),
+      shape({ x: Math.round(cx - innerDia / 2), y: Math.round(diaY + (dia - innerDia) / 2), w: innerDia, h: innerDia, shape: "rect", fill: "transparent", stroke: C.forest, strokeWidth: 2, rotation: 45 }),
+      hEyebrow(factEyebrow(c), HPAD, eyebrowY, W, "center"),
+      hHead(factMain, HPAD, factY, W, factH, factSize, "center", C.cream),
+      goldBar(Math.round(cx - 46), ruleY, 92),
+      factSourceTag(factSource(c), HPAD, sourceY, W, C.creamDim, "center"),
+    ],
+    C.forest
+  );
+}
+
+// FACT J — Two-tone: a gold-bordered two-tone card. A forest top panel
+// carries the fact; a cream band below holds the source in dark ink (the
+// heroCornerCard structure).
+function factTwoTone(c: SlideContent): EditorSlide {
+  const FPAD = 40; // outer pad → the 1000×1000 frame
+  const frameW = B - 2 * FPAD; // 1000
+  const bandH = 220; // cream band
+  const bandY = B - FPAD - bandH; // ~820
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset; // 888
+  const fact = factStatement(c);
+  const factSize = 80;
+  const factMain = balanceLines(fact, innerW, factSize);
+  const factLines = factMain.split("\n").length;
+  const factH = Math.round(factLines * factSize * 0.96 + 16);
+  const factY = bandY - 44 - factH; // 44px clear above the band
+  const barY = FPAD + inset;
+  const eyebrowY = factY - 46;
+  return slide(
+    [
+      // Forest base fills the whole frame; the cream band paints over the foot.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+      shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+      // Topbar: wordmark + "Key Fact" tag.
+      ...wordmark(innerX, barY, c.logo),
+      hTag("Key Fact", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
+      // Eyebrow (gold) + fact (cream, bottom-anchored in the forest panel).
+      text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: factEyebrow(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
+      text({ x: innerX, y: factY, w: innerW, h: factH, text: factMain, fontFamily: ANTON, fontSize: factSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      // Cream band: dark source (left) + gold-deep URL (right).
+      text({ x: innerX, y: bandY + Math.round((bandH - 34) / 2), w: 540, h: 34, text: factSource(c), fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 1, color: C.forestDim }),
+      text({ x: FPAD + frameW - inset - 420, y: bandY + Math.round((bandH - 44) / 2), w: 420, h: 52, text: "deenrelief.org", fontFamily: ANTON, fontSize: 40, fontWeight: 400, color: C.goldDeep, align: "right" }),
+      // The 2px gold border framing the whole 1000×1000 card, on top.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+    ],
+    C.forest
+  );
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
@@ -1656,6 +2006,19 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("tiers")) return tiersLadder(c);
   if (id.includes("beforeafter") || id.includes("before-after")) return beforeAfter(c);
   if (id.includes("multistat") || id.includes("multi-stat")) return multiStatStack(c);
+  // Key-Fact library (A–J). Specific ids first so "fact-a" doesn't get
+  // swallowed by the "fact-photo"/"fact" matches below. (fact-a..fact-j
+  // don't contain "fact-photo", but ordering them first makes it certain.)
+  if (id.includes("fact-a")) return factPhotoBleed(c);
+  if (id.includes("fact-b")) return factTypeLed(c);
+  if (id.includes("fact-c")) return factTopPanel(c);
+  if (id.includes("fact-d")) return factSplit(c);
+  if (id.includes("fact-e")) return factKeyline(c);
+  if (id.includes("fact-f")) return factLeadIn(c);
+  if (id.includes("fact-g")) return factCaptionBar(c);
+  if (id.includes("fact-h")) return factInsetCard(c);
+  if (id.includes("fact-i")) return factCrest(c);
+  if (id.includes("fact-j")) return factTwoTone(c);
   if (id.includes("fact-photo")) return factPhoto(c);
   if (id.includes("fact")) return factTypography(c);
   // Big-Stat library (A–J). Specific ids first so "stat-a" doesn't get

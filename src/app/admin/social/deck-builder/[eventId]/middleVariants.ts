@@ -31,6 +31,18 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
   multistat: [
     meta("multistat-a", "By the numbers", "Three numbered figures stacked on forest — the scale of the crisis at a glance."),
   ],
+  fact: [
+    meta("fact-a", "Photo lower-third", "Full-bleed photo with the sourced fact, a gold rule and a source tag in the lower third."),
+    meta("fact-b", "Type-led", "Type-only on forest — an eyebrow, a big Anton fact, a gold rule and a gold source tag."),
+    meta("fact-c", "Top photo + panel", "Photo across the top with a forest panel below carrying the fact and its source."),
+    meta("fact-d", "Split", "Photo left, a forest panel right carrying the fact and source — a vertical 50/50."),
+    meta("fact-e", "Keyline card", "The fact framed in a gold keyline card on forest, with eyebrow, fact and source."),
+    meta("fact-f", "Lead-in detail", "A lead-in eyebrow, the fact, one pulled supporting detail line and a source."),
+    meta("fact-g", "Caption bar", "Full-bleed photo with a solid forest caption bar carrying the fact and its source."),
+    meta("fact-h", "Inset card", "Full-bleed photo with a gold-bordered forest card floated low holding the fact and source."),
+    meta("fact-i", "Crest", "A quiet centred crest — diamond emblem, centred Anton fact, a gold rule and source meta."),
+    meta("fact-j", "Two-tone", "A gold-bordered card — a forest panel carries the fact, a cream band holds the source."),
+  ],
   stat: [
     meta("stat-a", "Colossal", "A colossal centred Anton numeral with an eyebrow above and a short label beneath."),
     meta("stat-b", "With context", "A big numeral in the upper area with a context sentence and a source line beneath."),

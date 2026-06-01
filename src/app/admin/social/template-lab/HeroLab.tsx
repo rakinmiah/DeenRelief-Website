@@ -336,6 +336,56 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         label: "Stat J · With beat",
         c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
       },
+      {
+        id: "fact-a",
+        label: "Fact A · Photo lower-third",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-b",
+        label: "Fact B · Type-led",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-c",
+        label: "Fact C · Top photo + panel",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-d",
+        label: "Fact D · Split",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-e",
+        label: "Fact E · Keyline card",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-f",
+        label: "Fact F · Lead-in detail",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-g",
+        label: "Fact G · Caption bar",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-h",
+        label: "Fact H · Inset card",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-i",
+        label: "Fact I · Crest",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
+      {
+        id: "fact-j",
+        label: "Fact J · Two-tone",
+        c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
+      },
     ],
     [logo]
   );
