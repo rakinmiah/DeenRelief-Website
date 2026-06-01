@@ -13,7 +13,27 @@
 
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { Layer } from "@/lib/social-editor/types";
+import { cornerRadiusCss } from "@/lib/social-editor/types";
 import { cropImgStyle, filterCss } from "@/lib/social-editor/imageStyle";
+
+/** box-shadow string from a layer shadow, scaled to display. */
+function shadowCss(
+  shadow: { x: number; y: number; blur: number; color: string } | null | undefined,
+  scale: number
+): string | undefined {
+  if (!shadow) return undefined;
+  return `${shadow.x * scale}px ${shadow.y * scale}px ${shadow.blur * scale}px ${shadow.color}`;
+}
+
+/** Combine a layer blur (px, board units) with any existing CSS filter
+ *  (e.g. an image colour filter). Returns undefined when there's nothing
+ *  to apply so we don't force a compositing layer needlessly. */
+function combineFilter(base: string | undefined, blur: number | undefined, scale: number): string | undefined {
+  const parts: string[] = [];
+  if (base && base !== "none") parts.push(base);
+  if (blur && blur > 0) parts.push(`blur(${blur * scale}px)`);
+  return parts.length ? parts.join(" ") : undefined;
+}
 
 export default function LayerView({
   layer,
@@ -153,6 +173,10 @@ function TextBody({
     overflow: "hidden",
     outline: editing ? "none" : undefined,
     cursor: editing ? "text" : undefined,
+    // Text layers use text-shadow (Satori honours it) rather than
+    // box-shadow so the glow follows the glyphs, not the box.
+    textShadow: shadowCss(layer.shadow, scale),
+    filter: combineFilter(undefined, layer.blur, scale),
   };
 
   if (editing) {
@@ -191,8 +215,9 @@ function ImageBody({
       style={{
         width: "100%",
         height: "100%",
-        borderRadius: layer.radius * scale,
+        borderRadius: cornerRadiusCss(layer.corners, layer.radius, scale),
         overflow: "hidden",
+        boxShadow: shadowCss(layer.shadow, scale),
         // Transparent for contain-fit cut-outs (logos); loading-tint for photos.
         background:
           layer.objectFit === "contain"
@@ -211,7 +236,8 @@ function ImageBody({
             display: "block",
             pointerEvents: "none",
             objectFit: layer.objectFit,
-            filter: filterCss(layer.filter),
+            // Compose the colour filter with any layer blur.
+            filter: combineFilter(filterCss(layer.filter), layer.blur, scale),
           }}
         />
       )}
@@ -234,22 +260,31 @@ function ShapeBody({
           height: Math.max(1, layer.strokeWidth * scale),
           marginTop: `calc(50% - ${(layer.strokeWidth * scale) / 2}px)`,
           background: layer.stroke,
+          boxShadow: shadowCss(layer.shadow, scale),
+          filter: combineFilter(undefined, layer.blur, scale),
         }}
       />
     );
   }
+  const dashed = (layer.strokeDash ?? 0) > 0;
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
+        // fill accepts a solid colour OR a CSS gradient string.
         background: layer.fill,
         border:
           layer.strokeWidth > 0
-            ? `${layer.strokeWidth * scale}px solid ${layer.stroke}`
+            ? `${layer.strokeWidth * scale}px ${dashed ? "dashed" : "solid"} ${layer.stroke}`
             : "none",
-        borderRadius: layer.shape === "ellipse" ? "50%" : layer.radius * scale,
+        borderRadius:
+          layer.shape === "ellipse"
+            ? "50%"
+            : cornerRadiusCss(layer.corners, layer.radius, scale),
         boxSizing: "border-box",
+        boxShadow: shadowCss(layer.shadow, scale),
+        filter: combineFilter(undefined, layer.blur, scale),
       }}
     />
   );

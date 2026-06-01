@@ -37,6 +37,14 @@ export type LayerBase = {
    *  them, and the export route should SKIP them. Defaults to visible
    *  (undefined === false), so older drafts round-trip unchanged. */
   hidden?: boolean;
+  /** Drop shadow, board units. Applied as a CSS box-shadow on the
+   *  layer's visual element (text layers also get a matching
+   *  text-shadow). null/undefined = no shadow. Both Satori box-shadow
+   *  and text-shadow are honoured, so canvas + export match. */
+  shadow?: { x: number; y: number; blur: number; color: string } | null;
+  /** Layer blur radius, board units. 0/undefined = sharp. Composed into
+   *  the CSS `filter` (combined with any image colour filter). */
+  blur?: number;
 };
 
 export type TextAlign = "left" | "center" | "right";
@@ -83,6 +91,9 @@ export type ImageLayer = LayerBase & {
   objectFit: "cover" | "contain";
   /** Corner radius, board units. */
   radius: number;
+  /** Per-corner radius [TL, TR, BR, BL], board units. When set it wins
+   *  over `radius`; null/absent falls back to the uniform `radius`. */
+  corners?: [number, number, number, number] | null;
   crop?: ImageCrop;
   filter?: ImageFilter;
 };
@@ -92,11 +103,19 @@ export type ShapeKind = "rect" | "ellipse" | "line";
 export type ShapeLayer = LayerBase & {
   type: "shape";
   shape: ShapeKind;
+  /** Solid colour OR a CSS gradient string (e.g. a linear-gradient). */
   fill: string;
   stroke: string;
   strokeWidth: number;
   /** Corner radius for rects, board units. */
   radius: number;
+  /** Per-corner radius [TL, TR, BR, BL] for rects, board units. When set
+   *  it wins over `radius`; null/absent falls back to uniform `radius`. */
+  corners?: [number, number, number, number] | null;
+  /** Dash length in board units for the stroke. 0/undefined = solid.
+   *  >0 = dashed border. (Editor-preview only — see render route note;
+   *  Satori does not honour dashed borders.) */
+  strokeDash?: number;
 };
 
 export type Layer = TextLayer | ImageLayer | ShapeLayer;
@@ -121,6 +140,23 @@ export function makeLayerId(): string {
 }
 
 export const DEFAULT_BOARD = 1080;
+
+/** Resolve a layer's effective border-radius CSS value, scaled to the
+ *  display (scale=1 at export). Per-corner `corners` wins over the
+ *  uniform `radius`. Returns a `borderRadius` string/number ready to
+ *  drop into a style object — used identically by the live canvas
+ *  (LayerView) and the Satori export route so previews match the PNG. */
+export function cornerRadiusCss(
+  corners: [number, number, number, number] | null | undefined,
+  radius: number,
+  scale = 1
+): string | number {
+  if (corners && corners.length === 4) {
+    const [tl, tr, br, bl] = corners;
+    return `${tl * scale}px ${tr * scale}px ${br * scale}px ${bl * scale}px`;
+  }
+  return radius * scale;
+}
 
 /** Human label for a layer in the layers panel / mini-toolbar. Uses a
  *  custom `name` when set, otherwise derives one from the content. */

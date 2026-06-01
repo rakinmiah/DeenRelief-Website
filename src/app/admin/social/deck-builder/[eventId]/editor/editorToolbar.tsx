@@ -37,6 +37,38 @@ import { layerLabel } from "@/lib/social-editor/types";
 
 const SWATCHES = ["#163827", "#2D6A2E", "#D4A843", "#F7F3E8", "#1A1A2E", "#FFFFFF", "#C0392B", "#000000"];
 
+/* ─── Gradient fill helpers ───────────────────────────────────────────
+ * A shape's `fill` is either a solid colour or a CSS gradient string.
+ * The toolbar's Gradient mode produces a simple 2-stop linear-gradient
+ * (`linear-gradient(<angle>deg, <c0> 0%, <c1> 100%)`) and round-trips it
+ * back through this small parser so re-opening the control restores the
+ * angle + stops. Anything more exotic (the brand SCRIM/GLOW/DUO presets)
+ * still renders fine — it's just shown as "Gradient" and edited as a
+ * fresh 2-stop when toggled. */
+type Grad = { angle: number; c0: string; c1: string };
+
+const DEFAULT_GRAD: Grad = { angle: 135, c0: "#163827", c1: "#D4A843" };
+
+function isGradient(fill: string): boolean {
+  return /gradient\s*\(/i.test(fill);
+}
+
+function gradientCss(g: Grad): string {
+  return `linear-gradient(${Math.round(g.angle)}deg, ${g.c0} 0%, ${g.c1} 100%)`;
+}
+
+/** Best-effort parse of a 2-stop linear-gradient back into {angle,c0,c1}.
+ *  Falls back to DEFAULT_GRAD for gradients we didn't author. */
+function parseGradient(fill: string): Grad {
+  const angleMatch = fill.match(/(-?\d+(?:\.\d+)?)deg/);
+  const colors = fill.match(/#[0-9a-f]{3,8}|rgba?\([^)]*\)/gi) ?? [];
+  return {
+    angle: angleMatch ? Number(angleMatch[1]) : DEFAULT_GRAD.angle,
+    c0: colors[0] ?? DEFAULT_GRAD.c0,
+    c1: colors[1] ?? colors[0] ?? DEFAULT_GRAD.c1,
+  };
+}
+
 export type AlignKind =
   | "left" | "hcenter" | "right"
   | "top" | "vcenter" | "bottom"
@@ -68,6 +100,11 @@ export function ContextToolbar({
       {layer.type === "shape" && <ShapeControls layer={layer} onChange={onChange} />}
 
       <Divider />
+      {/* Per-corner radius for shapes (rect) + images. Lines/ellipses skip. */}
+      {((layer.type === "shape" && layer.shape === "rect") || layer.type === "image") && (
+        <CornersPopover layer={layer} onChange={onChange} />
+      )}
+      <EffectsPopover layer={layer} onChange={onChange} />
       <PositionPopover layer={layer} onChange={onChange} />
       <OpacityPopover value={layer.opacity} onChange={(opacity) => onChange({ opacity })} />
       <ArrangePopover onArrange={onArrange} />
@@ -201,13 +238,8 @@ function ImageControls({
           </div>
         )}
       </Popover>
-      <Popover label="Corners">
-        {() => (
-          <div className="w-52 p-3">
-            <Slider label={`Radius · ${Math.round(layer.radius)}`} min={0} max={400} step={2} value={layer.radius} onChange={(radius) => onChange({ radius })} />
-          </div>
-        )}
-      </Popover>
+      {/* Corner radius (uniform + per-corner) lives in the shared
+          CornersPopover in ContextToolbar, so images get it too. */}
     </>
   );
 }
@@ -235,19 +267,205 @@ function ShapeControls({
   }
   return (
     <>
-      <SwatchTrigger label="Fill" value={layer.fill} onChange={(fill) => onChange({ fill })} />
+      <FillControl value={layer.fill} onChange={(fill) => onChange({ fill })} />
       <SwatchTrigger label="Stroke" value={layer.stroke} onChange={(stroke) => onChange({ stroke })} />
       <Popover label="Border">
         {() => (
-          <div className="w-52 p-3 flex flex-col gap-3">
+          <div className="w-56 p-3 flex flex-col gap-3">
             <Slider label={`Stroke width · ${Math.round(layer.strokeWidth)}`} min={0} max={60} step={1} value={layer.strokeWidth} onChange={(strokeWidth) => onChange({ strokeWidth })} />
-            {layer.shape === "rect" && (
-              <Slider label={`Corner radius · ${Math.round(layer.radius)}`} min={0} max={400} step={2} value={layer.radius} onChange={(radius) => onChange({ radius })} />
-            )}
+            <Checkbox
+              label="Dashed"
+              checked={(layer.strokeDash ?? 0) > 0}
+              onChange={(on) => onChange({ strokeDash: on ? 8 : 0 })}
+            />
+            <p className="text-[10.5px] leading-snug text-charcoal/40">Dashed shows in the editor; the exported PNG renders a solid stroke.</p>
           </div>
         )}
       </Popover>
     </>
+  );
+}
+
+/** Shape fill: a solid-colour swatch with a Gradient toggle that swaps to a
+ *  simple 2-stop linear-gradient (angle + two stops). Toggling off restores a
+ *  solid colour (the gradient's first stop). */
+function FillControl({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const gradient = isGradient(value);
+  const g = gradient ? parseGradient(value) : DEFAULT_GRAD;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="h-9 px-2 rounded-lg ring-1 ring-charcoal/10 hover:bg-charcoal/5 flex items-center gap-1.5 text-[12.5px] text-charcoal/70"
+      >
+        <span className="w-4 h-4 rounded-[5px] ring-1 ring-charcoal/15" style={{ background: value }} />
+        Fill
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 z-50 w-56 p-3">
+          <Checkbox
+            label="Gradient"
+            checked={gradient}
+            onChange={(on) => onChange(on ? gradientCss(g) : g.c0)}
+          />
+          {gradient ? (
+            <div className="mt-3 flex flex-col gap-2.5">
+              <span
+                className="h-6 rounded-md ring-1 ring-charcoal/10"
+                style={{ background: gradientCss(g) }}
+              />
+              <Slider
+                label={`Angle · ${Math.round(g.angle)}°`}
+                min={0}
+                max={360}
+                step={1}
+                value={g.angle}
+                onChange={(angle) => onChange(gradientCss({ ...g, angle }))}
+              />
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-charcoal/50 w-12">Stop 1</span>
+                <input type="color" value={g.c0.startsWith("#") ? g.c0 : "#000000"} onChange={(e) => onChange(gradientCss({ ...g, c0: e.target.value }))} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
+                <input value={g.c0} onChange={(e) => onChange(gradientCss({ ...g, c0: e.target.value }))} className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-charcoal/50 w-12">Stop 2</span>
+                <input type="color" value={g.c1.startsWith("#") ? g.c1 : "#000000"} onChange={(e) => onChange(gradientCss({ ...g, c1: e.target.value }))} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
+                <input value={g.c1} onChange={(e) => onChange(gradientCss({ ...g, c1: e.target.value }))} className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40" />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <ColorPalette value={value} onChange={onChange} allowTransparent />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Per-corner (or uniform) radius control for rects + images, plus an
+ *  expander writing the per-corner `corners` tuple [TL,TR,BR,BL]. */
+function CornersPopover({
+  layer,
+  onChange,
+}: {
+  layer: Extract<Layer, { type: "shape" }> | Extract<Layer, { type: "image" }>;
+  onChange: (patch: Partial<Layer>) => void;
+}) {
+  const corners = layer.corners ?? null;
+  const [perCorner, setPerCorner] = useState(!!corners);
+  const c: [number, number, number, number] = corners ?? [layer.radius, layer.radius, layer.radius, layer.radius];
+  const setCorner = (i: number, v: number) => {
+    const next = [...c] as [number, number, number, number];
+    next[i] = Math.max(0, v);
+    onChange({ corners: next });
+  };
+  return (
+    <Popover label="Corners">
+      {() => (
+        <div className="w-56 p-3 flex flex-col gap-3">
+          <Slider
+            label={`Radius · ${Math.round(corners ? Math.max(...c) : layer.radius)}`}
+            min={0}
+            max={400}
+            step={2}
+            value={corners ? Math.max(...c) : layer.radius}
+            // Uniform: clears per-corner override and writes the single radius.
+            onChange={(radius) => onChange({ radius, corners: null })}
+          />
+          <Checkbox
+            label="Per-corner"
+            checked={perCorner}
+            onChange={(on) => {
+              setPerCorner(on);
+              onChange({ corners: on ? c : null });
+            }}
+          />
+          {perCorner && (
+            <div className="grid grid-cols-2 gap-2">
+              <NumField label="TL" value={c[0]} min={0} onCommit={(v) => setCorner(0, v)} />
+              <NumField label="TR" value={c[1]} min={0} onCommit={(v) => setCorner(1, v)} />
+              <NumField label="BL" value={c[3]} min={0} onCommit={(v) => setCorner(3, v)} />
+              <NumField label="BR" value={c[2]} min={0} onCommit={(v) => setCorner(2, v)} />
+            </div>
+          )}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+/** Drop shadow + layer blur. Shadow toggle seeds a sensible default; x/y/blur
+ *  NumFields + a colour input edit it. Blur is a single board-unit NumField. */
+function EffectsPopover({
+  layer,
+  onChange,
+}: {
+  layer: Layer;
+  onChange: (patch: Partial<Layer>) => void;
+}) {
+  const shadow = layer.shadow ?? null;
+  const blur = layer.blur ?? 0;
+  const active = !!shadow || blur > 0;
+  return (
+    <Popover label="Effects">
+      {() => (
+        <div className="w-60 p-3 flex flex-col gap-3">
+          <Checkbox
+            label="Shadow"
+            checked={!!shadow}
+            onChange={(on) => onChange({ shadow: on ? { x: 0, y: 8, blur: 24, color: "rgba(0,0,0,0.35)" } : null })}
+          />
+          {shadow && (
+            <div className="flex flex-col gap-2.5">
+              <div className="grid grid-cols-3 gap-2">
+                <NumField label="X" value={shadow.x} width={40} onCommit={(x) => onChange({ shadow: { ...shadow, x } })} />
+                <NumField label="Y" value={shadow.y} width={40} onCommit={(y) => onChange({ shadow: { ...shadow, y } })} />
+                <NumField label="Blur" value={shadow.blur} width={40} min={0} onCommit={(b) => onChange({ shadow: { ...shadow, blur: b } })} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-charcoal/50 w-12">Colour</span>
+                <input type="color" value={shadow.color.startsWith("#") ? shadow.color : "#000000"} onChange={(e) => onChange({ shadow: { ...shadow, color: e.target.value } })} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
+                <input value={shadow.color} onChange={(e) => onChange({ shadow: { ...shadow, color: e.target.value } })} className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40" />
+              </div>
+            </div>
+          )}
+          <span className="w-full h-px bg-charcoal/8" />
+          <Slider label={`Blur · ${Math.round(blur)}`} min={0} max={80} step={1} value={blur} onChange={(v) => onChange({ blur: v })} />
+          {active && (
+            <button type="button" onClick={() => onChange({ shadow: null, blur: 0 })} className="text-[12px] text-charcoal/45 hover:text-charcoal/70 self-start">Clear effects</button>
+          )}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+/** Small labelled checkbox matching the toolbar's quiet look. */
+function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none">
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`w-4 h-4 rounded-[5px] grid place-items-center ring-1 transition ${checked ? "bg-green ring-green text-white" : "ring-charcoal/25 text-transparent hover:ring-charcoal/40"}`}
+      >
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2.5 6.5L5 9l4.5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      <span className="text-[12.5px] text-charcoal/70">{label}</span>
+    </label>
   );
 }
 

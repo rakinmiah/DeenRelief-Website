@@ -21,6 +21,23 @@ import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
 import type { EditorSlide, Layer } from "@/lib/social-editor/types";
+import { cornerRadiusCss } from "@/lib/social-editor/types";
+
+/** box-shadow string from a layer shadow (export = board units, scale 1). */
+function shadowCss(
+  shadow: { x: number; y: number; blur: number; color: string } | null | undefined
+): string | undefined {
+  if (!shadow) return undefined;
+  return `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.color}`;
+}
+
+/** Combine a layer blur (px) with any existing CSS filter string. */
+function combineFilter(base: string | undefined, blur: number | undefined): string | undefined {
+  const parts: string[] = [];
+  if (base && base !== "none") parts.push(base);
+  if (blur && blur > 0) parts.push(`blur(${blur}px)`);
+  return parts.length ? parts.join(" ") : undefined;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -186,6 +203,10 @@ function renderInner(l: Layer, uri: string | null) {
           lineHeight: l.lineHeight,
           letterSpacing: l.letterSpacing,
           whiteSpace: "pre-wrap",
+          // Mirror LayerView: text gets text-shadow (Satori honours it),
+          // blur via the CSS filter — keeps canvas + PNG identical.
+          textShadow: shadowCss(l.shadow),
+          filter: combineFilter(undefined, l.blur),
         }}
       >
         {l.text}
@@ -199,8 +220,9 @@ function renderInner(l: Layer, uri: string | null) {
           display: "flex",
           width: "100%",
           height: "100%",
-          borderRadius: l.radius,
+          borderRadius: cornerRadiusCss(l.corners, l.radius),
           overflow: "hidden",
+          boxShadow: shadowCss(l.shadow),
           // Transparent for `contain` images (logos / cut-out graphics) so
           // they sit directly on the slide; loading-tint only for photos.
           background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
@@ -219,6 +241,9 @@ function renderInner(l: Layer, uri: string | null) {
               // layers are pre-letterboxed to the box (above) and shown here
               // with cover — exact box size means no crop.
               objectFit: "cover",
+              // Colour filter is baked in by sharp upstream; blur is the only
+              // CSS filter we add here (mirrors LayerView).
+              filter: combineFilter(undefined, l.blur),
             }}
           />
         ) : null}
@@ -230,7 +255,16 @@ function renderInner(l: Layer, uri: string | null) {
     const sw = l.strokeWidth;
     return (
       <div style={{ display: "flex", width: "100%", height: "100%", flexDirection: "column" }}>
-        <div style={{ width: "100%", height: sw, marginTop: (l.h - sw) / 2, background: l.stroke }} />
+        <div
+          style={{
+            width: "100%",
+            height: sw,
+            marginTop: (l.h - sw) / 2,
+            background: l.stroke,
+            boxShadow: shadowCss(l.shadow),
+            filter: combineFilter(undefined, l.blur),
+          }}
+        />
       </div>
     );
   }
@@ -238,9 +272,17 @@ function renderInner(l: Layer, uri: string | null) {
     display: "flex",
     width: "100%",
     height: "100%",
+    // fill accepts a solid colour OR a CSS gradient string (already
+    // supported — SCRIM/GLOW/DUO presets render here today).
     background: l.fill,
-    borderRadius: l.shape === "ellipse" ? 9999 : l.radius,
+    borderRadius: l.shape === "ellipse" ? 9999 : cornerRadiusCss(l.corners, l.radius),
+    boxShadow: shadowCss(l.shadow),
+    filter: combineFilter(undefined, l.blur),
   };
+  // NOTE: Satori does NOT honour dashed borders — it renders any
+  // border-style as solid. `strokeDash` is therefore an editor-preview-only
+  // affordance; the exported PNG always shows a solid stroke. We keep
+  // "solid" here so the build stays clean and the border still exports.
   if (l.strokeWidth > 0) shapeStyle.border = `${l.strokeWidth}px solid ${l.stroke}`;
   return <div style={shapeStyle} />;
 }
