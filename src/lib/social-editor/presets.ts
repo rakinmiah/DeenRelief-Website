@@ -1297,6 +1297,338 @@ function ctaWordmarkCard(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── Big-Stat design system (one giant figure, A–J) ──────────────── *
+ *
+ * Ten "Stat" slides — each foregrounds a single colossal Anton numeral
+ * (c.primary, e.g. "2.1M"), with a short label (c.secondary) and a small
+ * tag (c.eyebrow). EVERY stat carries a source line. Shared discipline
+ * with the Hero/CTA systems: 78px insets, Anton uppercase numerals
+ * (overflow their line box upward → generous top gaps), Barlow text, the
+ * gold rule + diamond motif. Geometry is board units on the 1080 board.
+ */
+
+/** A small source line — defaults to OCHA when none is supplied. */
+function statSource(c: SlideContent): string {
+  return (c.secondary && c.secondary.trim()) || "Source: OCHA · 2026";
+}
+
+// STAT A — Colossal: a centred, board-filling Anton numeral, an eyebrow
+// above (generous gap so the numeral doesn't merge into it), a short label
+// beneath, and a source foot.
+function statColossal(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 380;
+  const figureH = Math.round(figureSize * 0.82 + 20);
+  const labelText = "Now depend on humanitarian aid.";
+  const labelSize = 50;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const eyeGap = 64; // generous top gap above the numeral (see heroStat)
+  const groupH = 32 + eyeGap + figureH + 14 + labelH;
+  const groupTop = Math.round((B - groupH) / 2) - 8;
+  const eyebrowY = groupTop;
+  const figureY = eyebrowY + 32 + eyeGap;
+  const labelY = figureY + figureH + 14;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "By the numbers · Gaza", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: labelText, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// STAT B — With context: a big numeral in the upper area, then a context
+// sentence (Barlow body) beneath, and a source foot.
+function statContext(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 320;
+  const figureH = Math.round(figureSize * 0.82);
+  const figureY = 248;
+  const labelY = figureY + figureH + 6;
+  const labelSize = 54;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const context = "Now depend on humanitarian aid to survive — food, water, shelter and medicine, delivered against the odds.";
+  const ctxY = labelY + labelH + 34;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, figureY - 50, W),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "People in need.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      goldBar(HPAD, ctxY - 28, 64),
+      hBody(context, HPAD, ctxY, W, 160),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// STAT C — Bleeding numeral: an oversized Anton numeral intentionally
+// bleeding off the right + bottom edges as a graphic, the label set against
+// it on protected ground, a source foot. (Board overflow:hidden clips it.)
+function statBleed(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 620; // colossal — overflows the board by design
+  const figureH = Math.round(figureSize * 0.82);
+  // Bleed off the right and bottom: positioned so the numeral runs past the
+  // board edges; the board's overflow:hidden crops it into a graphic.
+  const figureX = 300;
+  const figureY = 360;
+  const labelText = "PEOPLE\nIN NEED.";
+  const labelSize = 100;
+  const labelH = Math.round(2 * labelSize * 0.92 + 12);
+  const labelY = Math.round((B - labelH) / 2) - 10;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      // The bleeding numeral, set low in the stack so the label reads on top.
+      text({ x: figureX, y: figureY, w: 1400, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -10, color: "rgba(212,168,67,0.92)" }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, labelY - 50, W),
+      text({ x: HPAD, y: labelY, w: 620, h: labelH, text: labelText, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.92, color: C.cream }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// STAT D — Over photo: full-bleed photo, a top scrim for the chrome and a
+// strong bottom scrim, the stat + label in the lower third, a source foot.
+function statPhoto(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 260;
+  const figureH = Math.round(figureSize * 0.82);
+  const labelSize = 50;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const sourceY = B - HPAD - 28;
+  const labelY = sourceY - 24 - labelH;
+  const figureY = labelY - figureH - 2;
+  const eyebrowY = figureY - 44;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 340, w: B, h: B - 340, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, eyebrowY, W),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -3, color: C.amber }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "People in need.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      text({ x: HPAD, y: sourceY, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// STAT E — With unit: a big numeral with a gold unit/qualifier word set just
+// after it ("2.1M" + "people"), a label beneath, a source foot.
+function statUnit(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 300;
+  const figureH = Math.round(figureSize * 0.82);
+  // Centre the figure+unit row: numeral measured narrowly so the gold unit
+  // can sit beside it on a baseline-aligned row.
+  const figW = Math.round(figure.length * figureSize * 0.5);
+  const unit = "people";
+  const unitSize = 64;
+  const rowY = 320;
+  const figX = HPAD;
+  const unitX = figX + figW + 24;
+  const labelSize = 52;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const labelY = rowY + figureH + 8;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, rowY - 50, W),
+      // The numeral + a gold qualifier word baseline-aligned beside it.
+      text({ x: figX, y: rowY, w: figW + 40, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
+      text({ x: unitX, y: rowY + figureH - Math.round(unitSize * 1.1), w: W - figW - 64, h: Math.round(unitSize * 1.2), text: unit, fontFamily: ANTON, fontSize: unitSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.amber, opacity: 0.85 }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "Now depend on aid.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      goldBar(HPAD, labelY + labelH + 26, 64),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// STAT F — Gold inverted: a full gold field with forest ink. Forest
+// wordmark, a colossal forest numeral + label, a source foot. The loud,
+// high-contrast stat.
+function statGoldInverted(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 360;
+  const figureH = Math.round(figureSize * 0.82 + 20);
+  const labelSize = 50;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const eyeGap = 64;
+  const groupH = 32 + eyeGap + figureH + 14 + labelH;
+  const groupTop = Math.round((B - groupH) / 2) - 8;
+  const eyebrowY = groupTop;
+  const figureY = eyebrowY + 32 + eyeGap;
+  const labelY = figureY + figureH + 14;
+  return slide(
+    [
+      // Forest wordmark on the gold field.
+      shape({ x: HPAD, y: HPAD + 4, w: 15, h: 15, shape: "rect", fill: C.forest, rotation: 45 }),
+      text({ x: HPAD + 32, y: HPAD, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color: C.forest }),
+      text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: "By the Numbers", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.forest, opacity: 0.7, align: "right" }),
+      text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "By the numbers · Gaza", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.forest, opacity: 0.8, align: "center" }),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.forest, align: "center" }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "Now depend on humanitarian aid.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.forestSoft, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.forest, opacity: 0.72, align: "center" }),
+    ],
+    C.amber
+  );
+}
+
+// STAT G — Split: photo on the left half, a forest panel on the right
+// carrying the stat + label + a source line (the hero split-diptych
+// structure, built around a single figure).
+function statSplit(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2); // 540
+  const pad = 56;
+  const panelX = half + pad; // 596
+  const panelW = B - panelX - pad; // 428
+  const figure = c.primary || "2.1M";
+  const figureSize = 200;
+  const figureH = Math.round(figureSize * 0.82);
+  const labelSize = 46;
+  const labelH = Math.round(2 * labelSize * 0.96 + 12);
+  const eyebrowH = 30, gap1 = 20, gap2 = 14, gap3 = 26, ruleH = 3;
+  const coreH = eyebrowH + gap1 + figureH + gap2 + labelH + gap3 + ruleH;
+  const coreTop = Math.round((B - coreH) / 2) + 10;
+  const eyebrowY = coreTop;
+  const figureY = eyebrowY + eyebrowH + gap1;
+  const labelY = figureY + figureH + gap2;
+  const ruleY = labelY + labelH + gap3;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(panelX, HPAD, c.logo),
+      text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: c.eyebrow || "By the numbers · Gaza", fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
+      text({ x: panelX, y: figureY, w: panelW, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -3, color: C.amber }),
+      text({ x: panelX, y: labelY, w: panelW, h: labelH, text: "People in need.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      goldBar(panelX, ruleY, 56),
+      text({ x: panelX, y: B - HPAD - 28, w: panelW, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 21, fontWeight: 600, uppercase: true, letterSpacing: 2, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// STAT H — Crest: a centred gold keyline frame (inset 46), eyebrow, a big
+// centred numeral, a gold rule, the label, and a source foot.
+function statCrest(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 300;
+  const figureH = Math.round(figureSize * 0.82 + 16);
+  const labelSize = 48;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const eyeGap = 60;
+  const ruleH = 3, gap1 = 34, gap2 = 30;
+  const groupH = 32 + eyeGap + figureH + gap1 + ruleH + gap2 + labelH;
+  const groupTop = Math.round((B - groupH) / 2) - 6;
+  const eyebrowY = groupTop;
+  const figureY = eyebrowY + 32 + eyeGap;
+  const ruleY = figureY + figureH + gap1;
+  const labelY = ruleY + ruleH + gap2;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      // Enclosing 2px gold keyline frame (988×988), inset 46.
+      shape({ x: 46, y: 46, w: B - 92, h: B - 92, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, eyebrowY, W, "center"),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
+      goldBar(Math.round(cx - 46), ruleY, 92),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "Now depend on aid.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// STAT I — Comparison: a big numeral with a one-line "that's like…"
+// comparison line giving the figure human scale, plus a source foot.
+function statComparison(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 320;
+  const figureH = Math.round(figureSize * 0.82);
+  const figureY = 268;
+  const labelSize = 54;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const labelY = figureY + figureH + 6;
+  const cmpY = labelY + labelH + 40;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, figureY - 50, W),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "People in need.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      // "That's like…" comparison — gold lead-in + cream scale line.
+      text({ x: HPAD, y: cmpY, w: W, h: 30, text: "That's like…", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
+      text({ x: HPAD, y: cmpY + 38, w: W, h: 96, text: "…the entire population of a major city, depending on aid to survive.", fontFamily: BARLOW, fontSize: 30, fontWeight: 500, lineHeight: 1.3, color: C.cream }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// STAT J — With beat: the stat + label, plus one small supporting footnote
+// beat (gold tick + line) pinned to the foot, with a source line.
+function statBeat(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.primary || "2.1M";
+  const figureSize = 340;
+  const figureH = Math.round(figureSize * 0.82);
+  const figureY = 252;
+  const labelSize = 54;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const labelY = figureY + figureH + 6;
+  // Footnote beat pinned to the foot: a gold tick, an uppercase lead, a body.
+  const sourceY = B - HPAD - 28;
+  const beatBodyY = sourceY - 56;
+  const beatLeadY = beatBodyY - 32;
+  const tickY = beatLeadY - 18;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, figureY - 50, W),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: "Now depend on aid.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      // Footnote beat: tick + lead + body, sitting just above the source.
+      shape({ x: HPAD, y: tickY, w: 32, h: 3, shape: "rect", fill: C.amber }),
+      text({ x: HPAD, y: beatLeadY, w: W, h: 28, text: "And the number keeps rising", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.cream }),
+      text({ x: HPAD, y: beatBodyY, w: W, h: 40, text: "Each week without a durable truce pushes more families into need.", fontFamily: BARLOW, fontSize: 23, fontWeight: 400, lineHeight: 1.26, color: C.creamDim }),
+      text({ x: HPAD, y: sourceY, w: W, h: 30, text: statSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "right" }),
+    ],
+    C.forest
+  );
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
@@ -1326,6 +1658,19 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("multistat") || id.includes("multi-stat")) return multiStatStack(c);
   if (id.includes("fact-photo")) return factPhoto(c);
   if (id.includes("fact")) return factTypography(c);
+  // Big-Stat library (A–J). Specific ids first so "stat-a" doesn't get
+  // swallowed by the generic "stat" fallback below. (multistat is already
+  // matched above, so "multistat-*" never reaches here.)
+  if (id.includes("stat-a")) return statColossal(c);
+  if (id.includes("stat-b")) return statContext(c);
+  if (id.includes("stat-c")) return statBleed(c);
+  if (id.includes("stat-d")) return statPhoto(c);
+  if (id.includes("stat-e")) return statUnit(c);
+  if (id.includes("stat-f")) return statGoldInverted(c);
+  if (id.includes("stat-g")) return statSplit(c);
+  if (id.includes("stat-h")) return statCrest(c);
+  if (id.includes("stat-i")) return statComparison(c);
+  if (id.includes("stat-j")) return statBeat(c);
   if (id.includes("stat")) return statHeadline(c);
   if (id.includes("testimony-portrait")) return testimonyPortrait(c);
   if (id.includes("testimony")) return testimonyQuote(c);

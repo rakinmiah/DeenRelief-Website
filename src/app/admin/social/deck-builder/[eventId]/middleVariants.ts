@@ -31,6 +31,18 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
   multistat: [
     meta("multistat-a", "By the numbers", "Three numbered figures stacked on forest — the scale of the crisis at a glance."),
   ],
+  stat: [
+    meta("stat-a", "Colossal", "A colossal centred Anton numeral with an eyebrow above and a short label beneath."),
+    meta("stat-b", "With context", "A big numeral in the upper area with a context sentence and a source line beneath."),
+    meta("stat-c", "Bleeding numeral", "An oversized numeral bleeding off the edge as a graphic, the label set against it."),
+    meta("stat-d", "Over photo", "Full-bleed photo with the stat and label in the lower third over a strong scrim."),
+    meta("stat-e", "With unit", "A big numeral with a gold unit word beside it, a label and a source line."),
+    meta("stat-f", "Gold inverted", "A full gold field with a colossal forest numeral and label — the loud stat."),
+    meta("stat-g", "Split", "Photo left, a forest panel right carrying the stat, label and source."),
+    meta("stat-h", "Crest", "A centred gold keyline frame around a big numeral, a gold rule and the label."),
+    meta("stat-i", "Comparison", "A big numeral with a one-line ‘that's like…’ comparison giving it human scale."),
+    meta("stat-j", "With beat", "The stat and label plus one small supporting footnote beat at the foot."),
+  ],
   cta: [
     meta("cta-a", "Type-led", "Forest field, a big Anton ask, a gold rule and a DONATE NOW pill — the typographic close."),
     meta("cta-b", "Gold inverted", "A full gold field with forest ink and a forest DONATE pill — the loud, high-contrast close."),

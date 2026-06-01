@@ -286,6 +286,56 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         label: "CTA J · Wordmark card",
         c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
       },
+      {
+        id: "stat-a",
+        label: "Stat A · Colossal",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-b",
+        label: "Stat B · With context",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-c",
+        label: "Stat C · Bleeding numeral",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-d",
+        label: "Stat D · Over photo",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-e",
+        label: "Stat E · With unit",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-f",
+        label: "Stat F · Gold inverted",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-g",
+        label: "Stat G · Split",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-h",
+        label: "Stat H · Crest",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-i",
+        label: "Stat I · Comparison",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
+      {
+        id: "stat-j",
+        label: "Stat J · With beat",
+        c: { primary: "2.1M", secondary: "now depend on humanitarian aid", imageUrl: SAMPLE_IMG, eyebrow: "By the numbers · Gaza", logo },
+      },
     ],
     [logo]
   );
