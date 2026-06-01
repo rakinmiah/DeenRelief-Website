@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, type CSSProperties } from "react";
 import type { Layer } from "@/lib/social-editor/types";
-import { cornerRadiusCss } from "@/lib/social-editor/types";
+import { cornerRadiusCss, flipTransform } from "@/lib/social-editor/types";
 import { cropImgStyle, filterCss } from "@/lib/social-editor/imageStyle";
 
 /** box-shadow string from a layer shadow, scaled to display. */
@@ -69,7 +69,7 @@ export default function LayerView({
     top: 0,
     width: layer.w * scale,
     height: layer.h * scale,
-    transform: `translate(${layer.x * scale}px, ${layer.y * scale}px) rotate(${layer.rotation}deg)`,
+    transform: `translate(${layer.x * scale}px, ${layer.y * scale}px) rotate(${layer.rotation}deg)${flipTransform(layer.flipH, layer.flipV)}`,
     transformOrigin: "center center",
     opacity: layer.opacity,
     cursor: !interactive ? "default" : layer.locked ? "default" : "move",

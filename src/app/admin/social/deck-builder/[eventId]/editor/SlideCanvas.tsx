@@ -57,6 +57,8 @@ export default function SlideCanvas({
   const nodes = useRef<Map<string, HTMLElement>>(new Map());
   const [targets, setTargets] = useState<HTMLElement[]>([]);
   const [elementGuidelines, setElementGuidelines] = useState<HTMLElement[]>([]);
+  // Hold Shift to lock aspect ratio while resizing (Figma/Canva behaviour).
+  const [shiftRatio, setShiftRatio] = useState(false);
 
   const selectedLayers = layers.filter((l) => selectedIds.includes(l.id));
   const single = selectedLayers.length === 1 ? selectedLayers[0]! : null;
@@ -83,6 +85,19 @@ export default function SlideCanvas({
   useEffect(() => {
     moveableRef.current?.updateRect();
   }, [scale, layers, targets]);
+
+  // Track the Shift key globally so a resize gesture can lock aspect
+  // ratio (keepRatio) the instant Shift is held — even mid-drag.
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftRatio(true); };
+    const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftRatio(false); };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+    };
+  }, []);
 
   const registerNode = useCallback(
     (id: string) => (node: HTMLDivElement | null) => {
@@ -227,7 +242,7 @@ export default function SlideCanvas({
           throttleDrag={0}
           throttleResize={0}
           throttleRotate={0}
-          keepRatio={false}
+          keepRatio={shiftRatio}
           snappable
           snapThreshold={6}
           snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}

@@ -51,6 +51,13 @@ export type LayerBase = {
   /** Layer blur radius, board units. 0/undefined = sharp. Composed into
    *  the CSS `filter` (combined with any image colour filter). */
   blur?: number;
+  /** Mirror the layer horizontally (scaleX(-1)) about its centre. The
+   *  flip composes with rotation in the transform; geometry (x/y/w/h) is
+   *  unchanged. Honoured identically by the live canvas (LayerView) and
+   *  the Satori export route. undefined === false (older drafts unchanged). */
+  flipH?: boolean;
+  /** Mirror the layer vertically (scaleY(-1)) about its centre. */
+  flipV?: boolean;
 };
 
 export type TextAlign = "left" | "center" | "right";
@@ -154,6 +161,22 @@ export function makeGroupId(): string {
 }
 
 export const DEFAULT_BOARD = 1080;
+
+/** Trailing `scaleX(-1) scaleY(-1)` fragment for a layer's flip flags,
+ *  or "" when neither is set. Appended AFTER translate+rotate (with a
+ *  centre transform-origin) so the mirror happens about the layer's own
+ *  centre in its rotated frame — position/size unchanged. Used identically
+ *  by the live canvas (LayerView) and the Satori export route so previews
+ *  match the PNG. */
+export function flipTransform(
+  flipH: boolean | undefined,
+  flipV: boolean | undefined
+): string {
+  const parts: string[] = [];
+  if (flipH) parts.push("scaleX(-1)");
+  if (flipV) parts.push("scaleY(-1)");
+  return parts.length ? ` ${parts.join(" ")}` : "";
+}
 
 /** Resolve a layer's effective border-radius CSS value, scaled to the
  *  display (scale=1 at export). Per-corner `corners` wins over the

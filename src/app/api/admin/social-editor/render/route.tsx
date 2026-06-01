@@ -21,7 +21,7 @@ import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
 import type { EditorSlide, Layer } from "@/lib/social-editor/types";
-import { cornerRadiusCss } from "@/lib/social-editor/types";
+import { cornerRadiusCss, flipTransform } from "@/lib/social-editor/types";
 
 /** box-shadow string from a layer shadow (export = board units, scale 1). */
 function shadowCss(
@@ -170,7 +170,7 @@ function wrapperStyle(l: Layer): CSSProperties {
     top: 0,
     width: l.w,
     height: l.h,
-    transform: `translate(${l.x}px, ${l.y}px) rotate(${l.rotation}deg)`,
+    transform: `translate(${l.x}px, ${l.y}px) rotate(${l.rotation}deg)${flipTransform(l.flipH, l.flipV)}`,
     transformOrigin: "50% 50%",
     opacity: l.opacity,
     display: "flex",

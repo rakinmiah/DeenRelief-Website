@@ -35,6 +35,7 @@ import {
   TextIcon,
   GroupIcon,
   UngroupIcon,
+  FlipIcon,
 } from "./editorUi";
 import { layerLabel } from "@/lib/social-editor/types";
 
@@ -114,6 +115,13 @@ export function ContextToolbar({
       <OpacityPopover value={layer.opacity} onChange={(opacity) => onChange({ opacity })} />
       <ArrangePopover onArrange={onArrange} />
 
+      <Divider />
+      <IconBtn label="Flip horizontal" active={!!layer.flipH} onClick={() => onChange({ flipH: !layer.flipH })}>
+        <FlipIcon axis="h" />
+      </IconBtn>
+      <IconBtn label="Flip vertical" active={!!layer.flipV} onClick={() => onChange({ flipV: !layer.flipV })}>
+        <FlipIcon axis="v" />
+      </IconBtn>
       <Divider />
       <IconBtn label={layer.locked ? "Unlock" : "Lock"} active={layer.locked} onClick={() => onChange({ locked: !layer.locked })}>
         <LockIcon open={!layer.locked} />
@@ -490,7 +498,10 @@ function PositionPopover({
             <NumField label="W" value={layer.w} min={1} onCommit={(w) => onChange({ w })} />
             <NumField label="H" value={layer.h} min={1} onCommit={(h) => onChange({ h })} />
           </div>
-          <NumField label="Rotation" value={layer.rotation} suffix="°" width={64} onCommit={(rotation) => onChange({ rotation: ((rotation % 360) + 360) % 360 })} />
+          <div className="grid grid-cols-2 gap-2">
+            <NumField label="Rotation" value={layer.rotation} suffix="°" width={48} onCommit={(rotation) => onChange({ rotation: ((rotation % 360) + 360) % 360 })} />
+            <NumField label="Opacity" value={Math.round(layer.opacity * 100)} suffix="%" width={44} min={0} max={100} onCommit={(v) => onChange({ opacity: Math.max(0, Math.min(1, v / 100)) })} />
+          </div>
           <div className="flex items-center gap-1.5 pt-0.5">
             <button type="button" onClick={() => onChange({ rotation: 0 })} className="text-[12px] text-charcoal/50 hover:text-charcoal/80">Reset rotation</button>
           </div>

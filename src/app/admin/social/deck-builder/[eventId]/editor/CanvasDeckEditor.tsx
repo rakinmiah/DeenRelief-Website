@@ -88,6 +88,9 @@ export default function CanvasDeckEditor({
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef(0.5);
+  // Space-to-pan: armed while Space is held, active while dragging.
+  const [panArmed, setPanArmed] = useState(false);
+  const panning = useRef(false);
   // Clipboard for copy/paste (board-space layer snapshots).
   const clipboard = useRef<Layer[]>([]);
 
@@ -553,6 +556,55 @@ export default function CanvasDeckEditor({
     }
   }
 
+  /* ── Space-to-pan (arm/disarm) ───────────────────────────────── */
+  // Holding Space arms panning: the viewport shows a grab cursor and a
+  // drag scrolls the canvas instead of marquee-selecting. Ignored while
+  // typing (inputs / contentEditable) so Space still types a space.
+  useEffect(() => {
+    const isTyping = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      const tag = el?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || !!el?.isContentEditable;
+    };
+    const onDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !isTyping(e.target) && !e.repeat) {
+        e.preventDefault();
+        setPanArmed(true);
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setPanArmed(false);
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+    };
+  }, []);
+
+  function startPan(e: React.MouseEvent) {
+    const el = viewportRef.current;
+    if (!el || e.button !== 0) return;
+    e.preventDefault();
+    panning.current = true;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLeft = el.scrollLeft;
+    const startTop = el.scrollTop;
+    const move = (ev: MouseEvent) => {
+      el.scrollLeft = startLeft - (ev.clientX - startX);
+      el.scrollTop = startTop - (ev.clientY - startY);
+    };
+    const up = () => {
+      panning.current = false;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   /* ── Keyboard ────────────────────────────────────────────────── */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -571,6 +623,23 @@ export default function CanvasDeckEditor({
       if (mod && k === "y") {
         e.preventDefault();
         history.redo();
+        return;
+      }
+      // Zoom: ⌘+ / ⌘- step, ⌘0 fits to the viewport. "=" is the
+      // unshifted "+" key; "Add"/"Subtract" cover the numpad.
+      if (mod && (k === "=" || k === "+" || e.key === "Add")) {
+        e.preventDefault();
+        setScale((s) => Math.min(4, s * 1.2));
+        return;
+      }
+      if (mod && (k === "-" || k === "_" || e.key === "Subtract")) {
+        e.preventDefault();
+        setScale((s) => Math.max(0.05, s / 1.2));
+        return;
+      }
+      if (mod && k === "0") {
+        e.preventDefault();
+        setScale(fitRef.current);
         return;
       }
       if (mod && k === "a") {
@@ -676,9 +745,9 @@ export default function CanvasDeckEditor({
             )}
             <ToolbarBtn label="Layers" active={showLayers} onClick={() => setShowLayers((v) => !v)}><LayersIcon /></ToolbarBtn>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setScale((s) => Math.max(0.05, s / 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">−</button>
-              <button type="button" onClick={() => setScale(fitRef.current)} className="text-[12px] tabular-nums text-charcoal/60 w-11 text-center hover:text-charcoal">{zoomPct}%</button>
-              <button type="button" onClick={() => setScale((s) => Math.min(4, s * 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">+</button>
+              <button type="button" title="Zoom out (⌘−)" onClick={() => setScale((s) => Math.max(0.05, s / 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">−</button>
+              <button type="button" title="Fit to screen (⌘0)" onClick={() => setScale(fitRef.current)} className="text-[12px] tabular-nums text-charcoal/60 w-11 text-center hover:text-charcoal">{zoomPct}%</button>
+              <button type="button" title="Zoom in (⌘+)" onClick={() => setScale((s) => Math.min(4, s * 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">+</button>
             </div>
             <button
               type="button"
@@ -738,8 +807,21 @@ export default function CanvasDeckEditor({
         <div className="flex-1 min-w-0 flex flex-col">
           <div
             ref={viewportRef}
-            onMouseDown={() => { setSelectedIds([]); setEditingId(null); }}
+            // Capture-phase: when Space is armed, intercept the press before
+            // the artboard's marquee/clear handlers and pan instead.
+            onMouseDownCapture={(e) => {
+              if (panArmed) {
+                e.stopPropagation();
+                startPan(e);
+              }
+            }}
+            onMouseDown={() => {
+              if (panArmed || panning.current) return;
+              setSelectedIds([]);
+              setEditingId(null);
+            }}
             className="flex-1 min-h-0 overflow-auto grid place-items-center p-10"
+            style={{ cursor: panArmed ? (panning.current ? "grabbing" : "grab") : undefined }}
           >
             <SlideCanvas
               key={activeSlide.id}

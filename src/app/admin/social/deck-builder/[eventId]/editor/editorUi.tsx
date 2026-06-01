@@ -518,6 +518,27 @@ export function UngroupIcon() {
     </svg>
   );
 }
+/** Flip icons — a shape mirrored across a dashed axis. `axis="h"` mirrors
+ *  left↔right (vertical axis line); `axis="v"` mirrors top↔bottom. */
+export function FlipIcon({ axis }: { axis: "h" | "v" }) {
+  const c = "currentColor";
+  if (axis === "h") {
+    return (
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke={c} strokeWidth="1.4">
+        <line x1="10" y1="2.5" x2="10" y2="17.5" strokeDasharray="2 2" strokeLinecap="round" />
+        <path d="M8 5L3.5 10 8 15z" fill={c} stroke="none" />
+        <path d="M12 5L16.5 10 12 15z" fill={c} opacity="0.4" stroke="none" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke={c} strokeWidth="1.4">
+      <line x1="2.5" y1="10" x2="17.5" y2="10" strokeDasharray="2 2" strokeLinecap="round" />
+      <path d="M5 8L10 3.5 15 8z" fill={c} stroke="none" />
+      <path d="M5 12L10 16.5 15 12z" fill={c} opacity="0.4" stroke="none" />
+    </svg>
+  );
+}
 export function LayersIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
