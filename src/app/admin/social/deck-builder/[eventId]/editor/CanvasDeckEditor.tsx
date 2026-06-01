@@ -16,13 +16,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import {
   type EditorSlide,
+  type EditorDeck,
   type Layer,
+  type InstanceLayer,
   type LaidOutBox,
   type ShapeKind,
   type AutoLayout,
   type GroupMeta,
+  type ComponentDef,
+  type ComponentRegistry,
+  type LayerOverride,
   makeLayerId,
   makeGroupId,
+  makeComponentId,
+  makeVariantId,
   layerAABB,
   unionAABB,
   defaultAutoLayout,
@@ -31,6 +38,8 @@ import {
   resolveMaskShape,
   activeMaskShapeIds,
   isMaskableShape,
+  resolveVariant,
+  expandInstance,
 } from "@/lib/social-editor/types";
 import { googleFontsHref } from "@/lib/social-editor/fonts";
 import LayerView from "./LayerView";
@@ -46,6 +55,8 @@ import {
   GroupToolbar,
   AutoLayoutToolbar,
   MaskToolbar,
+  CreateComponentButton,
+  InstanceToolbar,
   type AlignKind,
 } from "./editorToolbar";
 import {
@@ -59,7 +70,13 @@ import {
   LayersIcon,
   TextIcon,
   ShapeIcon,
+  ComponentIcon,
 } from "./editorUi";
+
+/** Sentinel id prefix for the temporary "edit master" slide injected
+ *  while editing a component's layers. Such a slide is NOT persisted (the
+ *  deck store strips it) and is filtered out of export. */
+const EDIT_MASTER_PREFIX = "__editmaster__";
 
 export default function CanvasDeckEditor({
   initialDeck,
@@ -82,10 +99,33 @@ export default function CanvasDeckEditor({
   forceInitial?: boolean;
   title?: string;
 }) {
-  const history = useHistory<EditorSlide[]>(
-    initialDeck.length ? initialDeck : [blankSlide()]
+  // The whole document — slides + the deck-level component registry — is
+  // ONE history state so create-component, master edits, variant swaps and
+  // ordinary slide edits all share undo/redo. `deck` aliases the slides
+  // array (so the bulk of the editor reads/writes it unchanged); `registry`
+  // aliases the component map.
+  const history = useHistory<EditorDeck>({
+    slides: initialDeck.length ? initialDeck : [blankSlide()],
+    components: undefined,
+  });
+  const deck = history.state.slides;
+  const registry = history.state.components;
+
+  // Commit/set a new SLIDES array, preserving the current registry.
+  const commitSlides = useCallback(
+    (slides: EditorSlide[], commit = true) => {
+      const next: EditorDeck = { ...history.state, slides };
+      if (commit) history.commit(next);
+      else history.set(next);
+    },
+    [history]
   );
-  const deck = history.state;
+
+  // Commit a new full deck (slides + registry) in one history entry.
+  const commitDeck = useCallback(
+    (next: EditorDeck) => history.commit(next),
+    [history]
+  );
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -96,6 +136,13 @@ export default function CanvasDeckEditor({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [exporting, setExporting] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
+  // Component "edit master" mode: when set, the editor is editing the
+  // layers of this {componentId, variant} on a temporary edit slide; on
+  // exit the edited layers are written back into the component definition
+  // and every instance re-derives. null = not editing a master.
+  const [editingComponent, setEditingComponent] = useState<
+    null | { componentId: string; variant: string; returnIndex: number }
+  >(null);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef(0.5);
@@ -134,7 +181,7 @@ export default function CanvasDeckEditor({
     (async () => {
       const loaded = await loadDeck(eventId, platform);
       if (cancelled) return;
-      if (loaded && loaded.length) history.reset(loaded);
+      if (loaded && loaded.slides.length) history.reset(loaded);
       setHydrated(true);
     })();
     return () => {
@@ -148,12 +195,12 @@ export default function CanvasDeckEditor({
     if (!persist || !eventId || !hydrated) return;
     setSaveState("saving");
     const t = setTimeout(async () => {
-      const ok = await saveDeck(eventId, platform, deck);
+      const ok = await saveDeck(eventId, platform, history.state);
       setSaveState(ok ? "saved" : "idle");
     }, 900);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deck, hydrated]);
+  }, [history.state, hydrated]);
 
   /* ── Fit-to-viewport ─────────────────────────────────────────── */
   useEffect(() => {
@@ -177,21 +224,18 @@ export default function CanvasDeckEditor({
   /* ── Mutation helpers ────────────────────────────────────────── */
   const setActiveLayers = useCallback(
     (layers: Layer[], commit: boolean) => {
-      const next = deck.map((s, i) => (i === ai ? { ...s, layers } : s));
-      if (commit) history.commit(next);
-      else history.set(next);
+      commitSlides(deck.map((s, i) => (i === ai ? { ...s, layers } : s)), commit);
     },
-    [deck, ai, history]
+    [deck, ai, commitSlides]
   );
 
   // Patch the active slide directly (for group-level metadata that lives
   // on the slide, e.g. auto-layout config). Always commits to history.
   const patchActiveSlide = useCallback(
     (patch: Partial<EditorSlide>) => {
-      const next = deck.map((s, i) => (i === ai ? { ...s, ...patch } : s));
-      history.commit(next);
+      commitSlides(deck.map((s, i) => (i === ai ? { ...s, ...patch } : s)));
     },
-    [deck, ai, history]
+    [deck, ai, commitSlides]
   );
 
   // Merge metadata for one group into slide.groups (creating the record
@@ -332,16 +376,17 @@ export default function CanvasDeckEditor({
     const { layers: regrouped, map } = remapGroups(withIds);
     const copies = relinkMasks(regrouped, idMap);
     const nextGroups = clonedGroups(map, dx, dy);
-    const next = deck.map((s, i) =>
-      i === ai
-        ? {
-            ...s,
-            layers: [...s.layers, ...copies],
-            groups: Object.keys(nextGroups).length ? nextGroups : undefined,
-          }
-        : s
+    commitSlides(
+      deck.map((s, i) =>
+        i === ai
+          ? {
+              ...s,
+              layers: [...s.layers, ...copies],
+              groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+            }
+          : s
+      )
     );
-    history.commit(next);
     setSelectedIds(copies.map((c) => c.id));
   }
 
@@ -411,24 +456,25 @@ export default function CanvasDeckEditor({
     const layout = resolveSlideLayout(activeSlide);
     const nextGroups = { ...(activeSlide.groups ?? {}) };
     for (const gid of selectedGroupIds) delete nextGroups[gid];
-    const next = deck.map((s, i) =>
-      i === ai
-        ? {
-            ...s,
-            layers: s.layers.map((l) => {
-              if (!l.groupId || !selectedGroupIds.has(l.groupId)) return l;
-              const box = layout.get(l.id);
-              return {
-                ...l,
-                groupId: undefined,
-                ...(box ? { x: box.x, y: box.y, w: box.w, h: box.h } : {}),
-              } as Layer;
-            }),
-            groups: Object.keys(nextGroups).length ? nextGroups : undefined,
-          }
-        : s
+    commitSlides(
+      deck.map((s, i) =>
+        i === ai
+          ? {
+              ...s,
+              layers: s.layers.map((l) => {
+                if (!l.groupId || !selectedGroupIds.has(l.groupId)) return l;
+                const box = layout.get(l.id);
+                return {
+                  ...l,
+                  groupId: undefined,
+                  ...(box ? { x: box.x, y: box.y, w: box.w, h: box.h } : {}),
+                } as Layer;
+              }),
+              groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+            }
+          : s
+      )
     );
-    history.commit(next);
   }
 
   /* ── Auto-layout (group flex) ─────────────────────────────────── */
@@ -453,21 +499,22 @@ export default function CanvasDeckEditor({
     if (!autoLayoutGroupId) return;
     if (activeAutoLayout) {
       const layout = resolveSlideLayout(activeSlide);
-      const next = deck.map((s, i) => {
-        if (i !== ai) return s;
-        const nextGroups = { ...(s.groups ?? {}) };
-        delete nextGroups[autoLayoutGroupId];
-        return {
-          ...s,
-          layers: s.layers.map((l) => {
-            if (l.groupId !== autoLayoutGroupId) return l;
-            const box = layout.get(l.id);
-            return box ? ({ ...l, x: box.x, y: box.y, w: box.w, h: box.h } as Layer) : l;
-          }),
-          groups: Object.keys(nextGroups).length ? nextGroups : undefined,
-        };
-      });
-      history.commit(next);
+      commitSlides(
+        deck.map((s, i) => {
+          if (i !== ai) return s;
+          const nextGroups = { ...(s.groups ?? {}) };
+          delete nextGroups[autoLayoutGroupId];
+          return {
+            ...s,
+            layers: s.layers.map((l) => {
+              if (l.groupId !== autoLayoutGroupId) return l;
+              const box = layout.get(l.id);
+              return box ? ({ ...l, x: box.x, y: box.y, w: box.w, h: box.h } as Layer) : l;
+            }),
+            groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+          };
+        })
+      );
     } else {
       const members = activeSlide.layers.filter((l) => l.groupId === autoLayoutGroupId);
       const frame = unionAABB(members) ?? { x: 0, y: 0, w: 0, h: 0 };
@@ -553,6 +600,320 @@ export default function CanvasDeckEditor({
       ),
       true
     );
+  }
+
+  /* ── Components + variants (Wave 2c) ──────────────────────────────────
+   * A component is a reusable, named layer-set stored in the DECK-LEVEL
+   * registry (history.state.components). An instance (type:"instance")
+   * references {componentId, variant, overrides} and expands at render
+   * time via expandInstance — the SAME helper the export route uses, so
+   * canvas = PNG. */
+
+  // The single selected instance layer (drives the instance toolbar). null
+  // when the selection isn't exactly one instance.
+  const selectedInstance =
+    single && single.type === "instance" ? (single as InstanceLayer) : null;
+  const selectedComponentDef = selectedInstance
+    ? registry?.[selectedInstance.componentId]
+    : undefined;
+
+  // "Create component" is offered when the selection is ≥1 layer and none
+  // of them is already an instance (no nesting).
+  const canCreateComponent =
+    selectedLayers.length >= 1 && selectedLayers.every((l) => l.type !== "instance");
+
+  // Create a component from the current selection: snap the selected layers
+  // into the component's LOCAL space (origin at the selection's top-left),
+  // capture any auto-layout group metadata for those layers, store a
+  // ComponentDef in the deck-level registry, and replace the selection with
+  // a single instance placed at the selection's bounding box.
+  function createComponentFromSelection() {
+    if (!canCreateComponent) return;
+    const sel = selectedLayers;
+    const bounds = unionAABB(sel);
+    if (!bounds) return;
+    const { x: ox, y: oy, w, h } = bounds;
+    // Master layers in local space (offset by −origin). Keep their own
+    // group ids; capture matching group metadata.
+    const masterLayers: Layer[] = sel.map(
+      (l) => ({ ...l, x: l.x - ox, y: l.y - oy } as Layer)
+    );
+    const groupIds = new Set(
+      sel.map((l) => l.groupId).filter((g): g is string => !!g)
+    );
+    let variantGroups: Record<string, GroupMeta> | undefined;
+    const srcGroups = activeSlide.groups ?? {};
+    for (const gid of groupIds) {
+      const meta = srcGroups[gid];
+      if (!meta) continue;
+      variantGroups = {
+        ...(variantGroups ?? {}),
+        [gid]: meta.frame
+          ? { ...meta, frame: { ...meta.frame, x: meta.frame.x - ox, y: meta.frame.y - oy } }
+          : meta,
+      };
+    }
+    const componentId = makeComponentId();
+    const variantId = makeVariantId();
+    const compCount = registry ? Object.keys(registry).length : 0;
+    const def: ComponentDef = {
+      id: componentId,
+      name: `Component ${compCount + 1}`,
+      width: Math.max(1, w),
+      height: Math.max(1, h),
+      variants: [{ id: variantId, name: "Default", layers: masterLayers, groups: variantGroups }],
+    };
+    const instance: InstanceLayer = {
+      id: makeLayerId(),
+      type: "instance",
+      x: ox,
+      y: oy,
+      w: Math.max(1, w),
+      h: Math.max(1, h),
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      componentId,
+      variant: variantId,
+    };
+    // Replace the selected layers with the instance (at the front-most
+    // member's slot), and drop the now-captured group metadata for them.
+    const selIds = new Set(sel.map((l) => l.id));
+    const frontIdx = activeSlide.layers.reduce(
+      (acc, l, i) => (selIds.has(l.id) ? i : acc),
+      0
+    );
+    const before = activeSlide.layers.filter((l, i) => !selIds.has(l.id) && i < frontIdx);
+    const after = activeSlide.layers.filter((l, i) => !selIds.has(l.id) && i >= frontIdx);
+    const nextGroups = { ...srcGroups };
+    for (const gid of groupIds) delete nextGroups[gid];
+    const nextSlides = deck.map((s, i) =>
+      i === ai
+        ? {
+            ...s,
+            layers: [...before, instance, ...after],
+            groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+          }
+        : s
+    );
+    commitDeck({
+      slides: nextSlides,
+      components: { ...(registry ?? {}), [componentId]: def },
+    });
+    setSelectedIds([instance.id]);
+  }
+
+  // Patch the selected instance layer (variant swap, override edits, etc.).
+  function mutateInstance(patch: Partial<InstanceLayer>) {
+    if (!selectedInstance) return;
+    setActiveLayers(
+      activeSlide.layers.map((l) =>
+        l.id === selectedInstance.id ? ({ ...l, ...patch } as Layer) : l
+      ),
+      true
+    );
+  }
+
+  // Switch the selected instance's variant.
+  function setInstanceVariant(variantId: string) {
+    mutateInstance({ variant: variantId });
+  }
+
+  // Set/clear ONE per-instance override (keyed by master layer id). A
+  // value of undefined removes that field; an empty override object is
+  // pruned so "reset" round-trips cleanly.
+  function setInstanceOverride(masterId: string, patch: LayerOverride) {
+    if (!selectedInstance) return;
+    const cur = selectedInstance.overrides ?? {};
+    const merged: LayerOverride = { ...cur[masterId], ...patch };
+    // Prune undefined keys.
+    (Object.keys(merged) as (keyof LayerOverride)[]).forEach((k) => {
+      if (merged[k] === undefined) delete merged[k];
+    });
+    const nextOv: Record<string, LayerOverride> = { ...cur };
+    if (Object.keys(merged).length) nextOv[masterId] = merged;
+    else delete nextOv[masterId];
+    mutateInstance({ overrides: Object.keys(nextOv).length ? nextOv : undefined });
+  }
+
+  // Clear all per-instance overrides (back to the master values).
+  function resetInstanceOverrides() {
+    mutateInstance({ overrides: undefined });
+  }
+
+  // Detach the instance: bake the expanded layers back into plain,
+  // editable layers on the slide (fresh ids, unlocked, ungrouped) and drop
+  // the instance. The result is no longer linked to the component.
+  function detachInstance() {
+    if (!selectedInstance) return;
+    const def = registry?.[selectedInstance.componentId];
+    const box = resolveSlideLayout(activeSlide).get(selectedInstance.id);
+    const eff: InstanceLayer = box
+      ? { ...selectedInstance, x: box.x, y: box.y, w: box.w, h: box.h }
+      : selectedInstance;
+    const baked = expandInstance(def, eff).map(
+      (l) => ({ ...l, id: makeLayerId(), locked: false } as Layer)
+    );
+    const idx = activeSlide.layers.findIndex((l) => l.id === selectedInstance.id);
+    const nextLayers = [
+      ...activeSlide.layers.slice(0, idx),
+      ...baked,
+      ...activeSlide.layers.slice(idx + 1),
+    ];
+    setActiveLayers(nextLayers, true);
+    setSelectedIds(baked.map((l) => l.id));
+  }
+
+  // Enter "edit master" mode: inject a temporary edit slide holding the
+  // component variant's layers (in local space), switch to it. Editing it
+  // uses all the normal layer machinery; "Done" writes the layers back.
+  function editComponent(componentId: string, variantId: string) {
+    const def = registry?.[componentId];
+    const variant = resolveVariant(def, variantId);
+    if (!def || !variant) return;
+    const editSlide: EditorSlide = {
+      id: `${EDIT_MASTER_PREFIX}${componentId}`,
+      width: def.width,
+      height: def.height,
+      background: "#FFFFFF",
+      layers: variant.layers.map((l) => ({ ...l })),
+      groups: variant.groups,
+    };
+    commitSlides([...deck, editSlide]);
+    setEditingComponent({ componentId, variant: variant.id, returnIndex: ai });
+    setActiveIndex(deck.length);
+    setSelectedIds([]);
+  }
+
+  function editSelectedComponent() {
+    if (!selectedInstance) return;
+    const variant = resolveVariant(
+      registry?.[selectedInstance.componentId],
+      selectedInstance.variant
+    );
+    if (!variant) return;
+    editComponent(selectedInstance.componentId, variant.id);
+  }
+
+  // Exit "edit master" mode: write the edit slide's layers (+ groups) back
+  // into the component variant, pop the edit slide, and return. Every
+  // instance re-derives from the updated master automatically.
+  function finishEditComponent() {
+    if (!editingComponent) return;
+    const editIdx = deck.findIndex(
+      (s) => s.id === `${EDIT_MASTER_PREFIX}${editingComponent.componentId}`
+    );
+    const def = registry?.[editingComponent.componentId];
+    if (editIdx < 0 || !def) {
+      setEditingComponent(null);
+      return;
+    }
+    const editSlide = deck[editIdx]!;
+    // New intrinsic size = the edited content's bounding box (so resized
+    // masters keep instances proportional). Fall back to the slide size.
+    const bounds = unionAABB(editSlide.layers);
+    const width = bounds ? Math.max(1, bounds.w) : def.width;
+    const height = bounds ? Math.max(1, bounds.h) : def.height;
+    const ox = bounds ? bounds.x : 0;
+    const oy = bounds ? bounds.y : 0;
+    const masterLayers = editSlide.layers.map(
+      (l) => ({ ...l, x: l.x - ox, y: l.y - oy } as Layer)
+    );
+    const groups = editSlide.groups
+      ? Object.fromEntries(
+          Object.entries(editSlide.groups).map(([gid, meta]) => [
+            gid,
+            meta.frame
+              ? { ...meta, frame: { ...meta.frame, x: meta.frame.x - ox, y: meta.frame.y - oy } }
+              : meta,
+          ])
+        )
+      : undefined;
+    const nextDef: ComponentDef = {
+      ...def,
+      width,
+      height,
+      variants: def.variants.map((v) =>
+        v.id === editingComponent.variant ? { ...v, layers: masterLayers, groups } : v
+      ),
+    };
+    const nextSlides = deck.filter((_, i) => i !== editIdx);
+    commitDeck({ slides: nextSlides, components: { ...(registry ?? {}), [def.id]: nextDef } });
+    setEditingComponent(null);
+    setActiveIndex(Math.min(editingComponent.returnIndex, nextSlides.length - 1));
+    setSelectedIds([]);
+  }
+
+  // Add a variant to the selected instance's component: duplicate the
+  // current variant's layers under a new name, and point the instance at
+  // it. Switching variants later swaps which layer-set expands.
+  function addVariantToSelected() {
+    if (!selectedInstance || !selectedComponentDef) return;
+    const cur =
+      resolveVariant(selectedComponentDef, selectedInstance.variant) ??
+      selectedComponentDef.variants[0]!;
+    const newVariantId = makeVariantId();
+    const newVariant = {
+      id: newVariantId,
+      name: `Variant ${selectedComponentDef.variants.length + 1}`,
+      layers: cur.layers.map((l) => ({ ...l })),
+      groups: cur.groups,
+    };
+    const nextDef: ComponentDef = {
+      ...selectedComponentDef,
+      variants: [...selectedComponentDef.variants, newVariant],
+    };
+    commitDeck({
+      slides: deck.map((s, i) =>
+        i === ai
+          ? {
+              ...s,
+              layers: s.layers.map((l) =>
+                l.id === selectedInstance.id
+                  ? ({ ...l, variant: newVariantId } as Layer)
+                  : l
+              ),
+            }
+          : s
+      ),
+      components: { ...(registry ?? {}), [selectedComponentDef.id]: nextDef },
+    });
+  }
+
+  // Delete a component definition. SAFE behaviour: auto-DETACH every
+  // instance of it across the whole deck first (baking each into plain
+  // editable layers), THEN drop the def — so no instance is ever left
+  // dangling. (Chosen over blocking the delete so the user is never stuck
+  // with an un-deletable component.)
+  function deleteComponentDef(componentId: string) {
+    const def = registry?.[componentId];
+    if (!def) return;
+    const nextSlides = deck.map((s) => {
+      if (!s.layers.some((l) => l.type === "instance" && l.componentId === componentId)) {
+        return s;
+      }
+      const layout = resolveSlideLayout(s);
+      const nextLayers: Layer[] = [];
+      for (const l of s.layers) {
+        if (l.type === "instance" && l.componentId === componentId) {
+          const box = layout.get(l.id);
+          const eff: InstanceLayer = box ? { ...l, x: box.x, y: box.y, w: box.w, h: box.h } : l;
+          for (const baked of expandInstance(def, eff)) {
+            nextLayers.push({ ...baked, id: makeLayerId(), locked: false } as Layer);
+          }
+        } else {
+          nextLayers.push(l);
+        }
+      }
+      return { ...s, layers: nextLayers };
+    });
+    const nextComponents = { ...(registry ?? {}) };
+    delete nextComponents[componentId];
+    commitDeck({
+      slides: nextSlides,
+      components: Object.keys(nextComponents).length ? nextComponents : undefined,
+    });
+    setSelectedIds([]);
   }
 
   /* ── Z-order ─────────────────────────────────────────────────── */
@@ -755,14 +1116,14 @@ export default function CanvasDeckEditor({
   /* ── Slide operations ────────────────────────────────────────── */
   function addSlide() {
     const next = [...deck, blankSlide(activeSlide.width, activeSlide.height)];
-    history.commit(next);
+    commitSlides(next);
     setActiveIndex(next.length - 1);
     setSelectedIds([]);
   }
   function deleteSlide(i: number) {
     if (deck.length <= 1) return;
     const next = deck.filter((_, idx) => idx !== i);
-    history.commit(next);
+    commitSlides(next);
     setActiveIndex(Math.max(0, Math.min(i, next.length - 1)));
     setSelectedIds([]);
   }
@@ -786,7 +1147,7 @@ export default function CanvasDeckEditor({
       ),
     };
     const next = [...deck.slice(0, i + 1), clone, ...deck.slice(i + 1)];
-    history.commit(next);
+    commitSlides(next);
     setActiveIndex(i + 1);
     setSelectedIds([]);
   }
@@ -800,7 +1161,7 @@ export default function CanvasDeckEditor({
   async function onExport() {
     setExporting(true);
     try {
-      await exportDeck(deck, title);
+      await exportDeck(deck, title, registry);
     } finally {
       setExporting(false);
     }
@@ -1010,18 +1371,48 @@ export default function CanvasDeckEditor({
           </div>
         </div>
 
+        {/* Edit-master banner — shown while editing a component's layers. */}
+        {editingComponent && (
+          <div className="flex items-center justify-between gap-3 px-4 pb-2 border-t border-green/20 pt-2 bg-green/5">
+            <span className="text-[12.5px] font-medium text-green flex items-center gap-1.5">
+              <ComponentIcon /> Editing component master — changes apply to every instance.
+            </span>
+            <button
+              type="button"
+              onClick={finishEditComponent}
+              className="h-8 px-3.5 rounded-lg bg-green text-white text-[12.5px] font-semibold hover:bg-green-dark transition"
+            >
+              Done editing
+            </button>
+          </div>
+        )}
+
         {/* Contextual toolbar */}
         {(single || showAlign) && !editingId && (
           <div className="flex items-center gap-2 px-4 pb-2 border-t border-charcoal/5 pt-1.5 min-h-[48px] overflow-x-auto">
-            {single && (
-              <ContextToolbar
-                layer={single}
-                onChange={mutateSelected}
-                onReplaceImage={() => setPicker("replace")}
-                onDuplicate={duplicateSelected}
-                onDelete={deleteSelected}
-                onArrange={arrange}
+            {selectedInstance ? (
+              <InstanceToolbar
+                instance={selectedInstance}
+                def={selectedComponentDef}
+                onSetVariant={setInstanceVariant}
+                onSetOverride={setInstanceOverride}
+                onResetOverrides={resetInstanceOverrides}
+                onAddVariant={addVariantToSelected}
+                onEdit={editSelectedComponent}
+                onDetach={detachInstance}
+                onDeleteComponent={() => deleteComponentDef(selectedInstance.componentId)}
               />
+            ) : (
+              single && (
+                <ContextToolbar
+                  layer={single}
+                  onChange={mutateSelected}
+                  onReplaceImage={() => setPicker("replace")}
+                  onDuplicate={duplicateSelected}
+                  onDelete={deleteSelected}
+                  onArrange={arrange}
+                />
+              )
             )}
             {selectedLayers.length > 1 && (
               <span className="text-[12.5px] text-charcoal/50 whitespace-nowrap">{selectedLayers.length} selected</span>
@@ -1047,6 +1438,9 @@ export default function CanvasDeckEditor({
               onMask={maskWithShape}
               onRelease={releaseMask}
             />
+            {canCreateComponent && !editingComponent && (
+              <CreateComponentButton onCreate={createComponentFromSelection} />
+            )}
             {showAlign && (
               <div className="ml-auto shrink-0">
                 <AlignToolbar onAlign={align} canDistribute={selectedLayers.length >= 3} />
@@ -1090,6 +1484,7 @@ export default function CanvasDeckEditor({
               key={activeSlide.id}
               slide={activeSlide}
               scale={scale}
+              registry={registry}
               selectedIds={selectedIds}
               editingId={editingId}
               onSelect={selectOne}
@@ -1112,6 +1507,7 @@ export default function CanvasDeckEditor({
               <SlideThumb
                 key={s.id}
                 slide={s}
+                registry={registry}
                 index={i}
                 active={i === ai}
                 canDelete={deck.length > 1}
@@ -1135,6 +1531,7 @@ export default function CanvasDeckEditor({
         {showLayers && (
           <LayersPanel
             layers={activeSlide.layers}
+            registry={registry}
             selectedIds={selectedIds}
             onSelect={selectOne}
             onToggleHidden={(id) => {
@@ -1162,6 +1559,7 @@ export default function CanvasDeckEditor({
 /* ─── Filmstrip thumbnail ─────────────────────────────────────────── */
 function SlideThumb({
   slide,
+  registry,
   index,
   active,
   canDelete,
@@ -1170,6 +1568,7 @@ function SlideThumb({
   onDuplicate,
 }: {
   slide: EditorSlide;
+  registry?: ComponentRegistry;
   index: number;
   active: boolean;
   canDelete: boolean;
@@ -1202,6 +1601,7 @@ function SlideThumb({
               layer={l}
               scale={s}
               geom={layout.get(l.id)}
+              registry={registry}
               mask={mask}
               maskBox={mask ? boxOf(mask) : null}
               maskedOut={maskShapeIds.has(l.id)}

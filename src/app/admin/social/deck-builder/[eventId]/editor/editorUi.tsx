@@ -561,6 +561,36 @@ export function MaskIcon() {
     </svg>
   );
 }
+/** Component — a small diamond/marker badge (Figma-style component glyph)
+ *  inside a frame, signalling a reusable instance. */
+export function ComponentIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2.75" y="2.75" width="14.5" height="14.5" rx="2.5" />
+      <path d="M10 5.5l2.4 2.4-2.4 2.4-2.4-2.4L10 5.5z" fill="currentColor" stroke="none" opacity="0.9" />
+      <path d="M10 11.2l2.4 2.4M10 11.2L7.6 13.6" strokeLinecap="round" opacity="0.5" />
+    </svg>
+  );
+}
+/** "Detach instance" — a broken link (two chain links pulling apart). */
+export function DetachIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M8.5 11.5l-2 2a2.5 2.5 0 0 1-3.5-3.5l2-2" strokeLinecap="round" />
+      <path d="M11.5 8.5l2-2a2.5 2.5 0 0 1 3.5 3.5l-2 2" strokeLinecap="round" />
+      <path d="M9 4.5V2.5M4.5 9H2.5M15.5 11H17.5M11 15.5V17.5" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  );
+}
+/** "Edit component master" — a pencil over a frame. */
+export function EditIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M11.5 4.5l4 4L8 16l-4 1 1-4 6.5-8.5z" strokeLinejoin="round" />
+      <path d="M10.5 5.5l4 4" />
+    </svg>
+  );
+}
 export function LayersIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">

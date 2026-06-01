@@ -12,12 +12,21 @@
  */
 
 import { useEffect, useRef, type CSSProperties } from "react";
-import type { Layer, LaidOutBox, ShapeLayer } from "@/lib/social-editor/types";
+import type {
+  ComponentRegistry,
+  InstanceLayer,
+  Layer,
+  LaidOutBox,
+  ShapeLayer,
+} from "@/lib/social-editor/types";
 import {
+  activeMaskShapeIds,
   cornerRadiusCss,
+  expandInstance,
   flipTransform,
   listDisplayText,
   maskRadiusCss,
+  resolveMaskShape,
   textCaseFor,
   textDecorationCss,
   textTransformCss,
@@ -50,6 +59,7 @@ export default function LayerView({
   mask,
   maskBox,
   maskedOut,
+  registry,
   selected,
   multiSelected,
   editing,
@@ -74,6 +84,10 @@ export default function LayerView({
   /** True when THIS layer is a shape currently acting as a mask: it paints
    *  no fill (it's just the window) but stays selectable/editable. */
   maskedOut?: boolean;
+  /** Deck-level component registry — required to paint an instance layer
+   *  (its master variant is expanded + rendered inside the instance box).
+   *  Ignored for text/image/shape layers. */
+  registry?: ComponentRegistry;
   selected?: boolean;
   /** Part of a multi-selection (shows a persistent outline, no moveable). */
   multiSelected?: boolean;
@@ -152,6 +166,14 @@ export default function LayerView({
         />
       )}
       {layer.type === "shape" && <ShapeBody layer={layer} scale={scale} maskedOut={!!maskedOut} />}
+      {layer.type === "instance" && (
+        <InstanceBody
+          layer={layer}
+          box={{ x: gx, y: gy, w: gw, h: gh }}
+          scale={scale}
+          registry={registry}
+        />
+      )}
       {interactive && multiSelected && (
         <span aria-hidden className="pointer-events-none absolute inset-0 ring-2 ring-green" />
       )}
@@ -354,6 +376,81 @@ function ImageBody({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Paints an INSTANCE layer: expands its master variant into concrete
+ *  child layers (the SAME expandInstance the export route uses → parity),
+ *  then renders them inside the instance's box. Children are translated
+ *  into the instance's LOCAL frame (subtract the instance origin) so they
+ *  paint relative to the wrapper, which is already positioned at the
+ *  instance box. Masks among the children are resolved here so a
+ *  component containing a masked image renders correctly. A missing /
+ *  empty component renders a quiet placeholder rather than crashing. */
+function InstanceBody({
+  layer,
+  box,
+  scale,
+  registry,
+}: {
+  layer: InstanceLayer;
+  /** The instance's EFFECTIVE box (auto-layout override or stored coords).
+   *  Children are expanded into this box so a grouped/laid-out instance
+   *  paints at the right place + size. */
+  box: LaidOutBox;
+  scale: number;
+  registry?: ComponentRegistry;
+}) {
+  // Expand against the effective box (so slide-level auto-layout on the
+  // instance is honoured), then paint children in the LOCAL frame.
+  const effective: InstanceLayer = { ...layer, x: box.x, y: box.y, w: box.w, h: box.h };
+  const children = expandInstance(registry?.[layer.componentId], effective);
+  if (children.length === 0) {
+    // Dangling / empty component — a faint dashed placeholder so the
+    // instance is still visible and selectable on the canvas.
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "1px dashed rgba(26,26,46,0.25)",
+          borderRadius: 8,
+          background: "rgba(26,26,46,0.03)",
+        }}
+      />
+    );
+  }
+  const maskShapeIds = activeMaskShapeIds(children);
+  // Local frame: children carry absolute board coords; the wrapper is at
+  // the instance box origin, so paint each child offset by (−box.x,
+  // −box.y) via a local geom override.
+  const localGeom = (l: Layer): LaidOutBox => ({
+    x: l.x - box.x,
+    y: l.y - box.y,
+    w: l.w,
+    h: l.h,
+  });
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      {children.map((c) => {
+        const cMask =
+          c.type === "image" && !c.hidden ? resolveMaskShape(c, children) : null;
+        const cMaskBox = cMask ? localGeom(cMask) : null;
+        return (
+          <LayerView
+            key={c.id}
+            layer={c}
+            scale={scale}
+            geom={localGeom(c)}
+            registry={registry}
+            mask={cMask}
+            maskBox={cMaskBox}
+            maskedOut={maskShapeIds.has(c.id)}
+            interactive={false}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -17,14 +17,17 @@ import type {
   AutoLayoutAlign,
   AutoLayoutDirection,
   AutoLayoutJustify,
+  ComponentDef,
   ImageCrop,
+  InstanceLayer,
   Layer,
+  LayerOverride,
   ShapeKind,
   TextAlign,
   TextCase,
   TextList,
 } from "@/lib/social-editor/types";
-import { listDisplayText, textCaseFor } from "@/lib/social-editor/types";
+import { listDisplayText, resolveVariant, textCaseFor } from "@/lib/social-editor/types";
 import { FONT_OPTIONS, bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { FILTER_PRESETS } from "@/lib/social-editor/imageStyle";
 import {
@@ -46,8 +49,12 @@ import {
   FlipIcon,
   AutoLayoutIcon,
   MaskIcon,
+  ComponentIcon,
+  DetachIcon,
+  EditIcon,
 } from "./editorUi";
-import { layerLabel } from "@/lib/social-editor/types";
+import { layerLabel, instanceLabel } from "@/lib/social-editor/types";
+import type { ComponentRegistry } from "@/lib/social-editor/types";
 
 /** Cyclic accent colours for the layers-panel group indicator (left rail
  *  + chip), so distinct groups stay visually separable. */
@@ -768,6 +775,249 @@ export function MaskToolbar({
   return null;
 }
 
+/* ─── Components + variants (Wave 2c) ─────────────────────────────────
+ * Two surfaces:
+ *  • CreateComponentButton — shown for a normal (non-instance) selection.
+ *  • InstanceToolbar — shown when one instance is selected: component
+ *    name, a variant dropdown, an Overrides popover (text / image-src /
+ *    fill per master layer), reset-overrides, edit-master, detach, and a
+ *    component menu (add variant, delete component). Matches the existing
+ *    toolbar/popover look. */
+
+export function CreateComponentButton({ onCreate }: { onCreate: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onCreate}
+      title="Create a reusable component from the selection"
+      className="h-9 px-3 rounded-lg text-[13px] font-medium text-charcoal/75 hover:bg-charcoal/5 ring-1 ring-charcoal/10 flex items-center gap-1.5 whitespace-nowrap"
+    >
+      <ComponentIcon /> Create component
+    </button>
+  );
+}
+
+export function InstanceToolbar({
+  instance,
+  def,
+  onSetVariant,
+  onSetOverride,
+  onResetOverrides,
+  onAddVariant,
+  onEdit,
+  onDetach,
+  onDeleteComponent,
+}: {
+  instance: InstanceLayer;
+  /** The referenced component def, or undefined when missing (dangling). */
+  def: ComponentDef | undefined;
+  onSetVariant: (variantId: string) => void;
+  onSetOverride: (masterId: string, patch: LayerOverride) => void;
+  onResetOverrides: () => void;
+  onAddVariant: () => void;
+  onEdit: () => void;
+  onDetach: () => void;
+  onDeleteComponent: () => void;
+}) {
+  // Dangling instance (component was removed externally): only offer detach
+  // (bakes whatever expands — nothing — / cleans it up) + delete.
+  if (!def) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 text-[12.5px] text-charcoal/55 whitespace-nowrap">
+          <ComponentIcon /> Missing component
+        </span>
+        <Divider />
+        <IconBtn label="Detach instance" onClick={onDetach}><DetachIcon /></IconBtn>
+      </div>
+    );
+  }
+  const variant = resolveVariant(def, instance.variant);
+  const overrides = instance.overrides ?? {};
+  const hasOverrides = Object.keys(overrides).length > 0;
+  // Master layers that can be overridden: text (content + colour), image
+  // (src is changed via the per-layer Replace in the slide — here we expose
+  // fill/colour + text), shape (fill).
+  const overridable = (variant?.layers ?? []).filter(
+    (l) => l.type === "text" || l.type === "shape" || l.type === "image"
+  );
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-charcoal/70 whitespace-nowrap">
+        <span className="text-green"><ComponentIcon /></span>
+        {def.name}
+      </span>
+
+      {/* Variant dropdown */}
+      {def.variants.length >= 1 && (
+        <Popover label={variant?.name ?? "Variant"}>
+          {(close) => (
+            <div className="w-44 py-1">
+              {def.variants.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => { onSetVariant(v.id); close(); }}
+                  className={`w-full text-left px-3 py-1.5 text-[13px] hover:bg-charcoal/5 ${
+                    (instance.variant ?? def.variants[0]?.id) === v.id ? "text-green" : "text-charcoal/75"
+                  }`}
+                >
+                  {v.name}
+                </button>
+              ))}
+              <span className="block my-1 mx-2 h-px bg-charcoal/8" />
+              <button
+                type="button"
+                onClick={() => { onAddVariant(); close(); }}
+                className="w-full text-left px-3 py-1.5 text-[13px] text-charcoal/60 hover:bg-charcoal/5"
+              >
+                + Add variant (duplicate)
+              </button>
+            </div>
+          )}
+        </Popover>
+      )}
+
+      {/* Overrides */}
+      {overridable.length > 0 && (
+        <Popover label="Overrides">
+          {() => (
+            <div className="w-72 p-3 flex flex-col gap-3 max-h-80 overflow-auto">
+              <p className="text-[11px] font-medium text-charcoal/50">
+                Per-instance overrides — change this copy without affecting the master.
+              </p>
+              {overridable.map((m, i) => (
+                <OverrideRow
+                  key={m.id}
+                  master={m}
+                  index={i}
+                  override={overrides[m.id]}
+                  onChange={(patch) => onSetOverride(m.id, patch)}
+                />
+              ))}
+              {hasOverrides && (
+                <button
+                  type="button"
+                  onClick={onResetOverrides}
+                  className="text-[12px] text-charcoal/45 hover:text-charcoal/70 self-start"
+                >
+                  Reset all overrides
+                </button>
+              )}
+            </div>
+          )}
+        </Popover>
+      )}
+
+      <Divider />
+      <IconBtn label="Edit component" onClick={onEdit}><EditIcon /></IconBtn>
+      <IconBtn label="Detach instance" onClick={onDetach}><DetachIcon /></IconBtn>
+
+      {/* Component menu (add variant / delete component) */}
+      <Popover label="Component">
+        {(close) => (
+          <div className="w-52 p-1.5 flex flex-col">
+            <button
+              type="button"
+              onClick={() => { onAddVariant(); close(); }}
+              className="text-left px-2.5 py-2 rounded-md text-[13px] text-charcoal/75 hover:bg-charcoal/5"
+            >
+              Add variant (duplicate)
+            </button>
+            <button
+              type="button"
+              onClick={() => { onEdit(); close(); }}
+              className="text-left px-2.5 py-2 rounded-md text-[13px] text-charcoal/75 hover:bg-charcoal/5"
+            >
+              Edit component master…
+            </button>
+            <span className="block my-1 mx-1 h-px bg-charcoal/8" />
+            <button
+              type="button"
+              onClick={() => { onDeleteComponent(); close(); }}
+              className="text-left px-2.5 py-2 rounded-md text-[13px] text-red-600 hover:bg-red-50"
+            >
+              Delete component (detaches all)
+            </button>
+          </div>
+        )}
+      </Popover>
+    </div>
+  );
+}
+
+/** One overridable master layer's row in the Overrides popover. Text →
+ *  content textarea + colour; image → image src text field; shape →
+ *  fill colour. An empty/cleared field removes that override. */
+function OverrideRow({
+  master,
+  index,
+  override,
+  onChange,
+}: {
+  master: Layer;
+  index: number;
+  override: LayerOverride | undefined;
+  onChange: (patch: LayerOverride) => void;
+}) {
+  const label = `${master.type[0]!.toUpperCase()}${master.type.slice(1)} ${index + 1}`;
+  if (master.type === "text") {
+    const value = override?.text ?? master.text;
+    const color = override?.fill ?? master.color;
+    return (
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-medium text-charcoal/50">{label}</span>
+        <textarea
+          value={value}
+          onChange={(e) =>
+            onChange({ text: e.target.value === master.text ? undefined : e.target.value })
+          }
+          rows={2}
+          className="w-full rounded-md ring-1 ring-charcoal/10 px-2 py-1.5 text-[12.5px] focus:outline-none focus:ring-green/40 resize-none"
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-charcoal/45 w-12">Colour</span>
+          <ColorField
+            label=""
+            value={color}
+            onChange={(fill) => onChange({ fill: fill === master.color ? undefined : fill })}
+          />
+        </div>
+      </div>
+    );
+  }
+  if (master.type === "image") {
+    const value = override?.src ?? master.src;
+    return (
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-medium text-charcoal/50">{label} (URL)</span>
+        <input
+          value={value}
+          onChange={(e) =>
+            onChange({ src: e.target.value === master.src ? undefined : e.target.value, mediaId: undefined })
+          }
+          placeholder="https://…"
+          className="w-full rounded-md ring-1 ring-charcoal/10 px-2 py-1.5 text-[12px] focus:outline-none focus:ring-green/40"
+        />
+      </div>
+    );
+  }
+  // shape
+  const shapeFill = override?.fill ?? (master as Extract<Layer, { type: "shape" }>).fill;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-medium text-charcoal/50 flex-1">{label} fill</span>
+      <ColorField
+        label=""
+        value={shapeFill}
+        onChange={(fill) =>
+          onChange({ fill: fill === (master as Extract<Layer, { type: "shape" }>).fill ? undefined : fill })
+        }
+      />
+    </div>
+  );
+}
+
 /* ─── Auto-layout (group flex) ────────────────────────────────────────
  * Shown when the selection is exactly one group. A single toggle button
  * enables auto-layout; once on, a popover exposes direction, gap, padding,
@@ -892,6 +1142,7 @@ function SegGroup<T extends string>({
 
 export function LayersPanel({
   layers,
+  registry,
   selectedIds,
   onSelect,
   onToggleHidden,
@@ -902,6 +1153,8 @@ export function LayersPanel({
 }: {
   /** Top-to-bottom render order is reversed for the panel (front first). */
   layers: Layer[];
+  /** Deck-level registry — used to label instance layers by component. */
+  registry?: ComponentRegistry;
   selectedIds: string[];
   onSelect: (id: string, additive: boolean) => void;
   onToggleHidden: (id: string) => void;
@@ -924,6 +1177,11 @@ export function LayersPanel({
   );
   const groupAccent = (gid: string | undefined) =>
     gid ? GROUP_ACCENTS[groupOrder.indexOf(gid) % GROUP_ACCENTS.length]! : null;
+
+  // Instance layers are labelled by their component (falling back to the
+  // generic label); everything else uses the content-derived label.
+  const labelOf = (l: Layer) =>
+    l.type === "instance" ? instanceLabel(l, registry) : layerLabel(l);
 
   return (
     <div className="w-[248px] bg-white border-l border-charcoal/8 flex flex-col shrink-0">
@@ -975,7 +1233,7 @@ export function LayersPanel({
               {renaming === l.id ? (
                 <input
                   autoFocus
-                  defaultValue={layerLabel(l)}
+                  defaultValue={labelOf(l)}
                   onMouseDown={(e) => e.stopPropagation()}
                   onBlur={(e) => { onRename(l.id, e.target.value); setRenaming(null); }}
                   onKeyDown={(e) => {
@@ -989,7 +1247,7 @@ export function LayersPanel({
                   onDoubleClick={(e) => { e.stopPropagation(); setRenaming(l.id); }}
                   className={`flex-1 min-w-0 truncate text-[12.5px] ${l.hidden ? "text-charcoal/30 line-through" : selected ? "text-charcoal/90" : "text-charcoal/70"}`}
                 >
-                  {layerLabel(l)}
+                  {labelOf(l)}
                 </span>
               )}
               <button
@@ -1021,6 +1279,7 @@ export function LayersPanel({
 function LayerTypeIcon({ layer }: { layer: Layer }) {
   if (layer.type === "text") return <TextIcon />;
   if (layer.type === "image") return <ImageIcon />;
+  if (layer.type === "instance") return <ComponentIcon />;
   return <ShapeIcon kind={(layer as Extract<Layer, { type: "shape" }>).shape as ShapeKind} />;
 }
 

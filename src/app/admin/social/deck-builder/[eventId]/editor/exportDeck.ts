@@ -9,7 +9,7 @@
  */
 
 import JSZip from "jszip";
-import type { EditorSlide } from "@/lib/social-editor/types";
+import type { EditorSlide, ComponentRegistry } from "@/lib/social-editor/types";
 
 function slug(s: string): string {
   return (
@@ -18,12 +18,17 @@ function slug(s: string): string {
   );
 }
 
-async function renderSlide(slide: EditorSlide): Promise<ArrayBuffer | null> {
+async function renderSlide(
+  slide: EditorSlide,
+  registry?: ComponentRegistry
+): Promise<ArrayBuffer | null> {
   try {
     const res = await fetch("/api/admin/social-editor/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slide }),
+      // The registry rides along so the route can expand any instance
+      // layers with the SAME expandSlide helper the canvas uses → parity.
+      body: JSON.stringify({ slide, registry }),
     });
     if (!res.ok) return null;
     return await res.arrayBuffer();
@@ -43,11 +48,15 @@ function download(blob: Blob, name: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportDeck(deck: EditorSlide[], title: string): Promise<void> {
+export async function exportDeck(
+  deck: EditorSlide[],
+  title: string,
+  registry?: ComponentRegistry
+): Promise<void> {
   const name = slug(title);
 
   if (deck.length === 1) {
-    const buf = await renderSlide(deck[0]!);
+    const buf = await renderSlide(deck[0]!, registry);
     if (!buf) {
       alert("Export failed — could not render the slide.");
       return;
@@ -56,7 +65,7 @@ export async function exportDeck(deck: EditorSlide[], title: string): Promise<vo
     return;
   }
 
-  const results = await Promise.all(deck.map((s) => renderSlide(s)));
+  const results = await Promise.all(deck.map((s) => renderSlide(s, registry)));
   const zip = new JSZip();
   let ok = 0;
   results.forEach((buf, i) => {

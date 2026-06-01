@@ -220,7 +220,92 @@ export type ShapeLayer = LayerBase & {
   strokeDash?: number;
 };
 
-export type Layer = TextLayer | ImageLayer | ShapeLayer;
+/* ─── Components + variants (Wave 2c) ─────────────────────────────────
+ * A COMPONENT is a reusable, named definition built from a set of layers,
+ * stored in a DECK-LEVEL registry (so it's reusable across every slide).
+ * An INSTANCE is a placement layer (`type:"instance"`) that references a
+ * component (+ a chosen variant) and renders the master's layers, with
+ * optional per-instance overrides. Editing the master updates every
+ * instance (except overridden props).
+ *
+ * VARIANTS are modelled as SEPARATE layer-sets: each variant carries its
+ * own `layers` array (its own master). Switching an instance's variant
+ * swaps which layer-set expands. "Add variant" duplicates the current
+ * variant's layers under a new name. This keeps the model dead-simple and
+ * predictable (no per-variant prop-delta resolution) — Canva-simple.
+ *
+ * The component's layers live in the component's OWN local board space
+ * (origin 0,0, size width×height). At expansion time the instance's box
+ * (x/y/w/h) scales + translates the master layers to fit, so one
+ * definition can be placed at any size/position. Everything here is
+ * additive + optional, so decks/drafts/presets without components (no
+ * `instance` layers, no registry) round-trip completely unchanged. */
+
+/** One variant of a component — its own complete layer-set (master). */
+export type ComponentVariant = {
+  /** Stable id (unique within the component). */
+  id: string;
+  /** Display name shown in the variant dropdown (e.g. "Gold", "Forest"). */
+  name: string;
+  /** The variant's master layers, in the component's local board space
+   *  (laid out from origin 0,0 within width×height). NEVER contains
+   *  another instance layer (components don't nest). */
+  layers: Layer[];
+  /** Optional per-group metadata (auto-layout config), keyed by groupId,
+   *  captured when the source selection contained an auto-layout group.
+   *  Merged into the expanded slide's `groups` (remapped to
+   *  instance-scoped ids) by expandSlide so a component holding an
+   *  auto-layout group reflows correctly on canvas + export. Absent ===
+   *  the variant has no auto-layout groups. */
+  groups?: Record<string, GroupMeta>;
+};
+
+/** A reusable component definition (lives in the deck-level registry). */
+export type ComponentDef = {
+  id: string;
+  name: string;
+  /** Intrinsic local size, board units — the design size the variants'
+   *  layers were authored at. An instance box scales relative to this. */
+  width: number;
+  height: number;
+  /** ≥1 named variant. The first is the default. */
+  variants: ComponentVariant[];
+};
+
+/** Deck-level component registry, keyed by componentId. */
+export type ComponentRegistry = Record<string, ComponentDef>;
+
+/** Per-instance override of a single master layer's content. Keyed in
+ *  InstanceLayer.overrides by the MASTER layer's id (stable across
+ *  variants only when the layer ids line up — overrides are matched by id
+ *  and silently ignored when a variant lacks that layer, so switching
+ *  variants degrades gracefully). Only the Figma-core overridable props
+ *  are supported: text content, image src/mediaId, and fill colour. */
+export type LayerOverride = {
+  text?: string;
+  src?: string;
+  mediaId?: string;
+  /** Fill for shapes / colour for text (applied to whichever the master
+   *  layer supports). */
+  fill?: string;
+};
+
+/** A placement of a component on a slide. Carries its own box geometry
+ *  (LayerBase x/y/w/h/rotation/opacity/…) so it transforms like any
+ *  layer; at render time it EXPANDS into the master(variant)'s concrete
+ *  layers, scaled into this box, with per-instance overrides applied. */
+export type InstanceLayer = LayerBase & {
+  type: "instance";
+  /** Registry key of the referenced component. */
+  componentId: string;
+  /** Chosen variant id. Undefined / missing → the component's first
+   *  variant (graceful fallback). */
+  variant?: string;
+  /** Per-master-layer overrides, keyed by the master layer's id. */
+  overrides?: Record<string, LayerOverride>;
+};
+
+export type Layer = TextLayer | ImageLayer | ShapeLayer | InstanceLayer;
 
 /* ─── Shape-as-mask ("use as mask", Figma-style) ──────────────────────
  * An image layer may carry `maskLayerId` → a sibling SHAPE that acts as
@@ -338,6 +423,193 @@ export type EditorSlide = {
    *  drafts and presets round-trip unchanged. */
   groups?: Record<string, GroupMeta>;
 };
+
+/** The whole editable document: the filmstrip of slides plus the
+ *  deck-level component registry. The registry is undefined/absent when
+ *  no components exist, so older drafts (slides only) round-trip
+ *  unchanged. Held as ONE history state so create-component, master
+ *  edits, variant changes and slide edits all share undo/redo. */
+export type EditorDeck = {
+  slides: EditorSlide[];
+  /** Reusable component definitions, keyed by componentId. Undefined ===
+   *  no components yet. */
+  components?: ComponentRegistry;
+};
+
+/* ─── Component / instance expansion ──────────────────────────────────
+ * The SINGLE source of truth for turning instance layers into concrete
+ * layers. Called identically by the live canvas, thumbnails AND the
+ * Satori export route, so the PNG matches the stage exactly. */
+
+/** Resolve the variant an instance points at, falling back to the
+ *  component's first variant when the chosen one is missing (graceful —
+ *  never crashes on a stale variant id). Returns null when the component
+ *  itself is missing or has no variants. */
+export function resolveVariant(
+  def: ComponentDef | undefined,
+  variantId: string | undefined
+): ComponentVariant | null {
+  if (!def || def.variants.length === 0) return null;
+  if (variantId) {
+    const v = def.variants.find((x) => x.id === variantId);
+    if (v) return v;
+  }
+  return def.variants[0]!;
+}
+
+/** Apply a single per-instance override to a master layer (by id). Only
+ *  text content, image src/mediaId and fill/colour are overridable; an
+ *  override key the layer doesn't support is ignored. */
+function applyOverride(layer: Layer, ov: LayerOverride | undefined): Layer {
+  if (!ov) return layer;
+  if (layer.type === "text") {
+    const next = { ...layer };
+    if (ov.text !== undefined) next.text = ov.text;
+    if (ov.fill !== undefined) next.color = ov.fill;
+    return next;
+  }
+  if (layer.type === "image") {
+    const next = { ...layer };
+    if (ov.src !== undefined) next.src = ov.src;
+    if (ov.mediaId !== undefined) next.mediaId = ov.mediaId;
+    return next;
+  }
+  if (layer.type === "shape") {
+    const next = { ...layer };
+    if (ov.fill !== undefined) next.fill = ov.fill;
+    return next;
+  }
+  return layer;
+}
+
+/** Expand ONE instance layer into its concrete layers: the master
+ *  variant's layers, transformed from the component's local space into
+ *  the instance's box (scale + translate), with per-instance overrides
+ *  applied and fresh ids prefixed by the instance id (so intra-instance
+ *  references — group ids, mask links — stay scoped to this instance and
+ *  never collide with the slide's own layers or with other instances of
+ *  the same component).
+ *
+ *  Returns [] when the component/variant can't be resolved (missing
+ *  component, empty variants) so a dangling instance renders as nothing
+ *  rather than crashing — the caller composes that into the slide.
+ *
+ *  Geometry: master layers are authored in the component's width×height
+ *  local frame; we scale by (instance.w/width, instance.h/height) and
+ *  translate to the instance's top-left. Mask windows / corner radii /
+ *  stroke widths are board-unit values that scale with `sx`/`sy` too.
+ *
+ *  The instance's OWN rotation + opacity are NOT composed here — they are
+ *  applied once by the instance's wrapper (LayerView on the canvas, the
+ *  per-instance wrapper in the export route), so painting matches whether
+ *  the instance is rotated or faded. Each expanded child keeps only its
+ *  master rotation/opacity. */
+export function expandInstance(
+  def: ComponentDef | undefined,
+  instance: InstanceLayer
+): Layer[] {
+  const variant = resolveVariant(def, instance.variant);
+  if (!def || !variant) return [];
+  const sx = def.width ? instance.w / def.width : 1;
+  const sy = def.height ? instance.h / def.height : 1;
+  const overrides = instance.overrides ?? {};
+
+  // 1) Auto-layout INSIDE the component: resolve the variant's group
+  //    layout in the component's LOCAL space first (so a component holding
+  //    an auto-layout group reflows), then we scale/translate the result
+  //    into the instance box below. Composing with auto-layout (Wave 2a)
+  //    happens HERE, before masking, so all three layer kinds compose.
+  const localLayout = variant.groups
+    ? resolveSlideLayout({
+        id: def.id,
+        width: def.width,
+        height: def.height,
+        background: "#fff",
+        layers: variant.layers,
+        groups: variant.groups,
+      })
+    : null;
+  const localBox = (l: Layer): LaidOutBox =>
+    localLayout?.get(l.id) ?? { x: l.x, y: l.y, w: l.w, h: l.h };
+
+  // 2) Remap master layer ids → instance-scoped ids, and rewrite intra-set
+  //    references (maskLayerId) through the same map.
+  const idMap = new Map<string, string>();
+  for (const l of variant.layers) idMap.set(l.id, `${instance.id}__${l.id}`);
+
+  return variant.layers.map((master) => {
+    const lb = localBox(master);
+    const withOv = applyOverride(master, overrides[master.id]);
+    const scaled: Layer = {
+      ...withOv,
+      id: idMap.get(master.id)!,
+      x: instance.x + lb.x * sx,
+      y: instance.y + lb.y * sy,
+      w: lb.w * sx,
+      h: lb.h * sy,
+      // The expanded layers are not independently selectable on the slide
+      // — the INSTANCE is the selectable unit — so mark them locked, and
+      // drop the groupId (layout is already baked into the coords above,
+      // so the flat output needs no group metadata).
+      locked: true,
+      groupId: undefined,
+    };
+    // Scale font size + spacing for text.
+    if (scaled.type === "text") {
+      const m = withOv as TextLayer;
+      scaled.fontSize = m.fontSize * sy;
+      scaled.letterSpacing = m.letterSpacing * sx;
+    }
+    // Re-link a mask reference to the instance-scoped shape id.
+    if (scaled.type === "image" && scaled.maskLayerId) {
+      scaled.maskLayerId = idMap.get(scaled.maskLayerId) ?? scaled.maskLayerId;
+    }
+    return scaled;
+  });
+}
+
+/** Expand EVERY instance layer on a slide into concrete layers, in place
+ *  (preserving z-order). Non-instance layers pass through untouched.
+ *  Returns a plain Layer[] containing NO instance layers — ready to feed
+ *  the existing layout/mask resolvers and renderers. This is THE function
+ *  the canvas, thumbnails and export all call first, guaranteeing parity.
+ *
+ *  Auto-layout note: a component's master layers may themselves form an
+ *  auto-layout group. We surface that by merging the variant's per-group
+ *  metadata (remapped to instance-scoped group ids + frames placed in the
+ *  instance box) — see expandSlide, which returns the merged groups too. */
+export function expandSlideLayers(
+  slide: EditorSlide,
+  registry: ComponentRegistry | undefined
+): Layer[] {
+  if (!slide.layers.some((l) => l.type === "instance")) return slide.layers;
+  const out: Layer[] = [];
+  for (const l of slide.layers) {
+    if (l.type !== "instance") {
+      out.push(l);
+      continue;
+    }
+    if (l.hidden) continue; // an expanded hidden instance contributes nothing
+    out.push(...expandInstance(registry?.[l.componentId], l));
+  }
+  return out;
+}
+
+/** Expand a slide into a concrete EditorSlide whose layers contain no
+ *  instances (via expandSlideLayers). A component's internal auto-layout
+ *  is already baked into the expanded children's coordinates by
+ *  expandInstance, so the slide's own `groups` pass through untouched. The
+ *  result is a normal EditorSlide that resolveSlideLayout /
+ *  resolveMaskShape / the renderers consume unchanged — so a component
+ *  containing an auto-layout group or a masked image renders correctly on
+ *  both canvas and PNG. */
+export function expandSlide(
+  slide: EditorSlide,
+  registry: ComponentRegistry | undefined
+): EditorSlide {
+  if (!slide.layers.some((l) => l.type === "instance")) return slide;
+  return { ...slide, layers: expandSlideLayers(slide, registry) };
+}
 
 /** Resolve the auto-layout config for a group on a slide, or null when
  *  the group is a plain absolute group (no entry / no autoLayout). */
@@ -476,6 +748,22 @@ export function makeGroupId(): string {
   return `gp_${Math.random().toString(36).slice(2)}`;
 }
 
+/** Fresh id for a component definition (deck-level registry key). */
+export function makeComponentId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `cmp_${crypto.randomUUID()}`;
+  }
+  return `cmp_${Math.random().toString(36).slice(2)}`;
+}
+
+/** Fresh id for a component variant. */
+export function makeVariantId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `var_${crypto.randomUUID()}`;
+  }
+  return `var_${Math.random().toString(36).slice(2)}`;
+}
+
 export const DEFAULT_BOARD = 1080;
 
 /** Trailing `scaleX(-1) scaleY(-1)` fragment for a layer's flip flags,
@@ -520,11 +808,23 @@ export function layerLabel(layer: Layer): string {
     return t ? (t.length > 24 ? `${t.slice(0, 24)}…` : t) : "Text";
   }
   if (layer.type === "image") return "Image";
+  if (layer.type === "instance") return "Component";
   return layer.shape === "rect"
     ? "Rectangle"
     : layer.shape === "ellipse"
       ? "Ellipse"
       : "Line";
+}
+
+/** Human label for an instance layer, preferring its custom name, then
+ *  the referenced component's name, falling back to "Component". */
+export function instanceLabel(
+  layer: InstanceLayer,
+  registry: ComponentRegistry | undefined
+): string {
+  if (layer.name && layer.name.trim()) return layer.name.trim();
+  const def = registry?.[layer.componentId];
+  return def?.name?.trim() || "Component";
 }
 
 /** Axis-aligned bounding box of a layer accounting for rotation about

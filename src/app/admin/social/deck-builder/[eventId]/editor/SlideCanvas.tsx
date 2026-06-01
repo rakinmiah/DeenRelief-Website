@@ -16,7 +16,7 @@
 
 import Moveable from "react-moveable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
+import type { ComponentRegistry, EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
 import { resolveSlideLayout, resolveMaskShape, activeMaskShapeIds } from "@/lib/social-editor/types";
 import LayerView from "./LayerView";
 import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./editorUi";
@@ -24,6 +24,7 @@ import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./edit
 export default function SlideCanvas({
   slide,
   scale,
+  registry,
   selectedIds,
   editingId,
   onSelect,
@@ -40,6 +41,9 @@ export default function SlideCanvas({
 }: {
   slide: EditorSlide;
   scale: number;
+  /** Deck-level component registry, forwarded to LayerView so instance
+   *  layers expand + paint from their master variant. */
+  registry?: ComponentRegistry;
   selectedIds: string[];
   editingId: string | null;
   onSelect: (id: string | null, additive: boolean) => void;
@@ -215,6 +219,7 @@ export default function SlideCanvas({
               layer={l}
               scale={scale}
               geom={layout.get(l.id)}
+              registry={registry}
               mask={mask}
               maskBox={mask ? boxOf(mask) : null}
               maskedOut={maskShapeIds.has(l.id)}

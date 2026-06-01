@@ -20,10 +20,19 @@ import { loadGoogleFont } from "@/lib/social-templates/fonts";
 import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
-import type { EditorSlide, Layer, LaidOutBox, ShapeLayer } from "@/lib/social-editor/types";
+import type {
+  EditorSlide,
+  Layer,
+  InstanceLayer,
+  LaidOutBox,
+  ShapeLayer,
+  ComponentRegistry,
+} from "@/lib/social-editor/types";
 import {
   activeMaskShapeIds,
   cornerRadiusCss,
+  expandInstance,
+  expandSlideLayers,
   flipTransform,
   listDisplayText,
   maskRadiusCss,
@@ -70,11 +79,17 @@ export async function POST(request: Request) {
 }
 
 async function render(request: Request): Promise<Response> {
-  const body = (await request.json()) as { slide?: EditorSlide };
+  const body = (await request.json()) as {
+    slide?: EditorSlide;
+    /** Deck-level component registry — rides along so the route can expand
+     *  any instance layer into its concrete component layers. */
+    registry?: ComponentRegistry;
+  };
   const slide = body.slide;
   if (!slide || !Array.isArray(slide.layers)) {
     return new Response("Missing slide.", { status: 400 });
   }
+  const registry = body.registry;
 
   // Auto-layout overrides: members of an auto-layout group are positioned
   // by the SAME shared solver the canvas uses (pre-computed boxes,
@@ -83,9 +98,19 @@ async function render(request: Request): Promise<Response> {
   const boxOf = (l: Layer): LaidOutBox =>
     layout.get(l.id) ?? { x: l.x, y: l.y, w: l.w, h: l.h };
 
+  // Flatten instances into their concrete component layers (the SAME
+  // expandSlideLayers the canvas + thumbnails use) PURELY for resource
+  // pre-loading — so images + fonts INSIDE a component instance get fetched.
+  // Expanded children carry deterministic ids (`${inst.id}__${masterId}`) +
+  // absolute board coords, so boxOf() falls back to those coords and the URI
+  // map keys line up with the per-instance render pass below. The element
+  // tree itself still renders instances through a clipped wrapper (mirroring
+  // LayerView's InstanceBody) so instance opacity/rotation/clip match exactly.
+  const flatLayers = expandSlideLayers(slide, registry);
+
   // Resolve image layers → filtered data URIs (parallel, fault-tolerant).
   // Hidden layers are skipped so the export matches the editor (WYSIWYG).
-  const imageLayers = slide.layers.filter(
+  const imageLayers = flatLayers.filter(
     (l): l is Extract<Layer, { type: "image" }> =>
       l.type === "image" && !!l.src && !l.hidden
   );
@@ -128,7 +153,7 @@ async function render(request: Request): Promise<Response> {
 
   // Load fonts for every (family, weight, style) the text layers use.
   const fontKeys = new Map<string, { family: string; weight: number; italic: boolean }>();
-  for (const l of slide.layers) {
+  for (const l of flatLayers) {
     if (l.type !== "text") continue;
     const family = bareFamily(l.fontFamily);
     const weight = nearestWeight(family, l.fontWeight);
@@ -147,10 +172,6 @@ async function render(request: Request): Promise<Response> {
     .filter((r): r is PromiseFulfilledResult<{ name: string; data: ArrayBuffer; weight: 400 | 500 | 600 | 700 | 800; style: "normal" | "italic" }> => r.status === "fulfilled")
     .map((r) => r.value);
 
-  // Shapes acting as an image mask paint NO fill (just the clip window),
-  // resolved with the SAME helper the canvas uses so the PNG matches.
-  const maskShapeIds = activeMaskShapeIds(slide.layers);
-
   const element = (
     <div
       style={{
@@ -162,26 +183,7 @@ async function render(request: Request): Promise<Response> {
         overflow: "hidden",
       }}
     >
-      {slide.layers
-        .filter((l) => !l.hidden)
-        .map((l) => {
-          // Masked image → resolve its mask shape + the mask's effective
-          // box (auto-layout aware). Dangling/unsupported = null (normal).
-          const mask =
-            l.type === "image" ? resolveMaskShape(l, slide.layers) : null;
-          return (
-            <div key={l.id} style={wrapperStyle(l, boxOf(l))}>
-              {renderInner(
-                l,
-                uris.get(l.id) ?? null,
-                boxOf(l),
-                mask,
-                mask ? boxOf(mask) : null,
-                maskShapeIds.has(l.id)
-              )}
-            </div>
-          );
-        })}
+      {renderNodes(slide.layers, boxOf, 0, 0, uris, registry)}
     </div>
   );
 
@@ -197,6 +199,118 @@ async function render(request: Request): Promise<Response> {
   return new Response(png, {
     headers: { "Cache-Control": "private, no-store", "Content-Type": "image/png" },
   });
+}
+
+/** Render a set of SIBLING layers (the slide's top-level layers, OR one
+ *  instance's expanded children) into the Satori element tree. `absBox`
+ *  resolves a layer's box in absolute board coords; `originX/Y` is the frame
+ *  origin to subtract so children paint LOCAL to their wrapper. This mirrors
+ *  the canvas exactly: SlideCanvas maps top-level layers, and InstanceBody
+ *  re-maps an instance's children in its local frame — same masks, same
+ *  z-order, same per-set mask resolution → pixel parity. Mutually recursive
+ *  with renderInstanceNodes (both hoisted). */
+function renderNodes(
+  layers: Layer[],
+  absBox: (l: Layer) => LaidOutBox,
+  originX: number,
+  originY: number,
+  uris: Map<string, string | null>,
+  registry: ComponentRegistry | undefined
+) {
+  // Masks resolve among THIS sibling set only — matching LayerView /
+  // InstanceBody (a component's masked image clips to a mask in the same
+  // component, never to a slide-level shape).
+  const maskShapeIds = activeMaskShapeIds(layers);
+  return layers
+    .filter((l) => !l.hidden)
+    .map((l) => {
+      const abs = absBox(l);
+      const local: LaidOutBox = {
+        x: abs.x - originX,
+        y: abs.y - originY,
+        w: abs.w,
+        h: abs.h,
+      };
+      // Masked image → resolve its mask shape (in this sibling set) + the
+      // mask's local box. Dangling / unsupported = null (renders normally).
+      const mask = l.type === "image" ? resolveMaskShape(l, layers) : null;
+      let maskLocal: LaidOutBox | null = null;
+      if (mask) {
+        const m = absBox(mask);
+        maskLocal = { x: m.x - originX, y: m.y - originY, w: m.w, h: m.h };
+      }
+      return (
+        <div key={l.id} style={wrapperStyle(l, local)}>
+          {l.type === "instance"
+            ? renderInstanceNodes(l, abs, uris, registry)
+            : renderInner(
+                l,
+                uris.get(l.id) ?? null,
+                local,
+                mask,
+                maskLocal,
+                maskShapeIds.has(l.id)
+              )}
+        </div>
+      );
+    });
+}
+
+/** Paint an INSTANCE: expand its master variant into concrete children (the
+ *  SAME expandInstance the canvas uses → parity), then render them in the
+ *  instance's LOCAL frame inside a clip window. The instance's own
+ *  rotation/opacity/flip are already applied by its wrapper (renderNodes →
+ *  wrapperStyle), so children keep only their master transforms — identical
+ *  to LayerView's InstanceBody. A missing/empty component paints a quiet
+ *  placeholder rather than crashing. */
+function renderInstanceNodes(
+  inst: InstanceLayer,
+  instAbs: LaidOutBox,
+  uris: Map<string, string | null>,
+  registry: ComponentRegistry | undefined
+) {
+  // Expand against the EFFECTIVE (laid-out) box so a grouped/auto-laid-out
+  // instance paints at the right place + size.
+  const effective: InstanceLayer = {
+    ...inst,
+    x: instAbs.x,
+    y: instAbs.y,
+    w: instAbs.w,
+    h: instAbs.h,
+  };
+  const children = expandInstance(registry?.[inst.componentId], effective);
+  if (children.length === 0) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          width: "100%",
+          height: "100%",
+          border: "1px dashed rgba(26,26,46,0.25)",
+          borderRadius: 8,
+          background: "rgba(26,26,46,0.03)",
+        }}
+      />
+    );
+  }
+  // Children carry absolute board coords; paint them in the instance's LOCAL
+  // frame (origin = instance box) inside a clip window — mirrors InstanceBody.
+  const childAbs = (c: Layer): LaidOutBox => ({ x: c.x, y: c.y, w: c.w, h: c.h });
+  return (
+    <div
+      style={{
+        display: "flex",
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
+      {renderNodes(children, childAbs, instAbs.x, instAbs.y, uris, registry)}
+    </div>
+  );
 }
 
 function wrapperStyle(l: Layer, box: LaidOutBox): CSSProperties {
@@ -351,6 +465,10 @@ function renderInner(
       </div>
     );
   }
+  // Instances are expanded + rendered by renderNodes/renderInstanceNodes
+  // (clipped local frame), never here — this guard just narrows the union to
+  // ShapeLayer for the shape branch below.
+  if (l.type === "instance") return null;
   // shape — a shape acting as an image mask paints nothing (it's just the
   // clip window); the masked image is the visible content.
   if (maskedOut) {
