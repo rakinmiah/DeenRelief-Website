@@ -7,7 +7,7 @@
  * (and any Satori error surfaces inline for debugging).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   presetForTemplate,
   type BrandLogo,
@@ -625,6 +625,31 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
     [logo]
   );
 
+  // Categories in review order; cards group by their id prefix (hero-, fact-…).
+  const CATS: { key: string; title: string; sub: string }[] = [
+    { key: "hero", title: "Hero", sub: "Opening / cover slides — 15 directions" },
+    { key: "fact", title: "Key Fact", sub: "A single sourced fact" },
+    { key: "stat", title: "Big Stat", sub: "One giant figure + label" },
+    { key: "multistat", title: "Multi-stat", sub: "Three figures — by the numbers" },
+    { key: "beforeafter", title: "Before / After", sub: "A then-and-now contrast" },
+    { key: "tiers", title: "Donation Tiers", sub: "The impact ladder — what each gift gives" },
+    { key: "testimony", title: "Testimony", sub: "An attributed quote" },
+    { key: "response", title: "Our Response", sub: "What Deen Relief is doing on the ground" },
+    { key: "cta", title: "Call to Action", sub: "The closing donate ask" },
+  ];
+  const byCat = (key: string) => variants.filter((v) => v.id.split("-")[0] === key);
+  const total = variants.length;
+  const chip: CSSProperties = {
+    fontSize: 12.5,
+    fontWeight: 600,
+    color: "#163827",
+    background: "#fff",
+    border: "1px solid #d9d6cc",
+    borderRadius: 999,
+    padding: "6px 12px",
+    textDecoration: "none",
+    whiteSpace: "nowrap",
+  };
   return (
     <main
       style={{
@@ -636,36 +661,108 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
     >
       <div style={{ maxWidth: 1320, margin: "0 auto" }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A1A2E", margin: 0 }}>
-          Template Lab — Hero library
+          Template Lab — Slide library
         </h1>
-        <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 760 }}>
-          Fifteen Hero layouts in the Deen&nbsp;Relief Slide Library system, rendered
-          through the real Satori export pipeline (sample copy + photo). A–J are the
-          art-directed ports (top scrims on photo heroes, balanced compositions, a
-          keyline crest); K–O add image-led structures: a split diptych, a lower-third
-          broadcast with a proof tag, an inset card, a window crop, and a duotone
-          poster. Small corner marks are the vector diamond + wordmark lockup; the
-          raster logo only rasterises at larger sizes, so it&apos;s used large and
-          centered on Hero&nbsp;F.
+        <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 820 }}>
+          {total} templates across {CATS.length} slide types, each rendered through the
+          real Satori export pipeline with sample copy + photo — exactly what a published
+          PNG looks like. Use the nav to jump between sections; cards lazy-render as you
+          scroll.
         </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 26 }}>
-          {variants.map((v) => (
-            <HeroCard key={v.id} variant={v} />
-          ))}
-        </div>
+        {/* Sticky category nav — flick between sections. */}
+        <nav
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            padding: "12px 0",
+            marginTop: 14,
+            background: "#F4F4F2",
+            borderBottom: "1px solid #e3e1da",
+          }}
+        >
+          {CATS.map((c) => {
+            const n = byCat(c.key).length;
+            if (!n) return null;
+            return (
+              <a key={c.key} href={`#cat-${c.key}`} style={chip}>
+                {c.title}{" "}
+                <span style={{ color: "#A9842B", fontWeight: 700 }}>{n}</span>
+              </a>
+            );
+          })}
+        </nav>
+        {CATS.map((c) => {
+          const items = byCat(c.key);
+          if (!items.length) return null;
+          return (
+            <section
+              key={c.key}
+              id={`cat-${c.key}`}
+              style={{ marginTop: 40, scrollMarginTop: 72 }}
+            >
+              <h2
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#1A1A2E",
+                  margin: 0,
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 10,
+                }}
+              >
+                {c.title}
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#A9842B" }}>
+                  {items.length}
+                </span>
+              </h2>
+              <p style={{ color: "#777", margin: "2px 0 0", fontSize: 13 }}>{c.sub}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 18 }}>
+                {items.map((v) => (
+                  <HeroCard key={v.id} variant={v} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </main>
   );
 }
 
 function HeroCard({ variant }: { variant: Variant }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
   const [state, setState] = useState<{
     status: "loading" | "ok" | "error";
     url?: string;
     msg?: string;
   }>({ status: "loading" });
 
+  // Lazy: only render when the card nears the viewport, so we don't fire all
+  // ~95 Satori renders on load.
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "500px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView) return;
     let cancelled = false;
     let objectUrl: string | undefined;
     (async () => {
@@ -693,10 +790,10 @@ function HeroCard({ variant }: { variant: Variant }) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [variant]);
+  }, [variant, inView]);
 
   return (
-    <div style={{ width: 380 }}>
+    <div ref={ref} style={{ width: 380 }}>
       <div
         style={{
           fontSize: 12,
