@@ -59,6 +59,19 @@ function combineFilter(base: string | undefined, blur: number | undefined): stri
   return parts.length ? parts.join(" ") : undefined;
 }
 
+/**
+ * Strip undefined-valued keys before handing a style object to Satori. next/og
+ * (Satori) throws `Invalid boxShadow value: "undefined"` when it receives an
+ * explicit `boxShadow: undefined` (likewise textShadow/filter) — the browser
+ * DOM silently ignores such keys, Satori does not. Omitting the key entirely is
+ * equivalent to "no shadow/filter", so optional effects round-trip correctly.
+ */
+function sx(style: CSSProperties): CSSProperties {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(style)) if (v !== undefined) out[k] = v;
+  return out as CSSProperties;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -340,7 +353,7 @@ function renderInner(
   if (l.type === "text") {
     return (
       <div
-        style={{
+        style={sx({
           width: "100%",
           height: "100%",
           display: "flex",
@@ -376,7 +389,7 @@ function renderInner(
           // blur via the CSS filter — keeps canvas + PNG identical.
           textShadow: shadowCss(l.shadow),
           filter: combineFilter(undefined, l.blur),
-        }}
+        })}
       >
         {listDisplayText(l.text, l.list)}
       </div>
@@ -395,7 +408,7 @@ function renderInner(
       const offY = maskBox.y - box.y;
       return (
         <div
-          style={{
+          style={sx({
             display: "flex",
             position: "absolute",
             left: offX,
@@ -406,14 +419,14 @@ function renderInner(
             overflow: "hidden",
             boxShadow: shadowCss(l.shadow),
             background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
-          }}
+          })}
         >
           {uri ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={uri}
               alt=""
-              style={{
+              style={sx({
                 ...cropImgStyle(l.crop),
                 position: "absolute",
                 left: -offX,
@@ -422,7 +435,7 @@ function renderInner(
                 height: box.h,
                 objectFit: "cover",
                 filter: combineFilter(undefined, l.blur),
-              }}
+              })}
             />
           ) : null}
         </div>
@@ -431,7 +444,7 @@ function renderInner(
     // ── Unmasked image (original behaviour) ─────────────────────────
     return (
       <div
-        style={{
+        style={sx({
           display: "flex",
           width: "100%",
           height: "100%",
@@ -441,14 +454,14 @@ function renderInner(
           // Transparent for `contain` images (logos / cut-out graphics) so
           // they sit directly on the slide; loading-tint only for photos.
           background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
-        }}
+        })}
       >
         {uri ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={uri}
             alt=""
-            style={{
+            style={sx({
               ...cropImgStyle(l.crop),
               width: box.w,
               height: box.h,
@@ -459,7 +472,7 @@ function renderInner(
               // Colour filter is baked in by sharp upstream; blur is the only
               // CSS filter we add here (mirrors LayerView).
               filter: combineFilter(undefined, l.blur),
-            }}
+            })}
           />
         ) : null}
       </div>
@@ -479,14 +492,14 @@ function renderInner(
     return (
       <div style={{ display: "flex", width: "100%", height: "100%", flexDirection: "column" }}>
         <div
-          style={{
+          style={sx({
             width: "100%",
             height: sw,
             marginTop: (box.h - sw) / 2,
             background: l.stroke,
             boxShadow: shadowCss(l.shadow),
             filter: combineFilter(undefined, l.blur),
-          }}
+          })}
         />
       </div>
     );
@@ -507,5 +520,5 @@ function renderInner(
   // affordance; the exported PNG always shows a solid stroke. We keep
   // "solid" here so the build stays clean and the border still exports.
   if (l.strokeWidth > 0) shapeStyle.border = `${l.strokeWidth}px solid ${l.stroke}`;
-  return <div style={shapeStyle} />;
+  return <div style={sx(shapeStyle)} />;
 }
