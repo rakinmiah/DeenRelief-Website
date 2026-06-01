@@ -191,6 +191,19 @@ export default async function AdminSocialLandingPage() {
           variant per slide context — green logo on cream chips,
           white logo on dark green chips.
         </DashboardCard>
+
+        <DashboardCard
+          title="Template Lab"
+          href="/admin/social/template-lab"
+          status="available"
+          statusLabel="Available"
+        >
+          The full slide library — 95 templates across 9 types (Hero, Key
+          Fact, Big Stat, Multi-stat, Before/After, Donation Tiers, Testimony,
+          Our Response, Call to Action), each rendered through the live Satori
+          pipeline. Browse by category to review every layout before building
+          a deck.
+        </DashboardCard>
       </div>
     </main>
   );
