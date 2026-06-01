@@ -49,6 +49,31 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
 
   const railRef = useRef<HTMLDivElement>(null);
 
+  // "Insert into my deck": hand the selected template's slide to the editor
+  // tab via localStorage. The editor listens for the cross-tab `storage`
+  // event and enters placement mode (replace a slide / add as new). Clears
+  // when the selection changes so the confirmation tracks the current slide.
+  const [inserted, setInserted] = useState<string | null>(null);
+  useEffect(() => setInserted(null), [selectedId]);
+  function insertIntoDeck(variant: Variant) {
+    try {
+      const slide = presetForTemplate(variant.id, { ...variant.c, logo });
+      localStorage.setItem(
+        "dr-template-import",
+        JSON.stringify({ slide, name: variant.label, ts: Date.now() })
+      );
+      setInserted(variant.label);
+      // Best-effort: bring the editor tab back to the front.
+      try {
+        window.opener?.focus?.();
+      } catch {
+        /* focus may be blocked — the editor still picks it up on switch */
+      }
+    } catch {
+      /* localStorage unavailable — ignore */
+    }
+  }
+
   // Arrow keys move selection (PowerPoint-like). Ignore when typing.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -185,16 +210,57 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
         >
           {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} />}
           {selected && (
-            <div style={{ textAlign: "center", maxWidth: 640 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: GOLD, textTransform: "uppercase" }}>
-                Slide {selected.number} · {selectedCat?.title}
+            <div
+              style={{
+                textAlign: "center",
+                maxWidth: 640,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 14,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: GOLD, textTransform: "uppercase" }}>
+                  Slide {selected.number} · {selectedCat?.title}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginTop: 4 }}>
+                  {selected.variant.label}
+                </div>
+                {selectedCat?.sub && (
+                  <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
+                    {selectedCat.sub}
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginTop: 4 }}>
-                {selected.variant.label}
-              </div>
-              {selectedCat?.sub && (
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
-                  {selectedCat.sub}
+              <button
+                type="button"
+                onClick={() => insertIntoDeck(selected.variant)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: GOLD,
+                  color: FOREST,
+                  border: "none",
+                  borderRadius: 999,
+                  padding: "11px 22px",
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+                </svg>
+                Insert into my deck
+              </button>
+              {inserted && (
+                <div style={{ fontSize: 12.5, color: "#cbe8d0", maxWidth: 460, lineHeight: 1.5 }}>
+                  ✓ “{inserted}” added to your deck. Switch to your editor tab, then{" "}
+                  <strong style={{ color: "#fff" }}>click a slide to replace it</strong> or press the{" "}
+                  <strong style={{ color: "#fff" }}>+</strong> to add it as a new slide.
                 </div>
               )}
             </div>

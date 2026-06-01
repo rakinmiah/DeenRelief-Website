@@ -143,6 +143,12 @@ export default function CanvasDeckEditor({
   const [editingComponent, setEditingComponent] = useState<
     null | { componentId: string; variant: string; returnIndex: number }
   >(null);
+  // Template-import handoff from the "View templates" browser (other tab),
+  // delivered via localStorage. While set, the filmstrip is in "placement"
+  // mode: click a slide to REPLACE it, or press + to ADD it as a new slide.
+  const [pendingImport, setPendingImport] = useState<
+    null | { slide: EditorSlide; name: string }
+  >(null);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef(0.5);
@@ -1120,6 +1126,66 @@ export default function CanvasDeckEditor({
     setActiveIndex(next.length - 1);
     setSelectedIds([]);
   }
+
+  /* ── Template import (from the "View templates" browser) ──────────────
+   * The browser tab writes the chosen template's slide to localStorage; we
+   * pick it up here (immediately via the cross-tab `storage` event, and on
+   * mount/focus as a fallback) and enter placement mode. */
+  const IMPORT_KEY = "dr-template-import";
+  useEffect(() => {
+    const read = () => {
+      try {
+        const raw = localStorage.getItem(IMPORT_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw) as { slide?: EditorSlide; name?: string; ts?: number };
+        if (!data?.slide || !Array.isArray(data.slide.layers)) return;
+        // Drop stale handoffs (>10 min) so an old import can't resurface.
+        if (data.ts && Date.now() - data.ts > 600_000) {
+          localStorage.removeItem(IMPORT_KEY);
+          return;
+        }
+        setPendingImport({ slide: data.slide, name: data.name ?? "Template" });
+      } catch {
+        /* ignore malformed handoff */
+      }
+    };
+    read();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === IMPORT_KEY) read();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", read);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", read);
+    };
+  }, []);
+
+  function clearImport() {
+    setPendingImport(null);
+    try {
+      localStorage.removeItem(IMPORT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+  function importAsNewSlide() {
+    if (!pendingImport) return;
+    const slide = cloneSlideFresh(pendingImport.slide);
+    const next = [...deck, slide];
+    commitSlides(next);
+    setActiveIndex(next.length - 1);
+    setSelectedIds([]);
+    clearImport();
+  }
+  function importReplaceSlide(i: number) {
+    if (!pendingImport) return;
+    const slide = cloneSlideFresh(pendingImport.slide);
+    commitSlides(deck.map((s, idx) => (idx === i ? slide : s)));
+    setActiveIndex(i);
+    setSelectedIds([]);
+    clearImport();
+  }
   function deleteSlide(i: number) {
     if (deck.length <= 1) return;
     const next = deck.filter((_, idx) => idx !== i);
@@ -1357,7 +1423,7 @@ export default function CanvasDeckEditor({
             <a
               href="/admin/social/template-lab/view"
               target="_blank"
-              rel="noopener noreferrer"
+              rel="opener"
               title="Browse all 95 templates (opens in a new tab)"
               className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition"
             >
@@ -1385,6 +1451,25 @@ export default function CanvasDeckEditor({
             </button>
           </div>
         </div>
+
+        {/* Template-placement banner — shown while a template waits to be
+            placed (imported from the View-templates browser). */}
+        {pendingImport && (
+          <div className="flex items-center justify-between gap-3 px-4 pb-2 border-t border-green/20 pt-2 bg-green/5">
+            <span className="text-[12.5px] font-medium text-green flex items-center gap-1.5">
+              <span aria-hidden>↘</span>
+              Placing <span className="font-semibold">{pendingImport.name}</span> — click a slide below to
+              replace it, or press the <span className="font-semibold">+</span> to add it as a new slide.
+            </span>
+            <button
+              type="button"
+              onClick={clearImport}
+              className="text-[12px] text-green/70 hover:text-green underline shrink-0"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* Edit-master banner — shown while editing a component's layers. */}
         {editingComponent && (
@@ -1526,16 +1611,22 @@ export default function CanvasDeckEditor({
                 index={i}
                 active={i === ai}
                 canDelete={deck.length > 1}
-                onSelect={() => selectSlide(i)}
+                placing={!!pendingImport}
+                onSelect={() => (pendingImport ? importReplaceSlide(i) : selectSlide(i))}
                 onDelete={() => deleteSlide(i)}
                 onDuplicate={() => duplicateSlide(i)}
               />
             ))}
             <button
               type="button"
-              onClick={addSlide}
-              className="shrink-0 w-[84px] h-[84px] rounded-lg border-2 border-dashed border-charcoal/15 grid place-items-center text-charcoal/40 hover:border-green/50 hover:text-green transition"
-              aria-label="Add slide"
+              onClick={() => (pendingImport ? importAsNewSlide() : addSlide())}
+              className={`shrink-0 w-[84px] h-[84px] rounded-lg border-2 border-dashed grid place-items-center transition ${
+                pendingImport
+                  ? "border-green/70 text-green bg-green/5 ring-2 ring-green/30"
+                  : "border-charcoal/15 text-charcoal/40 hover:border-green/50 hover:text-green"
+              }`}
+              aria-label={pendingImport ? "Add the template as a new slide" : "Add slide"}
+              title={pendingImport ? "Add the template as a new slide" : "Add slide"}
             >
               <PlusIcon />
             </button>
@@ -1578,6 +1669,7 @@ function SlideThumb({
   index,
   active,
   canDelete,
+  placing,
   onSelect,
   onDelete,
   onDuplicate,
@@ -1587,6 +1679,8 @@ function SlideThumb({
   index: number;
   active: boolean;
   canDelete: boolean;
+  /** Placement mode: clicking the thumb replaces it with the pending import. */
+  placing?: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -1625,6 +1719,11 @@ function SlideThumb({
           );
         })}
       </button>
+      {placing && (
+        <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-lg bg-green/0 text-white text-[11px] font-bold uppercase tracking-wide opacity-0 transition group-hover:bg-green/70 group-hover:opacity-100">
+          Replace
+        </span>
+      )}
       <span className="absolute -bottom-0.5 left-1 text-[10px] font-semibold text-charcoal/40">{index + 1}</span>
       <div className="absolute -top-1.5 -right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">
         <button
@@ -1648,6 +1747,27 @@ function SlideThumb({
       </div>
     </div>
   );
+}
+
+/** Deep-clone a slide with fresh slide + layer ids (and re-linked mask
+ *  references), so an imported/duplicated slide never collides with the
+ *  deck's existing layer ids. Mirrors duplicateSlide's re-id logic. */
+function cloneSlideFresh(src: EditorSlide): EditorSlide {
+  const idMap = new Map<string, string>();
+  const layers = src.layers.map((l) => {
+    const id = makeLayerId();
+    idMap.set(l.id, id);
+    return { ...l, id } as Layer;
+  });
+  return {
+    ...src,
+    id: `sl_${makeLayerId().slice(3)}`,
+    layers: layers.map((l) =>
+      l.type === "image" && l.maskLayerId
+        ? ({ ...l, maskLayerId: idMap.get(l.maskLayerId) ?? l.maskLayerId } as Layer)
+        : l
+    ),
+  };
 }
 
 function blankSlide(w = 1080, h = 1080): EditorSlide {
