@@ -20,11 +20,12 @@ import { loadGoogleFont } from "@/lib/social-templates/fonts";
 import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
-import type { EditorSlide, Layer } from "@/lib/social-editor/types";
+import type { EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
 import {
   cornerRadiusCss,
   flipTransform,
   listDisplayText,
+  resolveSlideLayout,
   textCaseFor,
   textDecorationCss,
   textTransformCss,
@@ -72,6 +73,13 @@ async function render(request: Request): Promise<Response> {
     return new Response("Missing slide.", { status: 400 });
   }
 
+  // Auto-layout overrides: members of an auto-layout group are positioned
+  // by the SAME shared solver the canvas uses (pre-computed boxes,
+  // absolute-positioned here) so the PNG is pixel-identical to the stage.
+  const layout = resolveSlideLayout(slide);
+  const boxOf = (l: Layer): LaidOutBox =>
+    layout.get(l.id) ?? { x: l.x, y: l.y, w: l.w, h: l.h };
+
   // Resolve image layers → filtered data URIs (parallel, fault-tolerant).
   // Hidden layers are skipped so the export matches the editor (WYSIWYG).
   const imageLayers = slide.layers.filter(
@@ -96,12 +104,13 @@ async function render(request: Request): Promise<Response> {
         const isContain = l.objectFit === "contain";
         const maxDim = isContain ? 700 : 1600;
         // Satori silently drops objectFit:"contain" images. For contain
-        // layers we letterbox the art to the layer box here, then paint it
-        // with "cover" below (faithful — it's already exactly box-sized).
+        // layers we letterbox the art to the (laid-out) layer box here,
+        // then paint it with "cover" below (faithful — already box-sized).
+        const lb = boxOf(l);
         const containBox = isContain
           ? {
-              w: Math.max(1, Math.round(l.w)),
-              h: Math.max(1, Math.round(l.h)),
+              w: Math.max(1, Math.round(lb.w)),
+              h: Math.max(1, Math.round(lb.h)),
               bg: slide.background.startsWith("#") ? slide.background : undefined,
             }
           : undefined;
@@ -149,8 +158,8 @@ async function render(request: Request): Promise<Response> {
       {slide.layers
         .filter((l) => !l.hidden)
         .map((l) => (
-          <div key={l.id} style={wrapperStyle(l)}>
-            {renderInner(l, uris.get(l.id) ?? null)}
+          <div key={l.id} style={wrapperStyle(l, boxOf(l))}>
+            {renderInner(l, uris.get(l.id) ?? null, boxOf(l))}
           </div>
         ))}
     </div>
@@ -170,21 +179,23 @@ async function render(request: Request): Promise<Response> {
   });
 }
 
-function wrapperStyle(l: Layer): CSSProperties {
+function wrapperStyle(l: Layer, box: LaidOutBox): CSSProperties {
+  // Geometry comes from `box` (auto-layout override or the layer's stored
+  // coords); rotation/flip/opacity from the layer itself.
   return {
     position: "absolute",
     left: 0,
     top: 0,
-    width: l.w,
-    height: l.h,
-    transform: `translate(${l.x}px, ${l.y}px) rotate(${l.rotation}deg)${flipTransform(l.flipH, l.flipV)}`,
+    width: box.w,
+    height: box.h,
+    transform: `translate(${box.x}px, ${box.y}px) rotate(${l.rotation}deg)${flipTransform(l.flipH, l.flipV)}`,
     transformOrigin: "50% 50%",
     opacity: l.opacity,
     display: "flex",
   };
 }
 
-function renderInner(l: Layer, uri: string | null) {
+function renderInner(l: Layer, uri: string | null, box: LaidOutBox) {
   if (l.type === "text") {
     return (
       <div
@@ -252,8 +263,8 @@ function renderInner(l: Layer, uri: string | null) {
             alt=""
             style={{
               ...cropImgStyle(l.crop),
-              width: l.w,
-              height: l.h,
+              width: box.w,
+              height: box.h,
               // Always "cover": Satori drops objectFit:"contain", so contain
               // layers are pre-letterboxed to the box (above) and shown here
               // with cover — exact box size means no crop.
@@ -276,7 +287,7 @@ function renderInner(l: Layer, uri: string | null) {
           style={{
             width: "100%",
             height: sw,
-            marginTop: (l.h - sw) / 2,
+            marginTop: (box.h - sw) / 2,
             background: l.stroke,
             boxShadow: shadowCss(l.shadow),
             filter: combineFilter(undefined, l.blur),

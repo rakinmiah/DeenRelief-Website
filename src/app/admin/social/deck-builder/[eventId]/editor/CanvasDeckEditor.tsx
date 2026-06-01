@@ -18,10 +18,15 @@ import {
   type EditorSlide,
   type Layer,
   type ShapeKind,
+  type AutoLayout,
+  type GroupMeta,
   makeLayerId,
   makeGroupId,
   layerAABB,
   unionAABB,
+  defaultAutoLayout,
+  autoLayoutFor,
+  resolveSlideLayout,
 } from "@/lib/social-editor/types";
 import { googleFontsHref } from "@/lib/social-editor/fonts";
 import LayerView from "./LayerView";
@@ -35,6 +40,7 @@ import {
   LayersPanel,
   AlignToolbar,
   GroupToolbar,
+  AutoLayoutToolbar,
   type AlignKind,
 } from "./editorToolbar";
 import {
@@ -173,6 +179,34 @@ export default function CanvasDeckEditor({
     [deck, ai, history]
   );
 
+  // Patch the active slide directly (for group-level metadata that lives
+  // on the slide, e.g. auto-layout config). Always commits to history.
+  const patchActiveSlide = useCallback(
+    (patch: Partial<EditorSlide>) => {
+      const next = deck.map((s, i) => (i === ai ? { ...s, ...patch } : s));
+      history.commit(next);
+    },
+    [deck, ai, history]
+  );
+
+  // Merge metadata for one group into slide.groups (creating the record
+  // if needed). Passing `meta: null` removes the group's entry entirely.
+  const setGroupMeta = useCallback(
+    (groupId: string, meta: Partial<GroupMeta> | null) => {
+      const cur = activeSlide.groups ?? {};
+      const nextGroups: Record<string, GroupMeta> = { ...cur };
+      if (meta === null) {
+        delete nextGroups[groupId];
+      } else {
+        nextGroups[groupId] = { ...cur[groupId], ...meta };
+      }
+      patchActiveSlide({
+        groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+      });
+    },
+    [activeSlide.groups, patchActiveSlide]
+  );
+
   // Patch every selected layer (toolbar / property edits). When exactly
   // one is selected this is a normal single edit.
   const mutateSelected = useCallback(
@@ -222,10 +256,11 @@ export default function CanvasDeckEditor({
 
   // Remap groupIds in a copied batch so duplicates form their OWN groups
   // (preserving which copies were grouped together) instead of merging
-  // back into the originals.
-  function remapGroups(layers: Layer[]): Layer[] {
+  // back into the originals. Returns the remapped layers AND the old→new
+  // groupId map so callers can clone the matching auto-layout metadata.
+  function remapGroups(layers: Layer[]): { layers: Layer[]; map: Map<string, string> } {
     const map = new Map<string, string>();
-    return layers.map((l) => {
+    const out = layers.map((l) => {
       if (!l.groupId) return l;
       let gid = map.get(l.groupId);
       if (!gid) {
@@ -234,17 +269,49 @@ export default function CanvasDeckEditor({
       }
       return { ...l, groupId: gid } as Layer;
     });
+    return { layers: out, map };
+  }
+
+  // Clone group metadata for a remapped batch, offsetting auto-layout
+  // frames by (dx, dy) so the copy's frame sits over the copied layers.
+  function clonedGroups(map: Map<string, string>, dx: number, dy: number): Record<string, GroupMeta> {
+    const src = activeSlide.groups ?? {};
+    const next: Record<string, GroupMeta> = { ...src };
+    for (const [oldId, newId] of map) {
+      const meta = src[oldId];
+      if (!meta) continue;
+      next[newId] = {
+        ...meta,
+        frame: meta.frame ? { ...meta.frame, x: meta.frame.x + dx, y: meta.frame.y + dy } : undefined,
+      };
+    }
+    return next;
+  }
+
+  // Append a remapped batch (layers + cloned group meta) in one commit.
+  function appendCopies(batch: Layer[], dx: number, dy: number) {
+    const { layers: copies, map } = remapGroups(batch);
+    const nextGroups = clonedGroups(map, dx, dy);
+    const next = deck.map((s, i) =>
+      i === ai
+        ? {
+            ...s,
+            layers: [...s.layers, ...copies],
+            groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+          }
+        : s
+    );
+    history.commit(next);
+    setSelectedIds(copies.map((c) => c.id));
   }
 
   function duplicateSelected() {
     if (selectedLayers.length === 0) return;
-    const copies = remapGroups(
-      selectedLayers.map(
-        (l) => ({ ...l, id: makeLayerId(), x: l.x + 24, y: l.y + 24 } as Layer)
-      )
+    appendCopies(
+      selectedLayers.map((l) => ({ ...l, id: makeLayerId(), x: l.x + 24, y: l.y + 24 } as Layer)),
+      24,
+      24
     );
-    setActiveLayers([...activeSlide.layers, ...copies], true);
-    setSelectedIds(copies.map((c) => c.id));
   }
 
   function copySelected() {
@@ -254,13 +321,11 @@ export default function CanvasDeckEditor({
 
   function pasteClipboard() {
     if (clipboard.current.length === 0) return;
-    const copies = remapGroups(
-      clipboard.current.map(
-        (l) => ({ ...l, id: makeLayerId(), x: l.x + 32, y: l.y + 32 } as Layer)
-      )
+    appendCopies(
+      clipboard.current.map((l) => ({ ...l, id: makeLayerId(), x: l.x + 32, y: l.y + 32 } as Layer)),
+      32,
+      32
     );
-    setActiveLayers([...activeSlide.layers, ...copies], true);
-    setSelectedIds(copies.map((c) => c.id));
   }
 
   function toggleLock() {
@@ -305,16 +370,92 @@ export default function CanvasDeckEditor({
 
   // Clear groupId on every selected layer (and any siblings sharing the
   // same group, so ungrouping a partial selection still dissolves it).
+  // Also drop any auto-layout metadata for the dissolved groups so the
+  // children fall back to their (now-absolute) stored coords cleanly.
   function ungroupSelected() {
     if (selectedGroupIds.size === 0) return;
-    setActiveLayers(
-      activeSlide.layers.map((l) =>
-        l.groupId && selectedGroupIds.has(l.groupId)
-          ? ({ ...l, groupId: undefined } as Layer)
-          : l
-      ),
-      true
+    // Bake the current laid-out positions into the freed layers' stored
+    // coords, so an auto-layout group doesn't visually jump on ungroup.
+    const layout = resolveSlideLayout(activeSlide);
+    const nextGroups = { ...(activeSlide.groups ?? {}) };
+    for (const gid of selectedGroupIds) delete nextGroups[gid];
+    const next = deck.map((s, i) =>
+      i === ai
+        ? {
+            ...s,
+            layers: s.layers.map((l) => {
+              if (!l.groupId || !selectedGroupIds.has(l.groupId)) return l;
+              const box = layout.get(l.id);
+              return {
+                ...l,
+                groupId: undefined,
+                ...(box ? { x: box.x, y: box.y, w: box.w, h: box.h } : {}),
+              } as Layer;
+            }),
+            groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+          }
+        : s
     );
+    history.commit(next);
+  }
+
+  /* ── Auto-layout (group flex) ─────────────────────────────────── */
+  // The single group eligible for an auto-layout control: a selection
+  // that's exactly one group's members (≥2). null otherwise.
+  const autoLayoutGroupId = useMemo(() => {
+    if (selectedLayers.length < 2) return null;
+    const gid = selectedLayers[0]!.groupId;
+    if (!gid) return null;
+    if (!selectedLayers.every((l) => l.groupId === gid)) return null;
+    const memberCount = activeSlide.layers.filter((l) => l.groupId === gid).length;
+    return memberCount === selectedLayers.length ? gid : null;
+  }, [selectedLayers, activeSlide.layers]);
+
+  const activeAutoLayout = autoLayoutFor(activeSlide, autoLayoutGroupId ?? undefined);
+
+  // Toggle auto-layout on the selected group. Enabling seeds the frame
+  // from the members' current union AABB so the first reflow keeps their
+  // place; disabling bakes the laid-out positions back into the members'
+  // stored coords (so they don't jump) and clears the metadata.
+  function toggleAutoLayout() {
+    if (!autoLayoutGroupId) return;
+    if (activeAutoLayout) {
+      const layout = resolveSlideLayout(activeSlide);
+      const next = deck.map((s, i) => {
+        if (i !== ai) return s;
+        const nextGroups = { ...(s.groups ?? {}) };
+        delete nextGroups[autoLayoutGroupId];
+        return {
+          ...s,
+          layers: s.layers.map((l) => {
+            if (l.groupId !== autoLayoutGroupId) return l;
+            const box = layout.get(l.id);
+            return box ? ({ ...l, x: box.x, y: box.y, w: box.w, h: box.h } as Layer) : l;
+          }),
+          groups: Object.keys(nextGroups).length ? nextGroups : undefined,
+        };
+      });
+      history.commit(next);
+    } else {
+      const members = activeSlide.layers.filter((l) => l.groupId === autoLayoutGroupId);
+      const frame = unionAABB(members) ?? { x: 0, y: 0, w: 0, h: 0 };
+      setGroupMeta(autoLayoutGroupId, { autoLayout: defaultAutoLayout(), frame });
+    }
+  }
+
+  // Update the auto-layout config of the selected group.
+  function updateAutoLayout(patch: Partial<AutoLayout>) {
+    if (!autoLayoutGroupId || !activeAutoLayout) return;
+    setGroupMeta(autoLayoutGroupId, { autoLayout: { ...activeAutoLayout, ...patch } });
+  }
+
+  // Translate a group's stored frame box (whole-frame drag on the canvas).
+  function translateFrame(groupId: string, dx: number, dy: number) {
+    const meta = activeSlide.groups?.[groupId];
+    if (!meta?.frame) return;
+    setGroupMeta(groupId, {
+      frame: { ...meta.frame, x: meta.frame.x + dx, y: meta.frame.y + dy },
+    });
   }
 
   /* ── Z-order ─────────────────────────────────────────────────── */
@@ -784,6 +925,13 @@ export default function CanvasDeckEditor({
                 onUngroup={ungroupSelected}
               />
             )}
+            {autoLayoutGroupId && (
+              <AutoLayoutToolbar
+                config={activeAutoLayout}
+                onToggle={toggleAutoLayout}
+                onChange={updateAutoLayout}
+              />
+            )}
             {showAlign && (
               <div className="ml-auto shrink-0">
                 <AlignToolbar onAlign={align} canDistribute={selectedLayers.length >= 3} />
@@ -839,6 +987,7 @@ export default function CanvasDeckEditor({
               onToggleLock={toggleLock}
               onDelete={deleteSelected}
               onMarquee={selectMarquee}
+              onFrameTranslate={translateFrame}
             />
           </div>
 
@@ -915,6 +1064,8 @@ function SlideThumb({
 }) {
   const size = 84;
   const s = size / slide.width;
+  // Apply the same auto-layout solver so thumbnails match the stage.
+  const layout = resolveSlideLayout(slide);
   return (
     <div className="relative shrink-0 group">
       <button
@@ -924,7 +1075,7 @@ function SlideThumb({
         style={{ width: size, height: (size / slide.width) * slide.height, background: slide.background }}
       >
         {slide.layers.map((l) => (
-          <LayerView key={l.id} layer={l} scale={s} interactive={false} />
+          <LayerView key={l.id} layer={l} scale={s} geom={layout.get(l.id)} interactive={false} />
         ))}
       </button>
       <span className="absolute -bottom-0.5 left-1 text-[10px] font-semibold text-charcoal/40">{index + 1}</span>

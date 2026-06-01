@@ -539,6 +539,16 @@ export function FlipIcon({ axis }: { axis: "h" | "v" }) {
     </svg>
   );
 }
+/** Auto-layout — a frame with two stacked bars hinting flex distribution. */
+export function AutoLayoutIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2.5" y="2.5" width="15" height="15" rx="2.5" />
+      <rect x="5" y="5.5" width="10" height="3.2" rx="1" fill="currentColor" stroke="none" opacity="0.85" />
+      <rect x="5" y="11.3" width="6.5" height="3.2" rx="1" fill="currentColor" stroke="none" opacity="0.55" />
+    </svg>
+  );
+}
 export function LayersIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">

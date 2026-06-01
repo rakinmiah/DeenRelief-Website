@@ -211,6 +211,56 @@ export type ShapeLayer = LayerBase & {
 
 export type Layer = TextLayer | ImageLayer | ShapeLayer;
 
+/* ─── Auto-layout (Figma-style flex on a group) ───────────────────────
+ * A group (layers sharing a `groupId`) can opt into auto-layout: its
+ * members are arranged automatically inside the group's bounding box
+ * (a flex row/column) instead of holding independent absolute coords.
+ * The config is stored at the GROUP level on `EditorSlide.groups` so the
+ * flat groupId model is untouched — a group with no entry (or no
+ * `autoLayout`) behaves exactly as before. Everything is OPTIONAL so
+ * existing slides/presets round-trip unchanged. All values are board
+ * units. */
+export type AutoLayoutDirection = "row" | "column";
+export type AutoLayoutAlign = "start" | "center" | "end" | "stretch";
+export type AutoLayoutJustify = "start" | "center" | "end" | "between";
+
+export type AutoLayout = {
+  direction: AutoLayoutDirection;
+  /** Space between adjacent children, board units. */
+  gap: number;
+  /** Horizontal padding inside the frame, board units. */
+  padX: number;
+  /** Vertical padding inside the frame, board units. */
+  padY: number;
+  /** Cross-axis placement of children. "stretch" makes children fill the
+   *  cross-axis. */
+  align: AutoLayoutAlign;
+  /** Main-axis distribution. "between" spreads free space between
+   *  children (first/last pinned to the padding edges). */
+  justify: AutoLayoutJustify;
+};
+
+/** Sensible default for a freshly-enabled auto-layout group. */
+export function defaultAutoLayout(): AutoLayout {
+  return { direction: "column", gap: 24, padX: 0, padY: 0, align: "start", justify: "start" };
+}
+
+/** Box for a frame / laid-out child (board units). */
+export type LaidOutBox = { x: number; y: number; w: number; h: number };
+
+/** Per-group metadata, keyed by groupId. */
+export type GroupMeta = {
+  autoLayout?: AutoLayout;
+  /** The auto-layout container box (board units). Children flow inside
+   *  it. Stored explicitly (rather than re-derived from the members'
+   *  union each time) so reflow is idempotent — packing children to the
+   *  top-left would otherwise shrink a derived box on every pass. Seeded
+   *  from the members' union AABB when auto-layout is first enabled, and
+   *  updated when the frame is dragged/resized. Only meaningful when
+   *  `autoLayout` is set. */
+  frame?: LaidOutBox;
+};
+
 /** A single editable slide. Layers paint bottom-to-top in array order
  *  (index 0 = back). */
 export type EditorSlide = {
@@ -219,7 +269,131 @@ export type EditorSlide = {
   height: number;
   background: string;
   layers: Layer[];
+  /** Optional per-group metadata (auto-layout config), keyed by groupId.
+   *  Undefined/absent === all groups are plain absolute groups, so older
+   *  drafts and presets round-trip unchanged. */
+  groups?: Record<string, GroupMeta>;
 };
+
+/** Resolve the auto-layout config for a group on a slide, or null when
+ *  the group is a plain absolute group (no entry / no autoLayout). */
+export function autoLayoutFor(
+  slide: { groups?: Record<string, GroupMeta> },
+  groupId: string | undefined
+): AutoLayout | null {
+  if (!groupId) return null;
+  return slide.groups?.[groupId]?.autoLayout ?? null;
+}
+
+/**
+ * Pure auto-layout solver. Given a group's `frame` box (board units) and
+ * its `children` in flow order, returns a Map<layerId, {x,y,w,h}> placing
+ * each child inside the frame per the config. BOTH the live canvas and
+ * the Satori export call THIS so the layout is pixel-identical.
+ *
+ * - The main axis follows `direction` (row = x, column = y).
+ * - `gap` separates adjacent children; `padX`/`padY` inset the content.
+ * - `align` places children on the cross axis; "stretch" fills it.
+ * - `justify` distributes children on the main axis; "between" spreads
+ *   the free space between them (first/last pinned to the inner edges).
+ * Children keep their own size unless "stretch" overrides the cross axis.
+ */
+export function computeAutoLayout(
+  config: AutoLayout,
+  frame: LaidOutBox,
+  children: { id: string; w: number; h: number }[]
+): Map<string, LaidOutBox> {
+  const out = new Map<string, LaidOutBox>();
+  if (children.length === 0) return out;
+
+  const row = config.direction === "row";
+  const innerX = frame.x + config.padX;
+  const innerY = frame.y + config.padY;
+  const innerW = Math.max(0, frame.w - config.padX * 2);
+  const innerH = Math.max(0, frame.h - config.padY * 2);
+
+  // Main-axis extent available, and the children's total main size + gaps.
+  const mainSpace = row ? innerW : innerH;
+  const crossSpace = row ? innerH : innerW;
+  const mainSizes = children.map((c) => (row ? c.w : c.h));
+  const totalMain = mainSizes.reduce((s, v) => s + v, 0);
+  const totalGap = config.gap * Math.max(0, children.length - 1);
+  const free = mainSpace - totalMain - totalGap;
+
+  // Where the first child starts on the main axis, and the gap between
+  // children, per `justify`. "between" pins first/last to the edges and
+  // spreads the slack; the others bias the whole block.
+  let cursor = row ? innerX : innerY;
+  let gap = config.gap;
+  if (config.justify === "between" && children.length > 1) {
+    gap = config.gap + Math.max(0, free) / (children.length - 1);
+  } else if (config.justify === "center") {
+    cursor += free / 2;
+  } else if (config.justify === "end") {
+    cursor += free;
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i]!;
+    const mainSize = row ? c.w : c.h;
+    let crossSize = row ? c.h : c.w;
+    // Cross-axis offset within the inner box.
+    let crossPos = row ? innerY : innerX;
+    if (config.align === "stretch") {
+      crossSize = crossSpace;
+    } else if (config.align === "center") {
+      crossPos += (crossSpace - crossSize) / 2;
+    } else if (config.align === "end") {
+      crossPos += crossSpace - crossSize;
+    }
+    const box: LaidOutBox = row
+      ? { x: cursor, y: crossPos, w: mainSize, h: crossSize }
+      : { x: crossPos, y: cursor, w: crossSize, h: mainSize };
+    out.set(c.id, box);
+    cursor += mainSize + gap;
+  }
+  return out;
+}
+
+/**
+ * Resolve the laid-out boxes for EVERY auto-layout group on a slide, in
+ * one pass, returning a flat Map<layerId, box> of overrides. Layers not
+ * in an auto-layout group are absent (they keep their stored coords).
+ *
+ * Each group's container box is the stored `frame` (see GroupMeta.frame),
+ * falling back to the members' union AABB when no frame is stored yet
+ * (e.g. a freshly-decoded draft). Children flow inside the frame in array
+ * (z) order. Used by the live canvas (via the editor), the Satori export
+ * route, and thumbnails — ONE source of truth, so canvas = PNG. */
+export function resolveSlideLayout(
+  slide: EditorSlide
+): Map<string, LaidOutBox> {
+  const overrides = new Map<string, LaidOutBox>();
+  const groups = slide.groups;
+  if (!groups) return overrides;
+  // Bucket members by groupId, preserving array (z) order as flow order.
+  const byGroup = new Map<string, Layer[]>();
+  for (const l of slide.layers) {
+    if (!l.groupId) continue;
+    if (!groups[l.groupId]?.autoLayout) continue;
+    const list = byGroup.get(l.groupId) ?? [];
+    list.push(l);
+    byGroup.set(l.groupId, list);
+  }
+  for (const [gid, members] of byGroup) {
+    const meta = groups[gid]!;
+    const config = meta.autoLayout!;
+    if (members.length === 0) continue;
+    const frame = meta.frame ?? unionAABB(members)!;
+    const boxes = computeAutoLayout(
+      config,
+      frame,
+      members.map((m) => ({ id: m.id, w: m.w, h: m.h }))
+    );
+    for (const [id, box] of boxes) overrides.set(id, box);
+  }
+  return overrides;
+}
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 

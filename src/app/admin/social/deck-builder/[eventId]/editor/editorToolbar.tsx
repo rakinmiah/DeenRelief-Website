@@ -13,6 +13,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import type {
+  AutoLayout,
+  AutoLayoutAlign,
+  AutoLayoutDirection,
+  AutoLayoutJustify,
   ImageCrop,
   Layer,
   ShapeKind,
@@ -40,6 +44,7 @@ import {
   GroupIcon,
   UngroupIcon,
   FlipIcon,
+  AutoLayoutIcon,
 } from "./editorUi";
 import { layerLabel } from "@/lib/social-editor/types";
 
@@ -725,6 +730,126 @@ export function GroupToolbar({
       {canUngroup && (
         <IconBtn label="Ungroup (⌘⇧G)" onClick={onUngroup}><UngroupIcon /></IconBtn>
       )}
+    </div>
+  );
+}
+
+/* ─── Auto-layout (group flex) ────────────────────────────────────────
+ * Shown when the selection is exactly one group. A single toggle button
+ * enables auto-layout; once on, a popover exposes direction, gap, padding,
+ * align and justify. Canva-simple: one chip, options tucked behind it. */
+
+export function AutoLayoutToolbar({
+  config,
+  onToggle,
+  onChange,
+}: {
+  /** null = the group has no auto-layout yet (toggle is off). */
+  config: AutoLayout | null;
+  onToggle: () => void;
+  onChange: (patch: Partial<AutoLayout>) => void;
+}) {
+  if (!config) {
+    return (
+      <IconBtn label="Auto-layout" onClick={onToggle}>
+        <AutoLayoutIcon />
+      </IconBtn>
+    );
+  }
+  return (
+    <div className="flex items-center gap-0.5">
+      <Popover label="Auto-layout">
+        {() => (
+          <div className="w-64 p-3 flex flex-col gap-3">
+            {/* Direction */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-medium text-charcoal/50">Direction</span>
+              <SegGroup<AutoLayoutDirection>
+                value={config.direction}
+                options={[
+                  { id: "column", label: "Vertical" },
+                  { id: "row", label: "Horizontal" },
+                ]}
+                onChange={(direction) => onChange({ direction })}
+              />
+            </div>
+
+            {/* Gap + padding */}
+            <div className="grid grid-cols-3 gap-2">
+              <NumField label="Gap" value={config.gap} min={0} width={36} onCommit={(gap) => onChange({ gap })} />
+              <NumField label="PadX" value={config.padX} min={0} width={36} onCommit={(padX) => onChange({ padX })} />
+              <NumField label="PadY" value={config.padY} min={0} width={36} onCommit={(padY) => onChange({ padY })} />
+            </div>
+
+            {/* Align (cross axis) */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-medium text-charcoal/50">Align</span>
+              <SegGroup<AutoLayoutAlign>
+                value={config.align}
+                options={[
+                  { id: "start", label: "Start" },
+                  { id: "center", label: "Center" },
+                  { id: "end", label: "End" },
+                  { id: "stretch", label: "Stretch" },
+                ]}
+                onChange={(align) => onChange({ align })}
+              />
+            </div>
+
+            {/* Justify (main axis) */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-medium text-charcoal/50">Distribute</span>
+              <SegGroup<AutoLayoutJustify>
+                value={config.justify}
+                options={[
+                  { id: "start", label: "Start" },
+                  { id: "center", label: "Center" },
+                  { id: "end", label: "End" },
+                  { id: "between", label: "Space" },
+                ]}
+                onChange={(justify) => onChange({ justify })}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={onToggle}
+              className="text-[12px] text-charcoal/45 hover:text-charcoal/70 self-start"
+            >
+              Turn off auto-layout
+            </button>
+          </div>
+        )}
+      </Popover>
+    </div>
+  );
+}
+
+/** Small segmented control (a row of pill buttons) for the auto-layout
+ *  enum fields. Generic over the option id type. */
+function SegGroup<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { id: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-charcoal/5">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          className={`flex-1 px-2 py-1.5 rounded-md text-[12px] font-medium transition ${
+            value === o.id ? "bg-white text-green shadow-sm" : "text-charcoal/55 hover:text-charcoal/80"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

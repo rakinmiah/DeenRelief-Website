@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef, type CSSProperties } from "react";
-import type { Layer } from "@/lib/social-editor/types";
+import type { Layer, LaidOutBox } from "@/lib/social-editor/types";
 import {
   cornerRadiusCss,
   flipTransform,
@@ -45,6 +45,7 @@ function combineFilter(base: string | undefined, blur: number | undefined, scale
 export default function LayerView({
   layer,
   scale,
+  geom,
   selected,
   multiSelected,
   editing,
@@ -56,6 +57,10 @@ export default function LayerView({
 }: {
   layer: Layer;
   scale: number;
+  /** Auto-layout override: when present, the layer paints at this
+   *  computed box instead of its stored x/y/w/h (the layer is a member of
+   *  an auto-layout group). Geometry-only — styling reads from `layer`. */
+  geom?: LaidOutBox;
   selected?: boolean;
   /** Part of a multi-selection (shows a persistent outline, no moveable). */
   multiSelected?: boolean;
@@ -70,13 +75,20 @@ export default function LayerView({
   // them; thumbnails render them out too.
   if (layer.hidden) return null;
 
+  // Auto-layout members paint at the computed box; everyone else at their
+  // stored geometry. Rotation/flip still come from the layer itself.
+  const gx = geom?.x ?? layer.x;
+  const gy = geom?.y ?? layer.y;
+  const gw = geom?.w ?? layer.w;
+  const gh = geom?.h ?? layer.h;
+
   const base: CSSProperties = {
     position: "absolute",
     left: 0,
     top: 0,
-    width: layer.w * scale,
-    height: layer.h * scale,
-    transform: `translate(${layer.x * scale}px, ${layer.y * scale}px) rotate(${layer.rotation}deg)${flipTransform(layer.flipH, layer.flipV)}`,
+    width: gw * scale,
+    height: gh * scale,
+    transform: `translate(${gx * scale}px, ${gy * scale}px) rotate(${layer.rotation}deg)${flipTransform(layer.flipH, layer.flipV)}`,
     transformOrigin: "center center",
     opacity: layer.opacity,
     cursor: !interactive ? "default" : layer.locked ? "default" : "move",

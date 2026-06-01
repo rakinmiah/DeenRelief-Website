@@ -16,7 +16,8 @@
 
 import Moveable from "react-moveable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EditorSlide, Layer } from "@/lib/social-editor/types";
+import type { EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
+import { resolveSlideLayout } from "@/lib/social-editor/types";
 import LayerView from "./LayerView";
 import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./editorUi";
 
@@ -35,6 +36,7 @@ export default function SlideCanvas({
   onToggleLock,
   onDelete,
   onMarquee,
+  onFrameTranslate,
 }: {
   slide: EditorSlide;
   scale: number;
@@ -51,8 +53,21 @@ export default function SlideCanvas({
   onDelete: () => void;
   /** Box-select rectangle finished (board-unit rect). */
   onMarquee: (rect: { x: number; y: number; w: number; h: number }, additive: boolean) => void;
+  /** A whole auto-layout group was dragged: translate its stored frame
+   *  box by (dx, dy) board units (children reflow inside it). */
+  onFrameTranslate: (groupId: string, dx: number, dy: number) => void;
 }) {
   const layers = slide.layers;
+  // Auto-layout overrides: members of an auto-layout group paint at these
+  // computed boxes instead of their stored coords. ONE shared solver
+  // (resolveSlideLayout) drives the canvas, thumbnails AND the export, so
+  // they stay pixel-identical.
+  const layout = useMemo(() => resolveSlideLayout(slide), [slide]);
+  // Effective box for a layer (override when laid out, else stored).
+  const boxOf = useCallback(
+    (l: Layer): LaidOutBox => layout.get(l.id) ?? { x: l.x, y: l.y, w: l.w, h: l.h },
+    [layout]
+  );
   const moveableRef = useRef<Moveable>(null);
   const nodes = useRef<Map<string, HTMLElement>>(new Map());
   const [targets, setTargets] = useState<HTMLElement[]>([]);
@@ -63,6 +78,19 @@ export default function SlideCanvas({
   const selectedLayers = layers.filter((l) => selectedIds.includes(l.id));
   const single = selectedLayers.length === 1 ? selectedLayers[0]! : null;
   const isGroup = selectedLayers.length > 1;
+
+  // When the selection is EXACTLY all members of one auto-layout group, a
+  // group drag should move the frame (not set per-child coords, which the
+  // layout would override). Detect that group id here.
+  const autoDragGroupId = useMemo(() => {
+    if (selectedLayers.length < 2) return null;
+    const gid = selectedLayers[0]!.groupId;
+    if (!gid || !slide.groups?.[gid]?.autoLayout) return null;
+    if (!selectedLayers.every((l) => l.groupId === gid)) return null;
+    const allMembers = layers.filter((l) => l.groupId === gid).map((l) => l.id);
+    if (allMembers.length !== selectedLayers.length) return null;
+    return gid;
+  }, [selectedLayers, layers, slide.groups]);
 
   // Resolve selection ids → live DOM nodes whenever the selection or the
   // layer list changes; likewise the snap guideline elements (every
@@ -176,6 +204,7 @@ export default function SlideCanvas({
             key={l.id}
             layer={l}
             scale={scale}
+            geom={layout.get(l.id)}
             selected={l.id === single?.id}
             multiSelected={isGroup && selectedIds.includes(l.id)}
             editing={l.id === editingId}
@@ -205,8 +234,8 @@ export default function SlideCanvas({
         <div
           className="absolute z-20 flex items-center gap-0.5 bg-white rounded-lg shadow-lg ring-1 ring-charcoal/10 px-1 py-1"
           style={{
-            left: (single.x + single.w / 2) * scale,
-            top: single.y * scale,
+            left: (boxOf(single).x + boxOf(single).w / 2) * scale,
+            top: boxOf(single).y * scale,
             transform: "translate(-50%, calc(-100% - 16px))",
           }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -269,6 +298,23 @@ export default function SlideCanvas({
             });
           }}
           onDragGroupEnd={({ events }) => {
+            // Auto-layout group: the children are positioned by the
+            // solver, so committing per-child coords wouldn't stick. Move
+            // the stored FRAME by the (uniform) drag delta instead; the
+            // children reflow inside it on the next render.
+            if (autoDragGroupId) {
+              const ev = events.find((e) => e.lastEvent);
+              if (ev) {
+                const id = (ev.target as HTMLElement).dataset.layerId;
+                const member = id ? layers.find((l) => l.id === id) : null;
+                if (member) {
+                  const [tx, ty] = ev.lastEvent!.beforeTranslate;
+                  const cur = boxOf(member);
+                  onFrameTranslate(autoDragGroupId, tx / scale - cur.x, ty / scale - cur.y);
+                }
+              }
+              return;
+            }
             const patches: Record<string, Partial<Layer>> = {};
             events.forEach((ev) => {
               const last = ev.lastEvent;
