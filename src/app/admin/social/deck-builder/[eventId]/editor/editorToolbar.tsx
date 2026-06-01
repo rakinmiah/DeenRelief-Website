@@ -21,6 +21,7 @@ import { FONT_OPTIONS, bareFamily, nearestWeight } from "@/lib/social-editor/fon
 import { FILTER_PRESETS } from "@/lib/social-editor/imageStyle";
 import {
   NumField,
+  ColorField,
   AlignIcon,
   DistributeIcon,
   LayerUpIcon,
@@ -36,8 +37,6 @@ import {
   UngroupIcon,
 } from "./editorUi";
 import { layerLabel } from "@/lib/social-editor/types";
-
-const SWATCHES = ["#163827", "#2D6A2E", "#D4A843", "#F7F3E8", "#1A1A2E", "#FFFFFF", "#C0392B", "#000000"];
 
 /** Cyclic accent colours for the layers-panel group indicator (left rail
  *  + chip), so distinct groups stay visually separable. */
@@ -164,7 +163,7 @@ function TextControls({
         onChange={(v) => onChange({ fontSize: Math.max(6, Math.min(400, v)) })}
       />
 
-      <ColorPopover value={layer.color} onChange={(color) => onChange({ color })} />
+      <ColorField label="Colour" value={layer.color} onChange={(color) => onChange({ color })} />
 
       <Divider />
 
@@ -260,7 +259,7 @@ function ShapeControls({
   if (layer.shape === "line") {
     return (
       <>
-        <ColorPopover label="Colour" value={layer.stroke} onChange={(stroke) => onChange({ stroke })} />
+        <ColorField label="Colour" value={layer.stroke} onChange={(stroke) => onChange({ stroke })} />
         <Popover label="Weight">
           {() => (
             <div className="w-52 p-3">
@@ -274,7 +273,7 @@ function ShapeControls({
   return (
     <>
       <FillControl value={layer.fill} onChange={(fill) => onChange({ fill })} />
-      <SwatchTrigger label="Stroke" value={layer.stroke} onChange={(stroke) => onChange({ stroke })} />
+      <ColorField label="Stroke" value={layer.stroke} onChange={(stroke) => onChange({ stroke })} allowTransparent />
       <Popover label="Border">
         {() => (
           <div className="w-56 p-3 flex flex-col gap-3">
@@ -341,18 +340,16 @@ function FillControl({ value, onChange }: { value: string; onChange: (v: string)
               />
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-charcoal/50 w-12">Stop 1</span>
-                <input type="color" value={g.c0.startsWith("#") ? g.c0 : "#000000"} onChange={(e) => onChange(gradientCss({ ...g, c0: e.target.value }))} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
-                <input value={g.c0} onChange={(e) => onChange(gradientCss({ ...g, c0: e.target.value }))} className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40" />
+                <ColorField label="Stop 1" value={g.c0} onChange={(c0) => onChange(gradientCss({ ...g, c0 }))} />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-charcoal/50 w-12">Stop 2</span>
-                <input type="color" value={g.c1.startsWith("#") ? g.c1 : "#000000"} onChange={(e) => onChange(gradientCss({ ...g, c1: e.target.value }))} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
-                <input value={g.c1} onChange={(e) => onChange(gradientCss({ ...g, c1: e.target.value }))} className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40" />
+                <ColorField label="Stop 2" value={g.c1} onChange={(c1) => onChange(gradientCss({ ...g, c1 }))} />
               </div>
             </div>
           ) : (
             <div className="mt-2">
-              <ColorPalette value={value} onChange={onChange} allowTransparent />
+              <ColorField label="Solid colour" value={value} onChange={onChange} allowTransparent />
             </div>
           )}
         </div>
@@ -443,8 +440,7 @@ function EffectsPopover({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-charcoal/50 w-12">Colour</span>
-                <input type="color" value={shadow.color.startsWith("#") ? shadow.color : "#000000"} onChange={(e) => onChange({ shadow: { ...shadow, color: e.target.value } })} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
-                <input value={shadow.color} onChange={(e) => onChange({ shadow: { ...shadow, color: e.target.value } })} className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40" />
+                <ColorField label="Shadow" value={shadow.color} onChange={(color) => onChange({ shadow: { ...shadow, color } })} />
               </div>
             </div>
           )}
@@ -810,77 +806,6 @@ function Popover({
           {children(() => setOpen(false))}
         </div>
       )}
-    </div>
-  );
-}
-
-function ColorPopover({ value, onChange, label }: { value: string; onChange: (v: string) => void; label?: string }) {
-  return (
-    <Popover label={label ?? ""}>
-      {() => <ColorPalette value={value} onChange={onChange} />}
-    </Popover>
-  );
-}
-
-/** A swatch-faced trigger that shows the current colour as a chip. */
-function SwatchTrigger({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-  const transparent = !value || value === "transparent";
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="h-9 px-2 rounded-lg ring-1 ring-charcoal/10 hover:bg-charcoal/5 flex items-center gap-1.5 text-[12.5px] text-charcoal/70"
-      >
-        <span
-          className="w-4 h-4 rounded-[5px] ring-1 ring-charcoal/15"
-          style={transparent ? { background: "conic-gradient(#ccc 25%, #fff 0 50%, #ccc 0 75%, #fff 0)", backgroundSize: "8px 8px" } : { background: value }}
-        />
-        {label}
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 z-50">
-          <ColorPalette value={value} onChange={onChange} allowTransparent />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ColorPalette({ value, onChange, allowTransparent }: { value: string; onChange: (v: string) => void; allowTransparent?: boolean }) {
-  return (
-    <div className="w-52 p-3">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {SWATCHES.map((s) => (
-          <button key={s} type="button" onClick={() => onChange(s)} className={`w-7 h-7 rounded-full ring-1 ring-charcoal/15 ${value.toLowerCase() === s.toLowerCase() ? "outline outline-2 outline-offset-1 outline-green" : ""}`} style={{ background: s }} />
-        ))}
-        <input type="color" value={value.startsWith("#") ? value : "#000000"} onChange={(e) => onChange(e.target.value)} className="w-7 h-7 rounded-full overflow-hidden cursor-pointer bg-transparent border-0 p-0" />
-        {allowTransparent && (
-          <button
-            type="button"
-            onClick={() => onChange("transparent")}
-            className={`w-7 h-7 rounded-full ring-1 ring-charcoal/15 grid place-items-center text-[10px] text-charcoal/45 ${value === "transparent" ? "outline outline-2 outline-offset-1 outline-green" : ""}`}
-            style={{ background: "conic-gradient(#ccc 25%, #fff 0 50%, #ccc 0 75%, #fff 0)", backgroundSize: "9px 9px" }}
-            title="None"
-          />
-        )}
-      </div>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-2.5 w-full rounded-md ring-1 ring-charcoal/10 px-2 py-1 text-[12px] tabular-nums focus:outline-none focus:ring-green/40"
-        placeholder="#000000"
-      />
     </div>
   );
 }

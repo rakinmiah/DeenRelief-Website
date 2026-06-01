@@ -7,7 +7,7 @@
  * in one place so every surface stays visually in sync.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /* ─── Buttons ─────────────────────────────────────────────────────── */
 
@@ -148,6 +148,252 @@ function commit(
   if (min != null) v = Math.max(min, v);
   if (max != null) v = Math.min(max, v);
   onCommit(v);
+}
+
+/* ─── Colour field (Figma-caliber: eyedropper + brand + saved) ────────
+ * A drop-in upgrade of the editor's raw colour inputs. Renders a swatch
+ * button + hex input (the prior behaviour) plus a popover with the native
+ * EyeDropper, the Deen Relief brand palette, and user-saved swatches that
+ * persist to localStorage. Used everywhere a single colour is picked
+ * (text colour, shape fill, stroke, gradient stops, shadow). */
+
+/** Deen Relief brand palette — exact tokens reused from presets `C`. */
+const BRAND_SWATCHES: { hex: string; name: string }[] = [
+  { hex: "#163827", name: "Forest" },
+  { hex: "#0F2A1C", name: "Forest deep" },
+  { hex: "#1C432F", name: "Forest soft" },
+  { hex: "#F7F3E8", name: "Cream" },
+  { hex: "#D4A843", name: "Gold" },
+  { hex: "#A9842B", name: "Gold deep" },
+  { hex: "#1A1A2E", name: "Charcoal" },
+  { hex: "#FFFFFF", name: "White" },
+];
+
+const SAVED_SWATCHES_KEY = "dr-editor-swatches";
+
+function readSavedSwatches(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SAVED_SWATCHES_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedSwatches(list: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SAVED_SWATCHES_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore quota / private-mode failures */
+  }
+}
+
+const sameColor = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+export function ColorField({
+  value,
+  onChange,
+  label,
+  allowTransparent,
+}: {
+  value: string;
+  onChange: (hex: string) => void;
+  label?: string;
+  /** Adds a "None" (transparent) chip — used by stroke/fill controls. */
+  allowTransparent?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState<string[]>([]);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // EyeDropper is a client-only, progressively-enhanced API — feature
+  // detect on mount so SSR never touches `window` and unsupported
+  // browsers simply don't render the button.
+  const [hasEyeDropper, setHasEyeDropper] = useState(false);
+  useEffect(() => {
+    setHasEyeDropper(typeof window !== "undefined" && "EyeDropper" in window);
+  }, []);
+
+  // Hydrate saved swatches once on mount (localStorage guarded).
+  useEffect(() => {
+    setSaved(readSavedSwatches());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const transparent = !value || value === "transparent";
+
+  async function pickWithEyeDropper() {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = await new (window as any).EyeDropper().open();
+      if (r?.sRGBHex) onChange(r.sRGBHex);
+    } catch {
+      /* user cancelled the eyedropper — no-op */
+    }
+  }
+
+  function addCurrent() {
+    if (transparent) return;
+    setSaved((prev) => {
+      if (prev.some((s) => sameColor(s, value))) return prev;
+      const next = [value, ...prev].slice(0, 24);
+      writeSavedSwatches(next);
+      return next;
+    });
+  }
+
+  function removeSaved(hex: string) {
+    setSaved((prev) => {
+      const next = prev.filter((s) => !sameColor(s, hex));
+      writeSavedSwatches(next);
+      return next;
+    });
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="h-9 px-2 rounded-lg ring-1 ring-charcoal/10 hover:bg-charcoal/5 flex items-center gap-1.5 text-[12.5px] text-charcoal/70"
+      >
+        <span
+          className="w-4 h-4 rounded-[5px] ring-1 ring-charcoal/15"
+          style={
+            transparent
+              ? { background: "conic-gradient(#ccc 25%, #fff 0 50%, #ccc 0 75%, #fff 0)", backgroundSize: "8px 8px" }
+              : { background: value }
+          }
+        />
+        {label ?? ""}
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 z-50 w-60 p-3 flex flex-col gap-3">
+          {/* Hex input + eyedropper */}
+          <div className="flex items-center gap-2">
+            <span
+              className="w-7 h-7 shrink-0 rounded-full ring-1 ring-charcoal/15"
+              style={
+                transparent
+                  ? { background: "conic-gradient(#ccc 25%, #fff 0 50%, #ccc 0 75%, #fff 0)", backgroundSize: "9px 9px" }
+                  : { background: value }
+              }
+            />
+            <input
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="flex-1 min-w-0 rounded-md ring-1 ring-charcoal/10 px-2 py-1.5 text-[12px] tabular-nums focus:outline-none focus:ring-green/40"
+              placeholder="#000000"
+            />
+            {hasEyeDropper && (
+              <button
+                type="button"
+                onClick={pickWithEyeDropper}
+                aria-label="Pick colour from screen"
+                title="Pick colour from screen"
+                className="w-8 h-8 shrink-0 grid place-items-center rounded-md ring-1 ring-charcoal/10 text-charcoal/65 hover:bg-charcoal/5"
+              >
+                <EyeDropperIcon />
+              </button>
+            )}
+          </div>
+
+          {/* Native colour picker for free-form choice */}
+          <input
+            type="color"
+            value={value.startsWith("#") ? value : "#000000"}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full h-8 rounded-md overflow-hidden cursor-pointer bg-transparent border-0 p-0"
+          />
+
+          {/* Brand palette */}
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-charcoal/40 mb-1.5">Brand</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {BRAND_SWATCHES.map((s) => (
+                <button
+                  key={s.hex}
+                  type="button"
+                  title={s.name}
+                  onClick={() => onChange(s.hex)}
+                  className={`w-7 h-7 rounded-full ring-1 ring-charcoal/15 ${sameColor(value, s.hex) ? "outline outline-2 outline-offset-1 outline-green" : ""}`}
+                  style={{ background: s.hex }}
+                />
+              ))}
+              {allowTransparent && (
+                <button
+                  type="button"
+                  onClick={() => onChange("transparent")}
+                  title="None"
+                  className={`w-7 h-7 rounded-full ring-1 ring-charcoal/15 grid place-items-center text-[10px] text-charcoal/45 ${transparent ? "outline outline-2 outline-offset-1 outline-green" : ""}`}
+                  style={{ background: "conic-gradient(#ccc 25%, #fff 0 50%, #ccc 0 75%, #fff 0)", backgroundSize: "9px 9px" }}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Saved swatches */}
+          <div>
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-charcoal/40 mb-1.5">Saved</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {saved.map((s) => (
+                <span key={s} className="relative group/sw">
+                  <button
+                    type="button"
+                    title={s}
+                    onClick={() => onChange(s)}
+                    className={`w-7 h-7 rounded-full ring-1 ring-charcoal/15 ${sameColor(value, s) ? "outline outline-2 outline-offset-1 outline-green" : ""}`}
+                    style={{ background: s }}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Remove ${s}`}
+                    title="Remove"
+                    onClick={() => removeSaved(s)}
+                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-charcoal text-white grid place-items-center text-[8px] leading-none opacity-0 group-hover/sw:opacity-100 transition"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                aria-label="Save current colour"
+                title="Save current colour"
+                onClick={addCurrent}
+                className="w-7 h-7 rounded-full ring-1 ring-dashed ring-charcoal/25 grid place-items-center text-charcoal/45 hover:ring-charcoal/40 hover:text-charcoal/70"
+              >
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M10 5v10M5 10h10" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EyeDropperIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M13.5 3.5a1.8 1.8 0 0 1 2.5 2.5l-1.4 1.4-2.5-2.5 1.4-1.4z" strokeLinejoin="round" />
+      <path d="M11.4 5.6L4.8 12.2a2 2 0 0 0-.5.9l-.6 2.4a.5.5 0 0 0 .6.6l2.4-.6a2 2 0 0 0 .9-.5l6.6-6.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 /* ─── Icons ───────────────────────────────────────────────────────── */
