@@ -236,6 +236,56 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
           logo,
         },
       },
+      {
+        id: "cta-a",
+        label: "CTA A · Type-led",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-b",
+        label: "CTA B · Gold inverted",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-c",
+        label: "CTA C · Photo lower-third",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-d",
+        label: "CTA D · Crest",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-e",
+        label: "CTA E · Split",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-f",
+        label: "CTA F · Stat-led",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-g",
+        label: "CTA G · Quote-led",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-h",
+        label: "CTA H · Urgency",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-i",
+        label: "CTA I · Scan to give",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "cta-j",
+        label: "CTA J · Wordmark card",
+        c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
     ],
     [logo]
   );

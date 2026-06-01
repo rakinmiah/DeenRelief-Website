@@ -31,4 +31,16 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
   multistat: [
     meta("multistat-a", "By the numbers", "Three numbered figures stacked on forest — the scale of the crisis at a glance."),
   ],
+  cta: [
+    meta("cta-a", "Type-led", "Forest field, a big Anton ask, a gold rule and a DONATE NOW pill — the typographic close."),
+    meta("cta-b", "Gold inverted", "A full gold field with forest ink and a forest DONATE pill — the loud, high-contrast close."),
+    meta("cta-c", "Photo lower-third", "Full-bleed photo with the ask, a gold rule and a DONATE pill in the lower third."),
+    meta("cta-d", "Crest", "Centred gold emblem, the ask, a gold rule and a centred DONATE pill inside a keyline frame."),
+    meta("cta-e", "Split", "Photo left, a forest panel right carrying the ask and a DONATE pill."),
+    meta("cta-f", "Stat-led", "A giant numeral + ‘need you now’, the ask and a centred DONATE pill."),
+    meta("cta-g", "Quote-led", "A short testimony with attribution, then the ask and a DONATE pill."),
+    meta("cta-h", "Urgency", "A gold ‘every hour counts’ chip, a big ask, a proximity tag and a DONATE pill."),
+    meta("cta-i", "Scan to give", "A SCAN TO GIVE heading, a QR placeholder, the ask and a DONATE pill."),
+    meta("cta-j", "Wordmark card", "A clean closing brand card — the DEEN RELIEF wordmark, a closing line and a DONATE pill."),
+  ],
 };

@@ -910,6 +910,393 @@ function ctaDonate(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── CTA design system (closing donate slides, A–J) ───────────────── *
+ *
+ * Ten faithful "Call to Action" closing slides. Every one ends with the
+ * unmistakable ask: a gold (or forest) DONATE pill and the deenrelief.org
+ * URL. Shared discipline with the Hero system: 78px insets, Anton
+ * uppercase asks (line-height 0.96), Barlow eyebrow/body, gold rule +
+ * diamond motif. Geometry is board units on the 1080 board.
+ */
+
+/** Reusable DONATE pill — a gold rect (radius 6) with centred forest text.
+ *  `dark` flips it to a forest pill with cream text (for gold fields). The
+ *  pill is two layers so the text sits crisp on the fill; both returned. */
+function donatePill(
+  x: number,
+  y: number,
+  w: number,
+  label: string = "DONATE NOW",
+  dark: boolean = false
+): Layer[] {
+  const h = 96;
+  return [
+    shape({ x, y, w, h, shape: "rect", fill: dark ? C.forest : C.amber, radius: 6, locked: true }),
+    text({ x, y: y + Math.round((h - 36) / 2), w, h: 40, text: label, fontFamily: BARLOW, fontSize: 30, fontWeight: 800, uppercase: true, letterSpacing: 3, color: dark ? C.cream : C.forest, align: "center" }),
+  ];
+}
+
+// CTA A — Type-led: forest field, wordmark top, big Anton ask, a gold rule,
+// a gold DONATE NOW pill, and the deenrelief.org foot. The plain workhorse
+// close — no photo, all typographic authority.
+function ctaForestType(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const ask = c.primary || "Stand with them today.";
+  const headSize = 96;
+  const headMain = balanceLines(ask, W, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 16);
+  const headY = 360;
+  const ruleY = headY + headH + 30;
+  const pillW = 420;
+  const pillY = ruleY + 56;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "Donate today", HPAD, headY - 50, W),
+      hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      ...donatePill(HPAD, pillY, pillW),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · Every gift counts", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
+    ],
+    C.forest
+  );
+}
+
+// CTA B — Gold inverted: a full gold field with forest ink. Forest wordmark,
+// a big Anton ask in forest, a forest DONATE pill with cream text, and a
+// forest deenrelief.org foot. The loud, high-contrast close.
+function ctaGoldInverted(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const ask = c.primary || "Stand with them today.";
+  const headSize = 100;
+  const headMain = balanceLines(ask, W, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 16);
+  const headY = 372;
+  const ruleY = headY + headH + 30;
+  const pillW = 440;
+  const pillY = ruleY + 56;
+  return slide(
+    [
+      // Forest wordmark on the gold field.
+      shape({ x: HPAD, y: HPAD + 4, w: 15, h: 15, shape: "rect", fill: C.forest, rotation: 45 }),
+      text({ x: HPAD + 32, y: HPAD, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color: C.forest }),
+      text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: c.eyebrow || "Emergency Appeal", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.forest, opacity: 0.7, align: "right" }),
+      hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.forest),
+      shape({ x: HPAD, y: ruleY, w: 64, h: 3, shape: "rect", fill: C.forest }),
+      ...donatePill(HPAD, pillY, pillW, "DONATE NOW", true),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.forest, opacity: 0.78 }),
+    ],
+    C.amber
+  );
+}
+
+// CTA C — Photo lower-third: full-bleed photo, a top scrim for the chrome
+// and a strong bottom scrim, the ask in the lower third, a gold rule, a gold
+// DONATE pill and the deenrelief.org foot.
+function ctaPhotoLowerThird(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const ask = c.primary || "Stand with them today.";
+  const headSize = 80;
+  const pillW = 400;
+  const pillH = 96;
+  const pillY = B - HPAD - pillH;
+  const urlY = pillY - 0; // url sits to the right of the pill, vertically centred
+  const headMain = balanceLines(ask, W, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 14);
+  const ruleY = pillY - 36;
+  const headY = ruleY - 26 - headH;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 360, w: B, h: B - 360, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "Donate today", HPAD, headY - 46, W),
+      hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      ...donatePill(HPAD, pillY, pillW),
+      text({ x: HPAD + pillW + 28, y: urlY + Math.round((pillH - 28) / 2), w: W - pillW - 28, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 2, color: C.cream }),
+    ],
+    C.forest
+  );
+}
+
+// CTA D — Crest: centred gold diamond emblem (forest inner keyline like the
+// hero crest), eyebrow, Anton ask centred, gold rule, centred DONATE pill,
+// charity-no foot — inside a thin gold keyline frame (inset 46).
+function ctaCrest(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const ask = c.primary || "Stand with them today.";
+  const dia = 56;
+  const innerDia = 36;
+  const diaY = 240;
+  const eyebrowY = diaY + dia + 40;
+  const headSize = 92;
+  const headMain = balanceLines(ask, W, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 14);
+  const headY = eyebrowY + 44;
+  const ruleY = headY + headH + 28;
+  const pillW = 420;
+  const pillX = Math.round(cx - pillW / 2);
+  const pillY = ruleY + 44;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      // Enclosing 2px gold keyline frame (988×988), inset 46.
+      shape({ x: 46, y: 46, w: B - 92, h: B - 92, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      // Emblem: gold diamond + forest inner keyline diamond.
+      shape({ x: Math.round(cx - dia / 2), y: diaY, w: dia, h: dia, shape: "rect", fill: C.amber, rotation: 45 }),
+      shape({ x: Math.round(cx - innerDia / 2), y: Math.round(diaY + (dia - innerDia) / 2), w: innerDia, h: innerDia, shape: "rect", fill: "transparent", stroke: C.forest, strokeWidth: 2, rotation: 45 }),
+      hEyebrow(c.eyebrow || "Emergency Appeal", HPAD, eyebrowY, W, "center"),
+      hHead(headMain, HPAD, headY, W, headH, headSize, "center", C.cream),
+      goldBar(Math.round(cx - 46), ruleY, 92),
+      ...donatePill(pillX, pillY, pillW),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · Registered Charity 1180042", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// CTA E — Split: photo on the left half, a forest panel on the right holding
+// the ask, a gold rule, a DONATE pill and the deenrelief.org foot (the hero
+// split-diptych layout, closed with a donate ask).
+function ctaSplit(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2); // 540
+  const pad = 56;
+  const panelX = half + pad; // 596
+  const panelW = B - panelX - pad; // 428
+  const ask = c.primary || "Stand with them today.";
+  const headSize = 62;
+  const headMain = balanceLines(ask, panelW, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 12);
+  const eyebrowH = 30, gap1 = 18, gap2 = 24, ruleH = 3, gap3 = 38, pillH = 96;
+  const coreH = eyebrowH + gap1 + headH + gap2 + ruleH + gap3 + pillH;
+  const coreTop = Math.round((B - coreH) / 2);
+  const eyebrowY = coreTop;
+  const headY = eyebrowY + eyebrowH + gap1;
+  const ruleY = headY + headH + gap2;
+  const pillY = ruleY + ruleH + gap3;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(panelX, HPAD, c.logo),
+      text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: c.eyebrow || "Donate today", fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
+      hHead(headMain, panelX, headY, panelW, headH, headSize, "left", C.cream),
+      goldBar(panelX, ruleY, 56),
+      ...donatePill(panelX, pillY, panelW),
+      text({ x: panelX, y: B - HPAD - 28, w: panelW, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 2, color: C.amber }),
+    ],
+    C.forest
+  );
+}
+
+// CTA F — Stat-led: a giant Anton numeral (c.secondary or default "2.1M"),
+// "need you now.", the ask line, a gold rule, a DONATE pill and the foot.
+function ctaStatLed(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const figure = c.secondary || "2.1M";
+  const ask = c.primary || "Stand with them today.";
+  const figureSize = 300;
+  const figureH = Math.round(figureSize * 0.82);
+  const figureY = 196;
+  const labelY = figureY + figureH + 6;
+  const askY = labelY + 78;
+  const askSize = 60;
+  const askMain = balanceLines(ask, W, askSize);
+  const askLines = askMain.split("\n").length;
+  const askH = Math.round(askLines * askSize * 0.96 + 12);
+  const ruleY = askY + askH + 26;
+  const pillW = 420;
+  const pillY = ruleY + 44;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: labelY, w: W, h: 62, text: "NEED YOU NOW.", fontFamily: ANTON, fontSize: 56, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
+      hHead(askMain, HPAD, askY, W, askH, askSize, "center", C.cream),
+      goldBar(Math.round(B / 2 - 46), ruleY, 92),
+      ...donatePill(Math.round(B / 2 - pillW / 2), pillY, pillW),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// CTA G — Quote-led: a short gold open-quote, a one-line testimony, an
+// attribution, then the ask line, a DONATE pill and the deenrelief.org foot.
+function ctaQuoteLed(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quote = "They have no one but us. Your gift is their lifeline.";
+  const attribution = c.secondary || "Aid worker, Gaza";
+  const ask = c.primary || "Stand with them today.";
+  const markY = 196;
+  const quoteY = markY + 150;
+  const quoteSize = 54;
+  const quoteLines = Math.min(3, Math.max(1, Math.ceil((quote.length * quoteSize * 0.5) / W)));
+  const quoteH = Math.round(quoteLines * quoteSize * 1.18);
+  const attrY = quoteY + quoteH + 18;
+  const askSize = 78;
+  const askMain = balanceLines(ask, W, askSize);
+  const askLines = askMain.split("\n").length;
+  const askH = Math.round(askLines * askSize * 0.96 + 12);
+  const pillW = 420;
+  const pillH = 96;
+  const pillY = B - HPAD - pillH;
+  const ruleY = pillY - 40;
+  const askY = ruleY - 26 - askH;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      text({ x: HPAD - 6, y: markY, w: 260, h: 150, text: "“", fontFamily: ANTON, fontSize: 240, fontWeight: 400, lineHeight: 0.8, color: C.amber }),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+      text({ x: HPAD, y: attrY, w: W, h: 34, text: `— ${attribution}`, fontFamily: BARLOW, fontSize: 26, fontWeight: 700, color: C.creamDim }),
+      hHead(askMain, HPAD, askY, W, askH, askSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      ...donatePill(HPAD, pillY, pillW),
+      text({ x: HPAD + pillW + 28, y: pillY + Math.round((pillH - 28) / 2), w: W - pillW - 28, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 2, color: C.amber }),
+    ],
+    C.forest
+  );
+}
+
+// CTA H — Urgency: forest, a gold "EVERY HOUR COUNTS" kicker chip top, a big
+// ask, a location·date proximity tag, a gold rule, a DONATE pill + the foot.
+function ctaUrgency(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const ask = c.primary || "Stand with them today.";
+  const chipW = 320, chipH = 50;
+  const chipY = HPAD + 70;
+  const headSize = 100;
+  const headMain = balanceLines(ask, W, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 16);
+  const headY = chipY + chipH + 56;
+  const tagY = headY + headH + 26;
+  const ruleY = tagY + 44;
+  const pillW = 420;
+  const pillY = ruleY + 44;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      // Gold urgency kicker chip (forest text).
+      shape({ x: HPAD, y: chipY, w: chipW, h: chipH, shape: "rect", fill: C.amber, radius: 5, locked: true }),
+      text({ x: HPAD, y: chipY + Math.round((chipH - 24) / 2), w: chipW, h: 26, text: "Every hour counts", fontFamily: BARLOW, fontSize: 22, fontWeight: 800, uppercase: true, letterSpacing: 3, color: C.forest, align: "center" }),
+      hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+      text({ x: HPAD, y: tagY, w: W, h: 30, text: c.eyebrow || "Gaza · Right now", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
+      goldBar(HPAD, ruleY, 64),
+      ...donatePill(HPAD, pillY, pillW, "DONATE NOW"),
+      text({ x: HPAD + pillW + 28, y: pillY + Math.round((96 - 28) / 2), w: W - pillW - 28, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 2, color: C.cream }),
+    ],
+    C.forest
+  );
+}
+
+// CTA I — Scan to give: forest, a "SCAN TO GIVE" heading, a ~300px cream
+// rounded-square QR placeholder (bordered + a subtle inner grid), the ask
+// beside it, a DONATE pill and the deenrelief.org foot.
+function ctaScanToGive(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const ask = c.primary || "Stand with them today.";
+  const qr = 320;
+  const qrX = HPAD;
+  const qrY = 400;
+  // Subtle inner grid: a few thin forest lines inside the cream square.
+  const gridLayers: Layer[] = [];
+  const cells = 5;
+  const cell = Math.round((qr - 48) / cells);
+  const gx = qrX + 24, gy = qrY + 24;
+  for (let i = 1; i < cells; i++) {
+    gridLayers.push(shape({ x: gx + i * cell, y: gy, w: 1, h: cell * cells, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
+    gridLayers.push(shape({ x: gx, y: gy + i * cell, w: cell * cells, h: 1, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
+  }
+  // A few "finder" blocks so it reads as a QR, not a blank grid.
+  gridLayers.push(shape({ x: gx + 6, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
+  gridLayers.push(shape({ x: gx + (cells - 1) * cell + 8, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
+  gridLayers.push(shape({ x: gx + 6, y: gy + (cells - 1) * cell + 8, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
+  const textX = qrX + qr + 56;
+  const textW = B - HPAD - textX;
+  const askSize = 64;
+  const askMain = balanceLines(ask, textW, askSize);
+  const askLines = askMain.split("\n").length;
+  const askH = Math.round(askLines * askSize * 0.96 + 12);
+  const pillW = textW;
+  const pillY = qrY + qr - 96;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow || "Scan to give", HPAD, 246, W),
+      hHead("SCAN TO GIVE", HPAD, 290, W, 92, 84, "left", C.cream),
+      // QR placeholder: cream rounded square + gold keyline + inner grid.
+      shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: C.cream, radius: 18, locked: true }),
+      shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 3, radius: 18, locked: true }),
+      ...gridLayers,
+      // Ask + DONATE pill beside the QR.
+      hHead(askMain, textX, qrY, textW, askH, askSize, "left", C.cream),
+      ...donatePill(textX, pillY, pillW),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · Point your camera to donate", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber }),
+    ],
+    C.forest
+  );
+}
+
+// CTA J — Wordmark card: a clean closing brand card. Gold keyline frame, the
+// large DEEN RELIEF wordmark + emblem diamond, a short closing line, a DONATE
+// line, and a "Registered Charity 1180042 · deenrelief.org" foot.
+function ctaWordmarkCard(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const FPAD = 46;
+  const frameW = B - 2 * FPAD; // 988
+  const FGLOW =
+    "radial-gradient(120% 70% at 50% 18%, #1C432F 0%, rgba(28,67,47,0) 60%)";
+  const dia = 120;
+  const diaY = 230;
+  const innerDia = 80;
+  const eyebrowY = diaY + dia + 36;
+  const wmY = eyebrowY + 32 + 28;
+  const wmSize = 116;
+  const wmH = Math.round(2 * wmSize * 0.86 + 16);
+  const ruleY = wmY + wmH + 30;
+  const closeY = ruleY + 3 + 30;
+  const pillW = 420;
+  const pillY = closeY + 60;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: FGLOW, locked: true }),
+      // 2px gold frame.
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      // Emblem: gold diamond + forest inner keyline.
+      shape({ x: Math.round(cx - dia / 2), y: diaY, w: dia, h: dia, shape: "rect", fill: C.amber, rotation: 45 }),
+      shape({ x: Math.round(cx - innerDia / 2), y: Math.round(diaY + (dia - innerDia) / 2), w: innerDia, h: innerDia, shape: "rect", fill: "transparent", stroke: C.forest, strokeWidth: 2, rotation: 45 }),
+      text({ x: HPAD, y: eyebrowY, w: B - 2 * HPAD, h: 32, text: c.eyebrow || "Stand with them today", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: wmY, w: B - 2 * HPAD, h: wmH, text: "DEEN\nRELIEF", fontFamily: ANTON, fontSize: wmSize, fontWeight: 400, uppercase: true, lineHeight: 0.86, letterSpacing: 2.5, color: C.cream, align: "center" }),
+      shape({ x: Math.round(cx - 48), y: ruleY, w: 96, h: 3, shape: "rect", fill: C.amber }),
+      text({ x: HPAD, y: closeY, w: B - 2 * HPAD, h: 34, text: c.primary || "Give what you can, today.", fontFamily: BARLOW, fontSize: 28, fontWeight: 600, color: C.creamDim, align: "center" }),
+      ...donatePill(Math.round(cx - pillW / 2), pillY, pillW),
+      // Foot: charity no (left) + URL (right), pinned above the frame.
+      text({ x: FPAD + 56, y: B - FPAD - 48 - 12, w: 480, h: 28, text: "Registered Charity 1180042", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.creamDim }),
+      text({ x: B - FPAD - 56 - 420, y: B - FPAD - 48 - 12, w: 420, h: 28, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1.4, color: C.creamDim, align: "right" }),
+    ],
+    C.forest
+  );
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
@@ -943,6 +1330,18 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("testimony-portrait")) return testimonyPortrait(c);
   if (id.includes("testimony")) return testimonyQuote(c);
   if (id.includes("response")) return responsePhoto(c);
+  // Closing CTA library (A–J). Specific ids first so "cta-a" doesn't get
+  // swallowed by the generic "cta" fallback below.
+  if (id.includes("cta-a")) return ctaForestType(c);
+  if (id.includes("cta-b")) return ctaGoldInverted(c);
+  if (id.includes("cta-c")) return ctaPhotoLowerThird(c);
+  if (id.includes("cta-d")) return ctaCrest(c);
+  if (id.includes("cta-e")) return ctaSplit(c);
+  if (id.includes("cta-f")) return ctaStatLed(c);
+  if (id.includes("cta-g")) return ctaQuoteLed(c);
+  if (id.includes("cta-h")) return ctaUrgency(c);
+  if (id.includes("cta-i")) return ctaScanToGive(c);
+  if (id.includes("cta-j")) return ctaWordmarkCard(c);
   if (id.includes("cta")) return ctaDonate(c);
   // Fallback — a clean typographic slide.
   return factTypography(c);
