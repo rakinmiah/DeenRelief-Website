@@ -237,6 +237,141 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         },
       },
       {
+        id: "tiers-b",
+        label: "Tiers B · Over photo",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-c",
+        label: "Tiers C · Gold inverted",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-d",
+        label: "Tiers D · Single hero tier",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-e",
+        label: "Tiers E · Split",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-f",
+        label: "Tiers F · With total ask",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-g",
+        label: "Tiers G · Zakat-framed",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-h",
+        label: "Tiers H · Two-tone",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-i",
+        label: "Tiers I · Keyline card",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "tiers-j",
+        label: "Tiers J · Scan to give",
+        c: { primary: "Where your gift goes", eyebrow: "Palestine Appeal", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "beforeafter-b",
+        label: "Before/After B · Vertical stack",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-c",
+        label: "Before/After C · Two photos",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-d",
+        label: "Before/After D · Connecting arrow",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-e",
+        label: "Before/After E · Small then, big now",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-f",
+        label: "Before/After F · Two-tone",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-g",
+        label: "Before/After G · Over photo",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-h",
+        label: "Before/After H · Timeline",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-i",
+        label: "Before/After I · Card-framed",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "beforeafter-j",
+        label: "Before/After J · % change",
+        c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },
+      },
+      {
+        id: "multistat-b",
+        label: "Multi-stat B · Single row",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-c",
+        label: "Multi-stat C · Hero + supporting",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-d",
+        label: "Multi-stat D · Grid",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-e",
+        label: "Multi-stat E · Over photo",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-f",
+        label: "Multi-stat F · Two-tone",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-g",
+        label: "Multi-stat G · Gold-ruled beats",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-h",
+        label: "Multi-stat H · Centred crest",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-i",
+        label: "Multi-stat I · Connecting timeline",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
+        id: "multistat-j",
+        label: "Multi-stat J · Ledger",
+        c: { primary: "Gaza today", eyebrow: "By the numbers", secondary: null, imageUrl: SAMPLE_IMG, logo },
+      },
+      {
         id: "cta-a",
         label: "CTA A · Type-led",
         c: { primary: "Stand with them today.", secondary: "2.1M", imageUrl: SAMPLE_IMG, eyebrow: "Palestine Appeal", logo },

@@ -2645,6 +2645,941 @@ function respGiftHelps(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── Donation-tiers design system (the impact ladder, A–J) ───────── *
+ *
+ * Ten "Where your gift goes" layouts. Each shows the £30 / £100 / £250
+ * impact ladder (or a single hero tier for D) with impact lines, and ends
+ * with the deenrelief.org URL. Shared discipline with the Hero/Stat/CTA
+ * systems: 78px insets, Anton uppercase amounts, Barlow eyebrow/labels,
+ * the gold rule + diamond motif. tiers-a is the v1 `tiersLadder` above.
+ */
+
+type Tier = { amt: string; label: string };
+const TIERS_DEFAULT: Tier[] = [
+  { amt: "£30", label: "Emergency food parcel for a family" },
+  { amt: "£100", label: "Winter shelter kit" },
+  { amt: "£250", label: "Urgent medical aid" },
+];
+function tiersHeading(c: SlideContent): string {
+  return c.primary || "Where your gift goes";
+}
+
+// TIERS B — Over photo: the ladder over a faint full-bleed photo with a
+// scrim, the chrome on a top scrim, ending with the URL.
+function tiersB(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = tiersHeading(c);
+  const headSize = 70;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 224;
+  const ruleY = headY + headH + 22;
+  const rowsTop = ruleY + 48;
+  const rowGap = 140;
+  const layers: Layer[] = [
+    image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: "rgba(15,42,28,0.86)", locked: true }),
+    topScrim(),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 240, h: 92, text: t.amt, fontFamily: ANTON, fontSize: 84, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 248, y: y + 20, w: W - 248, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 29, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+    if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 26, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.2)", locked: true }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }));
+  return slide(layers, C.forest);
+}
+
+// TIERS C — Gold inverted: a full gold field with forest ink. Forest
+// wordmark, a forest heading + ladder, the URL foot. The loud ladder.
+function tiersC(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = tiersHeading(c);
+  const headSize = 72;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 224;
+  const ruleY = headY + headH + 22;
+  const rowsTop = ruleY + 50;
+  const rowGap = 148;
+  const layers: Layer[] = [
+    // Forest wordmark on the gold field.
+    shape({ x: HPAD, y: HPAD + 4, w: 15, h: 15, shape: "rect", fill: C.forest, rotation: 45 }),
+    text({ x: HPAD + 32, y: HPAD, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color: C.forest }),
+    text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: "Palestine Appeal", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.forest, opacity: 0.7, align: "right" }),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.forest),
+    shape({ x: HPAD, y: ruleY, w: 64, h: 3, shape: "rect", fill: C.forest }),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 240, h: 96, text: t.amt, fontFamily: ANTON, fontSize: 86, fontWeight: 400, color: C.forest }));
+    layers.push(text({ x: HPAD + 252, y: y + 22, w: W - 252, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 600, lineHeight: 1.2, color: C.forestSoft }));
+    if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 28, w: W, h: 1, shape: "rect", fill: "rgba(22,56,39,0.28)", locked: true }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.forest, opacity: 0.78 }));
+  return slide(layers, C.amber);
+}
+
+// TIERS D — Single hero tier: one colossal amount as the hero, with a
+// big impact line beneath ("provides a week of food"), and the URL foot.
+function tiersD(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const amt = "£50";
+  const amtSize = 360;
+  const amtH = Math.round(amtSize * 0.82 + 20);
+  const labelSize = 56;
+  const labelText = "PROVIDES A WEEK\nOF FOOD FOR A FAMILY.";
+  const labelLines = labelText.split("\n").length;
+  const labelH = Math.round(labelLines * labelSize * 0.96 + 12);
+  const eyeGap = 60;
+  const groupH = 32 + eyeGap + amtH + 14 + labelH;
+  const groupTop = Math.round((B - groupH) / 2) - 8;
+  const eyebrowY = groupTop;
+  const amtY = eyebrowY + 32 + eyeGap;
+  const labelY = amtY + amtH + 14;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "Where your gift goes", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: amtY, w: W, h: amtH, text: amt, fontFamily: ANTON, fontSize: amtSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: labelY, w: W, h: labelH, text: labelText, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// TIERS E — Split: photo on the left half, the ladder on a forest panel
+// right, with a heading and the URL foot.
+function tiersE(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2); // 540
+  const pad = 56;
+  const panelX = half + pad; // 596
+  const panelW = B - panelX - pad; // 428
+  const heading = tiersHeading(c);
+  const headSize = 48;
+  const headMain = balanceLines(heading, panelW, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 168;
+  const ruleY = headY + headH + 22;
+  const rowsTop = ruleY + 42;
+  const rowGap = 168;
+  const layers: Layer[] = [
+    image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+    shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
+    ...wordmark(panelX, HPAD, c.logo),
+    text({ x: panelX, y: headY, w: panelW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    goldBar(panelX, ruleY, 56),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: panelX, y, w: panelW, h: 80, text: t.amt, fontFamily: ANTON, fontSize: 72, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: panelX, y: y + 74, w: panelW, h: 56, text: t.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.18, color: C.creamDim }));
+  });
+  layers.push(text({ x: panelX, y: B - HPAD - 28, w: panelW, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber }));
+  return slide(layers, C.forest);
+}
+
+// TIERS F — With total ask: a heading + the ladder + a closing total-ask
+// line ("£380 funds a family's month"), and the URL foot.
+function tiersF(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = tiersHeading(c);
+  const headSize = 70;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 196;
+  const ruleY = headY + headH + 20;
+  const rowsTop = ruleY + 44;
+  const rowGap = 128;
+  const askY = rowsTop + 3 * rowGap + 6;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 220, h: 80, text: t.amt, fontFamily: ANTON, fontSize: 72, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 232, y: y + 18, w: W - 232, h: 56, text: t.label, fontFamily: BARLOW, fontSize: 28, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+    layers.push(shape({ x: HPAD, y: y + rowGap - 22, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  // Total-ask line: a gold lead-in + cream sum.
+  layers.push(text({ x: HPAD, y: askY, w: 320, h: 64, text: "£380", fontFamily: ANTON, fontSize: 56, fontWeight: 400, color: C.amber }));
+  layers.push(text({ x: HPAD + 188, y: askY + 14, w: W - 188, h: 56, text: "funds a family's whole month.", fontFamily: BARLOW, fontSize: 28, fontWeight: 700, lineHeight: 1.2, color: C.cream }));
+  layers.push(footer(C.creamDim));
+  return slide(layers, C.forest);
+}
+
+// TIERS G — Zakat-framed: a "Your Zakat" eyebrow + heading, the ladder,
+// and the URL foot — the same impact ladder framed as zakat-eligible.
+function tiersG(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const headSize = 76;
+  const heading = "Your Zakat,\nat work";
+  const headH = Math.round(heading.split("\n").length * headSize * 0.96 + 12);
+  const headingY = 220;
+  const ruleY = headingY + headH + 22;
+  const rowsTop = ruleY + 50;
+  const rowGap = 150;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Zakat Eligible", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hEyebrow(c.eyebrow || "Your Zakat · Palestine", HPAD, headingY - 50, W),
+    text({ x: HPAD, y: headingY, w: W, h: headH, text: heading, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 240, h: 96, text: t.amt, fontFamily: ANTON, fontSize: 88, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 256, y: y + 22, w: W - 256, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+    if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 28, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · 100% Zakat policy", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.amber }));
+  return slide(layers, C.forest);
+}
+
+// TIERS H — Two-tone: a gold-bordered card with a forest panel carrying the
+// heading + ladder, and a cream band holding the URL in dark ink.
+function tiersH(c: SlideContent): EditorSlide {
+  const FPAD = 40;
+  const frameW = B - 2 * FPAD; // 1000
+  const bandH = 180;
+  const bandY = B - FPAD - bandH;
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset; // 888
+  const heading = tiersHeading(c);
+  const headSize = 60;
+  const headMain = balanceLines(heading, innerW, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const barY = FPAD + inset;
+  const headY = barY + 60;
+  const ruleY = headY + headH + 20;
+  const rowsTop = ruleY + 40;
+  const rowGap = 132;
+  const layers: Layer[] = [
+    shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+    shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+    ...wordmark(innerX, barY, c.logo),
+    hTag("Palestine Appeal", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
+    text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    goldBar(innerX, ruleY, 64),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: innerX, y, w: 220, h: 80, text: t.amt, fontFamily: ANTON, fontSize: 70, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: innerX + 232, y: y + 16, w: innerW - 232, h: 56, text: t.label, fontFamily: BARLOW, fontSize: 27, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+  });
+  // Cream band: a dark label (left) + gold-deep URL (right).
+  layers.push(text({ x: innerX, y: bandY + Math.round((bandH - 34) / 2), w: 540, h: 34, text: "Every gift counts", fontFamily: BARLOW, fontSize: 26, fontWeight: 700, uppercase: true, letterSpacing: 1, color: C.forestDim }));
+  layers.push(text({ x: FPAD + frameW - inset - 420, y: bandY + Math.round((bandH - 44) / 2), w: 420, h: 52, text: "deenrelief.org", fontFamily: ANTON, fontSize: 40, fontWeight: 400, color: C.goldDeep, align: "right" }));
+  layers.push(shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }));
+  return slide(layers, C.forest);
+}
+
+// TIERS I — Keyline card: the ladder inside a gold keyline card on forest,
+// with an eyebrow, heading and the URL foot.
+function tiersI(c: SlideContent): EditorSlide {
+  const cardX = HPAD;
+  const cardY = 150;
+  const cardW = B - 2 * HPAD; // 924
+  const cardH = B - cardY - HPAD; // 852
+  const inset = 52;
+  const innerX = cardX + inset;
+  const innerW = cardW - 2 * inset; // 820
+  const heading = tiersHeading(c);
+  const headSize = 60;
+  const headMain = balanceLines(heading, innerW, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const eyebrowY = cardY + inset;
+  const headY = eyebrowY + 40;
+  const ruleY = headY + headH + 18;
+  const rowsTop = ruleY + 38;
+  const rowGap = 134;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    // The gold keyline card.
+    shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
+    text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: c.eyebrow || "Where your gift goes", fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
+    text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    goldBar(innerX, ruleY, 56),
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: innerX, y, w: 220, h: 80, text: t.amt, fontFamily: ANTON, fontSize: 72, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: innerX + 232, y: y + 16, w: innerW - 232, h: 56, text: t.label, fontFamily: BARLOW, fontSize: 27, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+    if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: innerX, y: y + rowGap - 24, w: innerW, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  layers.push(text({ x: innerX, y: cardY + cardH - inset - 6, w: innerW, h: 30, text: "deenrelief.org", fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber }));
+  return slide(layers, C.forest);
+}
+
+// TIERS J — Scan to give: a QR placeholder block beside the ladder, ending
+// with the URL — the donor scans to give at any tier.
+function tiersJ(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = tiersHeading(c);
+  const headSize = 64;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 200;
+  const ruleY = headY + headH + 20;
+  // QR placeholder block, lower-right.
+  const qr = 300;
+  const qrX = B - HPAD - qr;
+  const qrY = ruleY + 44;
+  const gridLayers: Layer[] = [];
+  const cells = 5;
+  const cell = Math.round((qr - 48) / cells);
+  const gx = qrX + 24, gy = qrY + 24;
+  for (let i = 1; i < cells; i++) {
+    gridLayers.push(shape({ x: gx + i * cell, y: gy, w: 1, h: cell * cells, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
+    gridLayers.push(shape({ x: gx, y: gy + i * cell, w: cell * cells, h: 1, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
+  }
+  gridLayers.push(shape({ x: gx + 6, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
+  gridLayers.push(shape({ x: gx + (cells - 1) * cell + 8, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
+  gridLayers.push(shape({ x: gx + 6, y: gy + (cells - 1) * cell + 8, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
+  const ladderW = qrX - HPAD - 56;
+  const rowsTop = qrY + 4;
+  const rowGap = 100;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Scan To Give", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+    // QR placeholder.
+    shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: C.cream, radius: 18, locked: true }),
+    shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 3, radius: 18, locked: true }),
+    ...gridLayers,
+  ];
+  TIERS_DEFAULT.forEach((t, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 180, h: 64, text: t.amt, fontFamily: ANTON, fontSize: 56, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD, y: y + 56, w: ladderW, h: 36, text: t.label, fontFamily: BARLOW, fontSize: 23, fontWeight: 500, lineHeight: 1.16, color: C.creamDim }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · Point your camera to donate", fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber }));
+  return slide(layers, C.forest);
+}
+
+/* ─── Before/After design system (then-and-now contrast, A–J) ─────── *
+ *
+ * Ten "Then & now" layouts. Each contrasts a before figure with an after
+ * figure (default "36 → 7 hospitals") and carries a source line. Shared
+ * discipline with the Hero/Stat systems: 78px insets, Anton numerals,
+ * Barlow labels, gold rule/divider. beforeafter-a is the v1 `beforeAfter`.
+ */
+
+type BAState = { eyebrow: string; num: string; label: string };
+const BA_BEFORE: BAState = { eyebrow: "Before · Oct 2023", num: "36", label: "Hospitals functioning" };
+const BA_AFTER: BAState = { eyebrow: "Now · May 2026", num: "7", label: "Hospitals functioning" };
+function baSource(c: SlideContent): string {
+  return c.secondary || "Source: WHO · 2026";
+}
+
+// BEFORE/AFTER B — Vertical stack: the before figure over the after figure,
+// joined by a gold divider, with a heading and a source foot.
+function beforeafterB(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const numSize = 150;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    ...(c.primary ? [hHead(balanceLines(c.primary, W, 56), HPAD, 200, W, 76, 56, "left", C.cream)] : []),
+    // BEFORE row (upper).
+    text({ x: HPAD, y: 318, w: W, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    text({ x: HPAD, y: 348, w: 280, h: 156, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream }),
+    text({ x: HPAD + 300, y: 412, w: W - 300, h: 56, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim }),
+    // Gold divider between the two rows.
+    shape({ x: HPAD, y: 540, w: W, h: 2, shape: "rect", fill: C.amber, locked: true }),
+    // AFTER row (lower).
+    text({ x: HPAD, y: 578, w: W, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber }),
+    text({ x: HPAD, y: 608, w: 280, h: 156, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber }),
+    text({ x: HPAD + 300, y: 672, w: W - 300, h: 56, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim }),
+    text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim }),
+  ];
+  return slide(layers, C.forest);
+}
+
+// BEFORE/AFTER C — Two photos: a left/right photo split, each with a scrim
+// and a "before"/"after" label + figure, and a source foot.
+function beforeafterC(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const numSize = 160;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      image({ x: half, y: 0, w: B - half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      // Per-side scrims so the labels stay legible.
+      shape({ x: 0, y: 0, w: half, h: B, shape: "rect", fill: "linear-gradient(to top, rgba(15,42,28,0.94) 0%, rgba(15,42,28,0.3) 55%, rgba(15,42,28,0.7) 100%)", locked: true }),
+      shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: "linear-gradient(to top, rgba(15,42,28,0.94) 0%, rgba(15,42,28,0.3) 55%, rgba(15,42,28,0.7) 100%)", locked: true }),
+      // Centre gold divider.
+      shape({ x: half - 1, y: 0, w: 2, h: B, shape: "rect", fill: C.amber, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: "Palestine Appeal", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity: 0.7, align: "right" }),
+      // BEFORE side.
+      text({ x: HPAD, y: 540, w: half - HPAD - 30, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+      text({ x: HPAD, y: 574, w: half - HPAD - 30, h: 160, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream }),
+      text({ x: HPAD, y: 742, w: half - HPAD - 30, h: 56, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 26, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim }),
+      // AFTER side.
+      text({ x: half + 30, y: 540, w: half - HPAD - 30, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber }),
+      text({ x: half + 30, y: 574, w: half - HPAD - 30, h: 160, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber }),
+      text({ x: half + 30, y: 742, w: half - HPAD - 30, h: 56, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 26, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// BEFORE/AFTER D — Connecting arrow: the two figures on one row joined by a
+// gold connecting arrow ("36 → 7"), a heading, and a source foot.
+function beforeafterD(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const numSize = 220;
+  const numH = Math.round(numSize * 0.9);
+  const rowY = 432;
+  const leftX = HPAD;
+  const leftW = 320;
+  const rightX = B - HPAD - 320;
+  const rightW = 320;
+  // Arrow between the two figures: a gold rule + a chevron-ish head built
+  // from two short rotated rules.
+  const arrowY = rowY + Math.round(numH / 2);
+  const arrowX0 = leftX + leftW + 8;
+  const arrowX1 = rightX - 8;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      ...(c.primary ? [hHead(balanceLines(c.primary, W, 60), HPAD, 232, W, 80, 60, "center", C.cream)] : []),
+      // BEFORE figure (left).
+      text({ x: leftX, y: rowY - 50, w: leftW, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+      text({ x: leftX, y: rowY, w: leftW, h: numH, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream, align: "center" }),
+      text({ x: leftX, y: rowY + numH + 4, w: leftW, h: 56, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+      // AFTER figure (right).
+      text({ x: rightX, y: rowY - 50, w: rightW, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "center" }),
+      text({ x: rightX, y: rowY, w: rightW, h: numH, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "center" }),
+      text({ x: rightX, y: rowY + numH + 4, w: rightW, h: 56, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+      // Connecting arrow shaft + head.
+      shape({ x: arrowX0, y: arrowY - 2, w: arrowX1 - arrowX0, h: 4, shape: "rect", fill: C.amber, locked: true }),
+      shape({ x: arrowX1 - 22, y: arrowY - 16, w: 26, h: 4, shape: "rect", fill: C.amber, rotation: 45, locked: true }),
+      shape({ x: arrowX1 - 22, y: arrowY + 16, w: 26, h: 4, shape: "rect", fill: C.amber, rotation: -45, locked: true }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// BEFORE/AFTER E — Small 'then' vs big 'now': the before figure set small,
+// the after figure colossal, dramatising the collapse. With a source foot.
+function beforeafterE(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    ...(c.primary ? [hEyebrow(c.primary, HPAD, 232, W)] : [hEyebrow(c.eyebrow || "Then vs now", HPAD, 232, W)]),
+    // Small 'then'.
+    text({ x: HPAD, y: 300, w: W, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    text({ x: HPAD, y: 330, w: 200, h: 90, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: 90, fontWeight: 400, lineHeight: 0.9, color: C.creamDim }),
+    text({ x: HPAD + 168, y: 366, w: W - 168, h: 40, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 26, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim }),
+    // Big 'now'.
+    text({ x: HPAD, y: 470, w: W, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
+    text({ x: HPAD, y: 506, w: 480, h: 320, text: BA_AFTER.num, fontFamily: ANTON, fontSize: 360, fontWeight: 400, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
+    text({ x: HPAD, y: 792, w: W, h: 50, text: BA_AFTER.label, fontFamily: ANTON, fontSize: 50, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim }),
+  ];
+  return slide(layers, C.forest);
+}
+
+// BEFORE/AFTER F — Two-tone: a gold-bordered card with a forest panel
+// carrying the before/after contrast, and a cream band holding the source.
+function beforeafterF(c: SlideContent): EditorSlide {
+  const FPAD = 40;
+  const frameW = B - 2 * FPAD;
+  const bandH = 180;
+  const bandY = B - FPAD - bandH;
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset;
+  const cx = Math.round(B / 2);
+  const colW = Math.round((innerW - 80) / 2);
+  const leftX = innerX;
+  const rightX = cx + 40;
+  const numY = 420;
+  const numSize = 170;
+  const barY = FPAD + inset;
+  const layers: Layer[] = [
+    shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+    shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+    ...wordmark(innerX, barY, c.logo),
+    hTag("Then & Now", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
+    ...(c.primary ? [hHead(balanceLines(c.primary, innerW, 56), innerX, barY + 64, innerW, 76, 56, "center", C.cream)] : []),
+    shape({ x: cx - 1, y: numY - 40, w: 2, h: 300, shape: "rect", fill: C.amber, locked: true }),
+    // BEFORE column.
+    text({ x: leftX, y: numY - 50, w: colW, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    text({ x: leftX, y: numY, w: colW, h: 176, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream, align: "center" }),
+    text({ x: leftX, y: numY + 178, w: colW, h: 56, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+    // AFTER column.
+    text({ x: rightX, y: numY - 50, w: colW, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "center" }),
+    text({ x: rightX, y: numY, w: colW, h: 176, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "center" }),
+    text({ x: rightX, y: numY + 178, w: colW, h: 56, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+    // Cream band: source (left) + URL (right).
+    text({ x: innerX, y: bandY + Math.round((bandH - 34) / 2), w: 540, h: 34, text: baSource(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 1, color: C.forestDim }),
+    text({ x: FPAD + frameW - inset - 420, y: bandY + Math.round((bandH - 44) / 2), w: 420, h: 52, text: "deenrelief.org", fontFamily: ANTON, fontSize: 40, fontWeight: 400, color: C.goldDeep, align: "right" }),
+    shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+  ];
+  return slide(layers, C.forest);
+}
+
+// BEFORE/AFTER G — Over photo: the before/after contrast over a faint
+// full-bleed photo with a scrim, chrome on a top scrim, a source foot.
+function beforeafterG(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const numY = 432;
+  const numSize = 190;
+  const colW = Math.round((B - 2 * HPAD - 80) / 2);
+  const leftX = HPAD;
+  const rightX = cx + 40;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: "rgba(15,42,28,0.86)", locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      ...(c.primary ? [hHead(balanceLines(c.primary, W, 60), HPAD, 232, W, 80, 60, "center", C.cream)] : []),
+      shape({ x: cx - 1, y: 384, w: 2, h: 320, shape: "rect", fill: C.amber, locked: true }),
+      text({ x: leftX, y: numY - 54, w: colW, h: 32, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+      text({ x: leftX, y: numY, w: colW, h: 196, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream, align: "center" }),
+      text({ x: leftX, y: numY + 192, w: colW, h: 60, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 25, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+      text({ x: rightX, y: numY - 54, w: colW, h: 32, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "center" }),
+      text({ x: rightX, y: numY, w: colW, h: 196, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "center" }),
+      text({ x: rightX, y: numY + 192, w: colW, h: 60, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 25, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+// BEFORE/AFTER H — Timeline: a before → after laid on a horizontal timeline
+// with a dateline at each end and a source foot.
+function beforeafterH(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const lineY = 470;
+  const numY = lineY + 60;
+  const numSize = 170;
+  const leftX = HPAD;
+  const rightX = B - HPAD - 320;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+    ...(c.primary ? [hHead(balanceLines(c.primary, W, 56), HPAD, 232, W, 76, 56, "left", C.cream)] : []),
+    // Timeline rule with end nodes.
+    shape({ x: HPAD, y: lineY, w: W, h: 3, shape: "rect", fill: "rgba(247,243,232,0.3)", locked: true }),
+    shape({ x: HPAD - 7, y: lineY - 6, w: 16, h: 16, shape: "rect", fill: C.cream, rotation: 45, locked: true }),
+    shape({ x: B - HPAD - 9, y: lineY - 6, w: 16, h: 16, shape: "rect", fill: C.amber, rotation: 45, locked: true }),
+    // Datelines above the line.
+    text({ x: leftX, y: lineY - 44, w: 320, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    text({ x: rightX, y: lineY - 44, w: 320, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "right" }),
+    // Figures below the line.
+    text({ x: leftX, y: numY, w: 320, h: 176, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream }),
+    text({ x: leftX, y: numY + 178, w: 360, h: 56, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim }),
+    text({ x: rightX, y: numY, w: 320, h: 176, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "right" }),
+    text({ x: rightX - 40, y: numY + 178, w: 360, h: 56, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "right" }),
+    text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim }),
+  ];
+  return slide(layers, C.forest);
+}
+
+// BEFORE/AFTER I — Card-framed: the before/after contrast inside a gold
+// keyline card on forest, with a heading and a source foot.
+function beforeafterI(c: SlideContent): EditorSlide {
+  const cardX = HPAD;
+  const cardY = 168;
+  const cardW = B - 2 * HPAD;
+  const cardH = B - cardY - HPAD;
+  const inset = 52;
+  const innerX = cardX + inset;
+  const innerW = cardW - 2 * inset;
+  const cx = Math.round(B / 2);
+  const colW = Math.round((innerW - 80) / 2);
+  const leftX = innerX;
+  const rightX = cx + 40;
+  const numY = cardY + 300;
+  const numSize = 170;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("Then & Now", B - HPAD - 420, HPAD + 6, 420, "right"),
+    shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
+    text({ x: innerX, y: cardY + inset, w: innerW, h: 32, text: c.eyebrow || "Healthcare in collapse", fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber, align: "center" }),
+    ...(c.primary ? [hHead(balanceLines(c.primary, innerW, 52), innerX, cardY + inset + 44, innerW, 70, 52, "center", C.cream)] : []),
+    shape({ x: cx - 1, y: numY - 40, w: 2, h: 300, shape: "rect", fill: C.amber, locked: true }),
+    text({ x: leftX, y: numY - 50, w: colW, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+    text({ x: leftX, y: numY, w: colW, h: 176, text: BA_BEFORE.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.cream, align: "center" }),
+    text({ x: leftX, y: numY + 178, w: colW, h: 56, text: BA_BEFORE.label, fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+    text({ x: rightX, y: numY - 50, w: colW, h: 30, text: BA_AFTER.eyebrow, fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.amber, align: "center" }),
+    text({ x: rightX, y: numY, w: colW, h: 176, text: BA_AFTER.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "center" }),
+    text({ x: rightX, y: numY + 178, w: colW, h: 56, text: BA_AFTER.label, fontFamily: BARLOW, fontSize: 23, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }),
+    text({ x: innerX, y: cardY + cardH - inset - 6, w: innerW, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 21, fontWeight: 500, color: C.creamDim, align: "center" }),
+  ];
+  return slide(layers, C.forest);
+}
+
+// BEFORE/AFTER J — Percentage-change hero: a giant "−80%" change figure with
+// a struck-through 36 → 7 context line beneath, and a source foot.
+function beforeafterJ(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const changeSize = 320;
+  const changeH = Math.round(changeSize * 0.82 + 20);
+  const eyeGap = 60;
+  const ctxSize = 60;
+  const ctxH = Math.round(ctxSize * 0.96 + 12);
+  const groupH = 32 + eyeGap + changeH + 24 + ctxH;
+  const groupTop = Math.round((B - groupH) / 2) - 6;
+  const eyebrowY = groupTop;
+  const changeY = eyebrowY + 32 + eyeGap;
+  const ctxY = changeY + changeH + 24;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
+      text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "Hospitals functioning", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
+      text({ x: HPAD, y: changeY, w: W, h: changeH, text: "−80%", fontFamily: ANTON, fontSize: changeSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -6, color: C.amber, align: "center" }),
+      // Context: 36 (struck) → 7, centred beneath.
+      text({ x: HPAD, y: ctxY, w: W, h: ctxH, text: "36 → 7 HOSPITALS", fontFamily: ANTON, fontSize: ctxSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
+      // Strike-through rule over the leading "36".
+      shape({ x: Math.round(B / 2 - 200), y: ctxY + Math.round(ctxSize * 0.46), w: 70, h: 3, shape: "rect", fill: "rgba(247,243,232,0.55)", locked: true }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: baSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 500, color: C.creamDim, align: "center" }),
+    ],
+    C.forest
+  );
+}
+
+/* ─── Multi-stat design system ("by the numbers", A–J) ────────────── *
+ *
+ * Ten "By the numbers" layouts. Each carries three figures (default
+ * 2.3M / 1.9M / 90%) with short labels and a source line. Shared
+ * discipline: 78px insets, Anton numerals, Barlow labels, the gold rule +
+ * diamond motif. multistat-a is the v1 `multiStatStack` above.
+ */
+
+type MStat = { num: string; label: string };
+const MS_DEFAULT: MStat[] = [
+  { num: "2.3M", label: "facing acute food insecurity" },
+  { num: "1.9M", label: "displaced from their homes" },
+  { num: "90%", label: "of water unsafe to drink" },
+];
+function msHeading(c: SlideContent): string {
+  return c.primary || "By the numbers";
+}
+function msSource(c: SlideContent): string {
+  return c.secondary || "Source: OCHA · 2026";
+}
+
+// MULTI-STAT B — Single row: the three figures across one row, with a
+// heading and a source foot.
+function multistatB(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 70;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 232;
+  const ruleY = headY + headH + 22;
+  const rowY = ruleY + 130;
+  const colW = Math.round((W - 80) / 3);
+  const numSize = 110;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const x = HPAD + i * (colW + 40);
+    layers.push(text({ x, y: rowY, w: colW, h: 116, text: r.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber }));
+    layers.push(text({ x, y: rowY + 124, w: colW, h: 110, text: r.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.22, color: C.creamDim }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT C — Hero + supporting: one hero stat up top, then two smaller
+// supporting beats beneath, with a source foot.
+function multistatC(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const hero = MS_DEFAULT[0]!;
+  const beats = [MS_DEFAULT[1]!, MS_DEFAULT[2]!];
+  const heroY = 252;
+  const heroSize = 280;
+  const heroH = Math.round(heroSize * 0.82);
+  const labelY = heroY + heroH + 6;
+  const labelSize = 48;
+  const labelH = Math.round(labelSize * 0.96 + 12);
+  const beatsTop = labelY + labelH + 50;
+  const beatGap = 130;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hEyebrow(c.eyebrow || msHeading(c), HPAD, heroY - 50, W),
+    text({ x: HPAD, y: heroY, w: W, h: heroH, text: hero.num, fontFamily: ANTON, fontSize: heroSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
+    text({ x: HPAD, y: labelY, w: W, h: labelH, text: hero.label, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    goldBar(HPAD, beatsTop - 28, 64),
+  ];
+  beats.forEach((b, i) => {
+    const y = beatsTop + i * beatGap;
+    layers.push(text({ x: HPAD, y, w: 280, h: 80, text: b.num, fontFamily: ANTON, fontSize: 72, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 260, y: y + 18, w: W - 260, h: 56, text: b.label, fontFamily: BARLOW, fontSize: 28, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT D — Grid: a 3-cell row of bordered cells, each a figure +
+// label, with a heading and a source foot.
+function multistatD(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 64;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 220;
+  const ruleY = headY + headH + 20;
+  const cellGap = 24;
+  const cellW = Math.round((W - 2 * cellGap) / 3);
+  const cellH = 360;
+  const cellY = ruleY + 50;
+  const numSize = 92;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const x = HPAD + i * (cellW + cellGap);
+    layers.push(shape({ x, y: cellY, w: cellW, h: cellH, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.45)", strokeWidth: 2, radius: 8, locked: true }));
+    layers.push(text({ x: x + 28, y: cellY + 48, w: cellW - 56, h: 100, text: r.num, fontFamily: ANTON, fontSize: numSize, fontWeight: 400, lineHeight: 0.9, color: C.amber }));
+    layers.push(text({ x: x + 28, y: cellY + 168, w: cellW - 56, h: 150, text: r.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.24, color: C.cream }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT E — Over photo: three figures over a faint full-bleed photo
+// with a scrim, chrome on a top scrim, a source foot.
+function multistatE(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 64;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 224;
+  const ruleY = headY + headH + 20;
+  const rowsTop = ruleY + 48;
+  const rowGap = 150;
+  const layers: Layer[] = [
+    image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: "rgba(15,42,28,0.86)", locked: true }),
+    topScrim(),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: 320, h: 92, text: r.num, fontFamily: ANTON, fontSize: 82, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 340, y: y + 22, w: W - 340, h: 64, text: r.label, fontFamily: BARLOW, fontSize: 28, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+    if (i < MS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 28, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.2)", locked: true }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.amber }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT F — Two-tone: a gold-bordered card with a forest panel carrying
+// the three figures, and a cream band holding the source + URL.
+function multistatF(c: SlideContent): EditorSlide {
+  const FPAD = 40;
+  const frameW = B - 2 * FPAD;
+  const bandH = 180;
+  const bandY = B - FPAD - bandH;
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset;
+  const heading = msHeading(c);
+  const headSize = 56;
+  const headMain = balanceLines(heading, innerW, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const barY = FPAD + inset;
+  const headY = barY + 60;
+  const ruleY = headY + headH + 20;
+  const rowsTop = ruleY + 40;
+  const rowGap = 132;
+  const layers: Layer[] = [
+    shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+    shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+    ...wordmark(innerX, barY, c.logo),
+    hTag("By the Numbers", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
+    text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+    goldBar(innerX, ruleY, 64),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: innerX, y, w: 280, h: 80, text: r.num, fontFamily: ANTON, fontSize: 70, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: innerX + 280, y: y + 16, w: innerW - 280, h: 56, text: r.label, fontFamily: BARLOW, fontSize: 27, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
+  });
+  layers.push(text({ x: innerX, y: bandY + Math.round((bandH - 34) / 2), w: 540, h: 34, text: msSource(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 1, color: C.forestDim }));
+  layers.push(text({ x: FPAD + frameW - inset - 420, y: bandY + Math.round((bandH - 44) / 2), w: 420, h: 52, text: "deenrelief.org", fontFamily: ANTON, fontSize: 40, fontWeight: 400, color: C.goldDeep, align: "right" }));
+  layers.push(shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT G — Gold-ruled beats: the three figures separated by thin gold
+// rules, each with a small uppercase label, a heading and a source foot.
+function multistatG(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 68;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 220;
+  const rowsTop = headY + headH + 56;
+  const rowGap = 156;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    // Gold rule above each beat.
+    layers.push(shape({ x: HPAD, y, w: W, h: 2, shape: "rect", fill: C.amber, locked: true }));
+    layers.push(text({ x: HPAD, y: y + 22, w: W, h: 30, text: r.label.toUpperCase(), fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+    layers.push(text({ x: HPAD, y: y + 50, w: W, h: 96, text: r.num, fontFamily: ANTON, fontSize: 84, fontWeight: 400, color: C.amber }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT H — Centred crest: a "By the numbers" crest — a gold keyline
+// frame, a centred heading and three centred figures, a source foot.
+function multistatH(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 60;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const eyebrowY = 188;
+  const headY = eyebrowY + 44;
+  const ruleY = headY + headH + 20;
+  const rowsTop = ruleY + 50;
+  const rowGap = 142;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    shape({ x: 46, y: 46, w: B - 92, h: B - 92, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+    hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, eyebrowY, W, "center"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "center", C.cream),
+    goldBar(Math.round(B / 2 - 46), ruleY, 92),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(text({ x: HPAD, y, w: W, h: 84, text: r.num, fontFamily: ANTON, fontSize: 76, fontWeight: 400, lineHeight: 0.9, color: C.amber, align: "center" }));
+    layers.push(text({ x: HPAD, y: y + 80, w: W, h: 36, text: r.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.creamDim, align: "center" }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT I — Connecting timeline: the three figures on a connecting
+// vertical timeline (gold spine + nodes), a heading and a source foot.
+function multistatI(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 64;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 220;
+  const ruleY = headY + headH + 22;
+  const spineX = HPAD + 8;
+  const rowsTop = ruleY + 50;
+  const rowGap = 154;
+  const textX = HPAD + 64;
+  const textW = W - 64;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+    // Vertical gold spine through the node centres.
+    shape({ x: spineX, y: rowsTop + 16, w: 2, h: 2 * rowGap, shape: "rect", fill: "rgba(212,168,67,0.5)", locked: true }),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    layers.push(shape({ x: spineX - 7, y: y + 8, w: 18, h: 18, shape: "rect", fill: C.amber, rotation: 45, locked: true }));
+    layers.push(text({ x: textX, y, w: 300, h: 80, text: r.num, fontFamily: ANTON, fontSize: 70, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: textX, y: y + 74, w: textW, h: 56, text: r.label, fontFamily: BARLOW, fontSize: 26, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+  return slide(layers, C.forest);
+}
+
+// MULTI-STAT J — Ledger: left-aligned figures, right-aligned labels, joined
+// by dotted leaders — a "ledger" of the crisis, with a heading + source.
+function multistatJ(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = msHeading(c);
+  const headSize = 68;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const headY = 220;
+  const ruleY = headY + headH + 22;
+  const rowsTop = ruleY + 50;
+  const rowGap = 156;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  MS_DEFAULT.forEach((r, i) => {
+    const y = rowsTop + i * rowGap;
+    // Figure left, label right, a thin leader rule between baselines.
+    layers.push(text({ x: HPAD, y, w: 360, h: 92, text: r.num, fontFamily: ANTON, fontSize: 84, fontWeight: 400, color: C.amber }));
+    layers.push(text({ x: HPAD + 360, y: y + 30, w: W - 360, h: 56, text: r.label, fontFamily: BARLOW, fontSize: 26, fontWeight: 600, uppercase: true, letterSpacing: 1, color: C.cream, align: "right" }));
+    if (i < MS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 30, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: msSource(c), fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }));
+  return slide(layers, C.forest);
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
@@ -2669,9 +3604,46 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("hero-panel")) return heroTopPanel(c);
   if (id.includes("hero")) return heroPhotoFull(c);
   // New middle types — multistat BEFORE the generic "stat" match below.
-  if (id.includes("tiers")) return tiersLadder(c);
-  if (id.includes("beforeafter") || id.includes("before-after")) return beforeAfter(c);
+  // Specific ids first so "multistat-a" doesn't get swallowed by the generic
+  // multistat/stat matches. (multistat-* must resolve before the stat-* and
+  // generic "stat" library further down — it does, matched right here.)
+  if (id.includes("multistat-a")) return multiStatStack(c);
+  if (id.includes("multistat-b")) return multistatB(c);
+  if (id.includes("multistat-c")) return multistatC(c);
+  if (id.includes("multistat-d")) return multistatD(c);
+  if (id.includes("multistat-e")) return multistatE(c);
+  if (id.includes("multistat-f")) return multistatF(c);
+  if (id.includes("multistat-g")) return multistatG(c);
+  if (id.includes("multistat-h")) return multistatH(c);
+  if (id.includes("multistat-i")) return multistatI(c);
+  if (id.includes("multistat-j")) return multistatJ(c);
   if (id.includes("multistat") || id.includes("multi-stat")) return multiStatStack(c);
+  // Donation-tiers library (A–J). Specific ids first so "tiers-a" doesn't get
+  // swallowed by the generic "tiers" fallback below.
+  if (id.includes("tiers-a")) return tiersLadder(c);
+  if (id.includes("tiers-b")) return tiersB(c);
+  if (id.includes("tiers-c")) return tiersC(c);
+  if (id.includes("tiers-d")) return tiersD(c);
+  if (id.includes("tiers-e")) return tiersE(c);
+  if (id.includes("tiers-f")) return tiersF(c);
+  if (id.includes("tiers-g")) return tiersG(c);
+  if (id.includes("tiers-h")) return tiersH(c);
+  if (id.includes("tiers-i")) return tiersI(c);
+  if (id.includes("tiers-j")) return tiersJ(c);
+  if (id.includes("tiers")) return tiersLadder(c);
+  // Before/After library (A–J). Specific ids first so "beforeafter-a" doesn't
+  // get swallowed by the generic "beforeafter" fallback below.
+  if (id.includes("beforeafter-a")) return beforeAfter(c);
+  if (id.includes("beforeafter-b")) return beforeafterB(c);
+  if (id.includes("beforeafter-c")) return beforeafterC(c);
+  if (id.includes("beforeafter-d")) return beforeafterD(c);
+  if (id.includes("beforeafter-e")) return beforeafterE(c);
+  if (id.includes("beforeafter-f")) return beforeafterF(c);
+  if (id.includes("beforeafter-g")) return beforeafterG(c);
+  if (id.includes("beforeafter-h")) return beforeafterH(c);
+  if (id.includes("beforeafter-i")) return beforeafterI(c);
+  if (id.includes("beforeafter-j")) return beforeafterJ(c);
+  if (id.includes("beforeafter") || id.includes("before-after")) return beforeAfter(c);
   // Key-Fact library (A–J). Specific ids first so "fact-a" doesn't get
   // swallowed by the "fact-photo"/"fact" matches below. (fact-a..fact-j
   // don't contain "fact-photo", but ordering them first makes it certain.)
