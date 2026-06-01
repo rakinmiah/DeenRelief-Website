@@ -386,6 +386,56 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         label: "Fact J · Two-tone",
         c: { primary: "9 in 10 families now skip meals every day.", secondary: "Source: IPC · April 2026", imageUrl: SAMPLE_IMG, eyebrow: "Food security · Gaza", logo },
       },
+      {
+        id: "testimony-a",
+        label: "Testimony A · Open-quote",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-b",
+        label: "Testimony B · Portrait lower-third",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-c",
+        label: "Testimony C · Split",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-d",
+        label: "Testimony D · Portrait chip",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-e",
+        label: "Testimony E · Crest",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-f",
+        label: "Testimony F · Gold emphasis",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-g",
+        label: "Testimony G · Top portrait",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-h",
+        label: "Testimony H · Two-tone",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-i",
+        label: "Testimony I · Keyline card",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
+      {
+        id: "testimony-j",
+        label: "Testimony J · Caption bar",
+        c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
+      },
     ],
     [logo]
   );

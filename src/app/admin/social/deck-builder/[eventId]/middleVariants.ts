@@ -31,6 +31,18 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
   multistat: [
     meta("multistat-a", "By the numbers", "Three numbered figures stacked on forest — the scale of the crisis at a glance."),
   ],
+  testimony: [
+    meta("testimony-a", "Open-quote", "An oversized gold open-quote, the quote tight beneath in Barlow, a gold rule and an attribution row."),
+    meta("testimony-b", "Portrait lower-third", "A full-bleed portrait with the quote in the lower third over a strong scrim, and the attribution."),
+    meta("testimony-c", "Split", "Portrait left, a forest panel right carrying the open-quote, the quote and the attribution."),
+    meta("testimony-d", "Portrait chip", "A small circular portrait on forest, the quote beneath and a gold rule + attribution row."),
+    meta("testimony-e", "Crest", "A quiet centred crest — a small gold open-quote, the quote centred, a gold rule and the attribution."),
+    meta("testimony-f", "Gold emphasis", "The quote in cream with one emphasis phrase set italic-gold on its own line, then the attribution."),
+    meta("testimony-g", "Top portrait", "A portrait across the top, a forest panel below with the open-quote, the quote and the attribution."),
+    meta("testimony-h", "Two-tone", "A gold-bordered card — a forest panel carries the quote, a cream band holds the attribution in dark ink."),
+    meta("testimony-i", "Keyline card", "The quote framed in a gold keyline card on forest — open-quote, quote and attribution inside the frame."),
+    meta("testimony-j", "Caption bar", "A full-bleed portrait with a solid forest caption bar at the foot carrying the quote and the attribution."),
+  ],
   fact: [
     meta("fact-a", "Photo lower-third", "Full-bleed photo with the sourced fact, a gold rule and a source tag in the lower third."),
     meta("fact-b", "Type-led", "Type-only on forest — an eyebrow, a big Anton fact, a gold rule and a gold source tag."),

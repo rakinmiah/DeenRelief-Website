@@ -1979,6 +1979,329 @@ function factTwoTone(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── Testimony design system (attributed quote, A–J) ──────────────── *
+ *
+ * Ten polished "In their words" layouts in the Slide-Library system. Shared
+ * grammar: 78px inset, Barlow 500 quote, an oversized Anton gold open-quote
+ * ("“", ~300px lineHeight 0.8), a gold rule + an attribution row (name · role
+ * · place). Photo variants use objectFit "cover" only; circular portraits use
+ * an image whose radius = half its box (the render route clips with overflow
+ * hidden). Defaults are a Gaza-appeal testimony so each renders standalone.
+ */
+
+const Q_DEFAULT =
+  "We rebuild what we can with our hands, and we wait for the world to remember us.";
+const Q_ATTR = "Dr. Layla K. · Surgeon, Khan Younis";
+
+/** Estimate how many lines a Barlow quote wraps to in a given box — Barlow
+ *  500 runs ≈ 0.52em/char. Clamped 1–`max` so the box never collapses. */
+function quoteLineCount(t: string, w: number, size: number, max = 6): number {
+  return Math.min(max, Math.max(1, Math.ceil((t.length * size * 0.52) / w)));
+}
+
+/** The big gold open-quote glyph (Anton, ~300px, lineHeight 0.8, amber). */
+function openMark(x: number, y: number, size = 300, align: TextAlign = "left", w = 260): TextLayer {
+  return text({ x, y, w, h: Math.round(size * 0.5), text: "“", fontFamily: ANTON, fontSize: size, fontWeight: 400, lineHeight: 0.8, color: C.amber, align });
+}
+
+/** The attribution row: a short gold rule + the name/role/place line. Returns
+ *  the layers; callers place the rule and pass the attribution string. */
+function attribRow(t: string | null, x: number, y: number, w: number, align: TextAlign = "left", ruleW = 64): Layer[] {
+  const ruleX = align === "center" ? Math.round(x + (w - ruleW) / 2) : align === "right" ? x + w - ruleW : x;
+  return [
+    goldBar(ruleX, y, ruleW),
+    text({ x, y: y + 22, w, h: 40, text: t ?? "", fontFamily: BARLOW, fontSize: 28, fontWeight: 700, color: C.cream, align }),
+  ];
+}
+
+// TESTIMONY A — Open-quote: an oversized gold open-quote up top, the quote set
+// tight beneath in Barlow 500, a gold rule + attribution row anchored low.
+function quoteOpenMark(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quoteW = Math.min(W, 884);
+  const quoteSize = 64;
+  const quote = c.primary || Q_DEFAULT;
+  const markY = 250;
+  const quoteY = markY + 154;
+  const quoteLines = quoteLineCount(quote, quoteW, quoteSize, 5);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.18);
+  const attrY = 868;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      openMark(HPAD - 6, markY),
+      text({ x: HPAD, y: quoteY, w: quoteW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+      ...attribRow(c.secondary || Q_ATTR, HPAD, attrY, 760),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY B — Portrait lower-third: full-bleed portrait, a top scrim for the
+// chrome and a strong bottom scrim, the quote in the lower third + attribution.
+function quotePortraitLowerThird(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quoteSize = 46;
+  const quote = c.primary || Q_DEFAULT;
+  const quoteLines = quoteLineCount(quote, W, quoteSize, 4);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.22);
+  const attrY = B - HPAD - 56;
+  const quoteY = attrY - 26 - quoteH;
+  const markY = quoteY - 96;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 366, w: B, h: B - 366, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      openMark(HPAD - 6, markY, 180, "left", 200),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 600, lineHeight: 1.22, color: C.cream }),
+      goldBar(HPAD, attrY, 56),
+      text({ x: HPAD, y: attrY + 20, w: W, h: 36, text: c.secondary || Q_ATTR, fontFamily: BARLOW, fontSize: 25, fontWeight: 700, color: C.amber }),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY C — Split: a vertical 50/50 — portrait on the left, a forest panel
+// on the right carrying the open-quote + quote + attribution.
+function quoteSplit(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2); // 540
+  const pad = 64;
+  const panelX = half + pad; // 604
+  const panelW = B - panelX - pad; // 412
+  const quoteSize = 40;
+  const quote = c.primary || Q_DEFAULT;
+  const quoteLines = quoteLineCount(quote, panelW, quoteSize, 7);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.24);
+  const markY = 250;
+  const quoteY = markY + 116;
+  const attrY = quoteY + quoteH + 36;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(panelX, HPAD, c.logo),
+      openMark(panelX - 4, markY, 150, "left", 200),
+      text({ x: panelX, y: quoteY, w: panelW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.24, color: C.cream }),
+      goldBar(panelX, attrY, 56),
+      text({ x: panelX, y: attrY + 20, w: panelW, h: 64, text: c.secondary || Q_ATTR, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, lineHeight: 1.2, color: C.cream }),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY D — Portrait chip: forest field, a small circular portrait (an
+// image with radius = half its box), the quote, and an attribution row.
+function quotePortraitChip(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quoteSize = 56;
+  const quote = c.primary || Q_DEFAULT;
+  const dia = 150; // circular portrait diameter
+  const portraitY = 232;
+  const quoteY = portraitY + dia + 64;
+  const quoteLines = quoteLineCount(quote, W, quoteSize, 5);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.18);
+  const attrY = quoteY + quoteH + 40;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      // Circular portrait: square image, radius = half → a circle; gold ring.
+      image({ x: HPAD, y: portraitY, w: dia, h: dia, src: c.imageUrl ?? "", objectFit: "cover", radius: Math.round(dia / 2) }),
+      shape({ x: HPAD, y: portraitY, w: dia, h: dia, shape: "ellipse", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+      ...attribRow(c.secondary || Q_ATTR, HPAD, attrY, W),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY E — Crest: a quiet centred crest — a small gold open-quote, the
+// quote centred, a gold rule, and a centred attribution.
+function quoteCrest(c: SlideContent): EditorSlide {
+  const cx = Math.round(B / 2);
+  const W = B - 2 * HPAD;
+  const quoteSize = 52;
+  const quote = c.primary || Q_DEFAULT;
+  const quoteLines = quoteLineCount(quote, W, quoteSize, 5);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.2);
+  // Centre the open-quote + quote group around the board middle.
+  const markH = 90;
+  const groupH = markH + quoteH;
+  const markY = Math.round((B - groupH) / 2) - 30;
+  const quoteY = markY + markH;
+  const attrY = quoteY + quoteH + 40;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      shape({ x: 46, y: 46, w: B - 92, h: B - 92, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      openMark(HPAD, markY, 160, "center", W),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream, align: "center" }),
+      ...attribRow(c.secondary || Q_ATTR, HPAD, attrY, W, "center", 92),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY F — Gold emphasis: the quote in cream with ONE emphasis phrase
+// (c.accent) rendered italic-gold on its own line, then an attribution row.
+function quoteEmphasis(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quoteW = Math.min(W, 884);
+  const quoteSize = 60;
+  const quote = c.primary || Q_DEFAULT;
+  const markY = 250;
+  const quoteY = markY + 142;
+  const quoteLines = quoteLineCount(quote, quoteW, quoteSize, 4);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.18);
+  const hasAccent = !!(c.accent && c.accent.trim());
+  const accentY = quoteY + quoteH + 2;
+  const accentH = hasAccent ? Math.round(quoteSize * 1.18 + 8) : 0;
+  const attrY = hasAccent ? accentY + accentH + 30 : quoteY + quoteH + 36;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      openMark(HPAD - 6, markY),
+      text({ x: HPAD, y: quoteY, w: quoteW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+      ...(hasAccent
+        ? [text({ x: HPAD, y: accentY, w: quoteW, h: accentH, text: c.accent!, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, italic: true, lineHeight: 1.18, color: C.amber })]
+        : []),
+      ...attribRow(c.secondary || Q_ATTR, HPAD, attrY, 760),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY G — Top portrait: portrait across the top ~50%, a forest panel
+// below carrying the open-quote + quote + attribution.
+function quoteTopPortrait(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const photoH = 540;
+  const quoteSize = 44;
+  const quote = c.primary || Q_DEFAULT;
+  const markY = photoH + 44;
+  const quoteY = markY + 92;
+  const quoteLines = quoteLineCount(quote, W, quoteSize, 4);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.22);
+  const attrY = quoteY + quoteH + 34;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: photoH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: photoH, w: B, h: B - photoH, shape: "rect", fill: C.forest, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      openMark(HPAD - 4, markY, 130, "left", 200),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.22, color: C.cream }),
+      goldBar(HPAD, attrY, 56),
+      text({ x: HPAD, y: attrY + 20, w: W, h: 36, text: c.secondary || Q_ATTR, fontFamily: BARLOW, fontSize: 25, fontWeight: 700, color: C.cream }),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY H — Two-tone: a gold-bordered card — a forest panel carries the
+// quote, a cream band below holds the attribution in dark forest ink.
+function quoteTwoTone(c: SlideContent): EditorSlide {
+  const FPAD = 40;
+  const frameW = B - 2 * FPAD; // 1000
+  const bandH = 240;
+  const bandY = B - FPAD - bandH;
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset; // 888
+  const quoteSize = 50;
+  const quote = c.primary || Q_DEFAULT;
+  const markY = FPAD + 150;
+  const quoteY = markY + 116;
+  const quoteLines = quoteLineCount(quote, innerW, quoteSize, 5);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.2);
+  return slide(
+    [
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+      shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+      ...wordmark(innerX, FPAD + inset, c.logo),
+      hTag(c.eyebrow || "In Their Words", FPAD + frameW - inset - 420, FPAD + inset + 6, 420, "right"),
+      openMark(innerX - 6, markY, 150, "left", 220),
+      text({ x: innerX, y: quoteY, w: innerW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream }),
+      // Cream band: gold rule + attribution in dark forest ink.
+      goldBar(innerX, bandY + Math.round((bandH - 60) / 2), 64),
+      text({ x: innerX, y: bandY + Math.round((bandH - 60) / 2) + 22, w: innerW, h: 44, text: c.secondary || Q_ATTR, fontFamily: BARLOW, fontSize: 30, fontWeight: 700, color: C.forest }),
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY I — Keyline card: the quote framed in a gold keyline card (inset
+// ~46) on forest — open-quote + quote + attribution inside the frame.
+function quoteKeylineCard(c: SlideContent): EditorSlide {
+  const FPAD = 46;
+  const frameW = B - 2 * FPAD; // 988
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset; // 876
+  const quoteSize = 52;
+  const quote = c.primary || Q_DEFAULT;
+  const quoteLines = quoteLineCount(quote, innerW, quoteSize, 5);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.2);
+  // Centre the open-quote + quote + attribution group within the frame.
+  const markH = 96;
+  const attrGap = 40, attrH = 62;
+  const groupH = markH + quoteH + attrGap + attrH;
+  const markY = Math.round((B - groupH) / 2) - 10;
+  const quoteY = markY + markH;
+  const attrY = quoteY + quoteH + attrGap;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+      text({ x: innerX, y: FPAD + inset - 6, w: innerW, h: 30, text: c.eyebrow || "In Their Words", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.amber }),
+      openMark(innerX - 6, markY, 160, "left", 220),
+      text({ x: innerX, y: quoteY, w: innerW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream }),
+      ...attribRow(c.secondary || Q_ATTR, innerX, attrY, innerW),
+    ],
+    C.forest
+  );
+}
+
+// TESTIMONY J — Caption bar: full-bleed portrait + a solid forest caption bar
+// at the foot carrying the quote + attribution (the heroCaption pattern).
+function quoteCaptionBar(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const quoteSize = 42;
+  const quote = c.primary || Q_DEFAULT;
+  const quoteLines = quoteLineCount(quote, W, quoteSize, 4);
+  const quoteH = Math.round(quoteLines * quoteSize * 1.22);
+  const barH = quoteH + 178;
+  const barTop = B - barH;
+  const quoteY = barTop + 80;
+  const attrY = quoteY + quoteH + 26;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
+      shape({ x: 0, y: barTop, w: B, h: barH, shape: "rect", fill: C.forest, locked: true }),
+      openMark(HPAD - 4, barTop + 16, 110, "left", 180),
+      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.22, color: C.cream }),
+      goldBar(HPAD, attrY, 56),
+      text({ x: HPAD, y: attrY + 18, w: W, h: 34, text: c.secondary || Q_ATTR, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, color: C.amber }),
+    ],
+    C.forest
+  );
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
@@ -2035,6 +2358,19 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("stat-i")) return statComparison(c);
   if (id.includes("stat-j")) return statBeat(c);
   if (id.includes("stat")) return statHeadline(c);
+  // Testimony library (A–J). Specific ids first so "testimony-a" doesn't get
+  // swallowed by the "testimony-portrait"/"testimony" matches below.
+  // (testimony-a..testimony-j don't contain "testimony-portrait".)
+  if (id.includes("testimony-a")) return quoteOpenMark(c);
+  if (id.includes("testimony-b")) return quotePortraitLowerThird(c);
+  if (id.includes("testimony-c")) return quoteSplit(c);
+  if (id.includes("testimony-d")) return quotePortraitChip(c);
+  if (id.includes("testimony-e")) return quoteCrest(c);
+  if (id.includes("testimony-f")) return quoteEmphasis(c);
+  if (id.includes("testimony-g")) return quoteTopPortrait(c);
+  if (id.includes("testimony-h")) return quoteTwoTone(c);
+  if (id.includes("testimony-i")) return quoteKeylineCard(c);
+  if (id.includes("testimony-j")) return quoteCaptionBar(c);
   if (id.includes("testimony-portrait")) return testimonyPortrait(c);
   if (id.includes("testimony")) return testimonyQuote(c);
   if (id.includes("response")) return responsePhoto(c);
