@@ -43,6 +43,18 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
     meta("testimony-i", "Keyline card", "The quote framed in a gold keyline card on forest — open-quote, quote and attribution inside the frame."),
     meta("testimony-j", "Caption bar", "A full-bleed portrait with a solid forest caption bar at the foot carrying the quote and the attribution."),
   ],
+  response: [
+    meta("response-a", "Photo lower-third", "Full-bleed action photo with the response line, a gold rule and the eyebrow tag in the lower third."),
+    meta("response-b", "Top photo + panel", "Action photo across the top with a forest panel below carrying the eyebrow, response line and a supporting line."),
+    meta("response-c", "Split", "Action photo left, a forest panel right carrying the eyebrow, response line and support — a vertical 50/50."),
+    meta("response-d", "Inset card", "Full-bleed action photo with a gold-bordered forest card floated low holding the eyebrow, response line and support."),
+    meta("response-e", "Stat-backed", "The response line on forest with a small gold supporting stat beneath it as proof of impact."),
+    meta("response-f", "Window crop", "An intimate action photo in a rounded window on forest, with the eyebrow and response line beneath."),
+    meta("response-g", "Checklist", "A heading over a short 3-item checklist of what DR is providing — a gold diamond tick + item per row."),
+    meta("response-h", "Two-tone", "A gold-bordered card — a forest panel carries the response line, a cream band holds the support and URL."),
+    meta("response-i", "Caption bar", "Full-bleed action photo with a solid forest caption bar carrying the response line and a field credit."),
+    meta("response-j", "How your gift helps", "A ‘How your gift helps’ framing — a heading, the response line, a gold-accented impact line and the URL."),
+  ],
   fact: [
     meta("fact-a", "Photo lower-third", "Full-bleed photo with the sourced fact, a gold rule and a source tag in the lower third."),
     meta("fact-b", "Type-led", "Type-only on forest — an eyebrow, a big Anton fact, a gold rule and a gold source tag."),

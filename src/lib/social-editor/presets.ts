@@ -2302,6 +2302,349 @@ function quoteCaptionBar(c: SlideContent): EditorSlide {
   );
 }
 
+/* ─── "Our Response" design system (what DR is doing, A–J) ─────────── *
+ *
+ * Ten polished "Our response" layouts in the Slide-Library system — each
+ * leads with what Deen Relief is doing on the ground (an active verb /
+ * delivering, distributing, treating) so the deck closes the loop from
+ * crisis → proof of action. Shared grammar with Hero/Fact: 78px inset,
+ * Anton headlines (line-height 0.96), Barlow eyebrow/body, gold rule +
+ * diamond motif. Photo variants use objectFit "cover" only. Defaults are
+ * a Gaza-appeal response so each renders standalone.
+ */
+
+const R_DEFAULT =
+  "Our teams are distributing food, water and medical aid across Gaza.";
+const R_SUPPORT = "12,000 families reached this week.";
+const R_EYEBROW = "Our response";
+
+function respLine(c: SlideContent): string {
+  return c.primary || R_DEFAULT;
+}
+function respEyebrow(c: SlideContent): string {
+  return c.eyebrow || R_EYEBROW;
+}
+
+// RESPONSE A — Photo lower-third: full-bleed action photo, a top scrim for
+// the chrome and a strong bottom scrim, the response line in the lower third
+// over a gold rule + the eyebrow tag.
+function respPhotoLowerThird(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const line = respLine(c);
+  const headSize = 76;
+  const tagY = B - HPAD - 30;
+  const ruleY = tagY - 24;
+  const headH = Math.round(
+    balanceLines(line, W, headSize).split("\n").length * headSize * 0.96 + 12
+  );
+  const headY = ruleY - 28 - headH;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 360, w: B, h: B - 360, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hHead(balanceLines(line, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      hEyebrow(respEyebrow(c), HPAD, tagY, W),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE B — Top photo + forest panel: action photo across the top ~55%,
+// a forest panel below carrying eyebrow + response line + a supporting line.
+function respTopPanel(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const line = respLine(c);
+  const headSize = 72;
+  const photoH = 594;
+  const eyebrowY = 660;
+  const headY = eyebrowY + 32 + 18;
+  const headH = Math.round(
+    balanceLines(line, W, headSize).split("\n").length * headSize * 0.96 + 12
+  );
+  const ruleY = headY + headH + 22;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: photoH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 333, w: B, h: photoH - 333, shape: "rect", fill: SCRIM, locked: true }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(respEyebrow(c), HPAD, eyebrowY, W),
+      hHead(balanceLines(line, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      ...(c.secondary ? [hBody(c.secondary, HPAD, ruleY + 22, W, 92)] : []),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE C — Split: vertical 50/50, action photo left, a forest panel right
+// carrying eyebrow + response line + support (editorial diptych).
+function respSplit(c: SlideContent): EditorSlide {
+  const half = Math.round(B / 2); // 540
+  const pad = 64;
+  const panelX = half + pad; // 604
+  const panelW = B - panelX - pad; // 412
+  const line = respLine(c);
+  const headSize = 58;
+  const headMain = balanceLines(line, panelW, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 12);
+  const hasBody = !!c.secondary;
+  const bodyH = hasBody ? 150 : 0;
+  const eyebrowH = 30, gap1 = 18, gap2 = 22, ruleH = 3, gap3 = 20;
+  const coreH = eyebrowH + gap1 + headH + gap2 + ruleH + (hasBody ? gap3 + bodyH : 0);
+  const coreTop = Math.round((B - coreH) / 2) + 20;
+  const eyebrowY = coreTop;
+  const headY = eyebrowY + eyebrowH + gap1;
+  const ruleY = headY + headH + gap2;
+  const bodyY = ruleY + ruleH + gap3;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(panelX, HPAD, c.logo),
+      text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: respEyebrow(c), fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
+      hHead(headMain, panelX, headY, panelW, headH, headSize, "left", C.cream),
+      goldBar(panelX, ruleY, 56),
+      ...(hasBody ? [hBody(c.secondary!, panelX, bodyY, panelW, bodyH)] : []),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE D — Inset card: full-bleed action photo with a gold-bordered forest
+// card floated low holding eyebrow + response line + support.
+function respInsetCard(c: SlideContent): EditorSlide {
+  const cardX = HPAD; // 78
+  const cardW = B - 2 * HPAD; // 924
+  const cardPad = 54;
+  const innerX = cardX + cardPad;
+  const innerW = cardW - 2 * cardPad; // 816
+  const line = respLine(c);
+  const headSize = 66;
+  const headMain = balanceLines(line, innerW, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 12);
+  const hasBody = !!c.secondary;
+  const bodyH = hasBody ? 92 : 0;
+  const contentH = 32 + 18 + headH + (hasBody ? 20 + bodyH : 0);
+  const cardH = contentH + 2 * cardPad;
+  const cardY = B - HPAD - cardH;
+  const eyebrowY = cardY + cardPad;
+  const headY = eyebrowY + 32 + 18;
+  const bodyY = headY + headH + 20;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+      shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
+      shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
+      text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: respEyebrow(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
+      hHead(headMain, innerX, headY, innerW, headH, headSize, "left", C.cream),
+      ...(hasBody ? [hBody(c.secondary!, innerX, bodyY, innerW, bodyH)] : []),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE E — Stat-backed: the response line on forest with a small gold
+// supporting stat ("12,000 families reached") set beneath it as proof.
+function respStatBacked(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const line = respLine(c);
+  const headSize = 80;
+  const headMain = balanceLines(line, W, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 12);
+  const eyebrowY = 300;
+  const headY = eyebrowY + 32 + 20;
+  const ruleY = headY + headH + 28;
+  // Gold proof figure + a short caption beneath the rule.
+  const stat = c.secondary || R_SUPPORT;
+  const statY = ruleY + 48;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(respEyebrow(c), HPAD, eyebrowY, W),
+      hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+      goldBar(HPAD, ruleY, 64),
+      // Gold proof stat — the measurable result of the response.
+      text({ x: HPAD, y: statY, w: W, h: 96, text: stat, fontFamily: ANTON, fontSize: 84, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.amber }),
+      text({ x: HPAD, y: statY + 102, w: W, h: 36, text: "Delivered through our field teams", fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE F — Window crop: an intimate action photo in a rounded window on a
+// forest field, with eyebrow + response line beneath (signature crop).
+function respWindowCrop(c: SlideContent): EditorSlide {
+  const winX = HPAD, winY = 150, winW = B - 2 * HPAD, winH = 552;
+  const W = B - 2 * HPAD;
+  const line = respLine(c);
+  const headSize = 70;
+  const eyebrowY = winY + winH + 52;
+  const headY = eyebrowY + 32 + 16;
+  const headH = Math.round(
+    balanceLines(line, W, headSize).split("\n").length * headSize * 0.96 + 12
+  );
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+      image({ x: winX, y: winY, w: winW, h: winH, src: c.imageUrl ?? "", objectFit: "cover", radius: 18 }),
+      shape({ x: winX, y: winY, w: winW, h: winH, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.45)", strokeWidth: 2, radius: 18, locked: true }),
+      hEyebrow(respEyebrow(c), HPAD, eyebrowY, W),
+      hHead(balanceLines(line, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE G — Checklist: a heading + a short 3-item checklist of what DR is
+// providing on the ground (a gold diamond tick + item per row), on forest.
+function respChecklist(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const heading = c.primary || "What we're delivering";
+  const items = [
+    "Hot meals and food parcels",
+    "Clean water and medical aid",
+    "Emergency shelter for families",
+  ];
+  const headSize = 76;
+  const headY = 244;
+  const headMain = balanceLines(heading, W, headSize);
+  const headH = Math.round(headMain.split("\n").length * headSize * 0.96 + 12);
+  const ruleY = headY + headH + 24;
+  const rowsTop = ruleY + 56;
+  const rowGap = 132;
+  const layers: Layer[] = [
+    shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+    ...wordmark(HPAD, HPAD, c.logo),
+    hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+    hEyebrow(respEyebrow(c), HPAD, headY - 50, W),
+    hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
+    goldBar(HPAD, ruleY, 64),
+  ];
+  items.forEach((it, i) => {
+    const y = rowsTop + i * rowGap;
+    // Gold diamond tick + the item line.
+    layers.push(shape({ x: HPAD + 6, y: y + 14, w: 26, h: 26, shape: "rect", fill: C.amber, rotation: 45 }));
+    layers.push(text({ x: HPAD + 70, y, w: W - 70, h: 64, text: it, fontFamily: BARLOW, fontSize: 34, fontWeight: 600, lineHeight: 1.2, color: C.cream }));
+    if (i < items.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 26, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
+  });
+  layers.push(footer(C.creamDim));
+  return slide(layers, C.forest);
+}
+
+// RESPONSE H — Two-tone: a gold-bordered card — a forest panel carries the
+// response line, a cream band below holds the support / URL in dark ink.
+function respTwoTone(c: SlideContent): EditorSlide {
+  const FPAD = 40; // outer pad → the 1000×1000 frame
+  const frameW = B - 2 * FPAD; // 1000
+  const bandH = 220; // cream band
+  const bandY = B - FPAD - bandH; // ~820
+  const inset = 56;
+  const innerX = FPAD + inset;
+  const innerW = frameW - 2 * inset; // 888
+  const line = respLine(c);
+  const headSize = 76;
+  const headMain = balanceLines(line, innerW, headSize);
+  const headLines = headMain.split("\n").length;
+  const headH = Math.round(headLines * headSize * 0.96 + 16);
+  const headY = bandY - 44 - headH; // 44px clear above the band
+  const barY = FPAD + inset;
+  const eyebrowY = headY - 46;
+  return slide(
+    [
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
+      shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
+      ...wordmark(innerX, barY, c.logo),
+      hTag("On The Ground", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
+      text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: respEyebrow(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
+      text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      // Cream band: dark support (left) + gold-deep URL (right).
+      text({ x: innerX, y: bandY + Math.round((bandH - 60) / 2), w: 540, h: 60, text: c.secondary || R_SUPPORT, fontFamily: BARLOW, fontSize: 27, fontWeight: 600, lineHeight: 1.24, color: C.forestDim }),
+      text({ x: FPAD + frameW - inset - 420, y: bandY + Math.round((bandH - 44) / 2), w: 420, h: 52, text: "deenrelief.org", fontFamily: ANTON, fontSize: 40, fontWeight: 400, color: C.goldDeep, align: "right" }),
+      shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE I — Caption bar: full-bleed action photo with a solid forest caption
+// bar at the foot carrying the response line + a field credit.
+function respCaptionBar(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const line = respLine(c);
+  const headSize = 54;
+  const twoLine =
+    balanceLines(line, W, headSize).split("\n").length > 1;
+  const barTop = twoLine ? 770 : 850;
+  const headY = barTop + 86;
+  const headH = Math.round(
+    balanceLines(line, W, headSize).split("\n").length * headSize * 0.96 + 12
+  );
+  const captionY = headY + headH + 18;
+  return slide(
+    [
+      image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
+      topScrim(),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
+      shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
+      hEyebrow(respEyebrow(c), HPAD, barTop + 42, W),
+      hHead(balanceLines(line, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
+      text({ x: HPAD, y: captionY, w: W, h: 30, text: "Photograph — Deen Relief field team", fontFamily: BARLOW, fontSize: 23, fontWeight: 500, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
+// RESPONSE J — How your gift helps: a "How your gift helps" framing on forest —
+// a heading, the response line, a gold-accented impact line, and the URL foot.
+function respGiftHelps(c: SlideContent): EditorSlide {
+  const W = B - 2 * HPAD;
+  const line = respLine(c);
+  const headSize = 92;
+  const headingY = 232;
+  // Fixed heading; the response line is the body that follows.
+  const heading = "How your\ngift helps";
+  const headH = Math.round(heading.split("\n").length * headSize * 0.96 + 12);
+  const ruleY = headingY + headH + 28;
+  const lineY = ruleY + 50;
+  const lineH = Math.round(
+    Math.min(3, Math.max(1, Math.ceil((line.length * 32 * 0.52) / W))) * 32 * 1.34 + 8
+  );
+  const accentY = lineY + lineH + 24;
+  return slide(
+    [
+      shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(HPAD, HPAD, c.logo),
+      hTag("Your Gift At Work", B - HPAD - 420, HPAD + 6, 420, "right"),
+      hEyebrow(respEyebrow(c), HPAD, headingY - 50, W),
+      text({ x: HPAD, y: headingY, w: W, h: headH, text: heading, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
+      goldBar(HPAD, ruleY, 64),
+      // The active response line (what your gift is doing right now).
+      text({ x: HPAD, y: lineY, w: W, h: lineH, text: line, fontFamily: BARLOW, fontSize: 32, fontWeight: 500, lineHeight: 1.34, color: C.cream }),
+      // Gold-accented impact line beneath.
+      text({ x: HPAD, y: accentY, w: W, h: 70, text: c.secondary || R_SUPPORT, fontFamily: BARLOW, fontSize: 30, fontWeight: 700, lineHeight: 1.28, color: C.amber }),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.creamDim }),
+    ],
+    C.forest
+  );
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
@@ -2373,6 +2716,18 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
   if (id.includes("testimony-j")) return quoteCaptionBar(c);
   if (id.includes("testimony-portrait")) return testimonyPortrait(c);
   if (id.includes("testimony")) return testimonyQuote(c);
+  // "Our response" library (A–J). Specific ids first so "response-a" doesn't
+  // get swallowed by the generic "response" fallback below.
+  if (id.includes("response-a")) return respPhotoLowerThird(c);
+  if (id.includes("response-b")) return respTopPanel(c);
+  if (id.includes("response-c")) return respSplit(c);
+  if (id.includes("response-d")) return respInsetCard(c);
+  if (id.includes("response-e")) return respStatBacked(c);
+  if (id.includes("response-f")) return respWindowCrop(c);
+  if (id.includes("response-g")) return respChecklist(c);
+  if (id.includes("response-h")) return respTwoTone(c);
+  if (id.includes("response-i")) return respCaptionBar(c);
+  if (id.includes("response-j")) return respGiftHelps(c);
   if (id.includes("response")) return responsePhoto(c);
   // Closing CTA library (A–J). Specific ids first so "cta-a" doesn't get
   // swallowed by the generic "cta" fallback below.

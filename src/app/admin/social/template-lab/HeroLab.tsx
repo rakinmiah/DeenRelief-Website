@@ -436,6 +436,56 @@ export default function HeroLab({ logo }: { logo: BrandLogo | null }) {
         label: "Testimony J · Caption bar",
         c: { primary: "We do not need pity. We need the world to act before there is no one left to save.", accent: "the world to act", secondary: "Dr. Layla K. · Surgeon, Khan Younis", imageUrl: SAMPLE_IMG, eyebrow: "In their words", logo },
       },
+      {
+        id: "response-a",
+        label: "Response A · Photo lower-third",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-b",
+        label: "Response B · Top photo + panel",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-c",
+        label: "Response C · Split",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-d",
+        label: "Response D · Inset card",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-e",
+        label: "Response E · Stat-backed",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-f",
+        label: "Response F · Window crop",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-g",
+        label: "Response G · Checklist",
+        c: { primary: "What we're delivering", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-h",
+        label: "Response H · Two-tone",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-i",
+        label: "Response I · Caption bar",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
+      {
+        id: "response-j",
+        label: "Response J · How your gift helps",
+        c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response", logo },
+      },
     ],
     [logo]
   );
