@@ -20,11 +20,14 @@ import { loadGoogleFont } from "@/lib/social-templates/fonts";
 import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
-import type { EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
+import type { EditorSlide, Layer, LaidOutBox, ShapeLayer } from "@/lib/social-editor/types";
 import {
+  activeMaskShapeIds,
   cornerRadiusCss,
   flipTransform,
   listDisplayText,
+  maskRadiusCss,
+  resolveMaskShape,
   resolveSlideLayout,
   textCaseFor,
   textDecorationCss,
@@ -144,6 +147,10 @@ async function render(request: Request): Promise<Response> {
     .filter((r): r is PromiseFulfilledResult<{ name: string; data: ArrayBuffer; weight: 400 | 500 | 600 | 700 | 800; style: "normal" | "italic" }> => r.status === "fulfilled")
     .map((r) => r.value);
 
+  // Shapes acting as an image mask paint NO fill (just the clip window),
+  // resolved with the SAME helper the canvas uses so the PNG matches.
+  const maskShapeIds = activeMaskShapeIds(slide.layers);
+
   const element = (
     <div
       style={{
@@ -157,11 +164,24 @@ async function render(request: Request): Promise<Response> {
     >
       {slide.layers
         .filter((l) => !l.hidden)
-        .map((l) => (
-          <div key={l.id} style={wrapperStyle(l, boxOf(l))}>
-            {renderInner(l, uris.get(l.id) ?? null, boxOf(l))}
-          </div>
-        ))}
+        .map((l) => {
+          // Masked image → resolve its mask shape + the mask's effective
+          // box (auto-layout aware). Dangling/unsupported = null (normal).
+          const mask =
+            l.type === "image" ? resolveMaskShape(l, slide.layers) : null;
+          return (
+            <div key={l.id} style={wrapperStyle(l, boxOf(l))}>
+              {renderInner(
+                l,
+                uris.get(l.id) ?? null,
+                boxOf(l),
+                mask,
+                mask ? boxOf(mask) : null,
+                maskShapeIds.has(l.id)
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 
@@ -195,7 +215,14 @@ function wrapperStyle(l: Layer, box: LaidOutBox): CSSProperties {
   };
 }
 
-function renderInner(l: Layer, uri: string | null, box: LaidOutBox) {
+function renderInner(
+  l: Layer,
+  uri: string | null,
+  box: LaidOutBox,
+  mask: ShapeLayer | null,
+  maskBox: LaidOutBox | null,
+  maskedOut: boolean
+) {
   if (l.type === "text") {
     return (
       <div
@@ -242,6 +269,52 @@ function renderInner(l: Layer, uri: string | null, box: LaidOutBox) {
     );
   }
   if (l.type === "image") {
+    // ── Masked image ────────────────────────────────────────────────
+    // IDENTICAL approach to LayerView: a clip window at the mask box
+    // (overflow hidden + radius), with the <img> re-offset by
+    // (imageBox − maskBox) so its content lands at the image's own coords.
+    // Satori honours overflow:hidden + border-radius (incl. per-corner and
+    // 50% for ellipse), so the PNG matches the canvas. The wrapper stays at
+    // the image box (wrapperStyle), so the window sits relative to it.
+    if (mask && maskBox) {
+      const offX = maskBox.x - box.x;
+      const offY = maskBox.y - box.y;
+      return (
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            left: offX,
+            top: offY,
+            width: maskBox.w,
+            height: maskBox.h,
+            borderRadius: maskRadiusCss(mask),
+            overflow: "hidden",
+            boxShadow: shadowCss(l.shadow),
+            background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
+          }}
+        >
+          {uri ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={uri}
+              alt=""
+              style={{
+                ...cropImgStyle(l.crop),
+                position: "absolute",
+                left: -offX,
+                top: -offY,
+                width: box.w,
+                height: box.h,
+                objectFit: "cover",
+                filter: combineFilter(undefined, l.blur),
+              }}
+            />
+          ) : null}
+        </div>
+      );
+    }
+    // ── Unmasked image (original behaviour) ─────────────────────────
     return (
       <div
         style={{
@@ -278,7 +351,11 @@ function renderInner(l: Layer, uri: string | null, box: LaidOutBox) {
       </div>
     );
   }
-  // shape
+  // shape — a shape acting as an image mask paints nothing (it's just the
+  // clip window); the masked image is the visible content.
+  if (maskedOut) {
+    return <div style={{ display: "flex", width: "100%", height: "100%" }} />;
+  }
   if (l.shape === "line") {
     const sw = l.strokeWidth;
     return (

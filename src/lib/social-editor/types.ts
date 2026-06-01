@@ -187,6 +187,17 @@ export type ImageLayer = LayerBase & {
   corners?: [number, number, number, number] | null;
   crop?: ImageCrop;
   filter?: ImageFilter;
+  /** "Use shape as mask" (Figma-style). When set to a sibling SHAPE
+   *  layer's id, the image is clipped to that shape's box: the shape's
+   *  geometry becomes the visible window (rect → corners, ellipse → 50%
+   *  radius), and the image shows only where it overlaps that window —
+   *  keeping its own position/scale (offset = imageBox − maskBox). The
+   *  mask shape stops painting its own fill (it's just the window) but
+   *  stays selectable/editable. Optional + additive, so older slides /
+   *  presets round-trip unchanged. A maskLayerId pointing at a missing or
+   *  unsupported (non-maskable) shape is IGNORED — the image renders
+   *  normally — so deleting the mask cleanly releases the image. */
+  maskLayerId?: string;
 };
 
 export type ShapeKind = "rect" | "ellipse" | "line";
@@ -210,6 +221,59 @@ export type ShapeLayer = LayerBase & {
 };
 
 export type Layer = TextLayer | ImageLayer | ShapeLayer;
+
+/* ─── Shape-as-mask ("use as mask", Figma-style) ──────────────────────
+ * An image layer may carry `maskLayerId` → a sibling SHAPE that acts as
+ * its clip window. We support ONLY rect (incl. rounded-rect via corners /
+ * radius) and ellipse(circle) masks, because Satori reliably honours
+ * `overflow:hidden` + `border-radius` (per-corner + 50%) but NOT arbitrary
+ * clip-path / vector paths. Lines (and any future unsupported kind) are
+ * therefore never offered as masks, guaranteeing canvas↔PNG parity. */
+
+/** Whether a shape kind can be used as an image mask. */
+export function isMaskableShapeKind(kind: ShapeKind): boolean {
+  return kind === "rect" || kind === "ellipse";
+}
+
+/** Whether a layer is a shape usable as a mask (maskable kind). */
+export function isMaskableShape(layer: Layer): layer is ShapeLayer {
+  return layer.type === "shape" && isMaskableShapeKind(layer.shape);
+}
+
+/** Resolve the effective mask SHAPE for an image layer, or null when the
+ *  image isn't masked (no maskLayerId) OR the referenced layer is missing
+ *  / not a maskable shape (a dangling mask — the image then renders
+ *  normally). Used by BOTH renderers so canvas = PNG. */
+export function resolveMaskShape(
+  image: ImageLayer,
+  layers: Layer[]
+): ShapeLayer | null {
+  if (!image.maskLayerId) return null;
+  const m = layers.find((l) => l.id === image.maskLayerId);
+  if (!m || !isMaskableShape(m)) return null;
+  return m;
+}
+
+/** The set of shape ids that are CURRENTLY acting as a mask for some
+ *  (non-hidden) image on the slide. A masking shape paints no fill — it's
+ *  just the clip window — so both renderers skip drawing it. */
+export function activeMaskShapeIds(layers: Layer[]): Set<string> {
+  const ids = new Set<string>();
+  for (const l of layers) {
+    if (l.type !== "image" || l.hidden) continue;
+    const m = resolveMaskShape(l, layers);
+    if (m) ids.add(m.id);
+  }
+  return ids;
+}
+
+/** Border-radius CSS for a mask shape's clip window, scaled to display.
+ *  Ellipse → 50% (pill/circle); rect → its per-corner `corners` or uniform
+ *  `radius`. Used identically by the canvas + export so the window matches. */
+export function maskRadiusCss(mask: ShapeLayer, scale = 1): string | number {
+  if (mask.shape === "ellipse") return "50%";
+  return cornerRadiusCss(mask.corners, mask.radius, scale);
+}
 
 /* ─── Auto-layout (Figma-style flex on a group) ───────────────────────
  * A group (layers sharing a `groupId`) can opt into auto-layout: its

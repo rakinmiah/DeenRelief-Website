@@ -12,11 +12,12 @@
  */
 
 import { useEffect, useRef, type CSSProperties } from "react";
-import type { Layer, LaidOutBox } from "@/lib/social-editor/types";
+import type { Layer, LaidOutBox, ShapeLayer } from "@/lib/social-editor/types";
 import {
   cornerRadiusCss,
   flipTransform,
   listDisplayText,
+  maskRadiusCss,
   textCaseFor,
   textDecorationCss,
   textTransformCss,
@@ -46,6 +47,9 @@ export default function LayerView({
   layer,
   scale,
   geom,
+  mask,
+  maskBox,
+  maskedOut,
   selected,
   multiSelected,
   editing,
@@ -61,6 +65,15 @@ export default function LayerView({
    *  computed box instead of its stored x/y/w/h (the layer is a member of
    *  an auto-layout group). Geometry-only — styling reads from `layer`. */
   geom?: LaidOutBox;
+  /** For a MASKED image layer: the resolved mask shape (its kind drives the
+   *  clip-window radius) — see resolveMaskShape. Undefined = not masked. */
+  mask?: ShapeLayer | null;
+  /** The mask shape's RESOLVED box (auto-layout aware), board units. The
+   *  image is clipped to this window; required when `mask` is set. */
+  maskBox?: LaidOutBox | null;
+  /** True when THIS layer is a shape currently acting as a mask: it paints
+   *  no fill (it's just the window) but stays selectable/editable. */
+  maskedOut?: boolean;
   selected?: boolean;
   /** Part of a multi-selection (shows a persistent outline, no moveable). */
   multiSelected?: boolean;
@@ -129,8 +142,16 @@ export default function LayerView({
           onCommitText={(t) => onCommitText?.(layer.id, t)}
         />
       )}
-      {layer.type === "image" && <ImageBody layer={layer} scale={scale} />}
-      {layer.type === "shape" && <ShapeBody layer={layer} scale={scale} />}
+      {layer.type === "image" && (
+        <ImageBody
+          layer={layer}
+          scale={scale}
+          imageBox={{ x: gx, y: gy, w: gw, h: gh }}
+          mask={mask ?? null}
+          maskBox={maskBox ?? null}
+        />
+      )}
+      {layer.type === "shape" && <ShapeBody layer={layer} scale={scale} maskedOut={!!maskedOut} />}
       {interactive && multiSelected && (
         <span aria-hidden className="pointer-events-none absolute inset-0 ring-2 ring-green" />
       )}
@@ -236,10 +257,72 @@ function TextBody({
 function ImageBody({
   layer,
   scale,
+  imageBox,
+  mask,
+  maskBox,
 }: {
   layer: Extract<Layer, { type: "image" }>;
   scale: number;
+  /** The image layer's own resolved box (board units). */
+  imageBox: LaidOutBox;
+  /** Resolved mask shape (null = not masked). */
+  mask: ShapeLayer | null;
+  /** Resolved mask box (board units; null when not masked). */
+  maskBox: LaidOutBox | null;
 }) {
+  // ── Masked image ──────────────────────────────────────────────────
+  // The visible window = the mask shape's box (clip + radius); the image
+  // keeps its own position/scale and shows only where it overlaps. The
+  // outer LayerView wrapper stays at the IMAGE box (so selection / hover /
+  // transform / pan affordance are unchanged); we render the window as a
+  // child offset by (maskBox − imageBox) and re-offset the <img> by
+  // (imageBox − maskBox) so its content lands at the image's own coords.
+  if (mask && maskBox) {
+    const offX = (maskBox.x - imageBox.x) * scale;
+    const offY = (maskBox.y - imageBox.y) * scale;
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: offX,
+          top: offY,
+          width: maskBox.w * scale,
+          height: maskBox.h * scale,
+          borderRadius: maskRadiusCss(mask, scale),
+          overflow: "hidden",
+          boxShadow: shadowCss(layer.shadow, scale),
+          background:
+            layer.objectFit === "contain"
+              ? "transparent"
+              : "linear-gradient(135deg, #2a3f33 0%, #4a5d4f 100%)",
+        }}
+      >
+        {layer.src && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={layer.src}
+            alt=""
+            draggable={false}
+            style={{
+              ...cropImgStyle(layer.crop),
+              // Re-offset the image back to its own box within the window.
+              position: "absolute",
+              left: -offX,
+              top: -offY,
+              width: imageBox.w * scale,
+              height: imageBox.h * scale,
+              display: "block",
+              pointerEvents: "none",
+              objectFit: layer.objectFit,
+              filter: combineFilter(filterCss(layer.filter), layer.blur, scale),
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Unmasked image (original behaviour) ───────────────────────────
   return (
     <div
       style={{
@@ -278,10 +361,18 @@ function ImageBody({
 function ShapeBody({
   layer,
   scale,
+  maskedOut,
 }: {
   layer: Extract<Layer, { type: "shape" }>;
   scale: number;
+  /** When true this shape is acting as an image mask: it paints no fill
+   *  (the masked image is the visible content) but stays selectable. We
+   *  render an empty, transparent box so the wrapper still hit-tests. */
+  maskedOut?: boolean;
 }) {
+  if (maskedOut) {
+    return <div style={{ width: "100%", height: "100%", background: "transparent" }} />;
+  }
   if (layer.shape === "line") {
     return (
       <div

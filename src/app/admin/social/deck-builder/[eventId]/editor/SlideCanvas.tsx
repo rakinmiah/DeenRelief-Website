@@ -17,7 +17,7 @@
 import Moveable from "react-moveable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
-import { resolveSlideLayout } from "@/lib/social-editor/types";
+import { resolveSlideLayout, resolveMaskShape, activeMaskShapeIds } from "@/lib/social-editor/types";
 import LayerView from "./LayerView";
 import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./editorUi";
 
@@ -68,6 +68,10 @@ export default function SlideCanvas({
     (l: Layer): LaidOutBox => layout.get(l.id) ?? { x: l.x, y: l.y, w: l.w, h: l.h },
     [layout]
   );
+  // Shapes currently acting as an image mask paint NO fill — they're just
+  // the clip window — so the masked image is the visible content. Same
+  // resolver the export route uses, so canvas = PNG.
+  const maskShapeIds = useMemo(() => activeMaskShapeIds(layers), [layers]);
   const moveableRef = useRef<Moveable>(null);
   const nodes = useRef<Map<string, HTMLElement>>(new Map());
   const [targets, setTargets] = useState<HTMLElement[]>([]);
@@ -199,21 +203,31 @@ export default function SlideCanvas({
         className="absolute inset-0 shadow-[0_8px_40px_rgba(0,0,0,0.10)]"
         style={{ background: slide.background, overflow: "hidden" }}
       >
-        {layers.map((l) => (
-          <LayerView
-            key={l.id}
-            layer={l}
-            scale={scale}
-            geom={layout.get(l.id)}
-            selected={l.id === single?.id}
-            multiSelected={isGroup && selectedIds.includes(l.id)}
-            editing={l.id === editingId}
-            onSelect={onSelect}
-            onStartEdit={onStartEdit}
-            onCommitText={onCommitText}
-            nodeRef={registerNode(l.id)}
-          />
-        ))}
+        {layers.map((l) => {
+          // Masked image → resolve its mask shape + the mask's effective
+          // box (auto-layout aware). Dangling/unsupported masks resolve to
+          // null, so the image renders normally.
+          const mask =
+            l.type === "image" && !l.hidden ? resolveMaskShape(l, layers) : null;
+          return (
+            <LayerView
+              key={l.id}
+              layer={l}
+              scale={scale}
+              geom={layout.get(l.id)}
+              mask={mask}
+              maskBox={mask ? boxOf(mask) : null}
+              maskedOut={maskShapeIds.has(l.id)}
+              selected={l.id === single?.id}
+              multiSelected={isGroup && selectedIds.includes(l.id)}
+              editing={l.id === editingId}
+              onSelect={onSelect}
+              onStartEdit={onStartEdit}
+              onCommitText={onCommitText}
+              nodeRef={registerNode(l.id)}
+            />
+          );
+        })}
 
         {/* Marquee rectangle */}
         {marquee && (

@@ -549,6 +549,18 @@ export function AutoLayoutIcon() {
     </svg>
   );
 }
+/** Mask — a photo (mountains) clipped by a circle window, hinting
+ *  "use shape as mask". */
+export function MaskIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2.5" y="2.5" width="15" height="15" rx="2" strokeDasharray="2.4 2.2" opacity="0.5" />
+      <circle cx="10" cy="10" r="5" fill="currentColor" stroke="none" opacity="0.18" />
+      <circle cx="10" cy="10" r="5" />
+      <path d="M6.5 12.5l2-2.4 1.6 1.7 1.6-2 1.8 2.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 export function LayersIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">

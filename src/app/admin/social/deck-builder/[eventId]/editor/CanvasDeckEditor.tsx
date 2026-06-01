@@ -17,6 +17,7 @@ import type { ImageCandidate } from "@/lib/social-templates/types";
 import {
   type EditorSlide,
   type Layer,
+  type LaidOutBox,
   type ShapeKind,
   type AutoLayout,
   type GroupMeta,
@@ -27,6 +28,9 @@ import {
   defaultAutoLayout,
   autoLayoutFor,
   resolveSlideLayout,
+  resolveMaskShape,
+  activeMaskShapeIds,
+  isMaskableShape,
 } from "@/lib/social-editor/types";
 import { googleFontsHref } from "@/lib/social-editor/fonts";
 import LayerView from "./LayerView";
@@ -41,6 +45,7 @@ import {
   AlignToolbar,
   GroupToolbar,
   AutoLayoutToolbar,
+  MaskToolbar,
   type AlignKind,
 } from "./editorToolbar";
 import {
@@ -250,7 +255,20 @@ export default function CanvasDeckEditor({
 
   function deleteSelected() {
     if (selectedIds.length === 0) return;
-    setActiveLayers(activeSlide.layers.filter((l) => !selectedIds.includes(l.id)), true);
+    // Deleting a shape that's used as an image mask releases that image
+    // (clear the dangling maskLayerId so it renders normally and can't
+    // silently re-attach to a future layer that reuses the id).
+    const deletedIds = new Set(selectedIds);
+    setActiveLayers(
+      activeSlide.layers
+        .filter((l) => !deletedIds.has(l.id))
+        .map((l) =>
+          l.type === "image" && l.maskLayerId && deletedIds.has(l.maskLayerId)
+            ? ({ ...l, maskLayerId: undefined } as Layer)
+            : l
+        ),
+      true
+    );
     setSelectedIds([]);
   }
 
@@ -288,9 +306,31 @@ export default function CanvasDeckEditor({
     return next;
   }
 
-  // Append a remapped batch (layers + cloned group meta) in one commit.
-  function appendCopies(batch: Layer[], dx: number, dy: number) {
-    const { layers: copies, map } = remapGroups(batch);
+  // Re-link maskLayerId within a copied batch: when a masked image AND its
+  // mask shape are BOTH copied together, the copy should mask into the
+  // COPIED shape, not the original. `idMap` is old→new layer id. A copy
+  // whose mask wasn't in the batch keeps pointing at the original shape
+  // (still valid — both images then share that one window).
+  function relinkMasks(layers: Layer[], idMap: Map<string, string>): Layer[] {
+    return layers.map((l) => {
+      if (l.type !== "image" || !l.maskLayerId) return l;
+      const remapped = idMap.get(l.maskLayerId);
+      return remapped ? ({ ...l, maskLayerId: remapped } as Layer) : l;
+    });
+  }
+
+  // Copy a batch of source layers (with ORIGINAL ids): assign fresh ids,
+  // offset by (dx,dy), remap groups + mask links, clone group meta, and
+  // append in one commit. Selects the copies.
+  function appendCopies(source: Layer[], dx: number, dy: number) {
+    const idMap = new Map<string, string>();
+    const withIds = source.map((l) => {
+      const id = makeLayerId();
+      idMap.set(l.id, id);
+      return { ...l, id, x: l.x + dx, y: l.y + dy } as Layer;
+    });
+    const { layers: regrouped, map } = remapGroups(withIds);
+    const copies = relinkMasks(regrouped, idMap);
     const nextGroups = clonedGroups(map, dx, dy);
     const next = deck.map((s, i) =>
       i === ai
@@ -307,11 +347,7 @@ export default function CanvasDeckEditor({
 
   function duplicateSelected() {
     if (selectedLayers.length === 0) return;
-    appendCopies(
-      selectedLayers.map((l) => ({ ...l, id: makeLayerId(), x: l.x + 24, y: l.y + 24 } as Layer)),
-      24,
-      24
-    );
+    appendCopies(selectedLayers, 24, 24);
   }
 
   function copySelected() {
@@ -321,11 +357,7 @@ export default function CanvasDeckEditor({
 
   function pasteClipboard() {
     if (clipboard.current.length === 0) return;
-    appendCopies(
-      clipboard.current.map((l) => ({ ...l, id: makeLayerId(), x: l.x + 32, y: l.y + 32 } as Layer)),
-      32,
-      32
-    );
+    appendCopies(clipboard.current, 32, 32);
   }
 
   function toggleLock() {
@@ -456,6 +488,71 @@ export default function CanvasDeckEditor({
     setGroupMeta(groupId, {
       frame: { ...meta.frame, x: meta.frame.x + dx, y: meta.frame.y + dy },
     });
+  }
+
+  /* ── Shape-as-mask ("use shape as mask") ──────────────────────────
+   * Figma model: select exactly one IMAGE + one (maskable) SHAPE →
+   * "Mask with shape" clips the image into the shape's box. Selecting a
+   * masked image OR its mask shape → "Release mask" undoes it. Only
+   * rect/rounded-rect/ellipse shapes are maskable (Satori parity). */
+
+  // The two selected layers as {image, shape} when the selection is
+  // exactly one image + one maskable shape AND the image isn't already
+  // masked; null otherwise. Drives the "Mask with shape" affordance.
+  const maskPair = useMemo(() => {
+    if (selectedLayers.length !== 2) return null;
+    const img = selectedLayers.find((l) => l.type === "image") as
+      | Extract<Layer, { type: "image" }>
+      | undefined;
+    const shp = selectedLayers.find((l) => isMaskableShape(l)) as
+      | Extract<Layer, { type: "shape" }>
+      | undefined;
+    if (!img || !shp || img.maskLayerId) return null;
+    return { image: img, shape: shp };
+  }, [selectedLayers]);
+
+  // The masked image whose mask the current selection represents — either
+  // the masked image itself, or the shape acting as its mask. null when
+  // nothing in the selection is part of an active mask. Drives "Release".
+  const releasableImage = useMemo(() => {
+    for (const l of selectedLayers) {
+      if (l.type === "image" && resolveMaskShape(l, activeSlide.layers)) return l;
+    }
+    // Selecting just the mask shape should also offer Release.
+    for (const l of selectedLayers) {
+      if (l.type !== "shape") continue;
+      const owner = activeSlide.layers.find(
+        (x): x is Extract<Layer, { type: "image" }> =>
+          x.type === "image" && x.maskLayerId === l.id && !!resolveMaskShape(x, activeSlide.layers)
+      );
+      if (owner) return owner;
+    }
+    return null;
+  }, [selectedLayers, activeSlide.layers]);
+
+  // Mask the image with the shape: link them and keep BOTH selected so the
+  // user can immediately tweak either the window (shape) or the pan (image).
+  function maskWithShape() {
+    if (!maskPair) return;
+    const { image, shape } = maskPair;
+    setActiveLayers(
+      activeSlide.layers.map((l) =>
+        l.id === image.id ? ({ ...l, maskLayerId: shape.id } as Layer) : l
+      ),
+      true
+    );
+  }
+
+  // Release the mask: clear the image's maskLayerId. Both layers return to
+  // normal (the shape paints its fill again, the image its own box).
+  function releaseMask() {
+    if (!releasableImage) return;
+    setActiveLayers(
+      activeSlide.layers.map((l) =>
+        l.id === releasableImage.id ? ({ ...l, maskLayerId: undefined } as Layer) : l
+      ),
+      true
+    );
   }
 
   /* ── Z-order ─────────────────────────────────────────────────── */
@@ -671,10 +768,22 @@ export default function CanvasDeckEditor({
   }
   function duplicateSlide(i: number) {
     const src = deck[i]!;
+    // Re-id every layer, tracking old→new so intra-slide references
+    // (mask links) point at the CLONE's layers, not the originals'.
+    const idMap = new Map<string, string>();
+    const layers = src.layers.map((l) => {
+      const id = makeLayerId();
+      idMap.set(l.id, id);
+      return { ...l, id } as Layer;
+    });
     const clone: EditorSlide = {
       ...src,
       id: `sl_${makeLayerId().slice(3)}`,
-      layers: src.layers.map((l) => ({ ...l, id: makeLayerId() } as Layer)),
+      layers: layers.map((l) =>
+        l.type === "image" && l.maskLayerId
+          ? ({ ...l, maskLayerId: idMap.get(l.maskLayerId) ?? l.maskLayerId } as Layer)
+          : l
+      ),
     };
     const next = [...deck.slice(0, i + 1), clone, ...deck.slice(i + 1)];
     history.commit(next);
@@ -932,6 +1041,12 @@ export default function CanvasDeckEditor({
                 onChange={updateAutoLayout}
               />
             )}
+            <MaskToolbar
+              canMask={!!maskPair}
+              canRelease={!!releasableImage}
+              onMask={maskWithShape}
+              onRelease={releaseMask}
+            />
             {showAlign && (
               <div className="ml-auto shrink-0">
                 <AlignToolbar onAlign={align} canDistribute={selectedLayers.length >= 3} />
@@ -1066,6 +1181,10 @@ function SlideThumb({
   const s = size / slide.width;
   // Apply the same auto-layout solver so thumbnails match the stage.
   const layout = resolveSlideLayout(slide);
+  const boxOf = (l: Layer): LaidOutBox =>
+    layout.get(l.id) ?? { x: l.x, y: l.y, w: l.w, h: l.h };
+  // Mirror the stage's shape-as-mask rendering in thumbnails for parity.
+  const maskShapeIds = activeMaskShapeIds(slide.layers);
   return (
     <div className="relative shrink-0 group">
       <button
@@ -1074,9 +1193,22 @@ function SlideThumb({
         className={`relative block rounded-lg overflow-hidden transition ${active ? "ring-2 ring-green" : "ring-1 ring-charcoal/10 hover:ring-charcoal/30"}`}
         style={{ width: size, height: (size / slide.width) * slide.height, background: slide.background }}
       >
-        {slide.layers.map((l) => (
-          <LayerView key={l.id} layer={l} scale={s} geom={layout.get(l.id)} interactive={false} />
-        ))}
+        {slide.layers.map((l) => {
+          const mask =
+            l.type === "image" && !l.hidden ? resolveMaskShape(l, slide.layers) : null;
+          return (
+            <LayerView
+              key={l.id}
+              layer={l}
+              scale={s}
+              geom={layout.get(l.id)}
+              mask={mask}
+              maskBox={mask ? boxOf(mask) : null}
+              maskedOut={maskShapeIds.has(l.id)}
+              interactive={false}
+            />
+          );
+        })}
       </button>
       <span className="absolute -bottom-0.5 left-1 text-[10px] font-semibold text-charcoal/40">{index + 1}</span>
       <div className="absolute -top-1.5 -right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">

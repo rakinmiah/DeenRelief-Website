@@ -45,6 +45,7 @@ import {
   UngroupIcon,
   FlipIcon,
   AutoLayoutIcon,
+  MaskIcon,
 } from "./editorUi";
 import { layerLabel } from "@/lib/social-editor/types";
 
@@ -732,6 +733,39 @@ export function GroupToolbar({
       )}
     </div>
   );
+}
+
+/* ─── Shape-as-mask ("use shape as mask") ─────────────────────────────
+ * One Canva-simple chip. "Mask with shape" shows when exactly one image +
+ * one (maskable) shape are selected; "Release mask" shows when a masked
+ * image or its mask shape is selected. Only one is ever active. */
+
+export function MaskToolbar({
+  canMask,
+  canRelease,
+  onMask,
+  onRelease,
+}: {
+  canMask: boolean;
+  canRelease: boolean;
+  onMask: () => void;
+  onRelease: () => void;
+}) {
+  if (canRelease) {
+    return (
+      <IconBtn label="Release mask" active onClick={onRelease}>
+        <MaskIcon />
+      </IconBtn>
+    );
+  }
+  if (canMask) {
+    return (
+      <IconBtn label="Mask with shape" onClick={onMask}>
+        <MaskIcon />
+      </IconBtn>
+    );
+  }
+  return null;
 }
 
 /* ─── Auto-layout (group flex) ────────────────────────────────────────
