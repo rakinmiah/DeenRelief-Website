@@ -252,6 +252,26 @@ export function ShapeIcon({ kind }: { kind: "rect" | "ellipse" | "line" }) {
     </svg>
   );
 }
+/** Two overlapping boxes bound by a dashed frame — "group". */
+export function GroupIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2.5" y="2.5" width="15" height="15" rx="2" strokeDasharray="2.4 2.2" opacity="0.55" />
+      <rect x="5" y="5" width="6" height="6" rx="1.2" fill="currentColor" stroke="none" opacity="0.85" />
+      <rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+/** Same boxes, broken frame — "ungroup". */
+export function UngroupIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2.5 6V3.5a1 1 0 0 1 1-1H6M14 2.5h2.5a1 1 0 0 1 1 1V6M17.5 14v2.5a1 1 0 0 1-1 1H14M6 17.5H3.5a1 1 0 0 1-1-1V14" strokeLinecap="round" opacity="0.55" />
+      <rect x="5" y="5" width="6" height="6" rx="1.2" fill="currentColor" stroke="none" opacity="0.85" />
+      <rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 export function LayersIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">

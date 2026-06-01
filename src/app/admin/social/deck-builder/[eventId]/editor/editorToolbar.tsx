@@ -32,10 +32,16 @@ import {
   GripIcon,
   ImageIcon,
   TextIcon,
+  GroupIcon,
+  UngroupIcon,
 } from "./editorUi";
 import { layerLabel } from "@/lib/social-editor/types";
 
 const SWATCHES = ["#163827", "#2D6A2E", "#D4A843", "#F7F3E8", "#1A1A2E", "#FFFFFF", "#C0392B", "#000000"];
+
+/** Cyclic accent colours for the layers-panel group indicator (left rail
+ *  + chip), so distinct groups stay visually separable. */
+const GROUP_ACCENTS = ["#2D6A2E", "#D4A843", "#5B6CB8", "#C0392B", "#1F8F8F"];
 
 /* ─── Gradient fill helpers ───────────────────────────────────────────
  * A shape's `fill` is either a solid colour or a CSS gradient string.
@@ -558,6 +564,31 @@ export function AlignToolbar({
   );
 }
 
+/* ─── Group / ungroup (multi-select + grouped layers) ─────────────── */
+
+export function GroupToolbar({
+  canGroup,
+  canUngroup,
+  onGroup,
+  onUngroup,
+}: {
+  canGroup: boolean;
+  canUngroup: boolean;
+  onGroup: () => void;
+  onUngroup: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {canGroup && (
+        <IconBtn label="Group (⌘G)" onClick={onGroup}><GroupIcon /></IconBtn>
+      )}
+      {canUngroup && (
+        <IconBtn label="Ungroup (⌘⇧G)" onClick={onUngroup}><UngroupIcon /></IconBtn>
+      )}
+    </div>
+  );
+}
+
 /* ─── Layers panel ────────────────────────────────────────────────── */
 
 export function LayersPanel({
@@ -587,6 +618,14 @@ export function LayersPanel({
   const [overId, setOverId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
 
+  // Stable colour per group so members read as a block; index by the
+  // group's first appearance in array order.
+  const groupOrder = Array.from(
+    new Set(layers.map((l) => l.groupId).filter((g): g is string => !!g))
+  );
+  const groupAccent = (gid: string | undefined) =>
+    gid ? GROUP_ACCENTS[groupOrder.indexOf(gid) % GROUP_ACCENTS.length]! : null;
+
   return (
     <div className="w-[248px] bg-white border-l border-charcoal/8 flex flex-col shrink-0">
       <div className="flex items-center justify-between px-3.5 h-11 border-b border-charcoal/8">
@@ -600,6 +639,7 @@ export function LayersPanel({
         {ordered.map((l) => {
           const selected = selectedIds.includes(l.id);
           const isOver = overId === l.id && dragId && dragId !== l.id;
+          const accent = groupAccent(l.groupId);
           return (
             <div
               key={l.id}
@@ -617,10 +657,20 @@ export function LayersPanel({
                 if (renaming === l.id) return;
                 onSelect(l.id, e.shiftKey || e.metaKey || e.ctrlKey);
               }}
-              className={`group mx-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer select-none ${
+              className={`group relative mx-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer select-none ${
+                accent ? "pl-3.5" : ""
+              } ${
                 selected ? "bg-green/10 ring-1 ring-green/40" : "hover:bg-charcoal/4"
               } ${isOver ? "outline-dashed outline-1 outline-green/60" : ""}`}
             >
+              {accent && (
+                <span
+                  aria-hidden
+                  title="Grouped"
+                  className="absolute left-1 top-1.5 bottom-1.5 w-1 rounded-full"
+                  style={{ background: accent }}
+                />
+              )}
               <span className="text-charcoal/25 cursor-grab shrink-0"><GripIcon /></span>
               <span className={`shrink-0 ${selected ? "text-green" : "text-charcoal/45"}`}><LayerTypeIcon layer={l} /></span>
               {renaming === l.id ? (

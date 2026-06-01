@@ -29,6 +29,12 @@ export type LayerBase = {
   opacity: number;
   /** Locked layers can't be selected/transformed on the canvas. */
   locked: boolean;
+  /** Layers sharing a non-empty groupId form a FLAT, Canva-style group
+   *  (no nesting). Selecting any member selects the whole group so it
+   *  moves/transforms together; the layers panel tags grouped members.
+   *  Editor-only — the export route ignores it. Undefined === ungrouped,
+   *  so older drafts round-trip unchanged. */
+  groupId?: string;
   /** Optional custom label shown in the layers panel. When unset the
    *  panel derives a label from the layer's content/type. Editor-only;
    *  the export route ignores it. */
@@ -137,6 +143,14 @@ export function makeLayerId(): string {
     return `ly_${crypto.randomUUID()}`;
   }
   return `ly_${Math.random().toString(36).slice(2)}`;
+}
+
+/** Fresh shared id for a flat group (see LayerBase.groupId). */
+export function makeGroupId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `gp_${crypto.randomUUID()}`;
+  }
+  return `gp_${Math.random().toString(36).slice(2)}`;
 }
 
 export const DEFAULT_BOARD = 1080;

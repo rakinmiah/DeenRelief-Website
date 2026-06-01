@@ -19,6 +19,7 @@ import {
   type Layer,
   type ShapeKind,
   makeLayerId,
+  makeGroupId,
   layerAABB,
   unionAABB,
 } from "@/lib/social-editor/types";
@@ -33,6 +34,7 @@ import {
   ImagePicker,
   LayersPanel,
   AlignToolbar,
+  GroupToolbar,
   type AlignKind,
 } from "./editorToolbar";
 import {
@@ -215,10 +217,28 @@ export default function CanvasDeckEditor({
     setSelectedIds([]);
   }
 
+  // Remap groupIds in a copied batch so duplicates form their OWN groups
+  // (preserving which copies were grouped together) instead of merging
+  // back into the originals.
+  function remapGroups(layers: Layer[]): Layer[] {
+    const map = new Map<string, string>();
+    return layers.map((l) => {
+      if (!l.groupId) return l;
+      let gid = map.get(l.groupId);
+      if (!gid) {
+        gid = makeGroupId();
+        map.set(l.groupId, gid);
+      }
+      return { ...l, groupId: gid } as Layer;
+    });
+  }
+
   function duplicateSelected() {
     if (selectedLayers.length === 0) return;
-    const copies = selectedLayers.map(
-      (l) => ({ ...l, id: makeLayerId(), x: l.x + 24, y: l.y + 24 } as Layer)
+    const copies = remapGroups(
+      selectedLayers.map(
+        (l) => ({ ...l, id: makeLayerId(), x: l.x + 24, y: l.y + 24 } as Layer)
+      )
     );
     setActiveLayers([...activeSlide.layers, ...copies], true);
     setSelectedIds(copies.map((c) => c.id));
@@ -231,8 +251,10 @@ export default function CanvasDeckEditor({
 
   function pasteClipboard() {
     if (clipboard.current.length === 0) return;
-    const copies = clipboard.current.map(
-      (l) => ({ ...l, id: makeLayerId(), x: l.x + 32, y: l.y + 32 } as Layer)
+    const copies = remapGroups(
+      clipboard.current.map(
+        (l) => ({ ...l, id: makeLayerId(), x: l.x + 32, y: l.y + 32 } as Layer)
+      )
     );
     setActiveLayers([...activeSlide.layers, ...copies], true);
     setSelectedIds(copies.map((c) => c.id));
@@ -245,6 +267,48 @@ export default function CanvasDeckEditor({
     setActiveLayers(
       activeSlide.layers.map((l) =>
         selectedIds.includes(l.id) ? ({ ...l, locked: next } as Layer) : l
+      ),
+      true
+    );
+  }
+
+  /* ── Grouping ────────────────────────────────────────────────── */
+  // Group ids currently represented in the selection.
+  const selectedGroupIds = useMemo(
+    () => new Set(selectedLayers.map((l) => l.groupId).filter((g): g is string => !!g)),
+    [selectedLayers]
+  );
+  const canGroup = selectedLayers.length >= 2;
+  const canUngroup = selectedGroupIds.size > 0;
+
+  // Assign one fresh groupId to every selected layer. Grouping also pulls
+  // the members together in z-order (contiguous) so the group paints as a
+  // unit and later reordering keeps them adjacent.
+  function groupSelected() {
+    if (selectedLayers.length < 2) return;
+    const gid = makeGroupId();
+    const ls = activeSlide.layers;
+    // Insert the grouped block where the front-most member sat, so the
+    // group keeps roughly its existing depth.
+    const frontIdx = ls.reduce((acc, l, i) => (selectedIds.includes(l.id) ? i : acc), 0);
+    const before = ls.filter((l, i) => !selectedIds.includes(l.id) && i < frontIdx);
+    const after = ls.filter((l, i) => !selectedIds.includes(l.id) && i >= frontIdx);
+    const grouped = ls
+      .filter((l) => selectedIds.includes(l.id))
+      .map((l) => ({ ...l, groupId: gid } as Layer));
+    setActiveLayers([...before, ...grouped, ...after], true);
+    setSelectedIds(grouped.map((l) => l.id));
+  }
+
+  // Clear groupId on every selected layer (and any siblings sharing the
+  // same group, so ungrouping a partial selection still dissolves it).
+  function ungroupSelected() {
+    if (selectedGroupIds.size === 0) return;
+    setActiveLayers(
+      activeSlide.layers.map((l) =>
+        l.groupId && selectedGroupIds.has(l.groupId)
+          ? ({ ...l, groupId: undefined } as Layer)
+          : l
       ),
       true
     );
@@ -397,20 +461,36 @@ export default function CanvasDeckEditor({
   }
 
   /* ── Selection helpers ───────────────────────────────────────── */
-  const selectOne = useCallback((id: string | null, additive: boolean) => {
-    setEditingId(null);
-    if (id == null) {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds((cur) =>
-      additive
-        ? cur.includes(id)
-          ? cur.filter((x) => x !== id)
-          : [...cur, id]
-        : [id]
-    );
-  }, []);
+  // Expand a layer id to its whole flat group (clicking any member selects
+  // the group so it transforms together). Ungrouped layers map to [id].
+  const groupMemberIds = useCallback(
+    (id: string): string[] => {
+      const l = activeSlide.layers.find((x) => x.id === id);
+      if (!l || !l.groupId) return [id];
+      return activeSlide.layers.filter((x) => x.groupId === l.groupId).map((x) => x.id);
+    },
+    [activeSlide.layers]
+  );
+
+  const selectOne = useCallback(
+    (id: string | null, additive: boolean) => {
+      setEditingId(null);
+      if (id == null) {
+        setSelectedIds([]);
+        return;
+      }
+      const members = groupMemberIds(id);
+      setSelectedIds((cur) => {
+        if (!additive) return members;
+        // Shift/⌘-click toggles the whole group the layer belongs to.
+        const allIn = members.every((m) => cur.includes(m));
+        return allIn
+          ? cur.filter((x) => !members.includes(x))
+          : Array.from(new Set([...cur, ...members]));
+      });
+    },
+    [groupMemberIds]
+  );
 
   const selectMarquee = useCallback(
     (rect: { x: number; y: number; w: number; h: number }, additive: boolean) => {
@@ -511,6 +591,13 @@ export default function CanvasDeckEditor({
       if (mod && k === "d") {
         e.preventDefault();
         duplicateSelected();
+        return;
+      }
+      // group: Cmd+G, ungroup: Cmd+Shift+G
+      if (mod && k === "g") {
+        e.preventDefault();
+        if (e.shiftKey) ungroupSelected();
+        else groupSelected();
         return;
       }
       // z-order: Cmd+] / Cmd+[ (with shift = front/back)
@@ -619,6 +706,14 @@ export default function CanvasDeckEditor({
             )}
             {selectedLayers.length > 1 && (
               <span className="text-[12.5px] text-charcoal/50 whitespace-nowrap">{selectedLayers.length} selected</span>
+            )}
+            {(canGroup || canUngroup) && (
+              <GroupToolbar
+                canGroup={canGroup}
+                canUngroup={canUngroup}
+                onGroup={groupSelected}
+                onUngroup={ungroupSelected}
+              />
             )}
             {showAlign && (
               <div className="ml-auto shrink-0">
