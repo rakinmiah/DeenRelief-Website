@@ -451,9 +451,9 @@ function renderInner(
           borderRadius: cornerRadiusCss(l.corners, l.radius),
           overflow: "hidden",
           boxShadow: shadowCss(l.shadow),
-          // Transparent for `contain` images (logos / cut-out graphics) so
-          // they sit directly on the slide; loading-tint only for photos.
-          background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
+          // DIAGNOSTIC: red backing for contain images (≈ the logo) to see if
+          // the box itself renders. TEMPORARY.
+          background: l.objectFit === "contain" ? "#ff0000" : "#2a3f33",
         })}
       >
         {uri ? (
