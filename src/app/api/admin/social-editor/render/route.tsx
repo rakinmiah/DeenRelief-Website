@@ -143,19 +143,12 @@ async function render(request: Request): Promise<Response> {
         // hard so oversized source art still rasterises; photos get a
         // generous cap.
         const isContain = l.objectFit === "contain";
-        const maxDim = isContain ? 700 : 1600;
-        // Satori silently drops objectFit:"contain" images. For contain
-        // layers we letterbox the art to the (laid-out) layer box here,
-        // then paint it with "cover" below (faithful — already box-sized).
-        const lb = boxOf(l);
-        const containBox = isContain
-          ? {
-              w: Math.max(1, Math.round(lb.w)),
-              h: Math.max(1, Math.round(lb.h)),
-              bg: slide.background.startsWith("#") ? slide.background : undefined,
-            }
-          : undefined;
-        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime, containBox);
+        if (isContain) {
+          // EXPERIMENT: inline the RAW logo bytes, bypassing sharp, to test
+          // whether sharp (not Satori) is dropping the logo. TEMPORARY.
+          return [l.id, `data:${fallbackMime};base64,${raw.toString("base64")}`] as const;
+        }
+        const { data, mime } = await prepareImage(raw, l.filter, 1600, fallbackMime, undefined);
         return [l.id, `data:${mime};base64,${data.toString("base64")}`] as const;
       } catch {
         return [l.id, null] as const;
