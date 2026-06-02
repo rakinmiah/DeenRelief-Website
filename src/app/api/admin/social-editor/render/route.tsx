@@ -456,7 +456,30 @@ function renderInner(
         </div>
       );
     }
-    // ── Unmasked image (original behaviour) ─────────────────────────
+    // ── Unmasked `contain` art (brand logo / cut-outs) ──────────────
+    // Render as a CSS background-image on the div, NOT an <img>. Satori's
+    // <img> path silently fails to paint some images at small corner sizes
+    // (the DR logo never rendered, even box-resized), but its background-image
+    // path rasterises reliably. backgroundSize:contain keeps the whole mark,
+    // centred, transparent around it so it sits straight on the slide.
+    if (l.objectFit === "contain") {
+      return (
+        <div
+          style={sx({
+            display: "flex",
+            width: "100%",
+            height: "100%",
+            borderRadius: cornerRadiusCss(l.corners, l.radius),
+            boxShadow: shadowCss(l.shadow),
+            backgroundImage: uri ? `url(${uri})` : undefined,
+            backgroundSize: "contain",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center",
+          })}
+        />
+      );
+    }
+    // ── Unmasked cover photo ────────────────────────────────────────
     return (
       <div
         style={sx({
@@ -466,9 +489,7 @@ function renderInner(
           borderRadius: cornerRadiusCss(l.corners, l.radius),
           overflow: "hidden",
           boxShadow: shadowCss(l.shadow),
-          // Transparent for `contain` images (logos / cut-out graphics) so
-          // they sit directly on the slide; loading-tint only for photos.
-          background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
+          background: "#2a3f33",
         })}
       >
         {uri ? (
@@ -480,12 +501,7 @@ function renderInner(
               ...cropImgStyle(l.crop),
               width: box.w,
               height: box.h,
-              // Always "cover": Satori drops objectFit:"contain", so contain
-              // layers are pre-letterboxed to the box (above) and shown here
-              // with cover — exact box size means no crop.
               objectFit: "cover",
-              // Colour filter is baked in by sharp upstream; blur is the only
-              // CSS filter we add here (mirrors LayerView).
               filter: combineFilter(undefined, l.blur),
             })}
           />
