@@ -334,21 +334,6 @@ export default function DeckFlow({
               transition={{ type: "spring", stiffness: 120, damping: 20 }}
             />
           </div>
-          {/* SMM shortcut — from step 2 (count) onwards, jump straight to the
-              editor with a quick auto-draft instead of finishing the wizard. */}
-          {(step === "count" || step === "plan" || step === "mode") && ready && (
-            <button
-              type="button"
-              onClick={skipToEditor}
-              title="Skip the rest and open the editor with a quick draft"
-              className="shrink-0 text-charcoal/45 hover:text-green text-[13px] font-medium flex items-center gap-1"
-            >
-              Skip to editor
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
 
@@ -411,6 +396,27 @@ export default function DeckFlow({
               />
             )}
           </motion.div>
+
+          {/* SMM shortcut — from step 2 (count) onwards, jump straight to the
+              editor with a quick auto-draft instead of finishing the wizard.
+              Sits just below the step's Continue button so it's easy to spot. */}
+          {(step === "count" || step === "plan" || step === "mode") && ready && (
+            <div className="mt-5 pt-4 border-t border-charcoal/8">
+              <button
+                type="button"
+                onClick={skipToEditor}
+                className="inline-flex items-center gap-2 text-[14px] font-semibold text-green border border-green/35 bg-green/5 hover:bg-green/10 px-5 py-2.5 rounded-xl transition-colors"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.9">
+                  <path d="M3 10h12M11 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Skip to editor
+              </button>
+              <p className="text-[12.5px] text-charcoal/50 mt-2">
+                Jump straight into the canvas with a quick auto-draft — skip the rest of the setup.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
