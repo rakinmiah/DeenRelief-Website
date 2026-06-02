@@ -201,30 +201,28 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
             minWidth: 0,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 18,
             background: WORKSPACE,
-            padding: 32,
           }}
         >
-          {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} />}
+          {/* Header — title + description on the left, Insert on the right.
+              Kept out of the preview's vertical space so the slide isn't
+              squished. */}
           {selected && (
             <div
               style={{
-                textAlign: "center",
-                maxWidth: 640,
+                flexShrink: 0,
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 14,
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 20,
+                padding: "18px 28px 14px",
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: GOLD, textTransform: "uppercase" }}>
                   Slide {selected.number} · {selectedCat?.title}
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginTop: 4 }}>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#fff", marginTop: 4 }}>
                   {selected.variant.label}
                 </div>
                 {selectedCat?.sub && (
@@ -233,38 +231,54 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => insertIntoDeck(selected.variant)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: GOLD,
-                  color: FOREST,
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "11px 22px",
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
-                }}
-              >
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <path d="M8 3v10M3 8h10" strokeLinecap="round" />
-                </svg>
-                Insert into my deck
-              </button>
-              {inserted && (
-                <div style={{ fontSize: 12.5, color: "#cbe8d0", maxWidth: 460, lineHeight: 1.5 }}>
-                  ✓ “{inserted}” added to your deck. Switch to your editor tab, then{" "}
-                  <strong style={{ color: "#fff" }}>click a slide to replace it</strong> or press the{" "}
-                  <strong style={{ color: "#fff" }}>+</strong> to add it as a new slide.
-                </div>
-              )}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => insertIntoDeck(selected.variant)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: GOLD,
+                    color: FOREST,
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "11px 22px",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+                  </svg>
+                  Insert into my deck
+                </button>
+                {inserted && (
+                  <div style={{ fontSize: 12, color: "#cbe8d0", maxWidth: 300, lineHeight: 1.5, textAlign: "right" }}>
+                    ✓ “{inserted}” added — switch to your editor tab, then{" "}
+                    <strong style={{ color: "#fff" }}>click a slide to replace</strong> or press{" "}
+                    <strong style={{ color: "#fff" }}>+</strong> to add.
+                  </div>
+                )}
+              </div>
             </div>
           )}
+          {/* Preview fills the remaining height as a square. */}
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 28px 28px",
+            }}
+          >
+            {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} />}
+          </div>
         </div>
       </div>
     </div>
@@ -405,8 +419,13 @@ function Preview({ variant, logo }: { variant: Variant; logo: BrandLogo | null }
   return (
     <div
       style={{
-        width: "min(72vh, 680px)",
-        height: "min(72vh, 680px)",
+        // Fill the available height as a square (capped so it never gets
+        // wider than the pane) — no longer competes with caption/button for
+        // vertical space, so the slide renders full-size.
+        height: "100%",
+        aspectRatio: "1 / 1",
+        maxWidth: "100%",
+        maxHeight: 760,
         borderRadius: 6,
         overflow: "hidden",
         background: FOREST,
