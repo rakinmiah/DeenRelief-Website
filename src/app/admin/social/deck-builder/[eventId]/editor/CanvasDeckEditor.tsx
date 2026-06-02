@@ -61,7 +61,9 @@ import {
   type BrandLogos,
 } from "./editorToolbar";
 import type { BrandLogo } from "@/lib/social-editor/presets";
+import type { ContentBundle } from "../types";
 import TemplatesPanel from "./TemplatesPanel";
+import ContentPanel from "./ContentPanel";
 import {
   ToolbarBtn,
   RailBtn,
@@ -88,6 +90,7 @@ export default function CanvasDeckEditor({
   images = [],
   logo = null,
   logoLight = null,
+  content = null,
   backHref,
   persist = false,
   forceInitial = false,
@@ -101,6 +104,8 @@ export default function CanvasDeckEditor({
   logo?: BrandLogo | null;
   /** On-light (green) DR logo — the primary mark. */
   logoLight?: BrandLogo | null;
+  /** Extracted news-report content — powers the Content panel's snippets. */
+  content?: ContentBundle | null;
   backHref?: string;
   persist?: boolean;
   /** Use initialDeck as-is and skip loading any saved draft (the deck
@@ -145,7 +150,8 @@ export default function CanvasDeckEditor({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [exporting, setExporting] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
-  const [showTemplates, setShowTemplates] = useState(false);
+  // One left flyout open at a time: the template browser or the content picker.
+  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content">(null);
   // Component "edit master" mode: when set, the editor is editing the
   // layers of this {componentId, variant} on a temporary edit slide; on
   // exit the edited layers are written back into the component definition
@@ -1085,6 +1091,7 @@ export default function CanvasDeckEditor({
     green: logoLight?.url ?? null,
   };
   const hasBrandLogo = !!(logo || logoLight);
+  const hasContent = !!content && content.cards.length > 0;
   function addBrandLogo() {
     const bl = logoLight ?? logo; // green is the primary mark
     if (!bl) return;
@@ -1095,6 +1102,23 @@ export default function CanvasDeckEditor({
       x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w, h,
       rotation: 0, opacity: 1, locked: false,
       src: bl.url, objectFit: "contain", radius: 0,
+    });
+  }
+  // Drop a snippet from the Content panel onto the current slide as a new text
+  // block. Ink auto-contrasts the slide background so it's legible the instant
+  // it lands; a gentle cascade keeps repeated adds from stacking exactly.
+  function addTextBlock(text: string) {
+    const w = 760;
+    const off = (activeSlide.layers.length % 5) * 24;
+    addLayer({
+      id: makeLayerId(), type: "text",
+      x: Math.round(cx - w / 2 + off), y: Math.round(cy - 70 + off), w, h: 150,
+      rotation: 0, opacity: 1, locked: false,
+      text: text || "Text",
+      fontFamily: "DM Sans", fontSize: 44, fontWeight: 600,
+      italic: false, underline: false, uppercase: false,
+      color: inkForBackground(activeSlide.background),
+      align: "left", lineHeight: 1.2, letterSpacing: 0,
     });
   }
 
@@ -1562,9 +1586,22 @@ export default function CanvasDeckEditor({
       <div className="flex flex-1 min-h-0">
         {/* Left rail */}
         <div className="w-[72px] bg-white border-r border-charcoal/8 flex flex-col items-center py-3 gap-1 shrink-0">
-          <RailBtn label="Templates" active={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
+          <RailBtn
+            label="Templates"
+            active={leftPanel === "templates"}
+            onClick={() => setLeftPanel((p) => (p === "templates" ? null : "templates"))}
+          >
             <TemplatesIcon />
           </RailBtn>
+          {hasContent && (
+            <RailBtn
+              label="Content"
+              active={leftPanel === "content"}
+              onClick={() => setLeftPanel((p) => (p === "content" ? null : "content"))}
+            >
+              <ContentIcon />
+            </RailBtn>
+          )}
           <div className="w-8 h-px bg-charcoal/10 my-1" />
           <RailBtn label="Text" onClick={addText}><TextIcon /></RailBtn>
           <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
@@ -1577,12 +1614,21 @@ export default function CanvasDeckEditor({
         </div>
 
         {/* Templates flyout — scroll the whole catalogue, click to add a slide */}
-        {showTemplates && (
+        {leftPanel === "templates" && (
           <TemplatesPanel
             logo={logo}
             logoLight={logoLight}
             onPick={insertTemplateSlide}
-            onClose={() => setShowTemplates(false)}
+            onClose={() => setLeftPanel(null)}
+          />
+        )}
+
+        {/* Content flyout — report snippets, click to add a text block */}
+        {leftPanel === "content" && content && (
+          <ContentPanel
+            content={content}
+            onPick={addTextBlock}
+            onClose={() => setLeftPanel(null)}
           />
         )}
 
@@ -1682,6 +1728,19 @@ export default function CanvasDeckEditor({
   );
 }
 
+/** Pick legible ink for a solid slide background: charcoal on light fields,
+ *  cream on dark (forest/photo-flat) fields. Gradients/unknown → charcoal. */
+function inkForBackground(bg: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec((bg ?? "").trim());
+  if (!m) return "#1A1A2E";
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return lum > 0.5 ? "#1A1A2E" : "#F7F3E8";
+}
+
 /** Rail icon for the Templates panel — a 2×2 grid of layout cards. */
 function TemplatesIcon() {
   return (
@@ -1690,6 +1749,16 @@ function TemplatesIcon() {
       <rect x="11.5" y="2.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
       <rect x="2.5" y="11.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
       <rect x="11.5" y="11.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+/** Rail icon for the Content panel — lines of text / a document. */
+function ContentIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="3.5" y="2.5" width="13" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M6.5 6.5h7M6.5 9.5h7M6.5 12.5h4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

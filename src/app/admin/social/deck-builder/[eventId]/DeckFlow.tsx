@@ -262,6 +262,7 @@ export default function DeckFlow({
           images={images.images}
           logo={logo}
           logoLight={logoLight}
+          content={content}
           backHref={backHref}
           persist
           forceInitial
