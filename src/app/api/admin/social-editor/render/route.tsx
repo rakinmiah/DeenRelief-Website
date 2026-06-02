@@ -129,26 +129,48 @@ async function render(request: Request): Promise<Response> {
   );
   const uriEntries = await Promise.all(
     imageLayers.map(async (l) => {
+      const UA = {
+        "User-Agent":
+          "DeenReliefSocial/1.0 (https://deenrelief.org; tech@deenrelief.org)",
+      };
+      const isContain = l.objectFit === "contain";
+      const lb = boxOf(l);
       try {
-        const res = await fetch(l.src, {
-          headers: {
-            "User-Agent":
-              "DeenReliefSocial/1.0 (https://deenrelief.org; tech@deenrelief.org)",
-          },
-        });
+        // `contain` art served from Supabase Storage (the brand logo + media
+        // cut-outs) — let Storage resize it. Satori renders very large sources
+        // (e.g. the 2085px logo) BLANK and the serverless sharp path is
+        // unreliable for some PNGs, so we hit Storage's render endpoint with
+        // resize=contain at ~2x the on-board box (crisp, well under Satori's
+        // limit) and inline the already-fitted bytes directly — no sharp.
+        if (isContain && l.src.includes("/storage/v1/object/public/")) {
+          const W = Math.min(1024, Math.max(2, Math.round(lb.w * 2)));
+          const H = Math.min(1024, Math.max(2, Math.round(lb.h * 2)));
+          const url =
+            l.src.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") +
+            `?width=${W}&height=${H}&resize=contain`;
+          const res = await fetch(url, { headers: UA });
+          if (res.ok) {
+            const raw = Buffer.from(await res.arrayBuffer());
+            const mime = res.headers.get("content-type") ?? "image/png";
+            return [l.id, `data:${mime};base64,${raw.toString("base64")}`] as const;
+          }
+          // fall through to the raw object + sharp on any resize-endpoint miss
+        }
+        const res = await fetch(l.src, { headers: UA });
         if (!res.ok) return [l.id, null] as const;
         const raw = Buffer.from(await res.arrayBuffer());
         const fallbackMime = res.headers.get("content-type") ?? "image/jpeg";
-        // Logos / cut-outs (contain) are small on the board — cap them
-        // hard so oversized source art still rasterises; photos get a
-        // generous cap.
-        const isContain = l.objectFit === "contain";
-        if (isContain) {
-          // EXPERIMENT: inline the RAW logo bytes, bypassing sharp, to test
-          // whether sharp (not Satori) is dropping the logo. TEMPORARY.
-          return [l.id, `data:${fallbackMime};base64,${raw.toString("base64")}`] as const;
-        }
-        const { data, mime } = await prepareImage(raw, l.filter, 1600, fallbackMime, undefined);
+        // Satori silently drops objectFit:"contain" — for contain layers we
+        // letterbox to the (laid-out) box with sharp, then paint it cover.
+        const maxDim = isContain ? 700 : 1600;
+        const containBox = isContain
+          ? {
+              w: Math.max(1, Math.round(lb.w)),
+              h: Math.max(1, Math.round(lb.h)),
+              bg: slide.background.startsWith("#") ? slide.background : undefined,
+            }
+          : undefined;
+        const { data, mime } = await prepareImage(raw, l.filter, maxDim, fallbackMime, containBox);
         return [l.id, `data:${mime};base64,${data.toString("base64")}`] as const;
       } catch {
         return [l.id, null] as const;
@@ -444,9 +466,9 @@ function renderInner(
           borderRadius: cornerRadiusCss(l.corners, l.radius),
           overflow: "hidden",
           boxShadow: shadowCss(l.shadow),
-          // DIAGNOSTIC: red backing for contain images (≈ the logo) to see if
-          // the box itself renders. TEMPORARY.
-          background: l.objectFit === "contain" ? "#ff0000" : "#2a3f33",
+          // Transparent for `contain` images (logos / cut-out graphics) so
+          // they sit directly on the slide; loading-tint only for photos.
+          background: l.objectFit === "contain" ? "transparent" : "#2a3f33",
         })}
       >
         {uri ? (
@@ -467,11 +489,7 @@ function renderInner(
               filter: combineFilter(undefined, l.blur),
             })}
           />
-        ) : (
-          // DIAGNOSTIC: a failed image URI (fetch/prepare) renders magenta so
-          // we can see which layer is dropping out. TEMPORARY.
-          <div style={{ display: "flex", width: "100%", height: "100%", background: "#ff00ff" }} />
-        )}
+        ) : null}
       </div>
     );
   }
