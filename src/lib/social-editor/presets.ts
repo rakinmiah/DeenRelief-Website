@@ -200,12 +200,18 @@ function goldBar(x: number, y: number, w: number = 64): ShapeLayer {
 function hTag(t: string, x: number, y: number, w: number, align: TextAlign = "left", opacity = 0.62): TextLayer {
   return text({ x, y, w, h: 30, text: t, fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity, align });
 }
-/** Corner brand mark: the diamond + "DEEN RELIEF" vector type lockup.
- *  (The raster logo only rasterises in Satori at larger sizes — proven —
- *  so it can't be a small corner mark; it's reserved for a prominent
- *  placement, e.g. the CTA slide, where `resolveBrandLogo` feeds it.
- *  `_logo` is threaded through for that.) */
-function wordmark(x: number, y: number, _logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
+/** Corner brand mark: the actual uploaded DR logo when one is available,
+ *  else a diamond + "DEEN RELIEF" type lockup. Every call site uses a cream
+ *  mark on a dark/forest field, so the on-dark (white) logo fed by
+ *  `resolveBrandLogo("logo-on-dark")` is the right variant everywhere. The
+ *  logo is a `contain` image sized to its true aspect at a fixed corner
+ *  height (transparent PNG → sits straight on the slide). */
+function wordmark(x: number, y: number, logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
+  if (logo && logo.url) {
+    const h = 42;
+    const w = Math.max(1, Math.round(h * logo.aspect));
+    return [image({ x, y: y - 5, w, h, src: logo.url, objectFit: "contain" })];
+  }
   return [
     shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: C.amber, rotation: 45 }),
     text({ x: x + 32, y, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color }),

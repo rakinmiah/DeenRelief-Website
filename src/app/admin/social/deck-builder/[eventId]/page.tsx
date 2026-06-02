@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-session";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import { getEmergencyEventById } from "@/lib/first-response";
+import { resolveBrandLogo } from "@/lib/social-editor/logo";
 import DeckFlow, { type EventSummary } from "./DeckFlow";
 
 export const metadata: Metadata = {
@@ -32,6 +33,10 @@ export default async function DeckBuilderPage({
   const event = await getEmergencyEventById(eventId);
   if (!event) notFound();
 
+  // The on-dark (white) DR logo — every slide's corner wordmark sits on a
+  // dark/forest field, so this is the variant the presets need.
+  const { logo } = await resolveBrandLogo("logo-on-dark");
+
   const summary: EventSummary = {
     id: event.id,
     title: event.title,
@@ -56,6 +61,7 @@ export default async function DeckBuilderPage({
     <main className="min-h-screen bg-[#FAFAF7]">
       <DeckFlow
         event={summary}
+        logo={logo}
         backHref={`/admin/social/first-response/legacy/${event.id}`}
       />
     </main>

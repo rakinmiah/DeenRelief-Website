@@ -15,7 +15,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SocialPlatform } from "@/lib/social-templates/types";
-import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
+import { presetForTemplate, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
 import CanvasDeckEditor from "./editor/CanvasDeckEditor";
 import {
   ModeStep,
@@ -76,9 +76,13 @@ const ORDER: Step[] = [
 export default function DeckFlow({
   event,
   backHref,
+  logo,
 }: {
   event: EventSummary;
   backHref: string;
+  /** On-dark DR brand logo, resolved server-side — seeded into every slide's
+   *  corner wordmark so the real logo (not the type lockup) renders. */
+  logo: BrandLogo | null;
 }) {
   const [step, setStep] = useState<Step>("preparing");
   const [dir, setDir] = useState<1 | -1>(1);
@@ -170,10 +174,10 @@ export default function DeckFlow({
       const imageUrl = r.imageId
         ? images.images.find((i) => i.id === r.imageId)?.url ?? null
         : null;
-      const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow };
+      const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo };
       return presetForTemplate(r.templateId, c);
     });
-  }, [results, images, eyebrow]);
+  }, [results, images, eyebrow, logo]);
 
   // The template options for a given slide role — faithful Hero variants
   // for the hero step, the registry group otherwise. Shared by the guided
