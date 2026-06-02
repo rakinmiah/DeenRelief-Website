@@ -48,10 +48,13 @@ function buildSections(content: ContentBundle): Section[] {
 
 export default function ContentPanel({
   content,
+  sourceUrl,
   onPick,
   onClose,
 }: {
   content: ContentBundle;
+  /** Link to the originating news report — shown as "Open source". */
+  sourceUrl?: string | null;
   /** A snippet was chosen — drop this exact text into a new block. */
   onPick: (text: string) => void;
   onClose: () => void;
@@ -62,15 +65,29 @@ export default function ContentPanel({
   return (
     <aside className="w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-charcoal/8 shrink-0">
-        <div>
+        <div className="min-w-0">
           <p className="font-heading font-semibold text-charcoal text-[14px] leading-tight">Content</p>
-          <p className="text-[11px] text-charcoal/45">From the report · tap to add text</p>
+          {sourceUrl ? (
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-green hover:text-green-dark"
+            >
+              Open source
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+                <path d="M4.5 2.5H9.5V7.5M9.5 2.5L4 8M2.5 4v5.5H8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
+          ) : (
+            <p className="text-[11px] text-charcoal/45">From the report · tap to add text</p>
+          )}
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close content"
-          className="text-charcoal/40 hover:text-charcoal text-[20px] leading-none px-1"
+          className="text-charcoal/40 hover:text-charcoal text-[20px] leading-none px-1 shrink-0"
         >
           ×
         </button>

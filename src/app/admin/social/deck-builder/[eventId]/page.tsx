@@ -48,6 +48,7 @@ export default async function DeckBuilderPage({
     countryIso: event.countryIso,
     region: event.region,
     source: event.source,
+    sourceUrl: event.sourceUrl,
     matchedCampaigns: event.matchedCampaigns.map((slug) =>
       isValidCampaign(slug) ? CAMPAIGNS[slug as CampaignSlug] : slug
     ),

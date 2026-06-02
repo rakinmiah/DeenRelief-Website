@@ -64,6 +64,7 @@ import type { BrandLogo } from "@/lib/social-editor/presets";
 import type { ContentBundle } from "../types";
 import TemplatesPanel from "./TemplatesPanel";
 import ContentPanel from "./ContentPanel";
+import QrDialog from "./QrDialog";
 import {
   ToolbarBtn,
   RailBtn,
@@ -91,6 +92,7 @@ export default function CanvasDeckEditor({
   logo = null,
   logoLight = null,
   content = null,
+  sourceUrl = null,
   openTemplatesOnMount = false,
   backHref,
   persist = false,
@@ -107,6 +109,9 @@ export default function CanvasDeckEditor({
   logoLight?: BrandLogo | null;
   /** Extracted news-report content — powers the Content panel's snippets. */
   content?: ContentBundle | null;
+  /** Link to the originating news report — surfaced as "Open source" in the
+   *  Content panel header. */
+  sourceUrl?: string | null;
   /** Open the Templates flyout on mount (used by "Skip to editor", which
    *  lands on a blank canvas so she builds from templates). */
   openTemplatesOnMount?: boolean;
@@ -149,6 +154,7 @@ export default function CanvasDeckEditor({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
+  const [showQr, setShowQr] = useState(false);
   const [scale, setScale] = useState(0.5);
   const [hydrated, setHydrated] = useState(!persist);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -1110,6 +1116,21 @@ export default function CanvasDeckEditor({
       src: bl.url, objectFit: "contain", radius: 0,
     });
   }
+  // Insert a generated donate QR (a PNG data URL) as an image layer, dropped
+  // bottom-right where a "scan to donate" code usually sits.
+  function addQrLayer(dataUrl: string, label: string) {
+    const s = 260;
+    const pad = 80;
+    addLayer({
+      id: makeLayerId(), type: "image", name: label,
+      x: Math.round(activeSlide.width - s - pad),
+      y: Math.round(activeSlide.height - s - pad),
+      w: s, h: s,
+      rotation: 0, opacity: 1, locked: false,
+      src: dataUrl, objectFit: "contain", radius: 0,
+    });
+    setShowQr(false);
+  }
   // Drop a snippet from the Content panel onto the current slide as a new text
   // block. Ink auto-contrasts the slide background so it's legible the instant
   // it lands; a gentle cascade keeps repeated adds from stacking exactly.
@@ -1619,6 +1640,7 @@ export default function CanvasDeckEditor({
           {hasBrandLogo && (
             <RailBtn label="Logo" onClick={addBrandLogo}><BrandLogoIcon /></RailBtn>
           )}
+          <RailBtn label="QR code" onClick={() => setShowQr(true)}><QrIcon /></RailBtn>
           <RailBtn label="Rect" onClick={() => addShape("rect")}><ShapeIcon kind="rect" /></RailBtn>
           <RailBtn label="Circle" onClick={() => addShape("ellipse")}><ShapeIcon kind="ellipse" /></RailBtn>
           <RailBtn label="Line" onClick={() => addShape("line")}><ShapeIcon kind="line" /></RailBtn>
@@ -1638,6 +1660,7 @@ export default function CanvasDeckEditor({
         {leftPanel === "content" && content && (
           <ContentPanel
             content={content}
+            sourceUrl={sourceUrl}
             onPick={addTextBlock}
             onClose={() => setLeftPanel(null)}
           />
@@ -1735,6 +1758,8 @@ export default function CanvasDeckEditor({
       {picker && (
         <ImagePicker images={images} onPick={onPickImage} onClose={() => setPicker(null)} />
       )}
+
+      {showQr && <QrDialog onInsert={addQrLayer} onClose={() => setShowQr(false)} />}
     </div>
   );
 }
@@ -1770,6 +1795,18 @@ function ContentIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
       <rect x="3.5" y="2.5" width="13" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
       <path d="M6.5 6.5h7M6.5 9.5h7M6.5 12.5h4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Rail icon for the QR-code generator. */
+function QrIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="11.5" y="2.5" width="6" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="2.5" y="11.5" width="6" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M11.5 11.5h2.5v2.5M17.5 11.5v6M11.5 17.5h2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

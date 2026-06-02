@@ -46,6 +46,8 @@ export interface EventSummary {
   countryIso: string | null;
   region: string | null;
   source: string;
+  /** Link to the actual news / situation report this event came from. */
+  sourceUrl: string | null;
   matchedCampaigns: string[];
   detectedAtLabel: string | null;
 }
@@ -254,6 +256,7 @@ export default function DeckFlow({
           logo={logo}
           logoLight={logoLight}
           content={content}
+          sourceUrl={event.sourceUrl}
           openTemplatesOnMount={blankStart}
           backHref={backHref}
           persist
