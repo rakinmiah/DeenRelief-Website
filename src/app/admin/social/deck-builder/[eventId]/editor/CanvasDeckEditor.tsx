@@ -1130,7 +1130,10 @@ export default function CanvasDeckEditor({
   /* ── Template import (from the "View templates" browser) ──────────────
    * The browser tab writes the chosen template's slide to localStorage; we
    * pick it up here (immediately via the cross-tab `storage` event, and on
-   * mount/focus as a fallback) and enter placement mode. */
+   * mount/focus as a fallback) and AUTO-INSERT it as a new slide — no
+   * placement step. The handoff is consumed on read so a refocus/replay can't
+   * double-insert; the second effect does the actual append (it needs the
+   * current `deck`, which the mount-only reader can't close over). */
   const IMPORT_KEY = "dr-template-import";
   useEffect(() => {
     const read = () => {
@@ -1139,11 +1142,10 @@ export default function CanvasDeckEditor({
         if (!raw) return;
         const data = JSON.parse(raw) as { slide?: EditorSlide; name?: string; ts?: number };
         if (!data?.slide || !Array.isArray(data.slide.layers)) return;
-        // Drop stale handoffs (>10 min) so an old import can't resurface.
-        if (data.ts && Date.now() - data.ts > 600_000) {
-          localStorage.removeItem(IMPORT_KEY);
-          return;
-        }
+        // Consume immediately (drop stale >10-min handoffs too) so mount /
+        // focus / storage replays never re-insert the same template.
+        localStorage.removeItem(IMPORT_KEY);
+        if (data.ts && Date.now() - data.ts > 600_000) return;
         setPendingImport({ slide: data.slide, name: data.name ?? "Template" });
       } catch {
         /* ignore malformed handoff */
@@ -1151,7 +1153,7 @@ export default function CanvasDeckEditor({
     };
     read();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === IMPORT_KEY) read();
+      if (e.key === IMPORT_KEY && e.newValue) read();
     };
     window.addEventListener("storage", onStorage);
     window.addEventListener("focus", read);
@@ -1161,31 +1163,16 @@ export default function CanvasDeckEditor({
     };
   }, []);
 
-  function clearImport() {
-    setPendingImport(null);
-    try {
-      localStorage.removeItem(IMPORT_KEY);
-    } catch {
-      /* ignore */
-    }
-  }
-  function importAsNewSlide() {
+  // Auto-insert the handed-off template as a new slide, then make it active.
+  useEffect(() => {
     if (!pendingImport) return;
     const slide = cloneSlideFresh(pendingImport.slide);
     const next = [...deck, slide];
     commitSlides(next);
     setActiveIndex(next.length - 1);
     setSelectedIds([]);
-    clearImport();
-  }
-  function importReplaceSlide(i: number) {
-    if (!pendingImport) return;
-    const slide = cloneSlideFresh(pendingImport.slide);
-    commitSlides(deck.map((s, idx) => (idx === i ? slide : s)));
-    setActiveIndex(i);
-    setSelectedIds([]);
-    clearImport();
-  }
+    setPendingImport(null);
+  }, [pendingImport, deck, commitSlides]);
   function deleteSlide(i: number) {
     if (deck.length <= 1) return;
     const next = deck.filter((_, idx) => idx !== i);
@@ -1452,25 +1439,6 @@ export default function CanvasDeckEditor({
           </div>
         </div>
 
-        {/* Template-placement banner — shown while a template waits to be
-            placed (imported from the View-templates browser). */}
-        {pendingImport && (
-          <div className="flex items-center justify-between gap-3 px-4 pb-2 border-t border-green/20 pt-2 bg-green/5">
-            <span className="text-[12.5px] font-medium text-green flex items-center gap-1.5">
-              <span aria-hidden>↘</span>
-              Placing <span className="font-semibold">{pendingImport.name}</span> — click a slide below to
-              replace it, or press the <span className="font-semibold">+</span> to add it as a new slide.
-            </span>
-            <button
-              type="button"
-              onClick={clearImport}
-              className="text-[12px] text-green/70 hover:text-green underline shrink-0"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
         {/* Edit-master banner — shown while editing a component's layers. */}
         {editingComponent && (
           <div className="flex items-center justify-between gap-3 px-4 pb-2 border-t border-green/20 pt-2 bg-green/5">
@@ -1611,22 +1579,16 @@ export default function CanvasDeckEditor({
                 index={i}
                 active={i === ai}
                 canDelete={deck.length > 1}
-                placing={!!pendingImport}
-                onSelect={() => (pendingImport ? importReplaceSlide(i) : selectSlide(i))}
+                onSelect={() => selectSlide(i)}
                 onDelete={() => deleteSlide(i)}
                 onDuplicate={() => duplicateSlide(i)}
               />
             ))}
             <button
               type="button"
-              onClick={() => (pendingImport ? importAsNewSlide() : addSlide())}
-              className={`shrink-0 w-[84px] h-[84px] rounded-lg border-2 border-dashed grid place-items-center transition ${
-                pendingImport
-                  ? "border-green/70 text-green bg-green/5 ring-2 ring-green/30"
-                  : "border-charcoal/15 text-charcoal/40 hover:border-green/50 hover:text-green"
-              }`}
-              aria-label={pendingImport ? "Add the template as a new slide" : "Add slide"}
-              title={pendingImport ? "Add the template as a new slide" : "Add slide"}
+              onClick={addSlide}
+              className="shrink-0 w-[84px] h-[84px] rounded-lg border-2 border-dashed border-charcoal/15 grid place-items-center text-charcoal/40 hover:border-green/50 hover:text-green transition"
+              aria-label="Add slide"
             >
               <PlusIcon />
             </button>
@@ -1669,7 +1631,6 @@ function SlideThumb({
   index,
   active,
   canDelete,
-  placing,
   onSelect,
   onDelete,
   onDuplicate,
@@ -1679,8 +1640,6 @@ function SlideThumb({
   index: number;
   active: boolean;
   canDelete: boolean;
-  /** Placement mode: clicking the thumb replaces it with the pending import. */
-  placing?: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -1719,11 +1678,6 @@ function SlideThumb({
           );
         })}
       </button>
-      {placing && (
-        <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-lg bg-green/0 text-white text-[11px] font-bold uppercase tracking-wide opacity-0 transition group-hover:bg-green/70 group-hover:opacity-100">
-          Replace
-        </span>
-      )}
       <span className="absolute -bottom-0.5 left-1 text-[10px] font-semibold text-charcoal/40">{index + 1}</span>
       <div className="absolute -top-1.5 -right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">
         <button

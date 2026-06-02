@@ -258,9 +258,8 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
                 </button>
                 {inserted && (
                   <div style={{ fontSize: 12, color: "#cbe8d0", maxWidth: 300, lineHeight: 1.5, textAlign: "right" }}>
-                    ✓ “{inserted}” added — switch to your editor tab, then{" "}
-                    <strong style={{ color: "#fff" }}>click a slide to replace</strong> or press{" "}
-                    <strong style={{ color: "#fff" }}>+</strong> to add.
+                    ✓ “{inserted}” added as a new slide — switch to your{" "}
+                    <strong style={{ color: "#fff" }}>editor tab</strong> to see it.
                   </div>
                 )}
               </div>
