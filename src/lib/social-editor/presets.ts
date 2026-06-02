@@ -61,9 +61,6 @@ function shape(p: Partial<ShapeLayer> & Pick<ShapeLayer, "x" | "y" | "w" | "h" |
     fill: C.forest, stroke: C.forest, strokeWidth: 0, radius: 0, ...p,
   };
 }
-function brandMark(color: string = C.cream): TextLayer {
-  return text({ x: 56, y: 52, w: 360, h: 40, text: "DEEN RELIEF", fontFamily: SANS, fontSize: 26, fontWeight: 800, uppercase: true, letterSpacing: 1, color });
-}
 function eyebrowLayer(t: string, y: number, color: string = C.amber): TextLayer {
   return text({ x: 56, y, w: 760, h: 36, text: t, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color, opacity: 0.9 });
 }
@@ -845,7 +842,7 @@ function multiStatStack(c: SlideContent): EditorSlide {
 function factTypography(c: SlideContent): EditorSlide {
   return slide(
     [
-      brandMark(C.forest),
+      ...wordmark(56, 52, c, C.forest),
       eyebrowLayer(c.eyebrow, 140, C.green),
       rule(64, 196),
       text({ x: 64, y: 248, w: B - 128, h: 560, text: c.primary, fontFamily: SANS, fontSize: 56, fontWeight: 800, lineHeight: 1.12, color: C.charcoal }),
@@ -871,7 +868,7 @@ function factPhoto(c: SlideContent): EditorSlide {
 function statHeadline(c: SlideContent): EditorSlide {
   return slide(
     [
-      brandMark(),
+      ...wordmark(56, 52, c),
       rule(64, 320),
       eyebrowLayer(c.eyebrow, 352),
       text({ x: 64, y: 404, w: B - 128, h: 420, text: c.primary, fontFamily: DISPLAY, fontSize: 64, fontWeight: 400, uppercase: true, lineHeight: 1.04, color: C.cream }),
@@ -886,7 +883,7 @@ function statHeadline(c: SlideContent): EditorSlide {
 function testimonyQuote(c: SlideContent): EditorSlide {
   return slide(
     [
-      brandMark(C.forest),
+      ...wordmark(56, 52, c, C.forest),
       text({ x: 56, y: 150, w: 200, h: 160, text: "“", fontFamily: SERIF, fontSize: 200, fontWeight: 700, color: C.amber, opacity: 0.5 }),
       text({ x: 64, y: 320, w: B - 128, h: 460, text: c.primary, fontFamily: SERIF, fontSize: 50, fontWeight: 600, lineHeight: 1.28, color: C.charcoal }),
       ...(c.secondary ? [text({ x: 64, y: B - 150, w: B - 128, h: 40, text: `— ${c.secondary}`, fontSize: 24, fontWeight: 600, color: C.green })] : []),
@@ -924,7 +921,7 @@ function responsePhoto(c: SlideContent): EditorSlide {
 function ctaDonate(c: SlideContent): EditorSlide {
   return slide(
     [
-      brandMark(),
+      ...wordmark(56, 52, c),
       text({ x: 80, y: 360, w: B - 160, h: 300, text: c.primary, fontFamily: DISPLAY, fontSize: 80, fontWeight: 400, uppercase: true, lineHeight: 1.02, color: C.cream, align: "center" }),
       shape({ x: B / 2 - 200, y: 720, w: 400, h: 92, shape: "rect", fill: C.amber, radius: 46 }),
       text({ x: B / 2 - 200, y: 748, w: 400, h: 48, text: "DONATE NOW", fontFamily: SANS, fontSize: 34, fontWeight: 800, uppercase: true, letterSpacing: 1, color: C.forest, align: "center" }),
