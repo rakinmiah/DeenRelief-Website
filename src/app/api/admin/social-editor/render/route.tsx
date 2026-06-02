@@ -474,7 +474,11 @@ function renderInner(
               filter: combineFilter(undefined, l.blur),
             })}
           />
-        ) : null}
+        ) : (
+          // DIAGNOSTIC: a failed image URI (fetch/prepare) renders magenta so
+          // we can see which layer is dropping out. TEMPORARY.
+          <div style={{ display: "flex", width: "100%", height: "100%", background: "#ff00ff" }} />
+        )}
       </div>
     );
   }
