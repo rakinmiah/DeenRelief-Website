@@ -72,7 +72,12 @@ export async function prepareImage(
     if (!tooBig && !hasFilter && !containBox) {
       return { data: buf, mime: fallbackMime };
     }
-    if (tooBig) {
+    // Pre-downscale large art — but NOT when a containBox is set: that path
+    // resizes to the exact box below, and sharp throws if `.resize()` is
+    // called twice on one pipeline. The double call silently dropped large
+    // logos (e.g. the 2085px DR wordmark) to a blank export — the contain
+    // resize already downscales, so the pre-resize is redundant there.
+    if (tooBig && !containBox) {
       img = img.resize({ width: maxDim, height: maxDim, fit: "inside", withoutEnlargement: true });
     }
     switch (filter) {
