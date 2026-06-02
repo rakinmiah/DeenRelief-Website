@@ -91,6 +91,7 @@ export default function CanvasDeckEditor({
   logo = null,
   logoLight = null,
   content = null,
+  openTemplatesOnMount = false,
   backHref,
   persist = false,
   forceInitial = false,
@@ -106,6 +107,9 @@ export default function CanvasDeckEditor({
   logoLight?: BrandLogo | null;
   /** Extracted news-report content — powers the Content panel's snippets. */
   content?: ContentBundle | null;
+  /** Open the Templates flyout on mount (used by "Skip to editor", which
+   *  lands on a blank canvas so she builds from templates). */
+  openTemplatesOnMount?: boolean;
   backHref?: string;
   persist?: boolean;
   /** Use initialDeck as-is and skip loading any saved draft (the deck
@@ -151,7 +155,9 @@ export default function CanvasDeckEditor({
   const [exporting, setExporting] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
   // One left flyout open at a time: the template browser or the content picker.
-  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content">(null);
+  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content">(
+    openTemplatesOnMount ? "templates" : null
+  );
   // Component "edit master" mode: when set, the editor is editing the
   // layers of this {componentId, variant} on a temporary edit slide; on
   // exit the edited layers are written back into the component definition
@@ -1184,7 +1190,12 @@ export default function CanvasDeckEditor({
   // slide (fresh layer ids), then jump to it. The panel stays open so she can
   // keep browsing/adding, Canva-style.
   function insertTemplateSlide(slide: EditorSlide) {
-    const next = [...deck, cloneSlideFresh(slide)];
+    const fresh = cloneSlideFresh(slide);
+    // On a fresh blank canvas (a single empty slide), the first template
+    // REPLACES that blank so there's no leftover empty page; after that we
+    // append, Canva-style.
+    const onlyBlank = deck.length === 1 && (deck[0]?.layers.length ?? 0) === 0;
+    const next = onlyBlank ? [fresh] : [...deck, fresh];
     commitSlides(next);
     setActiveIndex(next.length - 1);
     setSelectedIds([]);

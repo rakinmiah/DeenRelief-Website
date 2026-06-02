@@ -92,6 +92,9 @@ export default function DeckFlow({
   const [dir, setDir] = useState<1 | -1>(1);
   const [platform, setPlatform] = useState<SocialPlatform | null>(null);
   const [slideCount, setSlideCount] = useState<number | null>(null);
+  // "Skip to editor" lands on a BLANK canvas with the Templates panel open,
+  // rather than an auto-drafted deck.
+  const [blankStart, setBlankStart] = useState(false);
 
   // Data fetched during "preparing".
   const [content, setContent] = useState<ContentBundle | null>(null);
@@ -229,25 +232,13 @@ export default function DeckFlow({
   }
 
   // SMM shortcut (step 2 onwards): skip the remaining questions and drop
-  // straight into the canvas editor, seeded with a quick auto-draft of the
-  // current plan (or the suggested plan if none has been chosen yet) so the
-  // event's extracted content + imagery still carry through.
+  // straight into the canvas editor on a BLANK canvas with the Templates
+  // panel open, so she builds from scratch by picking templates. The event's
+  // extracted content + imagery still ride along (Content panel + image
+  // picker) — she just isn't handed a pre-drafted deck.
   function skipToEditor() {
     if (!content || !images) return;
-    const count = slideCount ?? suggestedSlideCount;
-    const p = plan.length ? plan : suggestPlan(count, content);
-    const fills = autoFillPlan(p, content, images);
-    const seeded: SlideResult[] = fills.map((f, index) => ({
-      role: f.role,
-      index,
-      title: f.title,
-      subtext: f.subtext,
-      imageId: f.imageId,
-      templateId: defaultTemplateId(f.role, templatesForRole(f.role), !!f.imageId),
-    }));
-    setPlan(p);
-    setResults(seeded);
-    setCurrentSlide(0);
+    setBlankStart(true);
     go("build");
   }
 
@@ -256,13 +247,14 @@ export default function DeckFlow({
     return (
       <div className="fixed inset-0 z-50 bg-[#F4F4F2]">
         <CanvasDeckEditor
-          initialDeck={seedSlides}
+          initialDeck={blankStart ? [] : seedSlides}
           eventId={event.id}
           platform={platform}
           images={images.images}
           logo={logo}
           logoLight={logoLight}
           content={content}
+          openTemplatesOnMount={blankStart}
           backHref={backHref}
           persist
           forceInitial
@@ -428,7 +420,7 @@ export default function DeckFlow({
                 Skip to editor
               </button>
               <p className="text-[12.5px] text-charcoal/50 mt-2">
-                Jump straight into the canvas with a quick auto-draft — skip the rest of the setup.
+                Jump straight into the canvas on a blank slide — pick templates from the panel and build it yourself.
               </p>
             </div>
           )}
