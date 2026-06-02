@@ -1489,7 +1489,7 @@ export default function CanvasDeckEditor({
 
         {/* Contextual toolbar */}
         {(single || showAlign) && !editingId && (
-          <div className="flex items-center gap-2 px-4 pb-2 border-t border-charcoal/5 pt-1.5 min-h-[48px] overflow-x-auto">
+          <div className="flex items-center gap-2 px-4 pb-2 border-t border-charcoal/5 pt-1.5 min-h-[48px] overflow-x-auto [&>*]:shrink-0">
             {selectedInstance ? (
               <InstanceToolbar
                 instance={selectedInstance}

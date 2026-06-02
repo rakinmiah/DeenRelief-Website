@@ -115,7 +115,7 @@ export function ContextToolbar({
   onArrange: (dir: "front" | "back" | "forward" | "backward") => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5 flex-wrap w-full">
+    <div className="flex items-center gap-1.5 [&>*]:shrink-0">
       {layer.type === "text" && <TextControls layer={layer} onChange={onChange} />}
       {layer.type === "image" && (
         <ImageControls layer={layer} onChange={onChange} onReplaceImage={onReplaceImage} />
@@ -842,7 +842,7 @@ export function InstanceToolbar({
     (l) => l.type === "text" || l.type === "shape" || l.type === "image"
   );
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-center gap-1.5 [&>*]:shrink-0">
       <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-charcoal/70 whitespace-nowrap">
         <span className="text-green"><ComponentIcon /></span>
         {def.name}
