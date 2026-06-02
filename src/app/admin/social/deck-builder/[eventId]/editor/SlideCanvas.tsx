@@ -296,6 +296,11 @@ export default function SlideCanvas({
           snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           snapGap
+          /* Show the px distance labels on the red guides + equal-gap
+           * markers (Figma behaviour), rounded to whole numbers. */
+          isDisplaySnapDigit
+          isDisplayInnerSnapDigit
+          snapDigit={0}
           verticalGuidelines={vGuides}
           horizontalGuidelines={hGuides}
           elementGuidelines={elementGuidelines}

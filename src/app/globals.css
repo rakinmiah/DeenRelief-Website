@@ -374,3 +374,49 @@ main {
   outline: none;
   border-color: var(--color-green);
 }
+
+/* ============================================
+   SLIDE EDITOR — Figma-style smart-alignment guides
+   ============================================
+   The deck-builder canvas runs react-moveable with snapping on: when a
+   layer's edge or centre lines up with the slide (edges + centre) or with
+   another layer, a guide line is drawn and the layer snaps to it. By
+   default moveable paints those guides a thin blue (#4af) — the SAME colour
+   as the selection box — so they barely register. We recolour them to a
+   bold Figma red and thicken the active (snapped) line, while leaving the
+   selection box + handles their own colour. The result reads like Figma:
+   blue = your selection, red = "this edge/centre is aligned", and it sticks
+   when fully aligned. !important is used because moveable injects its own
+   single-class rules into <head> at runtime. */
+
+/* Solid guide line (slide-edge / centre snap). */
+.moveable-line.moveable-guideline {
+  background: #ff2d2d !important;
+}
+/* Active snapped line — solid + thicker so "fully aligned" is unmistakable. */
+.moveable-line.moveable-guideline.moveable-bold.moveable-vertical {
+  width: 2px !important;
+  background: #ff2d2d !important;
+}
+.moveable-line.moveable-guideline.moveable-bold.moveable-horizontal {
+  height: 2px !important;
+  background: #ff2d2d !important;
+}
+/* Pre-snap dashed element guides — colour the dashed border, keep fill clear. */
+.moveable-line.moveable-guideline.moveable-dashed.moveable-horizontal {
+  background: transparent !important;
+  border-top-color: #ff2d2d !important;
+}
+.moveable-line.moveable-guideline.moveable-dashed.moveable-vertical {
+  background: transparent !important;
+  border-left-color: #ff2d2d !important;
+}
+/* Equal-spacing (gap) markers + the distance digits, in the same red. */
+.moveable-line.moveable-gap,
+.moveable-gap {
+  background: #ff2d2d !important;
+}
+.moveable-size-value,
+.moveable-size-value.moveable-gap {
+  color: #ff2d2d !important;
+}
