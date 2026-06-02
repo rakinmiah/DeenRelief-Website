@@ -220,6 +220,29 @@ export default function DeckFlow({
     go("review");
   }
 
+  // SMM shortcut (step 2 onwards): skip the remaining questions and drop
+  // straight into the canvas editor, seeded with a quick auto-draft of the
+  // current plan (or the suggested plan if none has been chosen yet) so the
+  // event's extracted content + imagery still carry through.
+  function skipToEditor() {
+    if (!content || !images) return;
+    const count = slideCount ?? suggestedSlideCount;
+    const p = plan.length ? plan : suggestPlan(count, content);
+    const fills = autoFillPlan(p, content, images);
+    const seeded: SlideResult[] = fills.map((f, index) => ({
+      role: f.role,
+      index,
+      title: f.title,
+      subtext: f.subtext,
+      imageId: f.imageId,
+      templateId: defaultTemplateId(f.role, templatesForRole(f.role), !!f.imageId),
+    }));
+    setPlan(p);
+    setResults(seeded);
+    setCurrentSlide(0);
+    go("build");
+  }
+
   /* ── Full-bleed: the canvas editor ───────────────────────────── */
   if (step === "build" && content && images && platform) {
     return (
@@ -311,6 +334,21 @@ export default function DeckFlow({
               transition={{ type: "spring", stiffness: 120, damping: 20 }}
             />
           </div>
+          {/* SMM shortcut — from step 2 (count) onwards, jump straight to the
+              editor with a quick auto-draft instead of finishing the wizard. */}
+          {(step === "count" || step === "plan" || step === "mode") && ready && (
+            <button
+              type="button"
+              onClick={skipToEditor}
+              title="Skip the rest and open the editor with a quick draft"
+              className="shrink-0 text-charcoal/45 hover:text-green text-[13px] font-medium flex items-center gap-1"
+            >
+              Skip to editor
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
