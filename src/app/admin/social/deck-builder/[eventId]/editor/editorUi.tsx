@@ -7,7 +7,96 @@
  * in one place so every surface stays visually in sync.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { createPortal } from "react-dom";
+
+/* ─── Anchored portal dropdown ────────────────────────────────────────
+ * Renders a floating panel anchored to a trigger element, but in a PORTAL
+ * to <body> with fixed positioning — so it escapes any clipping ancestor.
+ * The contextual toolbar is a horizontal-scroll strip (overflow-x:auto,
+ * which forces overflow-y to clip): an in-flow `absolute` dropdown would be
+ * cut off there. Portalling fixes every toolbar popover/colour picker in one
+ * place. Closes on outside-click (trigger + panel are both "inside") and
+ * repositions on scroll/resize. */
+export function AnchoredPanel({
+  anchorRef,
+  open,
+  onClose,
+  children,
+  className,
+}: {
+  anchorRef: RefObject<HTMLElement | null>;
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    const place = () => {
+      const a = anchorRef.current?.getBoundingClientRect();
+      if (!a) return;
+      const pw = panelRef.current?.offsetWidth ?? 240;
+      const ph = panelRef.current?.offsetHeight ?? 240;
+      let left = Math.min(a.left, window.innerWidth - pw - 8);
+      left = Math.max(8, left);
+      let top = a.bottom + 6;
+      if (top + ph > window.innerHeight - 8) {
+        const above = a.top - ph - 6;
+        top = above >= 8 ? above : Math.max(8, window.innerHeight - ph - 8);
+      }
+      setCoords({ top, left });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, anchorRef]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (anchorRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open, anchorRef, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      ref={panelRef}
+      style={{
+        position: "fixed",
+        top: coords?.top ?? -9999,
+        left: coords?.left ?? -9999,
+        visibility: coords ? "visible" : "hidden",
+      }}
+      className={`z-[80] bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 ${className ?? ""}`}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
 
 /* ─── Buttons ─────────────────────────────────────────────────────── */
 
@@ -213,7 +302,7 @@ export function ColorField({
 }) {
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<string[]>([]);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   // EyeDropper is a client-only, progressively-enhanced API — feature
   // detect on mount so SSR never touches `window` and unsupported
@@ -227,15 +316,6 @@ export function ColorField({
   useEffect(() => {
     setSaved(readSavedSwatches());
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
 
   const transparent = !value || value === "transparent";
 
@@ -268,8 +348,9 @@ export function ColorField({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="h-9 px-2 rounded-lg ring-1 ring-charcoal/10 hover:bg-charcoal/5 flex items-center gap-1.5 text-[12.5px] text-charcoal/70"
@@ -284,8 +365,7 @@ export function ColorField({
         />
         {label ?? ""}
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 z-50 w-60 p-3 flex flex-col gap-3">
+      <AnchoredPanel anchorRef={btnRef} open={open} onClose={() => setOpen(false)} className="w-60 p-3 flex flex-col gap-3">
           {/* Hex input + eyedropper */}
           <div className="flex items-center gap-2">
             <span
@@ -386,9 +466,8 @@ export function ColorField({
               </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+      </AnchoredPanel>
+    </>
   );
 }
 

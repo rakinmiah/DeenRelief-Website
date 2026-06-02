@@ -10,7 +10,7 @@
  * through onChange callbacks the editor commits to history.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import type {
   AutoLayout,
@@ -31,6 +31,7 @@ import { listDisplayText, resolveVariant, textCaseFor } from "@/lib/social-edito
 import { FONT_OPTIONS, bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { FILTER_PRESETS } from "@/lib/social-editor/imageStyle";
 import {
+  AnchoredPanel,
   NumField,
   ColorField,
   AlignIcon,
@@ -497,18 +498,11 @@ function FillControl({ value, onChange }: { value: string; onChange: (v: string)
   const gradient = isGradient(value);
   const g = gradient ? parseGradient(value) : DEFAULT_GRAD;
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
+  const btnRef = useRef<HTMLButtonElement>(null);
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="h-9 px-2 rounded-lg ring-1 ring-charcoal/10 hover:bg-charcoal/5 flex items-center gap-1.5 text-[12.5px] text-charcoal/70"
@@ -516,8 +510,7 @@ function FillControl({ value, onChange }: { value: string; onChange: (v: string)
         <span className="w-4 h-4 rounded-[5px] ring-1 ring-charcoal/15" style={{ background: value }} />
         Fill
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 z-50 w-56 p-3">
+      <AnchoredPanel anchorRef={btnRef} open={open} onClose={() => setOpen(false)} className="w-56 p-3">
           <Checkbox
             label="Gradient"
             checked={gradient}
@@ -551,9 +544,8 @@ function FillControl({ value, onChange }: { value: string; onChange: (v: string)
               <ColorField label="Solid colour" value={value} onChange={onChange} allowTransparent />
             </div>
           )}
-        </div>
-      )}
-    </div>
+      </AnchoredPanel>
+    </>
   );
 }
 
@@ -1517,18 +1509,11 @@ function Popover({
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
+  const btnRef = useRef<HTMLButtonElement>(null);
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`h-9 px-2.5 rounded-lg text-[13px] text-charcoal/75 hover:bg-charcoal/5 flex items-center gap-1 ${open ? "bg-charcoal/5" : ""} ${wide ? "min-w-[120px] justify-between ring-1 ring-charcoal/10" : ""}`}
@@ -1536,12 +1521,10 @@ function Popover({
         <span className="truncate">{label}</span>
         <svg width="12" height="12" viewBox="0 0 12 12" className="text-charcoal/40"><path d="M3 4.5L6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-white rounded-xl shadow-xl ring-1 ring-charcoal/10 z-50">
-          {children(() => setOpen(false))}
-        </div>
-      )}
-    </div>
+      <AnchoredPanel anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
+        {children(() => setOpen(false))}
+      </AnchoredPanel>
+    </>
   );
 }
 
