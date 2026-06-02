@@ -77,12 +77,16 @@ export default function DeckFlow({
   event,
   backHref,
   logo,
+  logoLight,
 }: {
   event: EventSummary;
   backHref: string;
-  /** On-dark DR brand logo, resolved server-side — seeded into every slide's
-   *  corner wordmark so the real logo (not the type lockup) renders. */
+  /** On-dark (white) DR brand logo, resolved server-side — the reversed
+   *  fallback, used only on dark slide backgrounds. */
   logo: BrandLogo | null;
+  /** On-light (green) DR brand logo — the PRIMARY mark. Presets prefer this
+   *  and fall back to white only when the slide field is dark. */
+  logoLight: BrandLogo | null;
 }) {
   const [step, setStep] = useState<Step>("preparing");
   const [dir, setDir] = useState<1 | -1>(1);
@@ -174,10 +178,10 @@ export default function DeckFlow({
       const imageUrl = r.imageId
         ? images.images.find((i) => i.id === r.imageId)?.url ?? null
         : null;
-      const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo };
+      const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo, logoLight };
       return presetForTemplate(r.templateId, c);
     });
-  }, [results, images, eyebrow, logo]);
+  }, [results, images, eyebrow, logo, logoLight]);
 
   // The template options for a given slide role — faithful Hero variants
   // for the hero step, the registry group otherwise. Shared by the guided
@@ -276,6 +280,8 @@ export default function DeckFlow({
         images={images}
         templates={templatesForRole(role)}
         eyebrow={eyebrow}
+        logo={logo}
+        logoLight={logoLight}
         onComplete={(result) => {
           setResults((prev) => {
             const next = [...prev];
@@ -297,6 +303,8 @@ export default function DeckFlow({
         content={content}
         images={images}
         eyebrow={eyebrow}
+        logo={logo}
+        logoLight={logoLight}
         templatesForRole={templatesForRole}
         onChange={setResults}
         onBack={() => go("mode")}

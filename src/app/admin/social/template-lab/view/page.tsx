@@ -19,6 +19,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function ViewTemplatesPage() {
   await requireAdminSession();
-  const { logo } = await resolveBrandLogo("logo-on-dark");
-  return <TemplateSorter logo={logo} />;
+  const [{ logo }, { logo: logoLight }] = await Promise.all([
+    resolveBrandLogo("logo-on-dark"),
+    resolveBrandLogo("logo-on-light"),
+  ]);
+  return <TemplateSorter logo={logo} logoLight={logoLight} />;
 }

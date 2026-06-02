@@ -19,7 +19,12 @@ export const dynamic = "force-dynamic";
 export default async function TemplateLabPage() {
   await requireAdminSession();
 
-  const { logo } = await resolveBrandLogo("logo-on-dark");
+  // Both variants: green (on-light) is the primary mark, white (on-dark) the
+  // reversed fallback — the presets pick per slide background.
+  const [{ logo }, { logo: logoLight }] = await Promise.all([
+    resolveBrandLogo("logo-on-dark"),
+    resolveBrandLogo("logo-on-light"),
+  ]);
 
-  return <HeroLab logo={logo} />;
+  return <HeroLab logo={logo} logoLight={logoLight} />;
 }

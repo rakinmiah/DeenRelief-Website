@@ -26,7 +26,13 @@ const WORKSPACE = "#3b3b3b"; // PowerPoint's dark slide-area grey
 
 type Numbered = { variant: Variant; number: number; catKey: string };
 
-export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
+export default function TemplateSorter({
+  logo,
+  logoLight,
+}: {
+  logo: BrandLogo | null;
+  logoLight: BrandLogo | null;
+}) {
   // Flatten the catalogue in section order, assigning running slide numbers.
   const sections = useMemo(
     () =>
@@ -57,7 +63,7 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
   useEffect(() => setInserted(null), [selectedId]);
   function insertIntoDeck(variant: Variant) {
     try {
-      const slide = presetForTemplate(variant.id, { ...variant.c, logo });
+      const slide = presetForTemplate(variant.id, { ...variant.c, logo, logoLight });
       localStorage.setItem(
         "dr-template-import",
         JSON.stringify({ slide, name: variant.label, ts: Date.now() })
@@ -186,6 +192,7 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
                     selected={v.id === selectedId}
                     onSelect={() => setSelectedId(v.id)}
                     logo={logo}
+                    logoLight={logoLight}
                     rootRef={railRef}
                   />
                 );
@@ -276,7 +283,7 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
               padding: "0 28px 28px",
             }}
           >
-            {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} />}
+            {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} logoLight={logoLight} />}
           </div>
         </div>
       </div>
@@ -285,7 +292,12 @@ export default function TemplateSorter({ logo }: { logo: BrandLogo | null }) {
 }
 
 /** Fires a Satori render for `variant` once `active` is true; returns state. */
-function useSlideImage(variant: Variant | null, active: boolean, logo: BrandLogo | null) {
+function useSlideImage(
+  variant: Variant | null,
+  active: boolean,
+  logo: BrandLogo | null,
+  logoLight: BrandLogo | null
+) {
   const [state, setState] = useState<{
     status: "idle" | "loading" | "ok" | "error";
     url?: string;
@@ -299,7 +311,7 @@ function useSlideImage(variant: Variant | null, active: boolean, logo: BrandLogo
     setState({ status: "loading" });
     (async () => {
       try {
-        const slide = presetForTemplate(variant.id, { ...variant.c, logo });
+        const slide = presetForTemplate(variant.id, { ...variant.c, logo, logoLight });
         const res = await fetch("/api/admin/social-editor/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -321,7 +333,7 @@ function useSlideImage(variant: Variant | null, active: boolean, logo: BrandLogo
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [variant, active, logo]);
+  }, [variant, active, logo, logoLight]);
 
   return state;
 }
@@ -332,6 +344,7 @@ function RailThumb({
   selected,
   onSelect,
   logo,
+  logoLight,
   rootRef,
 }: {
   variant: Variant;
@@ -339,6 +352,7 @@ function RailThumb({
   selected: boolean;
   onSelect: () => void;
   logo: BrandLogo | null;
+  logoLight: BrandLogo | null;
   rootRef: RefObject<HTMLDivElement | null>;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
@@ -362,7 +376,7 @@ function RailThumb({
     return () => io.disconnect();
   }, [rootRef]);
 
-  const img = useSlideImage(variant, inView, logo);
+  const img = useSlideImage(variant, inView, logo, logoLight);
 
   return (
     <button
@@ -413,8 +427,16 @@ function RailThumb({
   );
 }
 
-function Preview({ variant, logo }: { variant: Variant; logo: BrandLogo | null }) {
-  const img = useSlideImage(variant, true, logo);
+function Preview({
+  variant,
+  logo,
+  logoLight,
+}: {
+  variant: Variant;
+  logo: BrandLogo | null;
+  logoLight: BrandLogo | null;
+}) {
+  const img = useSlideImage(variant, true, logo, logoLight);
   return (
     <div
       style={{

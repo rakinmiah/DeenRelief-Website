@@ -12,7 +12,7 @@ import type {
   SocialPlatform,
   TemplateMeta,
 } from "@/lib/social-templates/types";
-import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
+import { presetForTemplate, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
 import type { EventSummary } from "./DeckFlow";
 import { ROLES, MIDDLE_ROLES, type SlideRole } from "./slideRoles";
 import type { SlideResult } from "./SlideBuilder";
@@ -545,6 +545,8 @@ export function ReviewStep({
   content,
   images,
   eyebrow,
+  logo,
+  logoLight,
   templatesForRole,
   onChange,
   onBack,
@@ -554,6 +556,10 @@ export function ReviewStep({
   content: ContentBundle;
   images: ImageBundle;
   eyebrow: string;
+  /** On-dark (white) logo — reversed fallback for dark backgrounds. */
+  logo: BrandLogo | null;
+  /** On-light (green) logo — the primary mark presets prefer. */
+  logoLight: BrandLogo | null;
   templatesForRole: (role: SlideRole) => TemplateMeta[];
   onChange: (next: SlideResult[]) => void;
   onBack: () => void;
@@ -612,6 +618,8 @@ export function ReviewStep({
               content={content}
               images={images}
               eyebrow={eyebrow}
+              logo={logo}
+              logoLight={logoLight}
               templates={templatesForRole(r.role)}
               open={expanded === i}
               onToggle={() => setExpanded((e) => (e === i ? null : i))}
@@ -631,6 +639,8 @@ function SlideReviewCard({
   content,
   images,
   eyebrow,
+  logo,
+  logoLight,
   templates,
   open,
   onToggle,
@@ -640,6 +650,8 @@ function SlideReviewCard({
   content: ContentBundle;
   images: ImageBundle;
   eyebrow: string;
+  logo: BrandLogo | null;
+  logoLight: BrandLogo | null;
   templates: TemplateMeta[];
   open: boolean;
   onToggle: () => void;
@@ -657,7 +669,8 @@ function SlideReviewCard({
     secondary: result.subtext,
     imageUrl,
     eyebrow,
-    logo: null,
+    logo,
+    logoLight,
   };
   const thumb = useLayerPreview(result.templateId, sc);
 

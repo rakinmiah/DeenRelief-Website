@@ -33,9 +33,12 @@ export default async function DeckBuilderPage({
   const event = await getEmergencyEventById(eventId);
   if (!event) notFound();
 
-  // The on-dark (white) DR logo — every slide's corner wordmark sits on a
-  // dark/forest field, so this is the variant the presets need.
-  const { logo } = await resolveBrandLogo("logo-on-dark");
+  // Both logo variants — green (on-light) is the primary mark, white (on-dark)
+  // the reversed fallback. The presets pick per slide background.
+  const [{ logo }, { logo: logoLight }] = await Promise.all([
+    resolveBrandLogo("logo-on-dark"),
+    resolveBrandLogo("logo-on-light"),
+  ]);
 
   const summary: EventSummary = {
     id: event.id,
@@ -62,6 +65,7 @@ export default async function DeckBuilderPage({
       <DeckFlow
         event={summary}
         logo={logo}
+        logoLight={logoLight}
         backHref={`/admin/social/first-response/legacy/${event.id}`}
       />
     </main>

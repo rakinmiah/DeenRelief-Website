@@ -92,9 +92,13 @@ export type SlideContent = {
   /** Optional gold accent tail rendered on its own line below the cream
    *  headline — the library's two-tone treatment. */
   accent?: string | null;
-  /** Auto-selected brand logo for this slide's background (on-dark for
-   *  forest, on-light for cream). Null → fall back to a type lockup. */
+  /** The WHITE / on-dark logo — the reversed mark, used only where the
+   *  corner sits on a dark field (forest / photo). Null → type lockup. */
   logo?: BrandLogo | null;
+  /** The GREEN / on-light logo — the PRIMARY brand mark. Preferred whenever
+   *  the corner sits on a light field (gold / cream). Null → fall back to
+   *  `logo` (white). */
+  logoLight?: BrandLogo | null;
 };
 
 /* ─── Hero design system (faithful port of the Claude Design library) ─
@@ -200,20 +204,34 @@ function goldBar(x: number, y: number, w: number = 64): ShapeLayer {
 function hTag(t: string, x: number, y: number, w: number, align: TextAlign = "left", opacity = 0.62): TextLayer {
   return text({ x, y, w, h: 30, text: t, fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity, align });
 }
-/** Corner brand mark: the actual uploaded DR logo when one is available,
- *  else a diamond + "DEEN RELIEF" type lockup. Every call site uses a cream
- *  mark on a dark/forest field, so the on-dark (white) logo fed by
- *  `resolveBrandLogo("logo-on-dark")` is the right variant everywhere. The
- *  logo is a `contain` image sized to its true aspect at a fixed corner
- *  height (transparent PNG → sits straight on the slide). */
-function wordmark(x: number, y: number, logo: BrandLogo | null | undefined, color: string = C.cream): Layer[] {
+/** Relative luminance of a #rrggbb colour (0 = black, 1 = white). */
+function inkIsLight(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return true; // unknown → assume light ink (dark field) → white logo
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.5;
+}
+/** Corner brand mark: the uploaded DR logo, else a diamond + "DEEN RELIEF"
+ *  type lockup. We PRIORITISE the green (on-light) logo — the primary brand
+ *  mark — and only fall back to the white (on-dark) logo where the corner
+ *  sits on a dark field (forest / photo) and green would vanish. The `color`
+ *  arg is the mark's intended ink: a LIGHT ink (cream) means a DARK field →
+ *  white logo; a DARK ink (forest) means a LIGHT field → green logo. The logo
+ *  is a `contain` image sized to its true aspect at a fixed corner height. */
+function wordmark(x: number, y: number, c: SlideContent, color: string = C.cream): Layer[] {
+  const onDarkField = inkIsLight(color);
+  const green = c.logoLight ?? null;
+  const white = c.logo ?? null;
+  // Prefer green; use white only on a dark field (or if green is missing).
+  const logo = onDarkField ? white ?? green : green ?? white;
   if (logo && logo.url) {
     const h = 42;
     const w = Math.max(1, Math.round(h * logo.aspect));
-    return [image({ x, y: y - 5, w, h, src: logo.url, objectFit: "contain" })];
+    return [image({ x, y: y - 5, w, h, src: logo.url, objectFit: "contain", name: "brand-logo" })];
   }
   return [
-    shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: C.amber, rotation: 45 }),
+    shape({ x, y: y + 4, w: 15, h: 15, shape: "rect", fill: onDarkField ? C.amber : C.forest, rotation: 45 }),
     text({ x: x + 32, y, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color }),
   ];
 }
@@ -237,7 +255,7 @@ function heroPhotoFull(c: SlideContent): EditorSlide {
       // and a top scrim so the corner chrome stays legible over bright sky.
       shape({ x: 0, y: 366, w: B, h: B - 366, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, eyebrowY, W),
       ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize),
@@ -253,7 +271,7 @@ function heroTypeCover(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Field Report", 582, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, 383, 924),
       ...headlineBlock(c.primary, c.accent, HPAD, 443, 924, 132),
@@ -281,7 +299,7 @@ function heroTopPanel(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: 594, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 333, w: B, h: 261, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", 582, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, 660, W),
       ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize),
@@ -328,7 +346,7 @@ function heroCaption(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Field Report", 582, HPAD + 6, 420, "right"),
       shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
       hEyebrow(c.eyebrow, HPAD, barTop + 42, W),
@@ -410,7 +428,7 @@ function heroSidebar(c: SlideContent): EditorSlide {
       // Vertical gold spine.
       shape({ x: 320, y: 168, w: 3, h: 744, shape: "rect", fill: C.amber, locked: true }),
       // Corner row: wordmark left, "Dispatch" tag right.
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Dispatch", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Rotated dateline reading upward (rotation -90), gold, centred on spine.
       text({ x: Math.round(dateCx - dateBoxW / 2), y: Math.round(dateCy - dateBoxH / 2), w: dateBoxW, h: dateBoxH, text: "Gaza · 2026", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 8, color: C.amber, align: "center", rotation: -90 }),
@@ -457,7 +475,7 @@ function heroStat(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Centred column: eyebrow, giant figure, label.
       text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
@@ -500,7 +518,7 @@ function heroQuote(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Oversized gold open-quote, clamped tall so the quote sits tight under.
       text({ x: HPAD - 6, y: markY, w: 260, h: markH, text: "“", fontFamily: ANTON, fontSize: 300, fontWeight: 400, lineHeight: 0.8, color: C.amber }),
@@ -545,7 +563,7 @@ function heroCornerCard(c: SlideContent): EditorSlide {
       shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
       shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
       // Topbar: wordmark + "Palestine Appeal" tag.
-      ...wordmark(innerX, barY, c.logo),
+      ...wordmark(innerX, barY, c),
       hTag("Palestine Appeal", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
       // Eyebrow (gold) + headline (cream, bottom-anchored in the forest panel).
       text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: c.eyebrow, fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
@@ -586,7 +604,7 @@ function heroSplitDiptych(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(panelX, HPAD, c.logo),
+      ...wordmark(panelX, HPAD, c),
       text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: c.eyebrow, fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
       ...headlineBlock(c.primary, c.accent, panelX, headY, panelW, headSize),
       goldBar(panelX, ruleY, 56),
@@ -652,7 +670,7 @@ function heroInsetCard(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Card: solid forest with a gold keyline border.
       shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
@@ -677,7 +695,7 @@ function heroWindowCrop(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Field Note", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Rounded photo window + a thin gold keyline frame.
       image({ x: winX, y: winY, w: winW, h: winH, src: c.imageUrl ?? "", objectFit: "cover", radius: 18 }),
@@ -711,7 +729,7 @@ function heroDuotonePoster(c: SlideContent): EditorSlide {
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: DUO, locked: true }),
       shape({ x: 0, y: headY - 60, w: B, h: headH + 180, shape: "rect", fill: VEIL, locked: true }),
       topScrim(180),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, eyebrowY, W, "center"),
       ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize, "center"),
@@ -743,7 +761,7 @@ function tiersLadder(c: SlideContent): EditorSlide {
   const rowGap = 150;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -772,7 +790,7 @@ function beforeAfter(c: SlideContent): EditorSlide {
   const rightX = cx + 40;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     ...(c.primary
       ? [hHead(balanceLines(c.primary, W, 60), HPAD, 232, W, 80, 60, "center", C.cream)]
@@ -808,7 +826,7 @@ function multiStatStack(c: SlideContent): EditorSlide {
   const rowGap = 156;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(balanceLines(heading, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -959,7 +977,7 @@ function ctaForestType(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "Donate today", HPAD, headY - 50, W),
       hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
@@ -987,9 +1005,8 @@ function ctaGoldInverted(c: SlideContent): EditorSlide {
   const pillY = ruleY + 56;
   return slide(
     [
-      // Forest wordmark on the gold field.
-      shape({ x: HPAD, y: HPAD + 4, w: 15, h: 15, shape: "rect", fill: C.forest, rotation: 45 }),
-      text({ x: HPAD + 32, y: HPAD, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color: C.forest }),
+      // Brand mark on the gold field — green logo (light field) via wordmark.
+      ...wordmark(HPAD, HPAD, c, C.forest),
       text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: c.eyebrow || "Emergency Appeal", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.forest, opacity: 0.7, align: "right" }),
       hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.forest),
       shape({ x: HPAD, y: ruleY, w: 64, h: 3, shape: "rect", fill: C.forest }),
@@ -1021,7 +1038,7 @@ function ctaPhotoLowerThird(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 360, w: B, h: B - 360, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "Donate today", HPAD, headY - 46, W),
       hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
@@ -1095,7 +1112,7 @@ function ctaSplit(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(panelX, HPAD, c.logo),
+      ...wordmark(panelX, HPAD, c),
       text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: c.eyebrow || "Donate today", fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
       hHead(headMain, panelX, headY, panelW, headH, headSize, "left", C.cream),
       goldBar(panelX, ruleY, 56),
@@ -1127,7 +1144,7 @@ function ctaStatLed(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
       text({ x: HPAD, y: labelY, w: W, h: 62, text: "NEED YOU NOW.", fontFamily: ANTON, fontSize: 56, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
@@ -1165,7 +1182,7 @@ function ctaQuoteLed(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       text({ x: HPAD - 6, y: markY, w: 260, h: 150, text: "“", fontFamily: ANTON, fontSize: 240, fontWeight: 400, lineHeight: 0.8, color: C.amber }),
       text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
@@ -1198,7 +1215,7 @@ function ctaUrgency(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       // Gold urgency kicker chip (forest text).
       shape({ x: HPAD, y: chipY, w: chipW, h: chipH, shape: "rect", fill: C.amber, radius: 5, locked: true }),
       text({ x: HPAD, y: chipY + Math.round((chipH - 24) / 2), w: chipW, h: 26, text: "Every hour counts", fontFamily: BARLOW, fontSize: 22, fontWeight: 800, uppercase: true, letterSpacing: 3, color: C.forest, align: "center" }),
@@ -1245,7 +1262,7 @@ function ctaScanToGive(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "Scan to give", HPAD, 246, W),
       hHead("SCAN TO GIVE", HPAD, 290, W, 92, 84, "left", C.cream),
@@ -1338,7 +1355,7 @@ function statColossal(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "By the numbers · Gaza", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
@@ -1365,7 +1382,7 @@ function statContext(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, figureY - 50, W),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
@@ -1399,7 +1416,7 @@ function statBleed(c: SlideContent): EditorSlide {
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
       // The bleeding numeral, set low in the stack so the label reads on top.
       text({ x: figureX, y: figureY, w: 1400, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -10, color: "rgba(212,168,67,0.92)" }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, labelY - 50, W),
       text({ x: HPAD, y: labelY, w: 620, h: labelH, text: labelText, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.92, color: C.cream }),
@@ -1427,7 +1444,7 @@ function statPhoto(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 340, w: B, h: B - 340, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, eyebrowY, W),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -3, color: C.amber }),
@@ -1459,7 +1476,7 @@ function statUnit(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, rowY - 50, W),
       // The numeral + a gold qualifier word baseline-aligned beside it.
@@ -1491,9 +1508,8 @@ function statGoldInverted(c: SlideContent): EditorSlide {
   const labelY = figureY + figureH + 14;
   return slide(
     [
-      // Forest wordmark on the gold field.
-      shape({ x: HPAD, y: HPAD + 4, w: 15, h: 15, shape: "rect", fill: C.forest, rotation: 45 }),
-      text({ x: HPAD + 32, y: HPAD, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color: C.forest }),
+      // Brand mark on the gold field — green logo (light field) via wordmark.
+      ...wordmark(HPAD, HPAD, c, C.forest),
       text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: "By the Numbers", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.forest, opacity: 0.7, align: "right" }),
       text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "By the numbers · Gaza", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.forest, opacity: 0.8, align: "center" }),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.forest, align: "center" }),
@@ -1528,7 +1544,7 @@ function statSplit(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(panelX, HPAD, c.logo),
+      ...wordmark(panelX, HPAD, c),
       text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: c.eyebrow || "By the numbers · Gaza", fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
       text({ x: panelX, y: figureY, w: panelW, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -3, color: C.amber }),
       text({ x: panelX, y: labelY, w: panelW, h: labelH, text: "People in need.", fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
@@ -1587,7 +1603,7 @@ function statComparison(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, figureY - 50, W),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
@@ -1620,7 +1636,7 @@ function statBeat(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "By the numbers · Gaza", HPAD, figureY - 50, W),
       text({ x: HPAD, y: figureY, w: W, h: figureH, text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
@@ -1681,7 +1697,7 @@ function factPhotoBleed(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 340, w: B, h: B - 340, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
       hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
@@ -1708,7 +1724,7 @@ function factTypeLed(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(factEyebrow(c), HPAD, factY - 50, W),
       hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
@@ -1737,7 +1753,7 @@ function factTopPanel(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: 594, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 333, w: B, h: 261, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
       hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
@@ -1771,7 +1787,7 @@ function factSplit(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(panelX, HPAD, c.logo),
+      ...wordmark(panelX, HPAD, c),
       text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: factEyebrow(c), fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
       hHead(factMain, panelX, factY, panelW, factH, factSize, "left", C.cream),
       goldBar(panelX, ruleY, 56),
@@ -1805,7 +1821,7 @@ function factKeyline(c: SlideContent): EditorSlide {
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
       // Enclosing 2px gold keyline frame (988×988), inset 46.
       shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
-      ...wordmark(innerX, FPAD + 30, c.logo),
+      ...wordmark(innerX, FPAD + 30, c),
       hEyebrow(factEyebrow(c), innerX, eyebrowY, innerW),
       hHead(factMain, innerX, factY, innerW, factH, factSize, "left", C.cream),
       goldBar(innerX, ruleY, 64),
@@ -1833,7 +1849,7 @@ function factLeadIn(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
       hHead(factMain, HPAD, factY, W, factH, factSize, "left", C.cream),
@@ -1864,7 +1880,7 @@ function factCaptionBar(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
       shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
       hEyebrow(factEyebrow(c), HPAD, eyebrowY, W),
@@ -1898,7 +1914,7 @@ function factInsetCard(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Key Fact", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Card: solid forest with a gold keyline border.
       shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
@@ -1970,7 +1986,7 @@ function factTwoTone(c: SlideContent): EditorSlide {
       shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
       shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
       // Topbar: wordmark + "Key Fact" tag.
-      ...wordmark(innerX, barY, c.logo),
+      ...wordmark(innerX, barY, c),
       hTag("Key Fact", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
       // Eyebrow (gold) + fact (cream, bottom-anchored in the forest panel).
       text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: factEyebrow(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
@@ -2035,7 +2051,7 @@ function quoteOpenMark(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       openMark(HPAD - 6, markY),
       text({ x: HPAD, y: quoteY, w: quoteW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
@@ -2061,7 +2077,7 @@ function quotePortraitLowerThird(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 366, w: B, h: B - 366, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       openMark(HPAD - 6, markY, 180, "left", 200),
       text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 600, lineHeight: 1.22, color: C.cream }),
@@ -2090,7 +2106,7 @@ function quoteSplit(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(panelX, HPAD, c.logo),
+      ...wordmark(panelX, HPAD, c),
       openMark(panelX - 4, markY, 150, "left", 200),
       text({ x: panelX, y: quoteY, w: panelW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.24, color: C.cream }),
       goldBar(panelX, attrY, 56),
@@ -2115,7 +2131,7 @@ function quotePortraitChip(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       // Circular portrait: square image, radius = half → a circle; gold ring.
       image({ x: HPAD, y: portraitY, w: dia, h: dia, src: c.imageUrl ?? "", objectFit: "cover", radius: Math.round(dia / 2) }),
@@ -2146,7 +2162,7 @@ function quoteCrest(c: SlideContent): EditorSlide {
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
       shape({ x: 46, y: 46, w: B - 92, h: B - 92, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.55)", strokeWidth: 2, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       openMark(HPAD, markY, 160, "center", W),
       text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream, align: "center" }),
@@ -2174,7 +2190,7 @@ function quoteEmphasis(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       openMark(HPAD - 6, markY),
       text({ x: HPAD, y: quoteY, w: quoteW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
@@ -2204,7 +2220,7 @@ function quoteTopPortrait(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: photoH, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: photoH, w: B, h: B - photoH, shape: "rect", fill: C.forest, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       openMark(HPAD - 4, markY, 130, "left", 200),
       text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.22, color: C.cream }),
@@ -2235,7 +2251,7 @@ function quoteTwoTone(c: SlideContent): EditorSlide {
     [
       shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
       shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
-      ...wordmark(innerX, FPAD + inset, c.logo),
+      ...wordmark(innerX, FPAD + inset, c),
       hTag(c.eyebrow || "In Their Words", FPAD + frameW - inset - 420, FPAD + inset + 6, 420, "right"),
       openMark(innerX - 6, markY, 150, "left", 220),
       text({ x: innerX, y: quoteY, w: innerW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream }),
@@ -2296,7 +2312,7 @@ function quoteCaptionBar(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
       shape({ x: 0, y: barTop, w: B, h: barH, shape: "rect", fill: C.forest, locked: true }),
       openMark(HPAD - 4, barTop + 16, 110, "left", 180),
@@ -2349,7 +2365,7 @@ function respPhotoLowerThird(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 360, w: B, h: B - 360, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
       hHead(balanceLines(line, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
       goldBar(HPAD, ruleY, 64),
@@ -2377,7 +2393,7 @@ function respTopPanel(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: photoH, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 333, w: B, h: photoH - 333, shape: "rect", fill: SCRIM, locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(respEyebrow(c), HPAD, eyebrowY, W),
       hHead(balanceLines(line, W, headSize), HPAD, headY, W, headH, headSize, "left", C.cream),
@@ -2413,7 +2429,7 @@ function respSplit(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(panelX, HPAD, c.logo),
+      ...wordmark(panelX, HPAD, c),
       text({ x: panelX, y: eyebrowY, w: panelW, h: eyebrowH, text: respEyebrow(c), fontFamily: BARLOW, fontSize: 21, fontWeight: 700, uppercase: true, letterSpacing: 3.5, color: C.amber }),
       hHead(headMain, panelX, headY, panelW, headH, headSize, "left", C.cream),
       goldBar(panelX, ruleY, 56),
@@ -2448,7 +2464,7 @@ function respInsetCard(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
       shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: C.forest, radius: 10, locked: true }),
       shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
@@ -2478,7 +2494,7 @@ function respStatBacked(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(respEyebrow(c), HPAD, eyebrowY, W),
       hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
@@ -2506,7 +2522,7 @@ function respWindowCrop(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
       image({ x: winX, y: winY, w: winW, h: winH, src: c.imageUrl ?? "", objectFit: "cover", radius: 18 }),
       shape({ x: winX, y: winY, w: winW, h: winH, shape: "rect", fill: "transparent", stroke: "rgba(212,168,67,0.45)", strokeWidth: 2, radius: 18, locked: true }),
@@ -2536,7 +2552,7 @@ function respChecklist(c: SlideContent): EditorSlide {
   const rowGap = 132;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
     hEyebrow(respEyebrow(c), HPAD, headY - 50, W),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
@@ -2575,7 +2591,7 @@ function respTwoTone(c: SlideContent): EditorSlide {
     [
       shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
       shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
-      ...wordmark(innerX, barY, c.logo),
+      ...wordmark(innerX, barY, c),
       hTag("On The Ground", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
       text({ x: innerX, y: eyebrowY, w: innerW, h: 32, text: respEyebrow(c), fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber }),
       text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
@@ -2606,7 +2622,7 @@ function respCaptionBar(c: SlideContent): EditorSlide {
     [
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("On The Ground", B - HPAD - 420, HPAD + 6, 420, "right"),
       shape({ x: 0, y: barTop, w: B, h: B - barTop, shape: "rect", fill: C.forest, locked: true }),
       hEyebrow(respEyebrow(c), HPAD, barTop + 42, W),
@@ -2636,7 +2652,7 @@ function respGiftHelps(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Your Gift At Work", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(respEyebrow(c), HPAD, headingY - 50, W),
       text({ x: HPAD, y: headingY, w: W, h: headH, text: heading, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
@@ -2686,7 +2702,7 @@ function tiersB(c: SlideContent): EditorSlide {
     image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: "rgba(15,42,28,0.86)", locked: true }),
     topScrim(),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -2714,9 +2730,8 @@ function tiersC(c: SlideContent): EditorSlide {
   const rowsTop = ruleY + 50;
   const rowGap = 148;
   const layers: Layer[] = [
-    // Forest wordmark on the gold field.
-    shape({ x: HPAD, y: HPAD + 4, w: 15, h: 15, shape: "rect", fill: C.forest, rotation: 45 }),
-    text({ x: HPAD + 32, y: HPAD, w: 360, h: 30, text: "DEEN RELIEF", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 6, color: C.forest }),
+    // Brand mark on the gold field — green logo (light field) via wordmark.
+    ...wordmark(HPAD, HPAD, c, C.forest),
     text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: "Palestine Appeal", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.forest, opacity: 0.7, align: "right" }),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.forest),
     shape({ x: HPAD, y: ruleY, w: 64, h: 3, shape: "rect", fill: C.forest }),
@@ -2751,7 +2766,7 @@ function tiersD(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "Where your gift goes", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
       text({ x: HPAD, y: amtY, w: W, h: amtH, text: amt, fontFamily: ANTON, fontSize: amtSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
@@ -2780,7 +2795,7 @@ function tiersE(c: SlideContent): EditorSlide {
   const layers: Layer[] = [
     image({ x: 0, y: 0, w: half, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
     shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: C.forest, locked: true }),
-    ...wordmark(panelX, HPAD, c.logo),
+    ...wordmark(panelX, HPAD, c),
     text({ x: panelX, y: headY, w: panelW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
     goldBar(panelX, ruleY, 56),
   ];
@@ -2808,7 +2823,7 @@ function tiersF(c: SlideContent): EditorSlide {
   const askY = rowsTop + 3 * rowGap + 6;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -2839,7 +2854,7 @@ function tiersG(c: SlideContent): EditorSlide {
   const rowGap = 150;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Zakat Eligible", B - HPAD - 420, HPAD + 6, 420, "right"),
     hEyebrow(c.eyebrow || "Your Zakat · Palestine", HPAD, headingY - 50, W),
     text({ x: HPAD, y: headingY, w: W, h: headH, text: heading, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
@@ -2877,7 +2892,7 @@ function tiersH(c: SlideContent): EditorSlide {
   const layers: Layer[] = [
     shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
     shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
-    ...wordmark(innerX, barY, c.logo),
+    ...wordmark(innerX, barY, c),
     hTag("Palestine Appeal", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
     text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
     goldBar(innerX, ruleY, 64),
@@ -2915,7 +2930,7 @@ function tiersI(c: SlideContent): EditorSlide {
   const rowGap = 134;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     // The gold keyline card.
     shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
@@ -2963,7 +2978,7 @@ function tiersJ(c: SlideContent): EditorSlide {
   const rowGap = 100;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Scan To Give", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -3003,7 +3018,7 @@ function beforeafterB(c: SlideContent): EditorSlide {
   const numSize = 150;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     ...(c.primary ? [hHead(balanceLines(c.primary, W, 56), HPAD, 200, W, 76, 56, "left", C.cream)] : []),
     // BEFORE row (upper).
@@ -3036,7 +3051,7 @@ function beforeafterC(c: SlideContent): EditorSlide {
       shape({ x: half, y: 0, w: B - half, h: B, shape: "rect", fill: "linear-gradient(to top, rgba(15,42,28,0.94) 0%, rgba(15,42,28,0.3) 55%, rgba(15,42,28,0.7) 100%)", locked: true }),
       // Centre gold divider.
       shape({ x: half - 1, y: 0, w: 2, h: B, shape: "rect", fill: C.amber, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       text({ x: B - HPAD - 420, y: HPAD + 6, w: 420, h: 30, text: "Palestine Appeal", fontFamily: BARLOW, fontSize: 23, fontWeight: 700, uppercase: true, letterSpacing: 4.5, color: C.cream, opacity: 0.7, align: "right" }),
       // BEFORE side.
       text({ x: HPAD, y: 540, w: half - HPAD - 30, h: 30, text: BA_BEFORE.eyebrow, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.creamDim }),
@@ -3071,7 +3086,7 @@ function beforeafterD(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       ...(c.primary ? [hHead(balanceLines(c.primary, W, 60), HPAD, 232, W, 80, 60, "center", C.cream)] : []),
       // BEFORE figure (left).
@@ -3098,7 +3113,7 @@ function beforeafterE(c: SlideContent): EditorSlide {
   const W = B - 2 * HPAD;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     ...(c.primary ? [hEyebrow(c.primary, HPAD, 232, W)] : [hEyebrow(c.eyebrow || "Then vs now", HPAD, 232, W)]),
     // Small 'then'.
@@ -3134,7 +3149,7 @@ function beforeafterF(c: SlideContent): EditorSlide {
   const layers: Layer[] = [
     shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
     shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
-    ...wordmark(innerX, barY, c.logo),
+    ...wordmark(innerX, barY, c),
     hTag("Then & Now", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
     ...(c.primary ? [hHead(balanceLines(c.primary, innerW, 56), innerX, barY + 64, innerW, 76, 56, "center", C.cream)] : []),
     shape({ x: cx - 1, y: numY - 40, w: 2, h: 300, shape: "rect", fill: C.amber, locked: true }),
@@ -3169,7 +3184,7 @@ function beforeafterG(c: SlideContent): EditorSlide {
       image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: "rgba(15,42,28,0.86)", locked: true }),
       topScrim(),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       ...(c.primary ? [hHead(balanceLines(c.primary, W, 60), HPAD, 232, W, 80, 60, "center", C.cream)] : []),
       shape({ x: cx - 1, y: 384, w: 2, h: 320, shape: "rect", fill: C.amber, locked: true }),
@@ -3196,7 +3211,7 @@ function beforeafterH(c: SlideContent): EditorSlide {
   const rightX = B - HPAD - 320;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
     ...(c.primary ? [hHead(balanceLines(c.primary, W, 56), HPAD, 232, W, 76, 56, "left", C.cream)] : []),
     // Timeline rule with end nodes.
@@ -3234,7 +3249,7 @@ function beforeafterI(c: SlideContent): EditorSlide {
   const numSize = 170;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("Then & Now", B - HPAD - 420, HPAD + 6, 420, "right"),
     shape({ x: cardX, y: cardY, w: cardW, h: cardH, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 2, radius: 10, locked: true }),
     text({ x: innerX, y: cardY + inset, w: innerW, h: 32, text: c.eyebrow || "Healthcare in collapse", fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber, align: "center" }),
@@ -3268,7 +3283,7 @@ function beforeafterJ(c: SlideContent): EditorSlide {
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(HPAD, HPAD, c.logo),
+      ...wordmark(HPAD, HPAD, c),
       hTag("Palestine Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "Hospitals functioning", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
       text({ x: HPAD, y: changeY, w: W, h: changeH, text: "−80%", fontFamily: ANTON, fontSize: changeSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -6, color: C.amber, align: "center" }),
@@ -3318,7 +3333,7 @@ function multistatB(c: SlideContent): EditorSlide {
   const numSize = 110;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -3348,7 +3363,7 @@ function multistatC(c: SlideContent): EditorSlide {
   const beatGap = 130;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hEyebrow(c.eyebrow || msHeading(c), HPAD, heroY - 50, W),
     text({ x: HPAD, y: heroY, w: W, h: heroH, text: hero.num, fontFamily: ANTON, fontSize: heroSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber }),
@@ -3381,7 +3396,7 @@ function multistatD(c: SlideContent): EditorSlide {
   const numSize = 92;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -3412,7 +3427,7 @@ function multistatE(c: SlideContent): EditorSlide {
     image({ x: 0, y: 0, w: B, h: B, src: c.imageUrl ?? "", objectFit: "cover" }),
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: "rgba(15,42,28,0.86)", locked: true }),
     topScrim(),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -3449,7 +3464,7 @@ function multistatF(c: SlideContent): EditorSlide {
   const layers: Layer[] = [
     shape({ x: FPAD, y: FPAD, w: frameW, h: frameW, shape: "rect", fill: C.forest, locked: true }),
     shape({ x: FPAD, y: bandY, w: frameW, h: bandH, shape: "rect", fill: C.cream, locked: true }),
-    ...wordmark(innerX, barY, c.logo),
+    ...wordmark(innerX, barY, c),
     hTag("By the Numbers", FPAD + frameW - inset - 420, barY + 6, 420, "right"),
     text({ x: innerX, y: headY, w: innerW, h: headH, text: headMain, fontFamily: ANTON, fontSize: headSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream }),
     goldBar(innerX, ruleY, 64),
@@ -3478,7 +3493,7 @@ function multistatG(c: SlideContent): EditorSlide {
   const rowGap = 156;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
   ];
@@ -3539,7 +3554,7 @@ function multistatI(c: SlideContent): EditorSlide {
   const textW = W - 64;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
@@ -3570,7 +3585,7 @@ function multistatJ(c: SlideContent): EditorSlide {
   const rowGap = 156;
   const layers: Layer[] = [
     shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
-    ...wordmark(HPAD, HPAD, c.logo),
+    ...wordmark(HPAD, HPAD, c),
     hTag("By the Numbers", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),

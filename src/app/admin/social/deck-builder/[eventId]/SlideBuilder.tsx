@@ -20,7 +20,7 @@ import type {
   ImageCandidate,
   TemplateMeta,
 } from "@/lib/social-templates/types";
-import { presetForTemplate, type SlideContent } from "@/lib/social-editor/presets";
+import { presetForTemplate, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
 import type { ContentBundle, ImageBundle } from "./types";
 import { ROLES, pickImageId, type SlideRole } from "./slideRoles";
 
@@ -47,6 +47,8 @@ export default function SlideBuilder({
   images,
   templates,
   eyebrow,
+  logo,
+  logoLight,
   onComplete,
 }: {
   spec: SlideSpec;
@@ -54,6 +56,10 @@ export default function SlideBuilder({
   images: ImageBundle;
   templates: TemplateMeta[];
   eyebrow: string;
+  /** On-dark (white) logo — reversed fallback for dark backgrounds. */
+  logo: BrandLogo | null;
+  /** On-light (green) logo — the primary mark presets prefer. */
+  logoLight: BrandLogo | null;
   onComplete: (result: SlideResult) => void;
 }) {
   const role = ROLES[spec.role];
@@ -122,7 +128,8 @@ export default function SlideBuilder({
       secondary: subtext,
       imageUrl,
       eyebrow,
-      logo: null,
+      logo,
+      logoLight,
     };
     const entries = await Promise.all(
       templates.map(async (meta): Promise<[string, Preview]> => {
