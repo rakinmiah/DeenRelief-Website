@@ -44,16 +44,21 @@ export function RailBtn({
   label,
   onClick,
   children,
+  active = false,
 }: {
   label: string;
   onClick: () => void;
   children: ReactNode;
+  /** Selected/open state — e.g. the Templates tab while its panel is open. */
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-14 h-14 rounded-xl grid place-content-center gap-1 text-charcoal/70 hover:bg-charcoal/5 transition"
+      className={`w-14 h-14 rounded-xl grid place-content-center gap-1 transition ${
+        active ? "bg-green/10 text-green" : "text-charcoal/70 hover:bg-charcoal/5"
+      }`}
     >
       <span className="grid place-items-center h-5">{children}</span>
       <span className="text-[10px] font-medium">{label}</span>

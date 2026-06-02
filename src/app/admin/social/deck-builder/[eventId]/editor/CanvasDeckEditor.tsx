@@ -61,6 +61,7 @@ import {
   type BrandLogos,
 } from "./editorToolbar";
 import type { BrandLogo } from "@/lib/social-editor/presets";
+import TemplatesPanel from "./TemplatesPanel";
 import {
   ToolbarBtn,
   RailBtn,
@@ -144,6 +145,7 @@ export default function CanvasDeckEditor({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [exporting, setExporting] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
+  const [showTemplates, setShowTemplates] = useState(false);
   // Component "edit master" mode: when set, the editor is editing the
   // layers of this {componentId, variant} on a temporary edit slide; on
   // exit the edited layers are written back into the component definition
@@ -1154,6 +1156,16 @@ export default function CanvasDeckEditor({
     setActiveIndex(next.length - 1);
     setSelectedIds([]);
   }
+  // Drop a template chosen from the in-editor Templates panel in as a new
+  // slide (fresh layer ids), then jump to it. The panel stays open so she can
+  // keep browsing/adding, Canva-style.
+  function insertTemplateSlide(slide: EditorSlide) {
+    const next = [...deck, cloneSlideFresh(slide)];
+    commitSlides(next);
+    setActiveIndex(next.length - 1);
+    setSelectedIds([]);
+    setEditingId(null);
+  }
 
   /* ── Template import (from the "View templates" browser) ──────────────
    * The browser tab writes the chosen template's slide to localStorage; we
@@ -1550,6 +1562,10 @@ export default function CanvasDeckEditor({
       <div className="flex flex-1 min-h-0">
         {/* Left rail */}
         <div className="w-[72px] bg-white border-r border-charcoal/8 flex flex-col items-center py-3 gap-1 shrink-0">
+          <RailBtn label="Templates" active={showTemplates} onClick={() => setShowTemplates((v) => !v)}>
+            <TemplatesIcon />
+          </RailBtn>
+          <div className="w-8 h-px bg-charcoal/10 my-1" />
           <RailBtn label="Text" onClick={addText}><TextIcon /></RailBtn>
           <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
           {hasBrandLogo && (
@@ -1559,6 +1575,16 @@ export default function CanvasDeckEditor({
           <RailBtn label="Circle" onClick={() => addShape("ellipse")}><ShapeIcon kind="ellipse" /></RailBtn>
           <RailBtn label="Line" onClick={() => addShape("line")}><ShapeIcon kind="line" /></RailBtn>
         </div>
+
+        {/* Templates flyout — scroll the whole catalogue, click to add a slide */}
+        {showTemplates && (
+          <TemplatesPanel
+            logo={logo}
+            logoLight={logoLight}
+            onPick={insertTemplateSlide}
+            onClose={() => setShowTemplates(false)}
+          />
+        )}
 
         {/* Center: canvas + filmstrip */}
         <div className="flex-1 min-w-0 flex flex-col">
@@ -1653,6 +1679,18 @@ export default function CanvasDeckEditor({
         <ImagePicker images={images} onPick={onPickImage} onClose={() => setPicker(null)} />
       )}
     </div>
+  );
+}
+
+/** Rail icon for the Templates panel — a 2×2 grid of layout cards. */
+function TemplatesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="11.5" y="2.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="2.5" y="11.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="11.5" y="11.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
   );
 }
 
