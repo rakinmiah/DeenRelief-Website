@@ -75,54 +75,65 @@ export default function ContentPanel({
           ×
         </button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-1 pb-5">
         {total === 0 ? (
           <p className="text-[12.5px] text-charcoal/45 py-10 text-center px-2">
             No extracted content for this event yet.
           </p>
         ) : (
-          sections.map((sec) => (
-            <section key={sec.key} className="mb-5">
-              <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/95 backdrop-blur border-b border-charcoal/8 flex items-baseline justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal/55 truncate">
-                  {sec.title}
-                </span>
-                <span className="text-[10.5px] font-medium text-charcoal/35 tabular-nums shrink-0">
-                  {sec.items.length}
-                </span>
-              </div>
-              {sec.wrap ? (
-                <div className="flex flex-wrap gap-1.5 mt-2.5">
-                  {sec.items.map((it) => (
-                    <button
-                      key={it.id}
-                      type="button"
-                      onClick={() => onPick(it.text)}
-                      className="px-2.5 py-1 rounded-full text-[12px] font-medium bg-charcoal/[0.04] text-charcoal/70 ring-1 ring-charcoal/8 hover:bg-green/10 hover:text-green hover:ring-green/30 transition"
-                    >
-                      {it.text}
-                    </button>
-                  ))}
+          sections.map((sec) => {
+            const isHeadline = sec.key === "title";
+            return (
+              <section key={sec.key} className="mb-4">
+                <div className="sticky top-0 z-10 -mx-3 px-3 py-1.5 bg-white border-b border-charcoal/[0.07] flex items-baseline justify-between gap-2">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-charcoal/50 truncate">
+                    {sec.title}
+                  </span>
+                  <span className="text-[10px] font-medium text-charcoal/30 tabular-nums shrink-0">
+                    {sec.items.length}
+                  </span>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2 mt-2.5">
-                  {sec.items.map((it) => (
-                    <button
-                      key={it.id}
-                      type="button"
-                      onClick={() => onPick(it.text)}
-                      className="group text-left rounded-lg px-3 py-2.5 bg-white ring-1 ring-charcoal/10 hover:ring-green/50 hover:bg-green/[0.03] transition"
-                    >
-                      <span className="block text-[12.5px] leading-snug text-charcoal/85">{it.text}</span>
-                      {it.meta && (
-                        <span className="block mt-1 text-[10.5px] text-charcoal/40 truncate">{it.meta}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-          ))
+                {sec.wrap ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {sec.items.map((it) => (
+                      <button
+                        key={it.id}
+                        type="button"
+                        onClick={() => onPick(it.text)}
+                        className="px-2.5 py-1 rounded-full text-[12px] font-medium bg-charcoal/[0.04] text-charcoal/70 ring-1 ring-charcoal/8 hover:bg-green/10 hover:text-green hover:ring-green/30 transition"
+                      >
+                        {it.text}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    {sec.items.map((it) => (
+                      <button
+                        key={it.id}
+                        type="button"
+                        onClick={() => onPick(it.text)}
+                        className="group text-left rounded-lg px-3 py-2 bg-white ring-1 ring-charcoal/[0.09] hover:ring-green/50 hover:bg-green/[0.03] transition"
+                      >
+                        <span
+                          className={`block leading-snug ${
+                            isHeadline ? "text-[13px] font-semibold text-charcoal" : "text-[12.5px] text-charcoal/80"
+                          }`}
+                        >
+                          {it.text}
+                        </span>
+                        {it.meta && (
+                          <span className="block mt-1 text-[9.5px] font-medium uppercase tracking-[0.08em] text-charcoal/35 truncate">
+                            {it.meta}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })
         )}
       </div>
     </aside>

@@ -51,11 +51,11 @@ export default function TemplatesPanel({
           if (!items.length) return null;
           return (
             <section key={cat.key} className="mb-5">
-              <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/95 backdrop-blur border-b border-charcoal/8 flex items-baseline justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal/55 truncate">
+              <div className="sticky top-0 z-10 -mx-3 px-3 py-1.5 bg-white border-b border-charcoal/[0.07] flex items-baseline justify-between gap-2">
+                <span className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-charcoal/50 truncate">
                   {cat.title}
                 </span>
-                <span className="text-[10.5px] font-medium text-charcoal/35 tabular-nums shrink-0">
+                <span className="text-[10px] font-medium text-charcoal/30 tabular-nums shrink-0">
                   {items.length}
                 </span>
               </div>
