@@ -99,6 +99,11 @@ export type AlignKind =
 
 /* ─── Contextual toolbar ──────────────────────────────────────────── */
 
+/** The two resolved brand-logo urls (green = primary/on-light,
+ *  white = on-dark), so a selected "brand-logo" image layer can offer a
+ *  one-tap White ⇄ Green swap. Null when an asset isn't uploaded. */
+export type BrandLogos = { white: string | null; green: string | null };
+
 export function ContextToolbar({
   layer,
   onChange,
@@ -106,6 +111,7 @@ export function ContextToolbar({
   onDuplicate,
   onDelete,
   onArrange,
+  brandLogos,
 }: {
   layer: Layer;
   onChange: (patch: Partial<Layer>) => void;
@@ -113,12 +119,13 @@ export function ContextToolbar({
   onDuplicate: () => void;
   onDelete: () => void;
   onArrange: (dir: "front" | "back" | "forward" | "backward") => void;
+  brandLogos?: BrandLogos;
 }) {
   return (
     <div className="flex items-center gap-1.5 [&>*]:shrink-0">
       {layer.type === "text" && <TextControls layer={layer} onChange={onChange} />}
       {layer.type === "image" && (
-        <ImageControls layer={layer} onChange={onChange} onReplaceImage={onReplaceImage} />
+        <ImageControls layer={layer} onChange={onChange} onReplaceImage={onReplaceImage} brandLogos={brandLogos} />
       )}
       {layer.type === "shape" && <ShapeControls layer={layer} onChange={onChange} />}
 
@@ -347,14 +354,52 @@ function ImageControls({
   layer,
   onChange,
   onReplaceImage,
+  brandLogos,
 }: {
   layer: Extract<Layer, { type: "image" }>;
   onChange: (patch: Partial<Layer>) => void;
   onReplaceImage: () => void;
+  brandLogos?: BrandLogos;
 }) {
+  // A brand-logo layer (seeded by a preset OR inserted from the rail) gets a
+  // White ⇄ Green variant toggle so the SMM can recolour the DR mark in place
+  // rather than treating it as just another swappable image. Only shown when
+  // BOTH variants are uploaded and actually differ.
+  const isBrandLogo =
+    layer.name === "brand-logo" &&
+    !!brandLogos?.white &&
+    !!brandLogos?.green &&
+    brandLogos.white !== brandLogos.green;
+  const variant: "white" | "green" | null = isBrandLogo
+    ? layer.src === brandLogos!.white
+      ? "white"
+      : "green"
+    : null;
   return (
     <>
-      <TextBtn onClick={onReplaceImage}>Replace</TextBtn>
+      {isBrandLogo ? (
+        <>
+          <span className="text-[11px] font-medium text-charcoal/45 pl-0.5">Logo</span>
+          <div className="flex items-center rounded-lg ring-1 ring-charcoal/12 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => onChange({ src: brandLogos!.green! })}
+              className={`px-2.5 py-1 text-[12px] font-medium transition ${variant === "green" ? "bg-green text-white" : "text-charcoal/65 hover:bg-charcoal/5"}`}
+            >
+              Green
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ src: brandLogos!.white! })}
+              className={`px-2.5 py-1 text-[12px] font-medium transition ${variant === "white" ? "bg-charcoal text-white" : "text-charcoal/65 hover:bg-charcoal/5"}`}
+            >
+              White
+            </button>
+          </div>
+          <Divider />
+        </>
+      ) : null}
+      <TextBtn onClick={onReplaceImage}>{isBrandLogo ? "Swap image" : "Replace"}</TextBtn>
       <Popover label="Crop">
         {() => (
           <div className="w-60 p-3 flex flex-col gap-3">
@@ -1296,19 +1341,119 @@ export function ImagePicker({
 }) {
   const dr = images.filter((i) => i.source === "dr_library");
   const ext = images.filter((i) => i.source === "external");
+
+  // "View entire library" mode — same popup, but the DR section transitions
+  // into the WHOLE Deen Relief library (fetched on demand) instead of just
+  // the images suggested for this event.
+  const [allMode, setAllMode] = useState(false);
+  const [all, setAll] = useState<ImageCandidate[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  async function openLibrary() {
+    setAllMode(true);
+    if (all) return; // already loaded this session
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/media/library?limit=500", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { images?: ImageCandidate[] };
+      setAll(Array.isArray(json.images) ? json.images : []);
+    } catch {
+      setError("Couldn’t load the library. Try again.");
+      setAll([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const needle = q.trim().toLowerCase();
+  const allFiltered = (all ?? []).filter(
+    (i) => !needle || (i.description ?? "").toLowerCase().includes(needle)
+  );
+
   return (
     <div className="fixed inset-0 z-[60] bg-charcoal/40 grid place-items-center p-6" onMouseDown={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-auto p-5" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-heading font-semibold text-charcoal text-lg">Choose an image</h2>
+          <h2 className="font-heading font-semibold text-charcoal text-lg">
+            {allMode ? "Deen Relief library" : "Choose an image"}
+          </h2>
           <button type="button" onClick={onClose} className="text-charcoal/40 hover:text-charcoal text-[20px] leading-none">×</button>
         </div>
-        {images.length === 0 ? (
-          <p className="text-[13px] text-charcoal/45 py-8 text-center">No imagery available for this event.</p>
+
+        {allMode ? (
+          /* ── Entire library view ── */
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setAllMode(false)}
+                className="text-[12px] font-medium text-green hover:text-green-dark shrink-0"
+              >
+                ← Suggested for this event
+              </button>
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search the library…"
+                className="dr-input ml-auto max-w-[220px] !py-1.5 !text-[13px]"
+              />
+            </div>
+            {loading ? (
+              <p className="text-[13px] text-charcoal/45 py-10 text-center">Loading the library…</p>
+            ) : error ? (
+              <p className="text-[13px] text-red-600/80 py-10 text-center">{error}</p>
+            ) : allFiltered.length === 0 ? (
+              <p className="text-[13px] text-charcoal/45 py-10 text-center">
+                {needle ? "No images match that search." : "The library is empty."}
+              </p>
+            ) : (
+              <ImageGrid items={allFiltered} onPick={onPick} />
+            )}
+          </div>
+        ) : images.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <p className="text-[13px] text-charcoal/45 text-center">No imagery suggested for this event.</p>
+            <button
+              type="button"
+              onClick={openLibrary}
+              className="text-[12.5px] font-semibold text-green hover:text-green-dark"
+            >
+              View entire library →
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {dr.length > 0 && <PickerSection label="Deen Relief library" items={dr} onPick={onPick} />}
+            {dr.length > 0 && (
+              <PickerSection
+                label="Deen Relief library"
+                items={dr}
+                onPick={onPick}
+                action={
+                  <button
+                    type="button"
+                    onClick={openLibrary}
+                    className="text-[11.5px] font-semibold text-green hover:text-green-dark normal-case tracking-normal"
+                  >
+                    View entire library →
+                  </button>
+                }
+              />
+            )}
             {ext.length > 0 && <PickerSection label="From the web" items={ext} onPick={onPick} />}
+            {dr.length === 0 && (
+              <button
+                type="button"
+                onClick={openLibrary}
+                className="self-start text-[12.5px] font-semibold text-green hover:text-green-dark"
+              >
+                View entire Deen Relief library →
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1316,18 +1461,46 @@ export function ImagePicker({
   );
 }
 
-function PickerSection({ label, items, onPick }: { label: string; items: ImageCandidate[]; onPick: (i: ImageCandidate) => void }) {
+function PickerSection({
+  label,
+  items,
+  onPick,
+  action,
+}: {
+  label: string;
+  items: ImageCandidate[];
+  onPick: (i: ImageCandidate) => void;
+  /** Optional right-aligned control on the section's label row (e.g. the
+   *  "View entire library" button aligned with the "Deen Relief library"
+   *  heading). */
+  action?: ReactNode;
+}) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal/40 mb-2">{label}</p>
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-        {items.map((img) => (
-          <button key={img.id} type="button" onClick={() => onPick(img)} className="relative aspect-square rounded-lg overflow-hidden ring-1 ring-charcoal/10 hover:ring-green/60 transition">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.thumbnailUrl ?? img.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal/40">{label}</p>
+        {action}
       </div>
+      <ImageGrid items={items} onPick={onPick} />
+    </div>
+  );
+}
+
+function ImageGrid({ items, onPick }: { items: ImageCandidate[]; onPick: (i: ImageCandidate) => void }) {
+  return (
+    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+      {items.map((img) => (
+        <button
+          key={img.id}
+          type="button"
+          onClick={() => onPick(img)}
+          title={img.description ?? undefined}
+          className="relative aspect-square rounded-lg overflow-hidden ring-1 ring-charcoal/10 hover:ring-green/60 transition"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img.thumbnailUrl ?? img.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        </button>
+      ))}
     </div>
   );
 }

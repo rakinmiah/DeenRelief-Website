@@ -260,6 +260,8 @@ export default function DeckFlow({
           eventId={event.id}
           platform={platform}
           images={images.images}
+          logo={logo}
+          logoLight={logoLight}
           backHref={backHref}
           persist
           forceInitial

@@ -58,7 +58,9 @@ import {
   CreateComponentButton,
   InstanceToolbar,
   type AlignKind,
+  type BrandLogos,
 } from "./editorToolbar";
+import type { BrandLogo } from "@/lib/social-editor/presets";
 import {
   ToolbarBtn,
   RailBtn,
@@ -83,6 +85,8 @@ export default function CanvasDeckEditor({
   eventId,
   platform = "instagram",
   images = [],
+  logo = null,
+  logoLight = null,
   backHref,
   persist = false,
   forceInitial = false,
@@ -92,6 +96,10 @@ export default function CanvasDeckEditor({
   eventId?: string;
   platform?: string;
   images?: ImageCandidate[];
+  /** On-dark (white) DR logo — the reversed variant. */
+  logo?: BrandLogo | null;
+  /** On-light (green) DR logo — the primary mark. */
+  logoLight?: BrandLogo | null;
   backHref?: string;
   persist?: boolean;
   /** Use initialDeck as-is and skip loading any saved draft (the deck
@@ -1067,6 +1075,26 @@ export default function CanvasDeckEditor({
       strokeWidth: shape === "line" ? 8 : 0, radius: shape === "rect" ? 16 : 0,
     });
   }
+  // The DR brand mark as a first-class component (not just an image): inserted
+  // green-first (the primary colour) with name "brand-logo", which unlocks the
+  // White ⇄ Green toggle in the toolbar. Only offered when an asset exists.
+  const brandLogos: BrandLogos = {
+    white: logo?.url ?? null,
+    green: logoLight?.url ?? null,
+  };
+  const hasBrandLogo = !!(logo || logoLight);
+  function addBrandLogo() {
+    const bl = logoLight ?? logo; // green is the primary mark
+    if (!bl) return;
+    const h = 150;
+    const w = Math.max(1, Math.round(h * bl.aspect));
+    addLayer({
+      id: makeLayerId(), type: "image", name: "brand-logo",
+      x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w, h,
+      rotation: 0, opacity: 1, locked: false,
+      src: bl.url, objectFit: "contain", radius: 0,
+    });
+  }
 
   /* ── Selection helpers ───────────────────────────────────────── */
   // Expand a layer id to its whole flat group (clicking any member selects
@@ -1479,6 +1507,7 @@ export default function CanvasDeckEditor({
                   onDuplicate={duplicateSelected}
                   onDelete={deleteSelected}
                   onArrange={arrange}
+                  brandLogos={brandLogos}
                 />
               )
             )}
@@ -1523,6 +1552,9 @@ export default function CanvasDeckEditor({
         <div className="w-[72px] bg-white border-r border-charcoal/8 flex flex-col items-center py-3 gap-1 shrink-0">
           <RailBtn label="Text" onClick={addText}><TextIcon /></RailBtn>
           <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
+          {hasBrandLogo && (
+            <RailBtn label="Logo" onClick={addBrandLogo}><BrandLogoIcon /></RailBtn>
+          )}
           <RailBtn label="Rect" onClick={() => addShape("rect")}><ShapeIcon kind="rect" /></RailBtn>
           <RailBtn label="Circle" onClick={() => addShape("ellipse")}><ShapeIcon kind="ellipse" /></RailBtn>
           <RailBtn label="Line" onClick={() => addShape("line")}><ShapeIcon kind="line" /></RailBtn>
@@ -1621,6 +1653,16 @@ export default function CanvasDeckEditor({
         <ImagePicker images={images} onPick={onPickImage} onClose={() => setPicker(null)} />
       )}
     </div>
+  );
+}
+
+/** Rail icon for "insert brand logo" — the DR diamond emblem. */
+function BrandLogoIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="3.5" y="3.5" width="9.19" height="9.19" rx="1.2" transform="rotate(45 10 10)" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="7.2" y="7.2" width="5.6" height="5.6" rx="0.8" transform="rotate(45 10 10)" fill="currentColor" />
+    </svg>
   );
 }
 
