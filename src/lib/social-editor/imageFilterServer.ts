@@ -63,23 +63,30 @@ export async function prepareImage(
   containBox?: { w: number; h: number; bg?: string }
 ): Promise<{ data: Buffer; mime: string }> {
   const hasFilter = !!filter && filter !== "none";
+  // `working` is the bytes we'll ultimately hand to Satori. We downscale
+  // oversized art into it as a SEPARATE materialised pass (below) so that
+  // (a) Satori/resvg never receives a very large source — it renders e.g. the
+  // 2085px DR logo BLANK — and (b) we never chain two .resize() calls on one
+  // sharp pipeline (unreliable). If a later step throws, the catch returns
+  // `working`, which is already small — never the huge original.
+  let working = buf;
+  let workingMime = fallbackMime;
   try {
     const sharp = (await import("sharp")).default;
-    let img = sharp(buf, { failOn: "none" });
-    const meta = await img.metadata();
+    const meta = await sharp(buf, { failOn: "none" }).metadata();
     const longest = Math.max(meta.width ?? 0, meta.height ?? 0);
     const tooBig = longest > maxDim;
     if (!tooBig && !hasFilter && !containBox) {
       return { data: buf, mime: fallbackMime };
     }
-    // Pre-downscale large art — but NOT when a containBox is set: that path
-    // resizes to the exact box below, and sharp throws if `.resize()` is
-    // called twice on one pipeline. The double call silently dropped large
-    // logos (e.g. the 2085px DR wordmark) to a blank export — the contain
-    // resize already downscales, so the pre-resize is redundant there.
-    if (tooBig && !containBox) {
-      img = img.resize({ width: maxDim, height: maxDim, fit: "inside", withoutEnlargement: true });
+    if (tooBig) {
+      working = await sharp(buf, { failOn: "none" })
+        .resize({ width: maxDim, height: maxDim, fit: "inside", withoutEnlargement: true })
+        .png()
+        .toBuffer();
+      workingMime = "image/png";
     }
+    let img = sharp(working, { failOn: "none" });
     switch (filter) {
       case "mono": img = img.grayscale().linear(1.05, -6); break;
       case "warm": img = img.modulate({ saturation: 1.18, brightness: 1.03, hue: -8 }); break;
@@ -106,7 +113,7 @@ export async function prepareImage(
     }
     return { data: await img.jpeg({ quality: 86 }).toBuffer(), mime: "image/jpeg" };
   } catch {
-    // On any sharp failure, fall back to the original bytes.
-    return { data: buf, mime: fallbackMime };
+    // Return the (already-downscaled) working bytes — NEVER the huge original.
+    return { data: working, mime: workingMime };
   }
 }
