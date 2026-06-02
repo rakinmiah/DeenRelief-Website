@@ -1565,14 +1565,42 @@ function WeightPopover({ weights, value, onChange }: { weights: number[]; value:
 }
 
 function Stepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  // Free-typing numeric field: while focused we hold a local string draft so
+  // the caller's clamp (min 6) can't fight a half-typed number — the value is
+  // only committed on blur / Enter. The ± buttons + arrow keys step live.
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? String(value);
+  const commit = (raw: string) => {
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n)) onChange(n);
+    setDraft(null);
+  };
   return (
     <div className="flex items-center h-9 rounded-lg ring-1 ring-charcoal/10">
       <button type="button" onClick={() => onChange(value - 2)} className="w-7 h-full grid place-items-center text-charcoal/60 hover:bg-charcoal/5 rounded-l-lg">−</button>
       <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) || value)}
-        className="w-10 text-center text-[13px] tabular-nums bg-transparent focus:outline-none"
+        type="text"
+        inputMode="numeric"
+        value={shown}
+        onChange={(e) => setDraft(e.target.value.replace(/[^\d]/g, ""))}
+        onFocus={(e) => {
+          setDraft(String(value));
+          e.currentTarget.select();
+        }}
+        onBlur={(e) => commit(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            onChange(value + 1);
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            onChange(value - 1);
+          }
+        }}
+        className="w-11 text-center text-[13px] tabular-nums bg-transparent focus:outline-none"
       />
       <button type="button" onClick={() => onChange(value + 2)} className="w-7 h-full grid place-items-center text-charcoal/60 hover:bg-charcoal/5 rounded-r-lg">+</button>
     </div>
