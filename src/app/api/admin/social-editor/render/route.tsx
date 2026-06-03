@@ -342,19 +342,28 @@ function renderInstanceNodes(
 }
 
 function wrapperStyle(l: Layer, box: LaidOutBox): CSSProperties {
-  // Geometry comes from `box` (auto-layout override or the layer's stored
-  // coords); rotation/flip/opacity from the layer itself.
-  return {
+  // Geometry via absolute left/top — NOT transform:translate. Satori collapses
+  // an image (its overflow-hidden wrapper + inner <img>) to a 1px sliver when
+  // the wrapper is positioned by a non-zero transform:translate; translate(0)
+  // is fine, which is why every photo (all at x:0) worked and a right-panel
+  // photo did not. left/top is the standard, reliable path and is positionally
+  // identical for every layer type. transform is reserved for rotation/flip and
+  // omitted entirely when neither is set (Satori rejects `transform: undefined`).
+  const flip = flipTransform(l.flipH, l.flipV);
+  const style: CSSProperties = {
     position: "absolute",
-    left: 0,
-    top: 0,
+    left: box.x,
+    top: box.y,
     width: box.w,
     height: box.h,
-    transform: `translate(${box.x}px, ${box.y}px) rotate(${l.rotation}deg)${flipTransform(l.flipH, l.flipV)}`,
-    transformOrigin: "50% 50%",
     opacity: l.opacity,
     display: "flex",
   };
+  if (l.rotation || flip) {
+    style.transform = `rotate(${l.rotation}deg)${flip}`;
+    style.transformOrigin = "50% 50%";
+  }
+  return style;
 }
 
 function renderInner(
