@@ -42,6 +42,8 @@ export const X_VARIANT_IDS = new Set<string>([
   "x-overlay-list",
   "x-right-photo",
   "x-cta-facts",
+  "x-impact",
+  "x-appeal-tiers",
 ]);
 
 /** Sample report payload for the X infographic previews — a disaster photo,
@@ -683,6 +685,16 @@ export const VARIANTS: Variant[] = [
     id: "x-cta-facts",
     label: "X · Photo + facts + donate",
     c: { ...X_SAMPLE, primary: "Stand with Gaza today.", secondary: null, facts: X_SAMPLE.facts.slice(0, 2) },
+  },
+  {
+    id: "x-impact",
+    label: "X · Impact words",
+    c: { ...X_SAMPLE, primary: "Gaza, after the ceasefire.", secondary: null },
+  },
+  {
+    id: "x-appeal-tiers",
+    label: "X · Emergency appeal + tiers",
+    c: { ...X_SAMPLE, primary: "Help families survive Gaza.", secondary: null },
   },
 ];
 

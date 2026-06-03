@@ -3946,14 +3946,14 @@ function xHeroStat(c: SlideContent): EditorSlide {
       ...wordmark(XPAD, XPAD, c),
       hEyebrow(c.eyebrow, XPAD, 300, 660),
       ...headlineBlock(c.primary, c.accent, XPAD, 338, 660, 50),
-      // lead figure, big
+      // lead figure — colossal (the number is the hero).
       ...(lead
         ? [
-            text({ x: colX, y: 250, w: colW, h: 150, text: lead.value ?? "", fontFamily: ANTON, fontSize: 132, fontWeight: 400, uppercase: true, lineHeight: 0.86, letterSpacing: -3, color: C.amber }),
-            text({ x: colX, y: 392, w: colW, h: 70, text: lead.label, fontFamily: BARLOW, fontSize: 21, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+            text({ x: colX, y: 236, w: colW + 4, h: 168, text: lead.value ?? "", fontFamily: ANTON, fontSize: 168, fontWeight: 400, uppercase: true, lineHeight: 0.84, letterSpacing: -4, color: C.amber }),
+            text({ x: colX, y: 398, w: colW, h: 64, text: lead.label, fontFamily: BARLOW, fontSize: 21, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
           ]
         : []),
-      ...rest.flatMap((f, i) => xFactRow(f, colX, 488 + i * 64, colW)),
+      ...rest.flatMap((f, i) => xFactRow(f, colX, 492 + i * 64, colW)),
       xFoot(xSourceOf(c), XPAD, 660),
     ],
     C.forest
@@ -4077,8 +4077,92 @@ function xCtaFacts(c: SlideContent): EditorSlide {
   );
 }
 
+// A sanctioned brick-red, used SPARINGLY — only on the appeal urgency chip,
+// to read "hotter" than the amber reporting accent (the charity-appeal
+// convention) without overriding the forest/amber brand.
+const X_RED = "#C0392B";
+
+/** Three short, staccato impact words for the OCHA-style headline
+ *  ("Casualties. Damage. Displacement."). Derived from the report's facts,
+ *  with strong editable defaults — she tunes them per event. */
+function xImpactWords(c: SlideContent): string[] {
+  const stop = new Set(["the", "a", "of", "in", "on", "to", "and", "now", "with", "their", "from", "are", "is", "have", "has", "who", "been"]);
+  const words = xFactsOf(c, 3)
+    .map((f) => {
+      const w = (f.label || "")
+        .split(/\s+/)
+        .find((x) => x.replace(/[^a-z]/gi, "").length > 3 && !stop.has(x.toLowerCase()));
+      if (!w) return null;
+      const clean = w.replace(/[^a-zA-Z]/g, "");
+      return clean ? clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase() + "." : null;
+    })
+    .filter((w): w is string => !!w);
+  const fallback = ["Killed.", "Displaced.", "Without aid."];
+  while (words.length < 3) words.push(fallback[words.length]!);
+  return words.slice(0, 3);
+}
+
+// X-11 — Impact words: the OCHA "Casualties. Damage. Displacement." pattern.
+// Three staccato impact words as the hero over the disaster photo, with a
+// supporting stat ribbon at the foot.
+function xImpact(c: SlideContent): EditorSlide {
+  const words = xImpactWords(c);
+  const facts = xFactsOf(c, 3);
+  const colW = Math.round((XW - 2 * XPAD - 2 * 28) / 3);
+  return slideX(
+    [
+      ...xPhotoBase(c, 180),
+      ...wordmark(XPAD, XPAD, c),
+      hTag("Field Report", XW - XPAD - 420, XPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, XPAD, 150, 900),
+      ...words.map((w, i) =>
+        hHead(w, XPAD, 214 + i * 76, 760, 78, 64, "left", i === 1 ? C.amber : C.cream)
+      ),
+      ...facts.flatMap((f, i) => xStatCell(f, XPAD + i * (colW + 28), 504, colW, 38)),
+      xFoot(xSourceOf(c), XPAD, XW - 2 * XPAD),
+    ],
+    C.forest
+  );
+}
+
+// X-12 — Appeal with the donation-tier ladder: the charity conversion
+// workhorse. Emotional photo left, a red EMERGENCY APPEAL chip, the
+// "£X provides Y" ladder, a Donate ask + a Zakat / on-the-ground trust line.
+function xAppealTiers(c: SlideContent): EditorSlide {
+  const photoW = 560;
+  const innerX = photoW + 48;
+  const innerW = XW - XPAD - innerX;
+  const heading = c.primary || "Help families survive.";
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 0, w: photoW, h: 120, shape: "rect", fill: TOP_SCRIM, locked: true }),
+      shape({ x: photoW, y: 0, w: XW - photoW, h: XH, shape: "rect", fill: C.forest, locked: true }),
+      // Red urgency chip on the photo.
+      shape({ x: XPAD, y: XPAD + 2, w: 280, h: 40, shape: "rect", fill: X_RED, radius: 6, locked: true }),
+      text({ x: XPAD, y: XPAD + 12, w: 280, h: 24, text: "Emergency Appeal", fontFamily: BARLOW, fontSize: 19, fontWeight: 800, uppercase: true, letterSpacing: 3, color: C.cream, align: "center" }),
+      ...wordmark(innerX, 52, c),
+      hHead(balanceLines(heading, innerW, 40), innerX, 124, innerW, 96, 40, "left", C.cream),
+      // The donation-tier ladder.
+      ...TIERS_DEFAULT.flatMap((t, i) => {
+        const y = 256 + i * 70;
+        return [
+          text({ x: innerX, y, w: 118, h: 50, text: t.amt, fontFamily: ANTON, fontSize: 40, fontWeight: 400, uppercase: true, lineHeight: 0.95, color: C.amber }),
+          text({ x: innerX + 130, y: y + 8, w: innerW - 130, h: 56, text: t.label, fontFamily: BARLOW, fontSize: 20, fontWeight: 500, lineHeight: 1.16, color: C.cream }),
+        ];
+      }),
+      ...donatePill(innerX, 478, Math.min(320, innerW)),
+      text({ x: innerX, y: 592, w: innerW, h: 24, text: "Your Zakat, in trusted hands · Deen Relief is on the ground now", fontFamily: BARLOW, fontSize: 14, fontWeight: 600, uppercase: true, letterSpacing: 1.5, color: C.amber, opacity: 0.85 }),
+      xFoot("deenrelief.org · Charity No. 1158608", innerX, innerW),
+    ],
+    C.forest
+  );
+}
+
 /** Route an `x-*` template id to its dense news-infographic builder. */
 function buildXSlide(id: string, c: SlideContent): EditorSlide {
+  if (id.includes("impact")) return xImpact(c);
+  if (id.includes("appeal") || id.includes("tiers")) return xAppealTiers(c);
   if (id.includes("split")) return xSplitFacts(c);
   if (id.includes("top-photo")) return xTopPhotoStats(c);
   if (id.includes("card")) return xPhotoCard(c);
