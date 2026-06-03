@@ -3759,6 +3759,274 @@ export function applyTemplateOverride(override: EditorSlide, c: SlideContent): E
   return { ...override, id: `sl_${makeLayerId().slice(3)}`, layers };
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * X (Twitter) — LANDSCAPE NEWS-INFOGRAPHIC LIBRARY (1200×675, 16:9)
+ *
+ * X posts are single images, not carousels, and read like a newswire
+ * graphic, not a poster: wide, data-forward, one beat per image. These
+ * eight layouts reuse the same brand tokens, wordmark + gold-rule motif
+ * and Anton/Barlow type as the square library, re-proportioned for the
+ * landscape feed. Ids are `x-*` so the dispatcher routes them here before
+ * the generic square matches, and so they group under their own catalogue
+ * category. Geometry is board units on the 1200×675 board.
+ * ═══════════════════════════════════════════════════════════════════ */
+const XW = 1200;
+const XH = 675;
+const XPAD = 64;
+const X_SCRIM =
+  "linear-gradient(to bottom, rgba(15,42,28,0) 0%, rgba(15,42,28,0.5) 52%, rgba(15,42,28,0.95) 100%)";
+
+function slideX(layers: Layer[], background: string): EditorSlide {
+  return { id: `sl_${makeLayerId().slice(3)}`, width: XW, height: XH, background, layers };
+}
+/** Bottom-pinned source / charity line for landscape slides. */
+function xFoot(t: string, x: number, w: number, align: TextAlign = "left", color: string = C.cream): TextLayer {
+  return text({ x, y: XH - 52, w, h: 26, text: t, fontFamily: BARLOW, fontSize: 16, fontWeight: 600, uppercase: true, letterSpacing: 3, color, opacity: 0.55, align });
+}
+
+// X-1 — Headline dispatch: photo-left + forest panel-right when there's a
+// photo; a clean editorial type cover when there isn't.
+function xHeadline(c: SlideContent): EditorSlide {
+  if (!c.imageUrl) return xHeadlineType(c);
+  const photoW = 700;
+  const panelX = photoW;
+  const innerX = panelX + 48;
+  const innerW = XW - XPAD - innerX; // right column text width
+  const headSize = 52;
+  const headY = 206;
+  const headBottom = headlineBottom(c.primary, c.accent, innerW, headSize, headY);
+  const barY = headBottom + 24;
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl, objectFit: "cover" }),
+      shape({ x: panelX, y: 0, w: XW - panelX, h: XH, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(innerX, 56, c),
+      hEyebrow(c.eyebrow, innerX, 150, innerW),
+      ...headlineBlock(c.primary, c.accent, innerX, headY, innerW, headSize),
+      goldBar(innerX, barY),
+      ...(c.secondary ? [hBody(c.secondary, innerX, barY + 22, innerW, 180)] : []),
+      xFoot("deenrelief.org · Charity No. 1158608", innerX, innerW),
+    ],
+    C.forest
+  );
+}
+// X-1b — Type-led editorial cover (no photo).
+function xHeadlineType(c: SlideContent): EditorSlide {
+  const W = 820;
+  const headSize = 92;
+  const headY = 232;
+  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
+  const barY = headBottom + 28;
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hTag("Emergency Appeal", XW - XPAD - 420, XPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, XPAD, 168, W),
+      ...headlineBlock(c.primary, c.accent, XPAD, headY, W, headSize),
+      goldBar(XPAD, barY),
+      ...(c.secondary ? [hBody(c.secondary, XPAD, barY + 24, Math.min(W, 900), 120)] : []),
+      xFoot("deenrelief.org · Charity No. 1158608", XPAD, 900),
+    ],
+    C.forest
+  );
+}
+
+// X-2 — Full-bleed photo banner (breaking-news look).
+function xPhotoBanner(c: SlideContent): EditorSlide {
+  const W = 880;
+  const headSize = 60;
+  const headY = 430;
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: XW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 250, w: XW, h: XH - 250, shape: "rect", fill: X_SCRIM, locked: true }),
+      shape({ x: 0, y: 0, w: XW, h: 168, shape: "rect", fill: TOP_SCRIM, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hTag("Field Report", XW - XPAD - 420, XPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, XPAD, headY - 46, W),
+      ...headlineBlock(c.primary, c.accent, XPAD, headY, W, headSize),
+      xFoot("deenrelief.org", XW - XPAD - 360, 360, "right"),
+    ],
+    C.forest
+  );
+}
+
+// X-3 — Key stat: colossal numeral left, label + context right.
+function xStat(c: SlideContent): EditorSlide {
+  const figure = c.primary || "2.1M";
+  const figureSize = 300;
+  const colX = 620;
+  const colW = XW - XPAD - colX;
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow, XPAD, 150, 520),
+      text({ x: XPAD - 4, y: 214, w: 560, h: Math.round(figureSize * 0.82 + 20), text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -6, color: C.amber }),
+      ...(c.secondary
+        ? [text({ x: colX, y: 250, w: colW, h: 280, text: c.secondary, fontFamily: ANTON, fontSize: 56, fontWeight: 400, uppercase: true, lineHeight: 1.0, color: C.cream })]
+        : []),
+      goldBar(colX, 224),
+      xFoot("Source · deenrelief.org · Charity No. 1158608", XPAD, XW - 2 * XPAD),
+    ],
+    C.forest
+  );
+}
+
+// X-4 — Multi-stat "by the numbers": three figures across (the classic
+// news infographic).
+function xMultistat(c: SlideContent): EditorSlide {
+  const heading = c.primary || "By the numbers";
+  const rows = [
+    { num: "2.3M", label: "facing acute food insecurity" },
+    { num: "1.9M", label: "displaced from their homes" },
+    { num: "90%", label: "of water unsafe to drink" },
+  ];
+  const headSize = 56;
+  const headY = 132;
+  const ruleY = headY + Math.round(headSize * 0.96) + 18;
+  const gap = 36;
+  const colW = Math.round((XW - 2 * XPAD - 2 * gap) / 3); // ~333
+  const figY = 320;
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hTag("By the Numbers", XW - XPAD - 420, XPAD + 6, 420, "right"),
+      hHead(balanceLines(heading, 760, headSize), XPAD, headY, 760, Math.round(headSize * 0.96 + 12), headSize, "left", C.cream),
+      goldBar(XPAD, ruleY),
+      ...rows.flatMap((r, i) => {
+        const x = XPAD + i * (colW + gap);
+        return [
+          text({ x, y: figY, w: colW, h: 150, text: r.num, fontFamily: ANTON, fontSize: 124, fontWeight: 400, uppercase: true, lineHeight: 0.86, letterSpacing: -3, color: C.amber }),
+          text({ x, y: figY + 150, w: colW, h: 90, text: r.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.22, color: C.creamDim }),
+        ];
+      }),
+      xFoot("Source · deenrelief.org · Charity No. 1158608", XPAD, XW - 2 * XPAD),
+    ],
+    C.forest
+  );
+}
+
+// X-5 — Before / After: two columns split by a centre gold rule.
+function xBeforeAfter(c: SlideContent): EditorSlide {
+  const heading = c.primary || "Then & now";
+  const numSize = 150;
+  const numY = 300;
+  const cx = XW / 2;
+  const leftX = XPAD;
+  const rightX = cx + 40;
+  const colW = cx - XPAD - 40;
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow, XPAD, 150, 760),
+      hHead(balanceLines(heading, 760, 48), XPAD, 190, 760, 60, 48, "left", C.cream),
+      shape({ x: cx - 1, y: 250, w: 2, h: 300, shape: "rect", fill: C.amber, opacity: 0.5, locked: true }),
+      // BEFORE
+      text({ x: leftX, y: numY - 50, w: colW, h: 32, text: "Before", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.creamDim }),
+      text({ x: leftX, y: numY, w: colW, h: 180, text: "1 in 3", fontFamily: ANTON, fontSize: numSize, fontWeight: 400, uppercase: true, lineHeight: 0.86, color: C.cream }),
+      text({ x: leftX, y: numY + 168, w: colW, h: 60, text: "had access to clean water", fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }),
+      // AFTER
+      text({ x: rightX, y: numY - 50, w: colW, h: 32, text: "Now", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
+      text({ x: rightX, y: numY, w: colW, h: 180, text: "1 in 10", fontFamily: ANTON, fontSize: numSize, fontWeight: 400, uppercase: true, lineHeight: 0.86, color: C.amber }),
+      text({ x: rightX, y: numY + 168, w: colW, h: 60, text: "have access today", fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }),
+      xFoot(c.secondary || "Source · deenrelief.org", XPAD, XW - 2 * XPAD),
+    ],
+    C.forest
+  );
+}
+
+// X-6 — Testimony: portrait left, quote right (type-led when no photo).
+function xQuote(c: SlideContent): EditorSlide {
+  const hasPhoto = !!c.imageUrl;
+  const photoW = 480;
+  const innerX = hasPhoto ? photoW + 56 : XPAD;
+  const innerW = XW - XPAD - innerX;
+  const quoteSize = hasPhoto ? 38 : 46;
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      ...(hasPhoto
+        ? [image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" })]
+        : []),
+      ...(hasPhoto ? [] : wordmark(XPAD, XPAD, c)),
+      text({ x: innerX - 6, y: 70, w: 200, h: 200, text: "“", fontFamily: ANTON, fontSize: 220, fontWeight: 400, lineHeight: 0.8, color: C.amber }),
+      text({ x: innerX, y: 188, w: innerW, h: 300, text: c.primary, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream }),
+      goldBar(innerX, XH - 132),
+      ...(c.secondary ? [text({ x: innerX, y: XH - 116, w: innerW, h: 40, text: c.secondary, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 2, color: C.cream, opacity: 0.85 })] : []),
+      xFoot("deenrelief.org", innerX, innerW),
+    ],
+    C.forest
+  );
+}
+
+// X-7 — Our response: photo left, what-we're-delivering panel right.
+function xResponse(c: SlideContent): EditorSlide {
+  const photoW = 640;
+  const innerX = photoW + 48;
+  const innerW = XW - XPAD - innerX;
+  const headSize = 46;
+  const headY = 196;
+  const headBottom = headlineBottom(c.primary, c.accent, innerW, headSize, headY);
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: photoW, y: 0, w: XW - photoW, h: XH, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(innerX, 56, c),
+      hEyebrow(c.eyebrow || "Our response", innerX, 142, innerW),
+      ...headlineBlock(c.primary, c.accent, innerX, headY, innerW, headSize),
+      ...(c.secondary
+        ? [
+            goldBar(innerX, headBottom + 22),
+            text({ x: innerX, y: headBottom + 40, w: innerW, h: 120, text: c.secondary, fontFamily: ANTON, fontSize: 44, fontWeight: 400, uppercase: true, lineHeight: 1.0, color: C.amber }),
+          ]
+        : []),
+      xFoot("deenrelief.org · Charity No. 1158608", innerX, innerW),
+    ],
+    C.forest
+  );
+}
+
+// X-8 — Closing CTA: ask + DONATE pill left, scan-to-give QR right.
+function xCta(c: SlideContent): EditorSlide {
+  const W = 660;
+  const headSize = 64;
+  const headY = 214;
+  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
+  const pillY = headBottom + 36;
+  const qr = 300;
+  const qrX = XW - XPAD - qr;
+  const qrY = (XH - qr) / 2 + 10;
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow || "Stand with them", XPAD, 150, W),
+      ...headlineBlock(c.primary, c.accent, XPAD, headY, W, headSize),
+      ...donatePill(XPAD, pillY, 360),
+      qrPlaceholder(qrX, qrY, qr),
+      text({ x: qrX - 40, y: qrY + qr + 18, w: qr + 80, h: 28, text: "Scan to give", fontFamily: BARLOW, fontSize: 20, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.cream, opacity: 0.7, align: "center" }),
+      xFoot("deenrelief.org · Charity No. 1158608", XPAD, W),
+    ],
+    C.forest
+  );
+}
+
+/** Route an `x-*` template id to its landscape news-infographic builder. */
+function buildXSlide(id: string, c: SlideContent): EditorSlide {
+  if (id.includes("photo") || id.includes("banner")) return xPhotoBanner(c);
+  if (id.includes("multistat") || id.includes("numbers")) return xMultistat(c);
+  if (id.includes("beforeafter") || id.includes("before-after")) return xBeforeAfter(c);
+  if (id.includes("stat")) return xStat(c);
+  if (id.includes("quote") || id.includes("testimony")) return xQuote(c);
+  if (id.includes("response")) return xResponse(c);
+  if (id.includes("cta")) return xCta(c);
+  return xHeadline(c);
+}
+
 /** Use a template to build a slide, honouring a saved override if present. */
 export function buildTemplateSlide(
   templateId: string,
@@ -3777,6 +4045,9 @@ export function presetForTemplate(templateId: string, c: SlideContent): EditorSl
 
 function buildPresetSlide(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
+  // X (Twitter) landscape news-infographics FIRST — an "x-stat" must route to
+  // the landscape builder, not the square "stat" match further down.
+  if (id.startsWith("x-")) return buildXSlide(id, c);
   // Faithful Hero library (A–E). Specific ids first so "hero-a" doesn't
   // get swallowed by the generic "hero" match.
   if (id.includes("hero-a")) return heroPhotoFull(c);

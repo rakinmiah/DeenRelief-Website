@@ -14,29 +14,46 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildTemplateSlide, type BrandLogo } from "@/lib/social-editor/presets";
 import type { EditorSlide } from "@/lib/social-editor/types";
-import { CATS, VARIANTS, variantsByCat, type Variant } from "../../../template-lab/templateData";
+import {
+  CATS,
+  VARIANTS,
+  isXVariant,
+  variantsByCat,
+  type Variant,
+} from "../../../template-lab/templateData";
 import { useTemplateOverrides } from "../../../template-lab/useOverrides";
 
 export default function TemplatesPanel({
   logo,
   logoLight,
+  platform = "instagram",
   onPick,
   onClose,
 }: {
   logo: BrandLogo | null;
   logoLight: BrandLogo | null;
+  /** The deck's platform — X shows only its landscape news-infographics,
+   *  Instagram/Facebook show the square library (and hide the X set). */
+  platform?: string;
   /** A template was chosen — hand back a freshly-built slide to insert. */
   onPick: (slide: EditorSlide) => void;
   onClose: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const overrides = useTemplateOverrides();
+  const isX = platform === "x";
+  // Square library for IG/FB; landscape X library for X. Never mix — a
+  // landscape slide doesn't belong in a square carousel and vice-versa.
+  const cats = CATS.filter((c) => (isX ? c.key === "x" : c.key !== "x"));
+  const count = isX
+    ? VARIANTS.filter((v) => isXVariant(v.id)).length
+    : VARIANTS.filter((v) => !isXVariant(v.id)).length;
   return (
     <aside className="w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-charcoal/8 shrink-0">
         <div>
           <p className="font-heading font-semibold text-charcoal text-[14px] leading-tight">Templates</p>
-          <p className="text-[11px] text-charcoal/45">{VARIANTS.length} layouts · tap to add a slide</p>
+          <p className="text-[11px] text-charcoal/45">{count} layouts · tap to add a slide</p>
         </div>
         <button
           type="button"
@@ -48,7 +65,7 @@ export default function TemplatesPanel({
         </button>
       </div>
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-        {CATS.map((cat) => {
+        {cats.map((cat) => {
           const items = variantsByCat(cat.key);
           if (!items.length) return null;
           return (
@@ -61,7 +78,7 @@ export default function TemplatesPanel({
                   {items.length}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 mt-2.5">
+              <div className={`grid ${isX ? "grid-cols-1" : "grid-cols-2"} gap-2 mt-2.5`}>
                 {items.map((v) => (
                   <TemplateCard
                     key={v.id}
@@ -159,13 +176,14 @@ function TemplateCard({
     };
   }, [inView, slide]);
 
+  const landscape = isXVariant(variant.id);
   return (
     <button
       ref={ref}
       type="button"
       onClick={() => onPick(slide)}
       title={variant.label}
-      className="group relative aspect-square rounded-lg overflow-hidden bg-[#163827] ring-1 ring-charcoal/10 hover:ring-green/70 hover:ring-2 transition grid place-items-center"
+      className={`group relative ${landscape ? "aspect-[16/9]" : "aspect-square"} rounded-lg overflow-hidden bg-[#163827] ring-1 ring-charcoal/10 hover:ring-green/70 hover:ring-2 transition grid place-items-center`}
     >
       {state.status === "ok" ? (
         // eslint-disable-next-line @next/next/no-img-element

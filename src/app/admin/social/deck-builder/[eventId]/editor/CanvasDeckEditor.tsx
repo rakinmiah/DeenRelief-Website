@@ -1797,6 +1797,7 @@ export default function CanvasDeckEditor({
           <TemplatesPanel
             logo={logo}
             logoLight={logoLight}
+            platform={platform}
             onPick={insertTemplateSlide}
             onClose={() => setLeftPanel(null)}
           />

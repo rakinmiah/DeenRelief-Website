@@ -31,6 +31,7 @@ import {
 import SlideBuilder, { type SlideResult } from "./SlideBuilder";
 import { HERO_VARIANTS } from "./heroVariants";
 import { MIDDLE_VARIANTS } from "./middleVariants";
+import { X_VARIANTS } from "./xVariants";
 import {
   ROLES,
   autoFillPlan,
@@ -215,12 +216,15 @@ export default function DeckFlow({
   // builder loop and the review/quick-draft template resolution.
   const templatesForRole = useMemo(() => {
     return (role: SlideRole) => {
+      // X is a single landscape image — its whole catalogue is the X
+      // news-infographic set, regardless of the (single) slide's role.
+      if (platform === "x") return X_VARIANTS;
       const cat = ROLES[role].category;
       if (cat === "hero") return HERO_VARIANTS;
       // New type-only middles drive from a local list (no registry entries).
       return MIDDLE_VARIANTS[cat] ?? groups[cat] ?? [];
     };
-  }, [groups]);
+  }, [groups, platform]);
 
   function go(next: Step) {
     setDir(ORDER.indexOf(next) > ORDER.indexOf(step) ? 1 : -1);
@@ -257,6 +261,37 @@ export default function DeckFlow({
       ),
     }));
     setResults(seeded);
+    setCurrentSlide(0);
+    go("review");
+  }
+
+  // X quick draft: a single LANDSCAPE news-infographic. X is one image, not a
+  // carousel, so we skip slide-count + planning and seed one x-* slide. The
+  // hero-role fallback in defaultTemplateId hardcodes SQUARE ids, so we pick
+  // the X default here directly — honouring a learned X winner/favourite if
+  // one has emerged. (Called from the platform pick, where the platform-state
+  // memo hasn't updated yet, so we don't rely on templatesForRole.)
+  function startQuickX() {
+    if (!content || !images) return;
+    setPlatform("x");
+    setPlan(["hero"]);
+    const fills = autoFillPlan(["hero"], content, images, prefs);
+    const f = fills[0]!;
+    const learned = [
+      outcome?.winningTemplateByRole?.hero,
+      prefs?.favTemplateByRole?.hero,
+    ].find((id): id is string => !!id && id.startsWith("x-"));
+    const templateId = learned ?? (f.imageId ? "x-headline" : "x-headline-type");
+    setResults([
+      {
+        role: "hero",
+        index: 0,
+        title: f.title,
+        subtext: f.subtext,
+        imageId: f.imageId,
+        templateId,
+      },
+    ]);
     setCurrentSlide(0);
     go("review");
   }
@@ -416,7 +451,7 @@ export default function DeckFlow({
                 onPick={(p) => {
                   setPlatform(p);
                   if (p === "instagram" || p === "facebook") go("count");
-                  else startQuick(["hero"]); // X = single image → straight to review
+                  else startQuickX(); // X = single landscape image → straight to review
                 }}
               />
             )}
