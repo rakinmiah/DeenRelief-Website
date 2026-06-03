@@ -193,7 +193,7 @@ function TextControls({
 
       <Stepper
         value={Math.round(layer.fontSize)}
-        onChange={(v) => onChange({ fontSize: Math.max(6, Math.min(400, v)) })}
+        onChange={(v) => onChange({ fontSize: Math.max(6, Math.min(1080, v)) })}
       />
 
       <ColorField label="Colour" value={layer.color} onChange={(color) => onChange({ color })} />
