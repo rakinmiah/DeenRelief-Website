@@ -12,9 +12,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { presetForTemplate, type BrandLogo } from "@/lib/social-editor/presets";
+import { buildTemplateSlide, type BrandLogo } from "@/lib/social-editor/presets";
 import type { EditorSlide } from "@/lib/social-editor/types";
 import { CATS, VARIANTS, variantsByCat, type Variant } from "../../../template-lab/templateData";
+import { useTemplateOverrides } from "../../../template-lab/useOverrides";
 
 export default function TemplatesPanel({
   logo,
@@ -29,6 +30,7 @@ export default function TemplatesPanel({
   onClose: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const overrides = useTemplateOverrides();
   return (
     <aside className="w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-charcoal/8 shrink-0">
@@ -66,6 +68,7 @@ export default function TemplatesPanel({
                     variant={v}
                     logo={logo}
                     logoLight={logoLight}
+                    overrides={overrides}
                     onPick={onPick}
                     rootRef={scrollRef}
                   />
@@ -83,12 +86,14 @@ function TemplateCard({
   variant,
   logo,
   logoLight,
+  overrides,
   onPick,
   rootRef,
 }: {
   variant: Variant;
   logo: BrandLogo | null;
   logoLight: BrandLogo | null;
+  overrides: Record<string, EditorSlide>;
   onPick: (slide: EditorSlide) => void;
   rootRef: React.RefObject<HTMLDivElement | null>;
 }) {
@@ -98,11 +103,14 @@ function TemplateCard({
     status: "idle",
   });
 
-  // Build the slide ONCE per (variant, logos) so the render effect + onPick
-  // share a stable object (and the same layout the SMM will get on insert).
+  // Build the slide ONCE per (variant, logos, override) so the render effect +
+  // onPick share a stable object (and the same layout the SMM will get on
+  // insert). A saved override for this id is applied here.
+  const ov = overrides[variant.id];
   const slide = useMemo<EditorSlide>(
-    () => presetForTemplate(variant.id, { ...variant.c, logo, logoLight }),
-    [variant, logo, logoLight]
+    () => buildTemplateSlide(variant.id, { ...variant.c, logo, logoLight }, overrides),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [variant, logo, logoLight, ov]
   );
 
   // Lazy: only render once the card scrolls near the panel's viewport.

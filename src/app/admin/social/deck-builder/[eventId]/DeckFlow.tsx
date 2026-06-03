@@ -15,7 +15,8 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SocialPlatform } from "@/lib/social-templates/types";
-import { presetForTemplate, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
+import { buildTemplateSlide, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
+import { useTemplateOverrides } from "../../template-lab/useOverrides";
 import CanvasDeckEditor from "./editor/CanvasDeckEditor";
 import {
   ModeStep,
@@ -176,6 +177,9 @@ export default function DeckFlow({
     );
   }, [event]);
 
+  // Saved "official template" edits — applied to auto-built decks too.
+  const overrides = useTemplateOverrides();
+
   // Seed the canvas deck from the per-slide build results.
   const seedSlides = useMemo(() => {
     if (!images) return [];
@@ -184,9 +188,9 @@ export default function DeckFlow({
         ? images.images.find((i) => i.id === r.imageId)?.url ?? null
         : null;
       const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo, logoLight };
-      return presetForTemplate(r.templateId, c);
+      return buildTemplateSlide(r.templateId, c, overrides);
     });
-  }, [results, images, eyebrow, logo, logoLight]);
+  }, [results, images, eyebrow, logo, logoLight, overrides]);
 
   // The template options for a given slide role — faithful Hero variants
   // for the hero step, the registry group otherwise. Shared by the guided

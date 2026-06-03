@@ -98,6 +98,7 @@ export default function CanvasDeckEditor({
   persist = false,
   forceInitial = false,
   title = "Slide editor",
+  templateId,
 }: {
   initialDeck: EditorSlide[];
   eventId?: string;
@@ -121,7 +122,14 @@ export default function CanvasDeckEditor({
    *  was just freshly built by the guided flow). Autosave still runs. */
   forceInitial?: boolean;
   title?: string;
+  /** TEMPLATE-EDIT MODE. When set, the editor edits a single template (the
+   *  initialDeck is one bound slide); the top bar shows "Save as template"
+   *  (PUT the slide to the override store) + "Reset to default" instead of
+   *  Export, and the load-time auto-fit is skipped so she edits the raw
+   *  design. */
+  templateId?: string;
 }) {
+  const templateMode = !!templateId;
   // The whole document — slides + the deck-level component registry — is
   // ONE history state so create-component, master edits, variant swaps and
   // ordinary slide edits all share undo/redo. `deck` aliases the slides
@@ -132,7 +140,11 @@ export default function CanvasDeckEditor({
   // templates. Shrink-only + idempotent, so already-fitting slides are
   // untouched.
   const history = useHistory<EditorDeck>({
-    slides: (initialDeck.length ? initialDeck : [blankSlide()]).map(fitTextLayers),
+    slides: templateMode
+      ? initialDeck.length
+        ? initialDeck
+        : [blankSlide()]
+      : (initialDeck.length ? initialDeck : [blankSlide()]).map(fitTextLayers),
     components: undefined,
   });
   const deck = history.state.slides;
@@ -1338,6 +1350,39 @@ export default function CanvasDeckEditor({
     }
   }
 
+  /* ── Save / reset the official template (template-edit mode) ───── */
+  const [tplSave, setTplSave] = useState<"idle" | "saving" | "saved">("idle");
+  async function saveTemplate() {
+    if (!templateId) return;
+    setTplSave("saving");
+    try {
+      const res = await fetch(
+        `/api/admin/social/template-overrides/${encodeURIComponent(templateId)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slide: deck[0] }),
+        }
+      );
+      setTplSave(res.ok ? "saved" : "idle");
+      if (res.ok) setTimeout(() => setTplSave("idle"), 2000);
+    } catch {
+      setTplSave("idle");
+    }
+  }
+  async function resetTemplate() {
+    if (!templateId) return;
+    if (!window.confirm("Reset this template to the Deen Relief default? Your saved edits will be removed.")) return;
+    try {
+      await fetch(`/api/admin/social/template-overrides/${encodeURIComponent(templateId)}`, {
+        method: "DELETE",
+      });
+      window.location.reload();
+    } catch {
+      /* ignore */
+    }
+  }
+
   /* ── Space-to-pan (arm/disarm) ───────────────────────────────── */
   // Holding Space arms panning: the viewport shows a grab cursor and a
   // drag scrolls the canvas instead of marquee-selecting. Ignored while
@@ -1546,14 +1591,34 @@ export default function CanvasDeckEditor({
               <button type="button" title="Fit to screen (⌘0)" onClick={() => setScale(fitRef.current)} className="text-[12px] tabular-nums text-charcoal/60 w-11 text-center hover:text-charcoal">{zoomPct}%</button>
               <button type="button" title="Zoom in (⌘+)" onClick={() => setScale((s) => Math.min(4, s * 1.2))} className="w-7 h-7 grid place-items-center rounded-md hover:bg-charcoal/5 text-charcoal/60">+</button>
             </div>
-            <button
-              type="button"
-              onClick={onExport}
-              disabled={exporting}
-              className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
-            >
-              {exporting ? "Exporting…" : "Export"}
-            </button>
+            {templateMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={resetTemplate}
+                  className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/60 hover:text-charcoal hover:border-charcoal/30 transition"
+                >
+                  Reset to default
+                </button>
+                <button
+                  type="button"
+                  onClick={saveTemplate}
+                  disabled={tplSave === "saving"}
+                  className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
+                >
+                  {tplSave === "saving" ? "Saving…" : tplSave === "saved" ? "Saved ✓" : "Save as template"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={onExport}
+                disabled={exporting}
+                className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
+              >
+                {exporting ? "Exporting…" : "Export"}
+              </button>
+            )}
           </div>
         </div>
 

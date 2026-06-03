@@ -16,6 +16,7 @@ import {
   type ImageLayer,
   type ShapeLayer,
   type TextAlign,
+  type TemplateBind,
   makeLayerId,
   DEFAULT_BOARD as B,
 } from "./types";
@@ -3677,6 +3678,106 @@ export function fitTextLayers(s: EditorSlide): EditorSlide {
     ...s,
     layers: s.layers.map((l) => (l.type === "text" ? { ...l, fontSize: fitFontSize(l) } : l)),
   };
+}
+
+/* ─── Saved "official template" overrides ──────────────────────────────
+ * A saved template is an EditorSlide whose content-bearing layers carry a
+ * `bind`. buildEditableTemplate tags those binds (by matching the built
+ * layers back to the sample content) so the SMM can fix the design;
+ * applyTemplateOverride re-injects the event's real content into the bound
+ * layers when the template is used, so design edits stick but copy/photo
+ * still fill. */
+function normText(s: string | null | undefined): string {
+  return (s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function bindValue(bind: TemplateBind, c: SlideContent): string | null {
+  switch (bind) {
+    case "primary":
+      return c.primary;
+    case "secondary":
+      return c.secondary;
+    case "accent":
+      return c.accent ?? null;
+    case "eyebrow":
+      return c.eyebrow;
+    default:
+      return null; // "image" handled separately
+  }
+}
+function inferBind(layer: Layer, c: SlideContent): TemplateBind | undefined {
+  if (layer.type === "image") {
+    if (layer.name !== "brand-logo" && c.imageUrl && layer.src === c.imageUrl) return "image";
+    return undefined;
+  }
+  if (layer.type !== "text") return undefined;
+  const t = normText(layer.text);
+  if (!t) return undefined;
+  const fields: [TemplateBind, string | null | undefined][] = [
+    ["primary", c.primary],
+    ["secondary", c.secondary],
+    ["accent", c.accent],
+    ["eyebrow", c.eyebrow],
+  ];
+  for (const [bind, val] of fields) {
+    if (val && t === normText(val)) return bind; // exact (whitespace-normalised)
+  }
+  for (const [bind, val] of fields) {
+    // long-field substring fallback (avoids short eyebrow false positives)
+    if (val && normText(val).length >= 14 && t.includes(normText(val))) return bind;
+  }
+  return undefined;
+}
+
+/** Build a template with `bind` tags on its content layers, for EDITING. */
+export function buildEditableTemplate(templateId: string, c: SlideContent): EditorSlide {
+  const slide = buildPresetSlide(templateId, c); // raw design (no auto-fit)
+  return {
+    ...slide,
+    layers: slide.layers.map((l) => {
+      const bind = inferBind(l, c);
+      return bind ? ({ ...l, bind } as Layer) : l;
+    }),
+  };
+}
+
+/** Re-inject the event's real content into a saved override's bound layers. */
+export function applyTemplateOverride(override: EditorSlide, c: SlideContent): EditorSlide {
+  const idMap = new Map<string, string>();
+  const kept: Layer[] = [];
+  for (const l of override.layers) {
+    let text: string | undefined;
+    if (l.bind && l.bind !== "image" && l.type === "text") {
+      const v = bindValue(l.bind, c);
+      if (v == null || v === "") continue; // field absent → drop the bound layer
+      text = v;
+    }
+    const id = makeLayerId();
+    idMap.set(l.id, id);
+    let next: Layer = { ...l, id } as Layer;
+    if (text != null) next = { ...next, text } as Layer;
+    if (l.bind === "image" && l.type === "image") {
+      next = { ...next, src: c.imageUrl ?? (next as ImageLayer).src } as Layer;
+    }
+    kept.push(next);
+  }
+  // Mask links reference layer ids — remap to the fresh clones.
+  const layers = kept.map((l) =>
+    l.type === "image" && l.maskLayerId
+      ? ({ ...l, maskLayerId: idMap.get(l.maskLayerId) ?? l.maskLayerId } as Layer)
+      : l
+  );
+  return { ...override, id: `sl_${makeLayerId().slice(3)}`, layers };
+}
+
+/** Use a template to build a slide, honouring a saved override if present. */
+export function buildTemplateSlide(
+  templateId: string,
+  c: SlideContent,
+  overrides?: Record<string, EditorSlide> | null
+): EditorSlide {
+  const ov = overrides?.[templateId];
+  if (ov) return fitTextLayers(applyTemplateOverride(ov, c));
+  return presetForTemplate(templateId, c);
 }
 
 /* ─── Map a chosen template → a layer preset ──────────────────────── */

@@ -17,8 +17,10 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { presetForTemplate, type BrandLogo } from "@/lib/social-editor/presets";
+import { buildTemplateSlide, type BrandLogo } from "@/lib/social-editor/presets";
+import type { EditorSlide } from "@/lib/social-editor/types";
 import { CATS, variantsByCat, type Variant } from "../templateData";
+import { useTemplateOverrides } from "../useOverrides";
 
 const FOREST = "#163827";
 const GOLD = "#A9842B";
@@ -54,6 +56,7 @@ export default function TemplateSorter({
   const selectedCat = CATS.find((c) => c.key === selected?.catKey);
 
   const railRef = useRef<HTMLDivElement>(null);
+  const overrides = useTemplateOverrides();
 
   // "Insert into my deck": hand the selected template's slide to the editor
   // tab via localStorage. The editor listens for the cross-tab `storage`
@@ -63,7 +66,7 @@ export default function TemplateSorter({
   useEffect(() => setInserted(null), [selectedId]);
   function insertIntoDeck(variant: Variant) {
     try {
-      const slide = presetForTemplate(variant.id, { ...variant.c, logo, logoLight });
+      const slide = buildTemplateSlide(variant.id, { ...variant.c, logo, logoLight }, overrides);
       localStorage.setItem(
         "dr-template-import",
         JSON.stringify({ slide, name: variant.label, ts: Date.now() })
@@ -193,6 +196,7 @@ export default function TemplateSorter({
                     onSelect={() => setSelectedId(v.id)}
                     logo={logo}
                     logoLight={logoLight}
+                    overrides={overrides}
                     rootRef={railRef}
                   />
                 );
@@ -263,6 +267,28 @@ export default function TemplateSorter({
                   </svg>
                   Insert into my deck
                 </button>
+                <a
+                  href={`/admin/social/template-lab/edit/${selected.variant.id}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "rgba(255,255,255,0.85)",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    border: "1px solid rgba(255,255,255,0.28)",
+                    borderRadius: 999,
+                    padding: "7px 16px",
+                    whiteSpace: "nowrap",
+                  }}
+                  title="Edit this template and save it as the official Deen Relief version"
+                >
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+                    <path d="M11.5 2.5l2 2L6 12l-2.6.6.6-2.6 7.5-7.5z" strokeLinejoin="round" strokeLinecap="round" />
+                  </svg>
+                  Edit template
+                </a>
                 {inserted && (
                   <div style={{ fontSize: 12, color: "#cbe8d0", maxWidth: 300, lineHeight: 1.5, textAlign: "right" }}>
                     ✓ “{inserted}” added as a new slide — switch to your{" "}
@@ -283,7 +309,7 @@ export default function TemplateSorter({
               padding: "0 28px 28px",
             }}
           >
-            {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} logoLight={logoLight} />}
+            {selected && <Preview key={selected.variant.id} variant={selected.variant} logo={logo} logoLight={logoLight} overrides={overrides} />}
           </div>
         </div>
       </div>
@@ -296,7 +322,8 @@ function useSlideImage(
   variant: Variant | null,
   active: boolean,
   logo: BrandLogo | null,
-  logoLight: BrandLogo | null
+  logoLight: BrandLogo | null,
+  overrides: Record<string, EditorSlide>
 ) {
   const [state, setState] = useState<{
     status: "idle" | "loading" | "ok" | "error";
@@ -311,7 +338,7 @@ function useSlideImage(
     setState({ status: "loading" });
     (async () => {
       try {
-        const slide = presetForTemplate(variant.id, { ...variant.c, logo, logoLight });
+        const slide = buildTemplateSlide(variant.id, { ...variant.c, logo, logoLight }, overrides);
         const res = await fetch("/api/admin/social-editor/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -333,7 +360,8 @@ function useSlideImage(
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [variant, active, logo, logoLight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant, active, logo, logoLight, overrides[variant?.id ?? ""]]);
 
   return state;
 }
@@ -345,6 +373,7 @@ function RailThumb({
   onSelect,
   logo,
   logoLight,
+  overrides,
   rootRef,
 }: {
   variant: Variant;
@@ -353,6 +382,7 @@ function RailThumb({
   onSelect: () => void;
   logo: BrandLogo | null;
   logoLight: BrandLogo | null;
+  overrides: Record<string, EditorSlide>;
   rootRef: RefObject<HTMLDivElement | null>;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
@@ -376,7 +406,7 @@ function RailThumb({
     return () => io.disconnect();
   }, [rootRef]);
 
-  const img = useSlideImage(variant, inView, logo, logoLight);
+  const img = useSlideImage(variant, inView, logo, logoLight, overrides);
 
   return (
     <button
@@ -431,12 +461,14 @@ function Preview({
   variant,
   logo,
   logoLight,
+  overrides,
 }: {
   variant: Variant;
   logo: BrandLogo | null;
   logoLight: BrandLogo | null;
+  overrides: Record<string, EditorSlide>;
 }) {
-  const img = useSlideImage(variant, true, logo, logoLight);
+  const img = useSlideImage(variant, true, logo, logoLight, overrides);
   return (
     <div
       style={{

@@ -58,7 +58,17 @@ export type LayerBase = {
   flipH?: boolean;
   /** Mirror the layer vertically (scaleY(-1)) about its centre. */
   flipV?: boolean;
+  /** Content binding for SAVED TEMPLATE OVERRIDES. When an SMM edits a
+   *  template and saves it as the official version, the content-bearing
+   *  layers carry a `bind` so that, when the template is later used to build
+   *  a slide, the event's real content is re-injected into them (the design
+   *  edits stick; the copy/photo still fill). Unset = a fixed/decorative
+   *  layer that's kept verbatim. Editor + export ignore it. */
+  bind?: TemplateBind;
 };
+
+/** Which SlideContent field a template layer re-injects from on use. */
+export type TemplateBind = "primary" | "secondary" | "eyebrow" | "accent" | "image";
 
 export type TextAlign = "left" | "center" | "right" | "justify";
 

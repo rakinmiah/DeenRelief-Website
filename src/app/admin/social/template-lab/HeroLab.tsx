@@ -9,9 +9,10 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { presetForTemplate, type BrandLogo } from "@/lib/social-editor/presets";
+import { buildTemplateSlide, type BrandLogo } from "@/lib/social-editor/presets";
 import type { EditorSlide } from "@/lib/social-editor/types";
 import { CATS, VARIANTS, variantsByCat, type Variant } from "./templateData";
+import { useTemplateOverrides } from "./useOverrides";
 
 export default function HeroLab({
   logo,
@@ -20,6 +21,7 @@ export default function HeroLab({
   logo: BrandLogo | null;
   logoLight: BrandLogo | null;
 }) {
+  const overrides = useTemplateOverrides();
   const total = VARIANTS.length;
   const chip: CSSProperties = {
     fontSize: 12.5,
@@ -105,7 +107,7 @@ export default function HeroLab({
               <p style={{ color: "#777", margin: "2px 0 0", fontSize: 13 }}>{c.sub}</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 22, marginTop: 18 }}>
                 {items.map((v) => (
-                  <HeroCard key={v.id} variant={v} logo={logo} logoLight={logoLight} />
+                  <HeroCard key={v.id} variant={v} logo={logo} logoLight={logoLight} overrides={overrides} />
                 ))}
               </div>
             </section>
@@ -120,10 +122,12 @@ function HeroCard({
   variant,
   logo,
   logoLight,
+  overrides,
 }: {
   variant: Variant;
   logo: BrandLogo | null;
   logoLight: BrandLogo | null;
+  overrides: Record<string, EditorSlide>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -157,7 +161,7 @@ function HeroCard({
     let objectUrl: string | undefined;
     (async () => {
       try {
-        const slide: EditorSlide = presetForTemplate(variant.id, { ...variant.c, logo, logoLight });
+        const slide: EditorSlide = buildTemplateSlide(variant.id, { ...variant.c, logo, logoLight }, overrides);
         const res = await fetch("/api/admin/social-editor/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -180,7 +184,7 @@ function HeroCard({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [variant, inView, logo, logoLight]);
+  }, [variant, inView, logo, logoLight, overrides]);
 
   return (
     <div ref={ref} style={{ width: 380 }}>
