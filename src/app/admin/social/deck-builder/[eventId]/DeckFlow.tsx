@@ -18,6 +18,7 @@ import type { SocialPlatform } from "@/lib/social-templates/types";
 import { buildTemplateSlide, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
 import { useTemplateOverrides } from "../../template-lab/useOverrides";
 import CanvasDeckEditor from "./editor/CanvasDeckEditor";
+import type { DeckRecipeEntry } from "@/app/admin/social/posts/actions";
 import {
   ModeStep,
   PlanStep,
@@ -181,9 +182,10 @@ export default function DeckFlow({
   // Saved "official template" edits — applied to auto-built decks too.
   const overrides = useTemplateOverrides();
 
-  // The SMM's learned taste profile — biases the auto-draft's default template
-  // per role and headline-length ranking toward what she actually keeps. £0.
-  const prefs = useSmmPrefs();
+  // The deck builder's two learned signals: `prefs` (her taste) + `outcome`
+  // (what real clicks/donations prove converts). Both bias the auto-draft's
+  // deterministic choices; proven winners outrank taste. £0.
+  const { prefs, outcome } = useSmmPrefs();
 
   // Seed the canvas deck from the per-slide build results.
   const seedSlides = useMemo(() => {
@@ -196,6 +198,17 @@ export default function DeckFlow({
       return buildTemplateSlide(r.templateId, c, overrides);
     });
   }, [results, images, eyebrow, logo, logoLight, overrides]);
+
+  // The deck's DESIGN recipe ({role, templateId} per slide) — captured at the
+  // canvas boundary (which discards templateId/role) so "Mark as posted" can
+  // attribute real clicks/donations back to these exact templates.
+  const deckRecipe = useMemo<DeckRecipeEntry[]>(
+    () =>
+      results
+        .filter(Boolean)
+        .map((r) => ({ role: r.role, templateId: r.templateId })),
+    [results]
+  );
 
   // The template options for a given slide role — faithful Hero variants
   // for the hero step, the registry group otherwise. Shared by the guided
@@ -235,7 +248,13 @@ export default function DeckFlow({
       title: f.title,
       subtext: f.subtext,
       imageId: f.imageId,
-      templateId: defaultTemplateId(f.role, templatesForRole(f.role), !!f.imageId, prefs),
+      templateId: defaultTemplateId(
+        f.role,
+        templatesForRole(f.role),
+        !!f.imageId,
+        prefs,
+        outcome
+      ),
     }));
     setResults(seeded);
     setCurrentSlide(0);
@@ -259,6 +278,7 @@ export default function DeckFlow({
       <div className="fixed inset-0 z-50 bg-[#F4F4F2]">
         <CanvasDeckEditor
           initialDeck={blankStart ? [] : seedSlides}
+          deckRecipe={blankStart ? undefined : deckRecipe}
           eventId={event.id}
           platform={platform}
           images={images.images}

@@ -1,28 +1,50 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-session";
 import { getLearnedPrefs, recordDeckSignals, type DeckSignal } from "@/lib/smm-preferences";
+import { getOutcomePrefs } from "@/lib/social-outcomes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/admin/social/learning — the SMM's derived taste profile, applied by
- * the deck builder to bias its default template + copy ranking.
+ * GET /api/admin/social/learning — the deck builder's two learned signals:
+ *   - `prefs`   — the SMM's taste profile (templates she keeps, copy length)
+ *   - `outcome` — what real clicks + donations prove converts (templates +
+ *                 topics), gated by confidence
+ * Both bias the auto-draft's DETERMINISTIC choices. Each degrades independently
+ * to empty (e.g. before migration 035 / 037) so one missing piece never breaks
+ * the other or the builder.
  *
- * POST — merge a finished deck's signals (plain code, no AI call) into the
- * profile so future drafts drift toward her taste. £0 / 0 tokens.
+ * POST — merge a finished deck's taste signals (plain code, no AI call) into
+ * the profile so future drafts drift toward her taste. £0 / 0 tokens. (Outcome
+ * signals need no POST — they derive from donations/clicks already in the DB.)
  */
 export async function GET() {
   await requireAdminSession();
+
+  let prefs: Awaited<ReturnType<typeof getLearnedPrefs>> = {
+    favTemplateByRole: {},
+    avgTitleLen: null,
+    samples: 0,
+  };
   try {
-    const prefs = await getLearnedPrefs();
-    return NextResponse.json({ prefs });
+    prefs = await getLearnedPrefs();
   } catch (err) {
-    // Degrade to "no learned prefs" (e.g. before migration 035) — the deck
-    // builder just uses its base defaults.
-    console.error("[learning] load failed:", err);
-    return NextResponse.json({ prefs: { favTemplateByRole: {}, avgTitleLen: null, samples: 0 } });
+    console.error("[learning] taste prefs load failed:", err);
   }
+
+  let outcome: Awaited<ReturnType<typeof getOutcomePrefs>> = {
+    winningTemplateByRole: {},
+    basisByRole: {},
+    campaignSignal: [],
+  };
+  try {
+    outcome = await getOutcomePrefs();
+  } catch (err) {
+    console.error("[learning] outcome prefs load failed:", err);
+  }
+
+  return NextResponse.json({ prefs, outcome });
 }
 
 export async function POST(request: Request) {

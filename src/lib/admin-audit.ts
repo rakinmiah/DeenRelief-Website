@@ -84,6 +84,7 @@ export type AdminAction =
   | "first_response_appeal_launched"
   // Social posts registry (per-post performance)
   | "social_post_logged"
+  | "deck_marked_as_posted"
   | "social_post_archived"
   | "social_post_restored"
   // DR media library (Phase 4e — image inventory for slide generation)

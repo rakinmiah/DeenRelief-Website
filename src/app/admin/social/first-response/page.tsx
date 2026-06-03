@@ -8,6 +8,10 @@ import {
   getEmergencyEvents,
   type CoverageEntry,
 } from "@/lib/first-response";
+import {
+  conversionMultiplierFor,
+  getConversionLookup,
+} from "@/lib/social-outcomes";
 import TestEventPanel from "./TestEventPanel";
 
 export const metadata: Metadata = {
@@ -36,9 +40,10 @@ export const dynamic = "force-dynamic";
  */
 export default async function FirstResponsePage() {
   await requireAdminSession();
-  const [coverage, events] = await Promise.all([
+  const [coverage, events, conversionLookup] = await Promise.all([
     getCoverageMap(),
     getEmergencyEvents({ limit: 20 }),
+    getConversionLookup(),
   ]);
 
   // Strategic / partner / catch-all tiers driven by weight.
@@ -229,6 +234,18 @@ export default async function FirstResponsePage() {
                           }
                         >
                           Score {ev.drPriorityScore.toFixed(1)}
+                        </span>
+                      )}
+                      {conversionMultiplierFor(conversionLookup, {
+                        eventType: ev.eventType,
+                        countryIso: ev.countryIso,
+                        matchedCampaigns: ev.matchedCampaigns,
+                      }) > 1.05 && (
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full bg-green/10 text-green-dark"
+                          title="This topic has historically converted donations above average — its priority gets a small, capped boost."
+                        >
+                          Converts well
                         </span>
                       )}
                       <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">

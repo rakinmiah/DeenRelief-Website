@@ -11,6 +11,7 @@
 import type { ContentBundle, ImageBundle } from "./types";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import type { LearnedPrefs } from "@/lib/smm-preferences";
+import type { OutcomePrefs } from "@/lib/social-outcomes";
 
 export type SlideRole =
   | "hero"
@@ -164,24 +165,39 @@ const ROLE_FALLBACK_TEMPLATE: Record<SlideRole, string> = {
  * fallback. For the hero/photo-bearing roles with no image, prefers a
  * type-led variant so the slide isn't a photo frame with no photo.
  */
+/** Does a template's photo expectation match this slide's image state? Used to
+ *  stop a learned pick from forcing a photo layout onto an image-less slide (or
+ *  a typography layout when there's a good photo to use). */
+function fitsPhotoState(templateId: string, hasImage: boolean): boolean {
+  const wantsPhoto = /photo|image|portrait|cover|hero-(a|c|e)\b/i.test(templateId);
+  const isTypeLed = /typograph|text|crest|hero-(b|d)\b/i.test(templateId);
+  return hasImage ? !isTypeLed || wantsPhoto : !wantsPhoto;
+}
+
 export function defaultTemplateId(
   role: SlideRole,
   templates: { id: string }[],
   hasImage: boolean,
-  prefs?: LearnedPrefs | null
+  prefs?: LearnedPrefs | null,
+  outcome?: OutcomePrefs | null
 ): string {
-  // Learned taste: if she reliably reaches for one template for this slide
-  // type (and it fits this slide's photo state), lead with it. The profile
-  // only surfaces a favourite once it's a habit (count ≥ 2), so this won't
-  // chase one-off picks. Photo-state guard: don't force a photo template onto
-  // a slide with no image, or a typography template when she has a photo to use.
+  const inSet = (id: string | undefined | null): id is string =>
+    !!id && templates.some((t) => t.id === id);
+
+  // 1. PROVEN WINNER — the template that has actually raised the most for this
+  // slide type (gated: ≥3 posts + real donations, or a high-volume click
+  // proxy). Real outcomes outrank taste; this is what makes the builder
+  // compound. Empty/ungated ⇒ skipped, so behaviour is unchanged until a
+  // design earns it.
+  const winner = outcome?.winningTemplateByRole?.[role];
+  if (inSet(winner) && fitsPhotoState(winner, hasImage)) return winner;
+
+  // 2. LEARNED TASTE — if she reliably keeps one template for this slide type
+  // (count ≥ 2), lead with it. Won't chase one-off picks.
   const fav = prefs?.favTemplateByRole?.[role];
-  if (fav && templates.some((t) => t.id === fav)) {
-    const favWantsPhoto = /photo|image|portrait|cover|hero-(a|c|e)\b/i.test(fav);
-    const favIsTypeLed = /typograph|text|crest|hero-(b|d)\b/i.test(fav);
-    const fitsPhotoState = hasImage ? !favIsTypeLed || favWantsPhoto : !favWantsPhoto;
-    if (fitsPhotoState) return fav;
-  }
+  if (inSet(fav) && fitsPhotoState(fav, hasImage)) return fav;
+
+  // 3. BASE DEFAULTS.
   if (role === "hero") {
     // hero-b (typography cover) and hero-d (crest) need no photo.
     if (!hasImage) {

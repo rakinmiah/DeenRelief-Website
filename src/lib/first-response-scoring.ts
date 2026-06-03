@@ -10,6 +10,7 @@
  *                     × coverage_weight            (0–3)
  *                     × diaspora_multiplier        (1.0–2.0)
  *                     × muslim_multiplier          (1.0 or 1.5)
+ *                     × conversion_multiplier      (0.85–1.4, default 1.0)
  *
  * Why these factors:
  *   - humanitarian_severity: raw severity transformed to reflect
@@ -27,10 +28,15 @@
  *   - muslim_multiplier: Muslim-majority countries are higher-priority
  *     for an Islamic charity's donor base by default.
  *
- * Three signals deliberately NOT scored yet (tracked as Phase 3d/3e/3f):
+ * Signals deliberately NOT scored yet (tracked as Phase 3d/3e):
  *   - Media velocity (event-frequency tracker over time)
  *   - Competitor activity (Tier 4 signal source)
- *   - Historical pattern match (comparable-event archive)
+ *
+ * Phase 3f (historical conversion) IS now wired: `conversion_multiplier` is a
+ * gated, capped nudge (default 1.0) derived from real donation outcomes per
+ * topic — see conversionMultiplierFor() in src/lib/social-outcomes.ts. It only
+ * augments revenue-likelihood (already a designed factor here), never overrides
+ * humanitarian severity, and is 1.0 until a topic has earned a verdict.
  *
  * Push tier thresholds:
  *   ≥ 20 → CRITICAL — immediate audible push (urgent)
@@ -169,6 +175,9 @@ export interface ScoreInputs {
   countryIso: string | null;
   /** Signal source — drives severity normalisation. */
   source: string;
+  /** Gated historical-conversion nudge (Phase 3f), default 1.0 (no effect).
+   *  Clamped to [0.85, 1.4] by its producer (conversionMultiplierFor). */
+  conversionMultiplier?: number;
 }
 
 /**
@@ -188,8 +197,12 @@ export function computeDrPriorityScore(input: ScoreInputs): number | null {
   if (severity === 0) return 0;
   const diaspora = diasporaMultiplierFor(input.countryIso);
   const muslim = muslimMultiplierFor(input.countryIso);
+  // Gated, capped historical-conversion nudge (Phase 3f). Default 1.0 — no
+  // effect until a topic has earned a verdict, so pre-existing scores are
+  // unchanged.
+  const conversion = input.conversionMultiplier ?? 1.0;
   // Round to 1dp for compact display.
-  return Math.round(severity * weight * diaspora * muslim * 10) / 10;
+  return Math.round(severity * weight * diaspora * muslim * conversion * 10) / 10;
 }
 
 export function getPushTier(score: number | null): PushTier {

@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { DeckSignal, LearnedPrefs } from "@/lib/smm-preferences";
+import type { OutcomePrefs } from "@/lib/social-outcomes";
 
 /**
- * The SMM's learned taste profile — fetched once and applied to bias the
- * auto-draft's deterministic choices (default template per role, copy length).
+ * The deck builder's two learned signals, fetched once:
+ *   - `prefs`   — the SMM's taste profile (templates she keeps, copy length)
+ *   - `outcome` — what real clicks + donations prove converts (gated)
+ * Both bias the auto-draft's deterministic choices. The outcome signal is what
+ * makes the builder compound — proven winners outrank taste in defaultTemplateId.
  *
- * Zero-cost loop: GET reads the aggregated profile (plain code, no AI call);
- * `record()` POSTs a finished deck's signals so the next draft drifts toward
- * her taste. Degrades silently to `null` before migration 035 / on any error —
- * the deck builder just uses its base defaults.
+ * Zero-cost loop: GET reads aggregated profiles (no AI call). Degrades silently
+ * to `null`/empty before migrations 035/037 or on any error — the deck builder
+ * just uses its base defaults.
  */
 export function useSmmPrefs() {
   const [prefs, setPrefs] = useState<LearnedPrefs | null>(null);
+  const [outcome, setOutcome] = useState<OutcomePrefs | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -21,10 +25,15 @@ export function useSmmPrefs() {
       try {
         const res = await fetch("/api/admin/social/learning", { cache: "no-store" });
         if (!res.ok) return;
-        const json = (await res.json()) as { prefs?: LearnedPrefs };
-        if (!cancelled && json?.prefs) setPrefs(json.prefs);
+        const json = (await res.json()) as {
+          prefs?: LearnedPrefs;
+          outcome?: OutcomePrefs;
+        };
+        if (cancelled) return;
+        if (json?.prefs) setPrefs(json.prefs);
+        if (json?.outcome) setOutcome(json.outcome);
       } catch {
-        /* no learned prefs — fall back to base defaults */
+        /* no learned signals — fall back to base defaults */
       }
     })();
     return () => {
@@ -32,7 +41,7 @@ export function useSmmPrefs() {
     };
   }, []);
 
-  return prefs;
+  return { prefs, outcome };
 }
 
 /**

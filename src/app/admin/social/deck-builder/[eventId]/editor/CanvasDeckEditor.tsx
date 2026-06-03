@@ -65,6 +65,8 @@ import type { ContentBundle } from "../types";
 import TemplatesPanel from "./TemplatesPanel";
 import ContentPanel from "./ContentPanel";
 import QrDialog from "./QrDialog";
+import MarkAsPostedDialog from "./MarkAsPostedDialog";
+import type { DeckRecipeEntry } from "@/app/admin/social/posts/actions";
 import {
   ToolbarBtn,
   RailBtn,
@@ -99,6 +101,7 @@ export default function CanvasDeckEditor({
   forceInitial = false,
   title = "Slide editor",
   templateId,
+  deckRecipe,
 }: {
   initialDeck: EditorSlide[];
   eventId?: string;
@@ -128,6 +131,11 @@ export default function CanvasDeckEditor({
    *  Export, and the load-time auto-fit is skipped so she edits the raw
    *  design. */
   templateId?: string;
+  /** Per-slide design provenance ({role, templateId}) from the guided flow,
+   *  captured by "Mark as posted" so real clicks/donations can later be
+   *  attributed to these exact template designs. Undefined for blank-canvas
+   *  starts and pure canvas edits (post then records the event only). */
+  deckRecipe?: DeckRecipeEntry[];
 }) {
   const templateMode = !!templateId;
   // The whole document — slides + the deck-level component registry — is
@@ -171,6 +179,7 @@ export default function CanvasDeckEditor({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showQr, setShowQr] = useState(false);
+  const [showMarkPosted, setShowMarkPosted] = useState(false);
   // When the QR dialog was opened by clicking a QR placeholder, the generated
   // code replaces THAT layer (same box) instead of dropping bottom-right.
   const [qrTarget, setQrTarget] = useState<string | null>(null);
@@ -1648,14 +1657,26 @@ export default function CanvasDeckEditor({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={onExport}
-                disabled={exporting}
-                className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
-              >
-                {exporting ? "Exporting…" : "Export"}
-              </button>
+              <>
+                {eventId && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMarkPosted(true)}
+                    title="Record this deck against its news report + template designs so clicks and donations teach the builder over time"
+                    className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition"
+                  >
+                    Mark as posted
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onExport}
+                  disabled={exporting}
+                  className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
+                >
+                  {exporting ? "Exporting…" : "Export"}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1887,6 +1908,15 @@ export default function CanvasDeckEditor({
       )}
 
       {showQr && <QrDialog onInsert={addQrLayer} onClose={() => setShowQr(false)} />}
+      {showMarkPosted && (
+        <MarkAsPostedDialog
+          platform={platform}
+          eventId={eventId}
+          deckRecipe={deckRecipe}
+          defaultTitle={title !== "Slide editor" ? title : undefined}
+          onClose={() => setShowMarkPosted(false)}
+        />
+      )}
     </div>
   );
 }
