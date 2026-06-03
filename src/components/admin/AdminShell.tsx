@@ -80,8 +80,18 @@ export default function AdminShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Filter nav by role once per render. Cheap; avoids spreading the
-  // role check across every map() below.
-  const visibleNav = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  // role check across every map() below. The Social section is further
+  // restricted to the single ops account (info@deenrelief.org) regardless
+  // of role — hidden from the nav for everyone else. This is UX only; the
+  // /admin/social server layout enforces the real boundary. Drives both the
+  // desktop nav AND the mobile drawer (it receives this same list).
+  const canSeeSocial =
+    (signedInAs ?? "").trim().toLowerCase() === "info@deenrelief.org";
+  const visibleNav = NAV_ITEMS.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    if (item.href === "/admin/social" && !canSeeSocial) return false;
+    return true;
+  });
   // The wordmark in both desktop + mobile headers links to a "home"
   // route. Use the first nav item the current role can see — for
   // admins that's /admin/social (the new section is first in the nav
