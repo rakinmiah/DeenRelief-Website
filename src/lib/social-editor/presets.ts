@@ -4037,17 +4037,16 @@ function xOverlayList(c: SlideContent): EditorSlide {
 
 // X-9 — Mirror of split: fact list left on forest, photo right.
 function xRightPhoto(c: SlideContent): EditorSlide {
-  // Full-bleed photo + a SOLID forest panel over the left — the same pattern
-  // the working photo templates use (an image at x:0). A non-zero-x image
-  // renders as a sliver through the export's Satori path, so we never offset
-  // the image; the panel does the framing instead.
+  // A true right-panel photo (cover-cropped to its own 540×675 box) — the
+  // mirror of xSplitFacts. Safe now the render route honours non-zero-x images.
   const panelW = 660;
+  const photoW = XW - panelW;
   const innerW = panelW - 2 * XPAD;
   const facts = xFactsOf(c, 3);
   return slideX(
     [
-      image({ x: 0, y: 0, w: XW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
-      shape({ x: 0, y: 0, w: panelW, h: XH, shape: "rect", fill: C.forest, locked: true }),
+      shape({ x: 0, y: 0, w: panelW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      image({ x: panelW, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
       ...wordmark(XPAD, XPAD, c),
       hEyebrow(c.eyebrow, XPAD, 140, innerW),
       ...headlineBlock(c.primary, c.accent, XPAD, 180, innerW, 42),
