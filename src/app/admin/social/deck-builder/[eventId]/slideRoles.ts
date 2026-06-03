@@ -198,24 +198,69 @@ export function topSecondary(role: SlideRole, content: ContentBundle): string | 
 }
 
 /**
+ * Roles that REPORT the situation — what happened and the human toll. For
+ * these we lean to third-party, verified aftermath/news imagery: it's more
+ * ethical and more credible than fronting Deen Relief's own brand photos on a
+ * tragedy we're reporting (not yet responding to). Deen Relief's OWN library
+ * belongs on the ACTION slides — "our response", "what we do", the ask —
+ * which is where showing our people/work is appropriate.
+ */
+const REPORTING_ROLES = new Set<SlideRole>([
+  "hero",
+  "fact",
+  "stat",
+  "testimony",
+  "beforeafter",
+  "multistat",
+]);
+
+/** Crude content-match score: how many 4+ letter words of the slide's copy
+ *  appear in the candidate's caption/description. Lets a "homes destroyed"
+ *  fact pull the external photo whose caption mentions damage/strikes. */
+function imageRelevance(description: string | null, query: string | null | undefined): number {
+  if (!description || !query) return 0;
+  const terms = new Set(query.toLowerCase().match(/[a-z]{4,}/g) ?? []);
+  if (!terms.size) return 0;
+  const d = description.toLowerCase();
+  let score = 0;
+  for (const t of terms) if (d.includes(t)) score += 1;
+  return score;
+}
+
+/**
  * Choose a sensible default image for a role from the candidate pool.
- * Prefers the Deen Relief library over external imagery, and skips an
- * image already used by an earlier slide where possible so the draft
- * isn't visually repetitive. Returns null when the role takes no photo
- * or no imagery matched.
+ *
+ * Reporting slides prefer third-party aftermath/situation imagery; action
+ * slides prefer the Deen Relief library (see REPORTING_ROLES). Within the
+ * preferred source we pick the candidate whose caption best matches the
+ * slide's copy, and skip images already used earlier in the deck so the draft
+ * isn't repetitive. Falls back to the other source when the preferred one has
+ * nothing. Returns null when the role takes no photo or no imagery matched.
  */
 export function pickImageId(
   role: SlideRole,
   images: ImageBundle,
-  used: Set<string>
+  used: Set<string>,
+  query?: string | null
 ): string | null {
   if (!ROLES[role].needsImage) return null;
   const pool = images.images;
   if (pool.length === 0) return null;
-  const rank = (i: ImageCandidate) => (i.source === "dr_library" ? 0 : 1);
-  const sorted = [...pool].sort((a, b) => rank(a) - rank(b));
-  const fresh = sorted.find((i) => !used.has(i.id));
-  return (fresh ?? sorted[0])!.id;
+  const preferExternal = REPORTING_ROLES.has(role);
+  // 0 = preferred bucket, 1 = the other (used only as a fallback).
+  const sourcePref = (i: ImageCandidate) => {
+    const isDr = i.source === "dr_library";
+    return preferExternal ? (isDr ? 1 : 0) : isDr ? 0 : 1;
+  };
+  const ranked = pool
+    .map((i) => ({ i, isUsed: used.has(i.id), pref: sourcePref(i), rel: imageRelevance(i.description, query) }))
+    .sort(
+      (a, b) =>
+        Number(a.isUsed) - Number(b.isUsed) || // unused first — no repeats
+        a.pref - b.pref || // then the role-appropriate source
+        b.rel - a.rel // then the best content match
+    );
+  return ranked[0]?.i.id ?? null;
 }
 
 /** One fully auto-filled slide result-shape (sans index/template wiring). */
@@ -239,14 +284,13 @@ export function autoFillPlan(
 ): SlideDraftFill[] {
   const used = new Set<string>();
   return plan.map((role) => {
-    const imageId = pickImageId(role, images, used);
+    const title = topPrimary(role, content);
+    const subtext = topSecondary(role, content);
+    // Match imagery to the slide's actual copy (title + supporting line) so a
+    // reporting slide pulls the aftermath photo that fits the fact.
+    const imageId = pickImageId(role, images, used, `${title} ${subtext ?? ""}`);
     if (imageId) used.add(imageId);
-    return {
-      role,
-      title: topPrimary(role, content),
-      subtext: topSecondary(role, content),
-      imageId,
-    };
+    return { role, title, subtext, imageId };
   });
 }
 

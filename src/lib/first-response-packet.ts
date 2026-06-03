@@ -431,7 +431,7 @@ export const LaunchPacketSchema = z.object({
           .string()
           .nullable()
           .describe(
-            "ID of a photo to render. MUST come from CANDIDATE MEDIA or EXTERNAL VERIFIED IMAGERY — never invent IDs. Format: 'dr:<uuid>' or 'ext:<uuid>'. PREFER DR library when relevant.\n" +
+            "ID of a photo to render. MUST come from CANDIDATE MEDIA or EXTERNAL VERIFIED IMAGERY — never invent IDs. Format: 'dr:<uuid>' or 'ext:<uuid>'. ETHICS: reporting slides (hero/fact/stat/testimony — the situation + the toll) PREFER third-party verified aftermath/news imagery; DR-library photos belong on the 'response' / 'what we do' slides showing our own work — do NOT front a tragedy we're only reporting with our own brand photo.\n" +
               "  • 'hero' + 'response' + 'testimony': SHOULD use media_id when any candidate fits. Typography-only on these is a fallback.\n" +
               "  • 'fact': MAY use media_id when supporting imagery exists (a satellite view of the flooding, a photo of the affected region). The photo backs up the fact. PREFERRED over typography-only for fact slides — DR has DR-library photos AND external news imagery to draw from; use them.\n" +
               "  • 'tiers' + 'cta' + 'stat' + 'chapter': ALWAYS null — these are typography-only by design (the number/tier-ladder IS the focal point)."
@@ -1053,8 +1053,10 @@ strongest recommendation):
 
 ${campaignLines || "  • (no matched campaigns — Deen Relief has no specific coverage for this geography)"}
 
-CANDIDATE MEDIA from DR's own library — PREFERRED source (more
-authentic, no external attribution). Use this first when relevant.
+CANDIDATE MEDIA from DR's own library — use these on the OUR-RESPONSE /
+"what we do" slides, where showing our own people + work is appropriate.
+Do NOT front a reporting slide (the situation / the toll) with a DR brand
+photo — that belongs to third-party aftermath imagery (below).
 IDs prefixed 'dr:' — pass exactly as shown:
 
 ${candidateMediaLines}
@@ -1177,7 +1179,7 @@ function buildStage1Prompt(
 ): string {
   const hasPhotos = candidateMedia.length > 0 || externalImagery.length > 0;
   const photoNote = hasPhotos
-    ? `IMPORTANT — you have ${candidateMedia.length} DR-library + ${externalImagery.length} external-imagery candidates available. Your brief MUST address where the strongest photo goes. The HERO slide is where donors form their first impression — typography-only heroes are a fallback for when no fitting photo exists, NOT a default. If a fitting human/ground-level photo exists in DR's library, the hero takes it. If only satellite/aerial imagery exists (cold, abstract), consider whether it belongs on the hero or on a 'fact' slide.`
+    ? `IMPORTANT — you have ${candidateMedia.length} DR-library + ${externalImagery.length} external-imagery candidates available. Your brief MUST address where the strongest photo goes. The HERO slide is where donors form their first impression — typography-only heroes are a fallback for when no fitting photo exists, NOT a default. The hero REPORTS the situation, so it should take a THIRD-PARTY verified aftermath/ground-level photo of what actually happened — not a DR brand photo (it isn't ethical to front our own imagery on a tragedy we're only reporting). Reserve DR's own library photos for the 'our response' / 'what we do' slides. If only satellite/aerial imagery exists (cold, abstract), consider whether it belongs on the hero or on a 'fact' slide.`
     : "No photos available — the carousel will be typography-only.";
 
   return `${buildEventBrief(input, candidateMedia, externalImagery)}
@@ -1427,7 +1429,7 @@ The DR library has ${candidateMedia.length} matching photo${candidateMedia.lengt
   • TESTIMONY SHOULD have a portrait when one exists in the candidate pool.
   • TIERS / STAT / CTA / CHAPTER stay typography-only by design (the number / price ladder / claim IS the focal element).
 
-DR's own library photos take priority over external imagery when both could work, but DON'T leave external news imagery unused if it backs up a fact better than DR's library can. A NASA satellite of the actual flooding on a fact slide is more substantive than a generic field-team photo.
+ETHICS — on REPORTING slides (hero/fact/stat/testimony — the situation + the toll), third-party verified aftermath/news imagery takes PRIORITY over DR's own library: it's more ethical AND more credible than fronting our brand on a tragedy we're only reporting. DR's own library photos belong on the 'our response' / 'what we do' slides, where showing our people + work is appropriate. A NASA satellite of the actual flooding, or a news photo of the damage, on a fact slide is more substantive — and more honest — than a DR field-team photo there.
 
 TARGET: at least 3–4 slides with photos in a 6–8-slide packet. 'Two photos in a 5-slide packet' is the old templated low-water mark; we're moving past it.
 
