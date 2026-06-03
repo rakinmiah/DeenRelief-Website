@@ -37,6 +37,7 @@ import {
   suggestPlan,
   type SlideRole,
 } from "./slideRoles";
+import { useSmmPrefs, recordDeckSignals } from "./useSmmPrefs";
 import type { ContentBundle, ImageBundle, TemplateGroups } from "./types";
 
 export interface EventSummary {
@@ -180,6 +181,10 @@ export default function DeckFlow({
   // Saved "official template" edits — applied to auto-built decks too.
   const overrides = useTemplateOverrides();
 
+  // The SMM's learned taste profile — biases the auto-draft's default template
+  // per role and headline-length ranking toward what she actually keeps. £0.
+  const prefs = useSmmPrefs();
+
   // Seed the canvas deck from the per-slide build results.
   const seedSlides = useMemo(() => {
     if (!images) return [];
@@ -223,14 +228,14 @@ export default function DeckFlow({
   function startQuick(p: SlideRole[]) {
     setPlan(p);
     if (!content || !images) return;
-    const fills = autoFillPlan(p, content, images);
+    const fills = autoFillPlan(p, content, images, prefs);
     const seeded: SlideResult[] = fills.map((f, index) => ({
       role: f.role,
       index,
       title: f.title,
       subtext: f.subtext,
       imageId: f.imageId,
-      templateId: defaultTemplateId(f.role, templatesForRole(f.role), !!f.imageId),
+      templateId: defaultTemplateId(f.role, templatesForRole(f.role), !!f.imageId, prefs),
     }));
     setResults(seeded);
     setCurrentSlide(0);
@@ -310,7 +315,20 @@ export default function DeckFlow({
         templatesForRole={templatesForRole}
         onChange={setResults}
         onBack={() => go("mode")}
-        onConfirm={() => go("build")}
+        onConfirm={() => {
+          // Learn from her FINAL choices (post-edit): which template she kept
+          // per slide type + how long her headlines run. Fire-and-forget, £0 —
+          // the next auto-draft drifts toward this. Both the quick-draft and
+          // the guided flow land here, so every finished deck feeds the loop.
+          recordDeckSignals(
+            results.filter(Boolean).map((r) => ({
+              role: r.role,
+              templateId: r.templateId,
+              titleLen: (r.title ?? "").trim().length,
+            }))
+          );
+          go("build");
+        }}
       />
     );
   }

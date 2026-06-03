@@ -10,6 +10,7 @@
 
 import type { ContentBundle, ImageBundle } from "./types";
 import type { ImageCandidate } from "@/lib/social-templates/types";
+import type { LearnedPrefs } from "@/lib/smm-preferences";
 
 export type SlideRole =
   | "hero"
@@ -166,8 +167,21 @@ const ROLE_FALLBACK_TEMPLATE: Record<SlideRole, string> = {
 export function defaultTemplateId(
   role: SlideRole,
   templates: { id: string }[],
-  hasImage: boolean
+  hasImage: boolean,
+  prefs?: LearnedPrefs | null
 ): string {
+  // Learned taste: if she reliably reaches for one template for this slide
+  // type (and it fits this slide's photo state), lead with it. The profile
+  // only surfaces a favourite once it's a habit (count ≥ 2), so this won't
+  // chase one-off picks. Photo-state guard: don't force a photo template onto
+  // a slide with no image, or a typography template when she has a photo to use.
+  const fav = prefs?.favTemplateByRole?.[role];
+  if (fav && templates.some((t) => t.id === fav)) {
+    const favWantsPhoto = /photo|image|portrait|cover|hero-(a|c|e)\b/i.test(fav);
+    const favIsTypeLed = /typograph|text|crest|hero-(b|d)\b/i.test(fav);
+    const fitsPhotoState = hasImage ? !favIsTypeLed || favWantsPhoto : !favWantsPhoto;
+    if (fitsPhotoState) return fav;
+  }
   if (role === "hero") {
     // hero-b (typography cover) and hero-d (crest) need no photo.
     if (!hasImage) {
@@ -186,9 +200,31 @@ export function defaultTemplateId(
   return templates[0]?.id ?? ROLE_FALLBACK_TEMPLATE[role];
 }
 
-/** The top (first-ranked) primary option for a role, or "" if none. */
-export function topPrimary(role: SlideRole, content: ContentBundle): string {
-  return ROLES[role].primary(content)[0] ?? "";
+/**
+ * The top primary option for a role, or "" if none. When the learned profile
+ * knows her typical headline length, we rank the candidate copy by closeness to
+ * that length (stable tie-break to the original order) so the auto-draft drifts
+ * toward how long she actually writes — without changing the wording itself.
+ */
+export function topPrimary(
+  role: SlideRole,
+  content: ContentBundle,
+  prefs?: LearnedPrefs | null
+): string {
+  const opts = ROLES[role].primary(content);
+  if (opts.length === 0) return "";
+  const target = prefs?.avgTitleLen ?? null;
+  if (target == null) return opts[0]!;
+  let best = opts[0]!;
+  let bestGap = Math.abs(best.length - target);
+  for (let i = 1; i < opts.length; i++) {
+    const gap = Math.abs(opts[i]!.length - target);
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = opts[i]!;
+    }
+  }
+  return best;
 }
 
 /** The top secondary option for a role (only when the role uses one). */
@@ -280,11 +316,12 @@ export type SlideDraftFill = {
 export function autoFillPlan(
   plan: SlideRole[],
   content: ContentBundle,
-  images: ImageBundle
+  images: ImageBundle,
+  prefs?: LearnedPrefs | null
 ): SlideDraftFill[] {
   const used = new Set<string>();
   return plan.map((role) => {
-    const title = topPrimary(role, content);
+    const title = topPrimary(role, content, prefs);
     const subtext = topSecondary(role, content);
     // Match imagery to the slide's actual copy (title + supporting line) so a
     // reporting slide pulls the aftermath photo that fits the fact.
