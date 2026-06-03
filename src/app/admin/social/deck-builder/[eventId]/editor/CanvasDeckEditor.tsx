@@ -332,6 +332,22 @@ export default function CanvasDeckEditor({
     setEditingId(null);
   }
 
+  // Live auto-size of the text layer being edited (box grows/shrinks to the
+  // typed content; font shrinks if a word is too wide). Non-committing
+  // (commit=false) so typing doesn't flood undo history — commitText's
+  // snapshot on blur captures the final size.
+  const autoSizeLayer = useCallback(
+    (id: string, patch: { h?: number; fontSize?: number }) => {
+      setActiveLayers(
+        activeSlide.layers.map((l) =>
+          l.id === id && l.type === "text" ? ({ ...l, ...patch } as Layer) : l
+        ),
+        false
+      );
+    },
+    [activeSlide.layers, setActiveLayers]
+  );
+
   function addLayer(layer: Layer) {
     setActiveLayers([...activeSlide.layers, layer], true);
     setSelectedIds([layer.id]);
@@ -1702,6 +1718,7 @@ export default function CanvasDeckEditor({
               onSelect={selectOne}
               onStartEdit={(id) => { setSelectedIds([id]); setEditingId(id); }}
               onCommitText={commitText}
+              onAutoSize={autoSizeLayer}
               onCheckpoint={history.checkpoint}
               onLayersCommit={(layers) => setActiveLayers(layers, false)}
               onReorder={arrange}

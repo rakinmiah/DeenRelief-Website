@@ -11,7 +11,7 @@
  * handlers + hover ring so it's a pure preview.
  */
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 import type {
   ComponentRegistry,
   InstanceLayer,
@@ -66,6 +66,7 @@ export default function LayerView({
   onSelect,
   onStartEdit,
   onCommitText,
+  onAutoSize,
   nodeRef,
   interactive = true,
 }: {
@@ -95,6 +96,11 @@ export default function LayerView({
   onSelect?: (id: string, additive: boolean) => void;
   onStartEdit?: (id: string) => void;
   onCommitText?: (id: string, text: string) => void;
+  /** Live auto-size while a text layer is edited: the box grows/shrinks in
+   *  height to fit what's typed, and the font shrinks if a word is too wide
+   *  for the box. Measured on the canvas + reported up so the stored size
+   *  matches the export. */
+  onAutoSize?: (id: string, patch: { h?: number; fontSize?: number }) => void;
   nodeRef?: (node: HTMLDivElement | null) => void;
   interactive?: boolean;
 }) {
@@ -154,6 +160,7 @@ export default function LayerView({
           scale={scale}
           editing={!!editing}
           onCommitText={(t) => onCommitText?.(layer.id, t)}
+          onAutoSize={onAutoSize ? (patch) => onAutoSize(layer.id, patch) : undefined}
         />
       )}
       {layer.type === "image" && (
@@ -192,13 +199,38 @@ function TextBody({
   scale,
   editing,
   onCommitText,
+  onAutoSize,
 }: {
   layer: Extract<Layer, { type: "text" }>;
   scale: number;
   editing: boolean;
   onCommitText: (text: string) => void;
+  onAutoSize?: (patch: { h?: number; fontSize?: number }) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
+  // Live auto-size while editing: grow/shrink the box height to the typed
+  // content (Canva-style auto-height) and shrink the font if a word is too
+  // wide to wrap — so nothing clips mid-typing. Measured here, reported up as
+  // a non-committing update (snapshotted on blur), and stored on the layer so
+  // the Satori export matches.
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el || !onAutoSize) return;
+    const patch: { h?: number; fontSize?: number } = {};
+    if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1) {
+      const ratio = el.clientWidth / el.scrollWidth;
+      patch.fontSize = Math.max(12, Math.floor(layer.fontSize * ratio));
+    }
+    // Natural content height: measure with height:auto, then restore.
+    const prev = el.style.height;
+    el.style.height = "auto";
+    const natural = el.scrollHeight;
+    el.style.height = prev;
+    const boardH = Math.max(24, Math.round(natural / scale));
+    if (Math.abs(boardH - layer.h) > 1) patch.h = boardH;
+    if (patch.h != null || patch.fontSize != null) onAutoSize(patch);
+  }, [onAutoSize, layer.fontSize, layer.h, scale]);
 
   useEffect(() => {
     if (editing && ref.current) {
@@ -209,8 +241,9 @@ function TextBody({
       const sel = window.getSelection();
       sel?.removeAllRanges();
       sel?.addRange(range);
+      measure(); // fit immediately on entering edit (handles pre-existing overflow)
     }
-  }, [editing]);
+  }, [editing, measure]);
 
   const style: CSSProperties = {
     width: "100%",
@@ -256,6 +289,7 @@ function TextBody({
         contentEditable
         suppressContentEditableWarning
         onMouseDown={(e) => e.stopPropagation()}
+        onInput={measure}
         onBlur={(e) => onCommitText(e.currentTarget.innerText)}
         onKeyDown={(e) => {
           if (e.key === "Escape") {

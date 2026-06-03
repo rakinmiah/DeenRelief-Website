@@ -30,6 +30,7 @@ export default function SlideCanvas({
   onSelect,
   onStartEdit,
   onCommitText,
+  onAutoSize,
   onCheckpoint,
   onLayersCommit,
   onReorder,
@@ -49,6 +50,9 @@ export default function SlideCanvas({
   onSelect: (id: string | null, additive: boolean) => void;
   onStartEdit: (id: string) => void;
   onCommitText: (id: string, text: string) => void;
+  /** Live auto-size (height grow + width font-shrink) of the text layer
+   *  being edited. Non-committing; the editor snapshots it on blur. */
+  onAutoSize: (id: string, patch: { h?: number; fontSize?: number }) => void;
   onCheckpoint: () => void;
   onLayersCommit: (layers: Layer[]) => void;
   onReorder: (dir: "forward" | "backward" | "front" | "back") => void;
@@ -229,6 +233,7 @@ export default function SlideCanvas({
               onSelect={onSelect}
               onStartEdit={onStartEdit}
               onCommitText={onCommitText}
+              onAutoSize={onAutoSize}
               nodeRef={registerNode(l.id)}
             />
           );
