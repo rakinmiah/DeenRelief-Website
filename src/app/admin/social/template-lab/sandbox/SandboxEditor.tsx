@@ -42,8 +42,8 @@ export default function SandboxEditor({
 
   if (!fmt) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#F4F4F2] px-6">
-        <div className="w-full max-w-md">
+      <main className="dr-soft-motion min-h-screen grid place-items-center bg-[#F4F4F2] px-6">
+        <div className="dr-anim-rise w-full max-w-md">
           <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-amber-dark text-center mb-2">
             Editor sandbox
           </p>

@@ -68,8 +68,8 @@ export default function QrDialog({
   }, [url]);
 
   return (
-    <div className="fixed inset-0 z-[60] bg-charcoal/40 grid place-items-center p-6" onMouseDown={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="dr-anim-overlay fixed inset-0 z-[60] bg-charcoal/40 grid place-items-center p-6" onMouseDown={onClose}>
+      <div className="dr-anim-dialog bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-heading font-semibold text-charcoal text-lg">Donate QR code</h2>
           <button

@@ -674,7 +674,7 @@ function FocusCarousel<T>({
           className="flex items-center"
           style={{ gap: GAP }}
           animate={{ x }}
-          transition={{ type: "spring", stiffness: 260, damping: 32 }}
+          transition={{ type: "spring", stiffness: 170, damping: 30 }}
         >
           {items.map((item, i) => {
             const isFocused = i === safe;
@@ -686,7 +686,7 @@ function FocusCarousel<T>({
                   scale: isFocused ? focusScale : dimScale,
                   opacity: isFocused ? 1 : 0.4,
                 }}
-                transition={{ type: "spring", stiffness: 260, damping: 30 }}
+                transition={{ type: "spring", stiffness: 180, damping: 28 }}
                 style={{ width: slot }}
                 className="shrink-0 origin-center cursor-pointer"
               >

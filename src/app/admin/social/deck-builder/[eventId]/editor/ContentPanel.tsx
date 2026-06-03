@@ -63,7 +63,7 @@ export default function ContentPanel({
   const total = sections.reduce((n, s) => n + s.items.length, 0);
 
   return (
-    <aside className="w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
+    <aside className="dr-anim-panel w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-charcoal/8 shrink-0">
         <div className="min-w-0">
           <p className="font-heading font-semibold text-charcoal text-[14px] leading-tight">Content</p>

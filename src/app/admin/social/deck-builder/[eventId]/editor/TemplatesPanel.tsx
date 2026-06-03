@@ -49,7 +49,7 @@ export default function TemplatesPanel({
     ? VARIANTS.filter((v) => isXVariant(v.id)).length
     : VARIANTS.filter((v) => !isXVariant(v.id)).length;
   return (
-    <aside className="w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
+    <aside className="dr-anim-panel w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-charcoal/8 shrink-0">
         <div>
           <p className="font-heading font-semibold text-charcoal text-[14px] leading-tight">Templates</p>

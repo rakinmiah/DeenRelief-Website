@@ -1620,7 +1620,7 @@ export default function CanvasDeckEditor({
   const showAlign = selectedLayers.length >= 1;
 
   return (
-    <div className="flex flex-col h-full bg-[#F4F4F2]">
+    <div className="dr-soft-motion flex flex-col h-full bg-[#F4F4F2]">
       {/* Top bar */}
       <div className="bg-white border-b border-charcoal/8 shrink-0">
         <div className="flex items-center justify-between px-4 py-2.5">

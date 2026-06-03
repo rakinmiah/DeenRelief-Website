@@ -62,7 +62,7 @@ export default async function DeckBuilderPage({
   };
 
   return (
-    <main className="min-h-screen bg-[#FAFAF7]">
+    <main className="dr-soft-motion min-h-screen bg-[#FAFAF7]">
       <DeckFlow
         event={summary}
         logo={logo}

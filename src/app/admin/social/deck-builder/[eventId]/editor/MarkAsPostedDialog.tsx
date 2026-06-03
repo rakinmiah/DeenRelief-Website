@@ -104,11 +104,11 @@ export default function MarkAsPostedDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-charcoal/40 grid place-items-center p-6"
+      className="dr-anim-overlay fixed inset-0 z-[60] bg-charcoal/40 grid place-items-center p-6"
       onMouseDown={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5"
+        className="dr-anim-dialog bg-white rounded-2xl shadow-2xl w-full max-w-md p-5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
