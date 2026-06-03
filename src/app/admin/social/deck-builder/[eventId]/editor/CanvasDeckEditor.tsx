@@ -60,7 +60,7 @@ import {
   type AlignKind,
   type BrandLogos,
 } from "./editorToolbar";
-import type { BrandLogo } from "@/lib/social-editor/presets";
+import { fitTextLayers, type BrandLogo } from "@/lib/social-editor/presets";
 import type { ContentBundle } from "../types";
 import TemplatesPanel from "./TemplatesPanel";
 import ContentPanel from "./ContentPanel";
@@ -127,8 +127,12 @@ export default function CanvasDeckEditor({
   // ordinary slide edits all share undo/redo. `deck` aliases the slides
   // array (so the bulk of the editor reads/writes it unchanged); `registry`
   // aliases the component map.
+  // Re-fit text on the way in so EXISTING decks (saved before auto-fit, or
+  // edited into an overflow) self-heal on load — not just freshly inserted
+  // templates. Shrink-only + idempotent, so already-fitting slides are
+  // untouched.
   const history = useHistory<EditorDeck>({
-    slides: initialDeck.length ? initialDeck : [blankSlide()],
+    slides: (initialDeck.length ? initialDeck : [blankSlide()]).map(fitTextLayers),
     components: undefined,
   });
   const deck = history.state.slides;
@@ -215,7 +219,9 @@ export default function CanvasDeckEditor({
     (async () => {
       const loaded = await loadDeck(eventId, platform);
       if (cancelled) return;
-      if (loaded && loaded.slides.length) history.reset(loaded);
+      if (loaded && loaded.slides.length) {
+        history.reset({ ...loaded, slides: loaded.slides.map(fitTextLayers) });
+      }
       setHydrated(true);
     })();
     return () => {

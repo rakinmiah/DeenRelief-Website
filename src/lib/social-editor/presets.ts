@@ -3655,7 +3655,9 @@ function fitFontSize(l: TextLayer): number {
   if (!trimmed || base <= 12 || trimmed.length <= 2) return base;
   const upper = !!l.uppercase;
   const lh = l.lineHeight || 1.2;
-  const floor = Math.max(12, Math.round(base * 0.5)); // never below ~half the design size
+  // Floor low enough to rescue extreme cases (a 12-letter word in a giant
+  // stat slot), but not zero — so normal copy never shrinks absurdly.
+  const floor = Math.max(14, Math.round(base * 0.32));
   const longestWord = trimmed.split(/\s+/).reduce((m, w) => Math.max(m, w.length), 1);
   let size = base;
   for (let i = 0; i < 120 && size > floor; i++) {
@@ -3670,7 +3672,7 @@ function fitFontSize(l: TextLayer): number {
   }
   return Math.max(floor, Math.round(size));
 }
-function fitTextLayers(s: EditorSlide): EditorSlide {
+export function fitTextLayers(s: EditorSlide): EditorSlide {
   return {
     ...s,
     layers: s.layers.map((l) => (l.type === "text" ? { ...l, fontSize: fitFontSize(l) } : l)),
