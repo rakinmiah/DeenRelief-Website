@@ -44,9 +44,17 @@ export default function HeroLab({
       }}
     >
       <div style={{ maxWidth: 1320, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A1A2E", margin: 0 }}>
-          Template Lab — Slide library
-        </h1>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A1A2E", margin: 0 }}>
+            Template Lab — Slide library
+          </h1>
+          <a
+            href="/admin/social/template-lab/sandbox"
+            style={{ background: "#163827", color: "#F7F3E8", fontSize: 13, fontWeight: 600, padding: "9px 16px", borderRadius: 999, textDecoration: "none", whiteSpace: "nowrap" }}
+          >
+            + Open editor sandbox
+          </a>
+        </div>
         <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 820 }}>
           {total} templates across {CATS.length} slide types, each rendered through the
           real Satori export pipeline with sample copy + photo — exactly what a published
