@@ -55,8 +55,8 @@ export default function AdminShell({
   // Role-filtered nav, computed once. `homeHref` is the first item the
   // role can actually reach, so the wordmark never dead-ends a
   // non-admin user (e.g. a writer lands on /admin/blog).
-  const groups = visibleGroups(role);
-  const homeHref = flatVisible(role)[0]?.href ?? "/admin/donations";
+  const groups = visibleGroups(role, signedInAs);
+  const homeHref = flatVisible(role, signedInAs)[0]?.href ?? "/admin/donations";
 
   // The login + change-password pages render standalone without chrome.
   if (pathname === "/admin/login" || pathname === "/admin/change-password") {

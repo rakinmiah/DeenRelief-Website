@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { canAccessSocial } from "@/lib/admin-social-access";
 
 /**
  * Single source of truth for the DR Admin navigation.
@@ -209,15 +210,27 @@ export const NAV_GROUPS: AdminNavGroup[] = [
   },
 ];
 
-/** Groups visible to `role`, with empty groups removed. */
-export function visibleGroups(role: AdminRole): AdminNavGroup[] {
+/**
+ * Groups visible to `role`, with empty groups removed.
+ *
+ * The Social section (/admin/social) is additionally gated by email via
+ * the SOCIAL_ALLOWED_EMAILS allow-list — a general admin doesn't see it
+ * unless they're one of the social-managing accounts. Pass the
+ * signed-in email so that filter can apply.
+ */
+export function visibleGroups(role: AdminRole, email?: string): AdminNavGroup[] {
+  const social = canAccessSocial(email);
   return NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.roles.includes(role)),
+    items: group.items.filter(
+      (item) =>
+        item.roles.includes(role) &&
+        (social || !item.href.startsWith("/admin/social"))
+    ),
   })).filter((group) => group.items.length > 0);
 }
 
-/** Flat list of every nav item visible to `role`, in display order. */
-export function flatVisible(role: AdminRole): AdminNavItem[] {
-  return visibleGroups(role).flatMap((group) => group.items);
+/** Flat list of every nav item visible to `role` (+ email), in display order. */
+export function flatVisible(role: AdminRole, email?: string): AdminNavItem[] {
+  return visibleGroups(role, email).flatMap((group) => group.items);
 }

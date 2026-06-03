@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyAdminSession, type AdminSessionPayload } from "./signed-token";
+import { canAccessSocial } from "./admin-social-access";
 
 /**
  * Server-side admin session helpers.
@@ -137,6 +138,26 @@ export async function requireSponsorshipAccess(): Promise<AdminSessionPayload> {
   enforcePasswordChange(session);
   if (session.role !== "admin" && session.role !== "sponsorship") {
     redirect(landingForNonAdmin(session.role));
+  }
+  return session;
+}
+
+/**
+ * Require a session that may use the /admin/social section. Unlike the
+ * other guards this is gated by EMAIL (SOCIAL_ALLOWED_EMAILS), not role:
+ * a general admin/trustee is intentionally NOT given the social tools.
+ * Enforced once at the section layout (src/app/admin/social/layout.tsx),
+ * which covers every social page.
+ *
+ * A signed-in-but-not-authorised user is sent somewhere they can use
+ * rather than back to login.
+ */
+export async function requireSocialAccess(): Promise<AdminSessionPayload> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  enforcePasswordChange(session);
+  if (!canAccessSocial(session.email)) {
+    redirect(session.role === "admin" ? "/admin/donations" : "/admin/login");
   }
   return session;
 }

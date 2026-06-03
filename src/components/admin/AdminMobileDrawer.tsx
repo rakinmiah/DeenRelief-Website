@@ -69,11 +69,12 @@ export default function AdminMobileDrawer({
   const SWIPE_CLOSE_THRESHOLD_PX = 64; // ~16% of a 384px drawer width
   const SWIPE_CLOSE_VELOCITY_PX_PER_MS = 0.4; // fast flick
 
-  // Grouped, role-filtered nav from the shared source of truth.
-  const groups = visibleGroups(role);
+  // Grouped, role-filtered nav from the shared source of truth (Social
+  // is additionally email-gated via the allow-list).
+  const groups = visibleGroups(role, signedInAs);
   // First visible item's href doubles as the role-appropriate "home"
   // link in the drawer header — never dead-ends a non-admin user.
-  const homeHref = flatVisible(role)[0]?.href ?? "/admin/donations";
+  const homeHref = flatVisible(role, signedInAs)[0]?.href ?? "/admin/donations";
 
   // Escape key closes.
   useEffect(() => {
