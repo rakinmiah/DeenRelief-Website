@@ -30,9 +30,9 @@ export default function GiftAidPage() {
     <>
       <Header />
       <main id="main-content" className="flex-1 bg-cream">
-        <section className="py-12 md:py-16">
+        <section className="pt-32 md:pt-36 pb-12 md:pb-16">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-8">
+            <div className="mb-6">
               <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-2">
                 Gift Aid
               </span>
@@ -46,6 +46,19 @@ export default function GiftAidPage() {
                 below.
               </p>
             </div>
+
+            {/* Don't double up with the website checkout. */}
+            <div className="mb-8 rounded-xl border border-green/30 bg-green-light/40 px-4 py-3 flex items-start gap-3">
+              <svg className="w-5 h-5 mt-0.5 shrink-0 text-green" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+              </svg>
+              <p className="text-[13px] text-charcoal/80 leading-relaxed">
+                <span className="font-semibold text-charcoal">Donated on our website and ticked Gift Aid at checkout?</span>{" "}
+                You don&apos;t need this form — we already have your declaration on file.
+                This form is only for donations made <span className="font-semibold">outside</span> the website (bank transfer, cash, cheque).
+              </p>
+            </div>
+
             <GiftAidFormClient campaigns={campaigns} />
           </div>
         </section>

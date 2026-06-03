@@ -79,6 +79,30 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent");
   const supabase = getSupabaseAdmin();
 
+  // Duplicate guard: if we already hold a Gift-Aided donation for this
+  // donor matching the cause + amount (e.g. they ticked Gift Aid at
+  // website checkout, or already submitted this form), void the request
+  // so we don't create a duplicate claimable record. Tell the donor we
+  // already have it.
+  const { data: existingDonor } = await supabase
+    .from("donors")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+  if (existingDonor) {
+    const { data: dupes } = await supabase
+      .from("donations")
+      .select("id")
+      .eq("donor_id", existingDonor.id)
+      .eq("campaign", campaign)
+      .eq("amount_pence", amountPence)
+      .eq("gift_aid_claimed", true)
+      .limit(1);
+    if (dupes && dupes.length > 0) {
+      return NextResponse.json({ ok: true, alreadyOnFile: true });
+    }
+  }
+
   // 1. Upsert donor — their declaration address is the authoritative
   //    Gift Aid address.
   const { data: donor, error: donorErr } = await supabase

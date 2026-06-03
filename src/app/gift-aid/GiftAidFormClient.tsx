@@ -28,7 +28,7 @@ export default function GiftAidFormClient({
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<null | "received" | "alreadyOnFile">(null);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -53,14 +53,38 @@ export default function GiftAidFormClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Something went wrong.");
-      setDone(true);
+      setDone(data?.alreadyOnFile ? "alreadyOnFile" : "received");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setSubmitting(false);
     }
   }
 
-  if (done) {
+  if (done === "alreadyOnFile") {
+    return (
+      <div className="bg-white border border-green/30 rounded-2xl p-8 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-light text-green">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+          </svg>
+        </div>
+        <h2 className="font-heading font-bold text-xl text-charcoal">You&apos;re all set</h2>
+        <p className="text-grey text-sm mt-2 leading-relaxed">
+          We already have this donation and your Gift Aid declaration on file —
+          there&apos;s nothing more for you to do. JazākAllāhu khayran.
+        </p>
+        <p className="text-grey/70 text-xs mt-3 leading-relaxed">
+          If this was a separate gift we don&apos;t yet have, please email{" "}
+          <a href="mailto:info@deenrelief.org" className="text-green underline">
+            info@deenrelief.org
+          </a>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  if (done === "received") {
     return (
       <div className="bg-white border border-green/30 rounded-2xl p-8 text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-light text-green">

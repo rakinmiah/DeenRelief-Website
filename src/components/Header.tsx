@@ -37,6 +37,7 @@ export default function Header() {
     { label: "Home", href: "/" },
     { label: "Our Work", href: "/our-work" },
     { label: "Pay Zakat", href: "/zakat" },
+    { label: "Gift Aid", href: "/gift-aid" },
     { label: "Prayer Times", href: "/prayer-times" },
     { label: "About", href: "/about" },
     { label: "Blog", href: "/blog" },
