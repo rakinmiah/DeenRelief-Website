@@ -63,6 +63,8 @@ import {
 import { fitTextLayers, type BrandLogo } from "@/lib/social-editor/presets";
 import type { ContentBundle } from "../types";
 import TemplatesPanel from "./TemplatesPanel";
+import ElementsPanel from "./ElementsPanel";
+import type { ElementDef } from "./elementLibrary";
 import ContentPanel from "./ContentPanel";
 import QrDialog from "./QrDialog";
 import MarkAsPostedDialog from "./MarkAsPostedDialog";
@@ -188,8 +190,8 @@ export default function CanvasDeckEditor({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [exporting, setExporting] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
-  // One left flyout open at a time: the template browser or the content picker.
-  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content">(
+  // One left flyout open at a time: templates, content snippets, or elements.
+  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content" | "elements">(
     openTemplatesOnMount ? "templates" : null
   );
   // Component "edit master" mode: when set, the editor is editing the
@@ -375,6 +377,27 @@ export default function CanvasDeckEditor({
   function addLayer(layer: Layer) {
     setActiveLayers([...activeSlide.layers, layer], true);
     setSelectedIds([layer.id]);
+  }
+
+  // Append a whole element (one or more layers). Multi-layer elements get a
+  // shared groupId so they move/select as one unit.
+  function addLayers(layers: Layer[]) {
+    if (layers.length === 0) return;
+    const gid = layers.length > 1 ? makeGroupId() : null;
+    const batch = gid ? layers.map((l) => ({ ...l, groupId: gid }) as Layer) : layers;
+    setActiveLayers([...activeSlide.layers, ...batch], true);
+    setSelectedIds(batch.map((l) => l.id));
+  }
+
+  // Insert a brand element from the Elements panel, built for the current board.
+  function insertElement(def: ElementDef) {
+    addLayers(
+      def.build({
+        board: { w: activeSlide.width, h: activeSlide.height },
+        logo,
+        logoLight,
+      })
+    );
   }
 
   function deleteSelected() {
@@ -1780,6 +1803,13 @@ export default function CanvasDeckEditor({
               <ContentIcon />
             </RailBtn>
           )}
+          <RailBtn
+            label="Elements"
+            active={leftPanel === "elements"}
+            onClick={() => setLeftPanel((p) => (p === "elements" ? null : "elements"))}
+          >
+            <ElementsIcon />
+          </RailBtn>
           <div className="w-8 h-px bg-charcoal/10 my-1" />
           <RailBtn label="Text" onClick={addText}><TextIcon /></RailBtn>
           <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
@@ -1811,6 +1841,11 @@ export default function CanvasDeckEditor({
             onPick={addTextBlock}
             onClose={() => setLeftPanel(null)}
           />
+        )}
+
+        {/* Elements flyout — individual brand building blocks, click to drop in */}
+        {leftPanel === "elements" && (
+          <ElementsPanel onPick={insertElement} onClose={() => setLeftPanel(null)} />
         )}
 
         {/* Center: canvas + filmstrip */}
@@ -1943,6 +1978,18 @@ function TemplatesIcon() {
       <rect x="11.5" y="2.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
       <rect x="2.5" y="11.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
       <rect x="11.5" y="11.5" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+/** Rail icon for the Elements panel — assorted building blocks. */
+function ElementsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <circle cx="6" cy="6" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="11" y="2.8" width="6.4" height="6.4" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M6 11.5l3.5 6h-7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <rect x="11" y="11.5" width="6.4" height="6.4" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   );
 }
