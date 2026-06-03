@@ -171,6 +171,9 @@ export default function CanvasDeckEditor({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showQr, setShowQr] = useState(false);
+  // When the QR dialog was opened by clicking a QR placeholder, the generated
+  // code replaces THAT layer (same box) instead of dropping bottom-right.
+  const [qrTarget, setQrTarget] = useState<string | null>(null);
   const [scale, setScale] = useState(0.5);
   const [hydrated, setHydrated] = useState(!persist);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -1153,6 +1156,30 @@ export default function CanvasDeckEditor({
   // Insert a generated donate QR (a PNG data URL) as an image layer, dropped
   // bottom-right where a "scan to donate" code usually sits.
   function addQrLayer(dataUrl: string, label: string) {
+    // Filling a QR PLACEHOLDER: swap that layer for the QR at its exact box.
+    if (qrTarget) {
+      const t = activeSlide.layers.find((l) => l.id === qrTarget);
+      if (t) {
+        setActiveLayers(
+          activeSlide.layers.map((l) =>
+            l.id === qrTarget
+              ? ({
+                  id: l.id, type: "image", name: label,
+                  x: l.x, y: l.y, w: l.w, h: l.h,
+                  rotation: l.rotation, opacity: l.opacity, locked: false,
+                  src: dataUrl, objectFit: "contain",
+                  radius: l.type === "shape" ? l.radius : 0,
+                } as Layer)
+              : l
+          ),
+          true
+        );
+      }
+      setQrTarget(null);
+      setShowQr(false);
+      return;
+    }
+    // Otherwise drop a fresh QR bottom-right (the "scan to donate" spot).
     const s = 260;
     const pad = 80;
     addLayer({
@@ -1164,6 +1191,17 @@ export default function CanvasDeckEditor({
       src: dataUrl, objectFit: "contain", radius: 0,
     });
     setShowQr(false);
+  }
+  // Clicked a QR/photo placeholder → open the right tool to fill it.
+  function activatePlaceholder(id: string, kind: "qr" | "image") {
+    if (kind === "qr") {
+      setQrTarget(id);
+      setShowQr(true);
+    } else {
+      setSelectedIds([id]);
+      setEditingId(null);
+      setPicker("replace");
+    }
   }
   // Drop a snippet from the Content panel onto the current slide as a new text
   // block. Ink auto-contrasts the slide background so it's legible the instant
@@ -1727,7 +1765,7 @@ export default function CanvasDeckEditor({
           {hasBrandLogo && (
             <RailBtn label="Logo" onClick={addBrandLogo}><BrandLogoIcon /></RailBtn>
           )}
-          <RailBtn label="QR code" onClick={() => setShowQr(true)}><QrIcon /></RailBtn>
+          <RailBtn label="QR code" onClick={() => { setQrTarget(null); setShowQr(true); }}><QrIcon /></RailBtn>
           <RailBtn label="Rect" onClick={() => addShape("rect")}><ShapeIcon kind="rect" /></RailBtn>
           <RailBtn label="Circle" onClick={() => addShape("ellipse")}><ShapeIcon kind="ellipse" /></RailBtn>
           <RailBtn label="Line" onClick={() => addShape("line")}><ShapeIcon kind="line" /></RailBtn>
@@ -1784,6 +1822,7 @@ export default function CanvasDeckEditor({
               onStartEdit={(id) => { setSelectedIds([id]); setEditingId(id); }}
               onCommitText={commitText}
               onAutoSize={autoSizeLayer}
+              onActivatePlaceholder={activatePlaceholder}
               onCheckpoint={history.checkpoint}
               onLayersCommit={(layers) => setActiveLayers(layers, false)}
               onReorder={arrange}

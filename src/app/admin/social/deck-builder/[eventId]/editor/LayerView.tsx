@@ -67,6 +67,7 @@ export default function LayerView({
   onStartEdit,
   onCommitText,
   onAutoSize,
+  onActivatePlaceholder,
   nodeRef,
   interactive = true,
 }: {
@@ -101,6 +102,9 @@ export default function LayerView({
    *  for the box. Measured on the canvas + reported up so the stored size
    *  matches the export. */
   onAutoSize?: (id: string, patch: { h?: number; fontSize?: number }) => void;
+  /** A placeholder (QR square or empty photo slot) was clicked — open the QR
+   *  dialog / image picker to fill it. */
+  onActivatePlaceholder?: (id: string, kind: "qr" | "image") => void;
   nodeRef?: (node: HTMLDivElement | null) => void;
   interactive?: boolean;
 }) {
@@ -190,6 +194,30 @@ export default function LayerView({
           className="pointer-events-none absolute inset-0 ring-2 ring-sky-400/0 transition group-hover:ring-sky-400/60"
         />
       )}
+      {/* Placeholder fill button — QR square or empty photo slot. A centred
+          pill (not full-cover) so the layer is still selectable/movable. */}
+      {interactive && onActivatePlaceholder && (() => {
+        const isQr = layer.type === "shape" && layer.name === "qr-placeholder";
+        const isImg = layer.type === "image" && !layer.src.trim();
+        if (!isQr && !isImg) return null;
+        return (
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onActivatePlaceholder(layer.id, isQr ? "qr" : "image");
+            }}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-full bg-charcoal/85 text-white font-semibold shadow-lg hover:bg-charcoal transition whitespace-nowrap"
+            style={{ fontSize: Math.max(9, 12 * scale), padding: `${6 * scale}px ${11 * scale}px` }}
+          >
+            <svg width={Math.max(10, 13 * scale)} height={Math.max(10, 13 * scale)} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+              <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+            </svg>
+            {isQr ? "Add QR" : "Add photo"}
+          </button>
+        );
+      })()}
     </div>
   );
 }

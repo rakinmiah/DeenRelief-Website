@@ -234,6 +234,24 @@ function wordmark(x: number, y: number, c: SlideContent, color: string = C.cream
   ];
 }
 
+/** A clickable QR placeholder — a cream rounded square + gold keyline, named
+ *  "qr-placeholder" so the editor shows an "Add QR" action that swaps it for a
+ *  real campaign QR (same box). Unlocked so it's selectable/clickable. */
+function qrPlaceholder(x: number, y: number, size: number): ShapeLayer {
+  return shape({
+    x,
+    y,
+    w: size,
+    h: size,
+    shape: "rect",
+    fill: C.cream,
+    stroke: C.amber,
+    strokeWidth: 3,
+    radius: 18,
+    name: "qr-placeholder",
+  });
+}
+
 // HERO A — photo-led full-bleed
 function heroPhotoFull(c: SlideContent): EditorSlide {
   const W = B - 2 * HPAD;
@@ -1236,19 +1254,6 @@ function ctaScanToGive(c: SlideContent): EditorSlide {
   const qr = 320;
   const qrX = HPAD;
   const qrY = 400;
-  // Subtle inner grid: a few thin forest lines inside the cream square.
-  const gridLayers: Layer[] = [];
-  const cells = 5;
-  const cell = Math.round((qr - 48) / cells);
-  const gx = qrX + 24, gy = qrY + 24;
-  for (let i = 1; i < cells; i++) {
-    gridLayers.push(shape({ x: gx + i * cell, y: gy, w: 1, h: cell * cells, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
-    gridLayers.push(shape({ x: gx, y: gy + i * cell, w: cell * cells, h: 1, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
-  }
-  // A few "finder" blocks so it reads as a QR, not a blank grid.
-  gridLayers.push(shape({ x: gx + 6, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
-  gridLayers.push(shape({ x: gx + (cells - 1) * cell + 8, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
-  gridLayers.push(shape({ x: gx + 6, y: gy + (cells - 1) * cell + 8, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
   const textX = qrX + qr + 56;
   const textW = B - HPAD - textX;
   const askSize = 64;
@@ -1264,10 +1269,8 @@ function ctaScanToGive(c: SlideContent): EditorSlide {
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow || "Scan to give", HPAD, 246, W),
       hHead("SCAN TO GIVE", HPAD, 290, W, 92, 84, "left", C.cream),
-      // QR placeholder: cream rounded square + gold keyline + inner grid.
-      shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: C.cream, radius: 18, locked: true }),
-      shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 3, radius: 18, locked: true }),
-      ...gridLayers,
+      // QR placeholder — click in the editor to drop in a real campaign QR.
+      qrPlaceholder(qrX, qrY, qr),
       // Ask + DONATE pill beside the QR.
       hHead(askMain, textX, qrY, textW, askH, askSize, "left", C.cream),
       ...donatePill(textX, pillY, pillW),
@@ -2960,17 +2963,6 @@ function tiersJ(c: SlideContent): EditorSlide {
   const qr = 300;
   const qrX = B - HPAD - qr;
   const qrY = ruleY + 44;
-  const gridLayers: Layer[] = [];
-  const cells = 5;
-  const cell = Math.round((qr - 48) / cells);
-  const gx = qrX + 24, gy = qrY + 24;
-  for (let i = 1; i < cells; i++) {
-    gridLayers.push(shape({ x: gx + i * cell, y: gy, w: 1, h: cell * cells, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
-    gridLayers.push(shape({ x: gx, y: gy + i * cell, w: cell * cells, h: 1, shape: "rect", fill: "rgba(22,56,39,0.18)", locked: true }));
-  }
-  gridLayers.push(shape({ x: gx + 6, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
-  gridLayers.push(shape({ x: gx + (cells - 1) * cell + 8, y: gy + 6, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
-  gridLayers.push(shape({ x: gx + 6, y: gy + (cells - 1) * cell + 8, w: cell - 8, h: cell - 8, shape: "rect", fill: C.forest, radius: 3, locked: true }));
   const ladderW = qrX - HPAD - 56;
   const rowsTop = qrY + 4;
   const rowGap = 100;
@@ -2980,10 +2972,8 @@ function tiersJ(c: SlideContent): EditorSlide {
     hTag("Scan To Give", B - HPAD - 420, HPAD + 6, 420, "right"),
     hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.cream),
     goldBar(HPAD, ruleY, 64),
-    // QR placeholder.
-    shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: C.cream, radius: 18, locked: true }),
-    shape({ x: qrX, y: qrY, w: qr, h: qr, shape: "rect", fill: "transparent", stroke: C.amber, strokeWidth: 3, radius: 18, locked: true }),
-    ...gridLayers,
+    // QR placeholder — click in the editor to drop in a real campaign QR.
+    qrPlaceholder(qrX, qrY, qr),
   ];
   TIERS_DEFAULT.forEach((t, i) => {
     const y = rowsTop + i * rowGap;

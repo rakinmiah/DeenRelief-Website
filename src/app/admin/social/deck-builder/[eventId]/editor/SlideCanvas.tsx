@@ -31,6 +31,7 @@ export default function SlideCanvas({
   onStartEdit,
   onCommitText,
   onAutoSize,
+  onActivatePlaceholder,
   onCheckpoint,
   onLayersCommit,
   onReorder,
@@ -53,6 +54,8 @@ export default function SlideCanvas({
   /** Live auto-size (height grow + width font-shrink) of the text layer
    *  being edited. Non-committing; the editor snapshots it on blur. */
   onAutoSize: (id: string, patch: { h?: number; fontSize?: number }) => void;
+  /** A QR/photo placeholder was clicked — open the QR dialog / image picker. */
+  onActivatePlaceholder: (id: string, kind: "qr" | "image") => void;
   onCheckpoint: () => void;
   onLayersCommit: (layers: Layer[]) => void;
   onReorder: (dir: "forward" | "backward" | "front" | "back") => void;
@@ -234,6 +237,7 @@ export default function SlideCanvas({
               onStartEdit={onStartEdit}
               onCommitText={onCommitText}
               onAutoSize={onAutoSize}
+              onActivatePlaceholder={onActivatePlaceholder}
               nodeRef={registerNode(l.id)}
             />
           );
