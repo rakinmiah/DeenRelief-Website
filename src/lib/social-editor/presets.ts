@@ -3598,8 +3598,91 @@ function multistatJ(c: SlideContent): EditorSlide {
   return slide(layers, C.forest);
 }
 
+/* ─── Auto-fit: shrink overflowing text to its box ────────────────────
+ * Templates are designed against SAMPLE copy at fixed font sizes; real
+ * content is frequently longer (or a stat word taller), so it clips. After a
+ * slide is built we shrink any TEXT layer whose estimated rendered size
+ * exceeds its box — SHRINK ONLY, so a template that already fits its content
+ * is untouched and only the overflowing layers adjust. The estimate is
+ * deterministic (character-width heuristic per font face, no DOM/font
+ * metrics), so the on-canvas preview and the Satori PNG export stay
+ * pixel-identical (both read the baked-in fontSize). */
+function glyphWidthFactor(family: string, upper: boolean): number {
+  let k: number;
+  if (family === ANTON) k = 0.42; // condensed display
+  else if (family === DISPLAY) k = 0.62; // Bowlby One SC — heavy/wide
+  else if (family === SERIF) k = 0.48; // Source Serif 4
+  else k = 0.49; // DM Sans / Barlow
+  return upper ? k * 1.04 : k; // caps run a touch wider
+}
+function estimateLineCount(
+  textRaw: string,
+  fontSize: number,
+  w: number,
+  family: string,
+  letterSpacing: number,
+  upper: boolean
+): number {
+  const charW = fontSize * glyphWidthFactor(family, upper) + Math.max(0, letterSpacing);
+  const maxChars = Math.max(1, w / charW);
+  let lines = 0;
+  for (const para of textRaw.split("\n")) {
+    const words = para.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines += 1;
+      continue;
+    }
+    let cur = 0;
+    let n = 1;
+    for (const word of words) {
+      const wl = word.length + 1; // word + trailing space
+      if (cur > 0 && cur + wl > maxChars) {
+        n += 1;
+        cur = wl;
+      } else {
+        cur += wl;
+      }
+    }
+    lines += n;
+  }
+  return lines;
+}
+function fitFontSize(l: TextLayer): number {
+  const base = l.fontSize;
+  const trimmed = (l.text || "").trim();
+  // Skip empties, tiny type, and short DECORATIVE glyphs (oversized quote
+  // marks, single letters) — those are designed to bleed past their box.
+  if (!trimmed || base <= 12 || trimmed.length <= 2) return base;
+  const upper = !!l.uppercase;
+  const lh = l.lineHeight || 1.2;
+  const floor = Math.max(12, Math.round(base * 0.5)); // never below ~half the design size
+  const longestWord = trimmed.split(/\s+/).reduce((m, w) => Math.max(m, w.length), 1);
+  let size = base;
+  for (let i = 0; i < 120 && size > floor; i++) {
+    const charW = size * glyphWidthFactor(l.fontFamily, upper) + Math.max(0, l.letterSpacing);
+    const lines = estimateLineCount(trimmed, size, l.w, l.fontFamily, l.letterSpacing, upper);
+    // Tolerances absorb line-height padding + heuristic error so we only
+    // shrink on a CLEAR overflow, not a borderline one.
+    const fitsH = lines * size * lh <= l.h * 1.12;
+    const fitsW = longestWord * charW <= l.w * 1.06;
+    if (fitsH && fitsW) break;
+    size -= 1;
+  }
+  return Math.max(floor, Math.round(size));
+}
+function fitTextLayers(s: EditorSlide): EditorSlide {
+  return {
+    ...s,
+    layers: s.layers.map((l) => (l.type === "text" ? { ...l, fontSize: fitFontSize(l) } : l)),
+  };
+}
+
 /* ─── Map a chosen template → a layer preset ──────────────────────── */
 export function presetForTemplate(templateId: string, c: SlideContent): EditorSlide {
+  return fitTextLayers(buildPresetSlide(templateId, c));
+}
+
+function buildPresetSlide(templateId: string, c: SlideContent): EditorSlide {
   const id = templateId;
   // Faithful Hero library (A–E). Specific ids first so "hero-a" doesn't
   // get swallowed by the generic "hero" match.
