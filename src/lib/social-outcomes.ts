@@ -36,7 +36,15 @@ const TOP_TOPICS = 5;
 /** A topic needs at least this many posts before it's worth surfacing. */
 const MIN_TOPIC_POSTS = 2;
 
+/** The key the learned prefs are bucketed by — one bucket per platform per
+ *  slide type, so X / Facebook / Instagram each learn their own winners
+ *  (their template pools differ, and what converts on one needn't on another). */
+export function prefKey(platform: string, role: string): string {
+  return `${platform}:${role}`;
+}
+
 export type TemplateOutcome = {
+  platform: string;
   role: string;
   templateId: string;
   posts: number;
@@ -58,16 +66,17 @@ export type TopicSignal = {
 };
 
 export type OutcomePrefs = {
-  /** role → templateId proven to win (only when the gates pass). */
-  winningTemplateByRole: Record<string, string>;
-  /** What evidence backs each role's winner: real donations, a click proxy,
+  /** "platform:role" → templateId proven to win (only when the gates pass). */
+  winningTemplateByKey: Record<string, string>;
+  /** What evidence backs each key's winner: real donations, a click proxy,
    *  or nothing yet. Surfaced so the dashboard can label confidence honestly. */
-  basisByRole: Record<string, "donations" | "clicks" | null>;
-  /** Ranked topic signals — which news topics/campaigns convert. */
+  basisByKey: Record<string, "donations" | "clicks" | null>;
+  /** Ranked topic signals — which news topics/campaigns convert (platform-blind). */
   campaignSignal: TopicSignal[];
 };
 
 type TemplateRow = {
+  platform: string | null;
   role: string | null;
   template_id: string | null;
   posts_count: number | null;
@@ -91,8 +100,8 @@ type TopicRow = {
 };
 
 const EMPTY_PREFS: OutcomePrefs = {
-  winningTemplateByRole: {},
-  basisByRole: {},
+  winningTemplateByKey: {},
+  basisByKey: {},
   campaignSignal: [],
 };
 
@@ -102,13 +111,14 @@ export async function getTemplateOutcomes(): Promise<TemplateOutcome[]> {
   const { data, error } = await supabase
     .from("template_performance")
     .select(
-      "role, template_id, posts_count, clicks, donations, donation_total_pence, donation_rate, pence_per_post"
+      "platform, role, template_id, posts_count, clicks, donations, donation_total_pence, donation_rate, pence_per_post"
     )
     .returns<TemplateRow[]>();
   if (error) throw error;
   return (data ?? [])
     .filter((r) => r.role && r.template_id)
     .map((r) => ({
+      platform: (r.platform as string | null) ?? "instagram",
       role: r.role as string,
       templateId: r.template_id as string,
       posts: Number(r.posts_count ?? 0),
@@ -161,21 +171,23 @@ export function deriveOutcomePrefs(
   templates: TemplateOutcome[],
   topics: TopicSignal[]
 ): OutcomePrefs {
-  const winningTemplateByRole: Record<string, string> = {};
-  const basisByRole: Record<string, "donations" | "clicks" | null> = {};
+  const winningTemplateByKey: Record<string, string> = {};
+  const basisByKey: Record<string, "donations" | "clicks" | null> = {};
 
-  // Group templates by role.
-  const byRole = new Map<string, TemplateOutcome[]>();
+  // Group templates by (platform, role) so each platform learns its own winner
+  // for a slide type — X / Facebook / Instagram don't share template pools.
+  const byKey = new Map<string, TemplateOutcome[]>();
   for (const t of templates) {
-    const list = byRole.get(t.role);
+    const k = prefKey(t.platform, t.role);
+    const list = byKey.get(k);
     if (list) list.push(t);
-    else byRole.set(t.role, [t]);
+    else byKey.set(k, [t]);
   }
 
-  for (const [role, list] of byRole) {
+  for (const [key, list] of byKey) {
     const tried = list.filter((t) => t.posts >= MIN_POSTS);
     if (tried.length === 0) {
-      basisByRole[role] = null;
+      basisByKey[key] = null;
       continue;
     }
 
@@ -192,8 +204,8 @@ export function deriveOutcomePrefs(
         second.pencePerPost <= 0 ||
         top.pencePerPost >= second.pencePerPost * WIN_MARGIN;
       if (clears && top.pencePerPost > 0) {
-        winningTemplateByRole[role] = top.templateId;
-        basisByRole[role] = "donations";
+        winningTemplateByKey[key] = top.templateId;
+        basisByKey[key] = "donations";
         continue;
       }
     }
@@ -204,19 +216,19 @@ export function deriveOutcomePrefs(
       .filter((t) => t.clicks >= MIN_CLICKS)
       .sort((a, b) => b.donationRate - a.donationRate || b.clicks - a.clicks);
     if (clickRanked.length && clickRanked[0]!.clicks > 0) {
-      winningTemplateByRole[role] = clickRanked[0]!.templateId;
-      basisByRole[role] = "clicks";
+      winningTemplateByKey[key] = clickRanked[0]!.templateId;
+      basisByKey[key] = "clicks";
       continue;
     }
 
-    basisByRole[role] = null;
+    basisByKey[key] = null;
   }
 
   const campaignSignal = topics
     .filter((t) => t.posts >= MIN_TOPIC_POSTS)
     .slice(0, TOP_TOPICS);
 
-  return { winningTemplateByRole, basisByRole, campaignSignal };
+  return { winningTemplateByKey, basisByKey, campaignSignal };
 }
 
 /** The derived outcome prefs for the deck builder (GET endpoint). Degrades to

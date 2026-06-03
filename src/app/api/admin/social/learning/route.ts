@@ -23,8 +23,8 @@ export async function GET() {
   await requireAdminSession();
 
   let prefs: Awaited<ReturnType<typeof getLearnedPrefs>> = {
-    favTemplateByRole: {},
-    avgTitleLen: null,
+    favTemplateByKey: {},
+    avgTitleLenByPlatform: {},
     samples: 0,
   };
   try {
@@ -34,8 +34,8 @@ export async function GET() {
   }
 
   let outcome: Awaited<ReturnType<typeof getOutcomePrefs>> = {
-    winningTemplateByRole: {},
-    basisByRole: {},
+    winningTemplateByKey: {},
+    basisByKey: {},
     campaignSignal: [],
   };
   try {
@@ -59,11 +59,12 @@ export async function POST(request: Request) {
   if (!Array.isArray(signals)) {
     return NextResponse.json({ error: "no_signals" }, { status: 400 });
   }
-  // Sanitise — only the three fields, bounded.
+  // Sanitise — only the known fields, bounded.
   const clean: DeckSignal[] = signals
     .filter((s) => s && typeof s.role === "string" && typeof s.templateId === "string")
     .slice(0, 30)
     .map((s) => ({
+      platform: String(s.platform || "instagram").slice(0, 20),
       role: String(s.role).slice(0, 40),
       templateId: String(s.templateId).slice(0, 60),
       titleLen: Math.max(0, Math.min(400, Number(s.titleLen) || 0)),

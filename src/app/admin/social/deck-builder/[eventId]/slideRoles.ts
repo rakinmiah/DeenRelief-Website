@@ -221,22 +221,26 @@ export function defaultTemplateId(
   templates: { id: string }[],
   hasImage: boolean,
   prefs?: LearnedPrefs | null,
-  outcome?: OutcomePrefs | null
+  outcome?: OutcomePrefs | null,
+  platform: string = "instagram"
 ): string {
   const inSet = (id: string | undefined | null): id is string =>
     !!id && templates.some((t) => t.id === id);
+  // Learning is bucketed per (platform, slide type) so each platform applies
+  // its OWN winner/favourite.
+  const key = `${platform}:${role}`;
 
   // 1. PROVEN WINNER — the template that has actually raised the most for this
-  // slide type (gated: ≥3 posts + real donations, or a high-volume click
-  // proxy). Real outcomes outrank taste; this is what makes the builder
-  // compound. Empty/ungated ⇒ skipped, so behaviour is unchanged until a
-  // design earns it.
-  const winner = outcome?.winningTemplateByRole?.[role];
+  // slide type ON THIS PLATFORM (gated: ≥3 posts + real donations, or a
+  // high-volume click proxy). Real outcomes outrank taste; this is what makes
+  // the builder compound. Empty/ungated ⇒ skipped, so behaviour is unchanged
+  // until a design earns it.
+  const winner = outcome?.winningTemplateByKey?.[key];
   if (inSet(winner) && fitsPhotoState(winner, hasImage)) return winner;
 
-  // 2. LEARNED TASTE — if she reliably keeps one template for this slide type
-  // (count ≥ 2), lead with it. Won't chase one-off picks.
-  const fav = prefs?.favTemplateByRole?.[role];
+  // 2. LEARNED TASTE — if she reliably keeps one template for this slide type on
+  // this platform (count ≥ 2), lead with it. Won't chase one-off picks.
+  const fav = prefs?.favTemplateByKey?.[key];
   if (inSet(fav) && fitsPhotoState(fav, hasImage)) return fav;
 
   // 3. BASE DEFAULTS.
@@ -267,11 +271,12 @@ export function defaultTemplateId(
 export function topPrimary(
   role: SlideRole,
   content: ContentBundle,
-  prefs?: LearnedPrefs | null
+  prefs?: LearnedPrefs | null,
+  platform: string = "instagram"
 ): string {
   const opts = ROLES[role].primary(content);
   if (opts.length === 0) return "";
-  const target = prefs?.avgTitleLen ?? null;
+  const target = prefs?.avgTitleLenByPlatform?.[platform] ?? null;
   if (target == null) return opts[0]!;
   let best = opts[0]!;
   let bestGap = Math.abs(best.length - target);
@@ -375,11 +380,12 @@ export function autoFillPlan(
   plan: SlideRole[],
   content: ContentBundle,
   images: ImageBundle,
-  prefs?: LearnedPrefs | null
+  prefs?: LearnedPrefs | null,
+  platform: string = "instagram"
 ): SlideDraftFill[] {
   const used = new Set<string>();
   return plan.map((role) => {
-    const title = topPrimary(role, content, prefs);
+    const title = topPrimary(role, content, prefs, platform);
     const subtext = topSecondary(role, content);
     // Match imagery to the slide's actual copy (title + supporting line) so a
     // reporting slide pulls the aftermath photo that fits the fact.

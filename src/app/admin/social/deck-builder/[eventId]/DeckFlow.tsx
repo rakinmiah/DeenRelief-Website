@@ -264,7 +264,8 @@ export default function DeckFlow({
   function startQuick(p: SlideRole[]) {
     setPlan(p);
     if (!content || !images) return;
-    const fills = autoFillPlan(p, content, images, prefs);
+    const plat = platform ?? "instagram";
+    const fills = autoFillPlan(p, content, images, prefs, plat);
     const seeded: SlideResult[] = fills.map((f, index) => ({
       role: f.role,
       index,
@@ -276,7 +277,8 @@ export default function DeckFlow({
         templatesForRole(f.role),
         !!f.imageId,
         prefs,
-        outcome
+        outcome,
+        plat
       ),
     }));
     setResults(seeded);
@@ -294,11 +296,11 @@ export default function DeckFlow({
     if (!content || !images) return;
     setPlatform("x");
     setPlan(["hero"]);
-    const fills = autoFillPlan(["hero"], content, images, prefs);
+    const fills = autoFillPlan(["hero"], content, images, prefs, "x");
     const f = fills[0]!;
     const learned = [
-      outcome?.winningTemplateByRole?.hero,
-      prefs?.favTemplateByRole?.hero,
+      outcome?.winningTemplateByKey?.["x:hero"],
+      prefs?.favTemplateByKey?.["x:hero"],
     ].find((id): id is string => !!id && id.startsWith("x-"));
     const templateId = learned ?? "x-photo-facts";
     setResults([
@@ -396,6 +398,7 @@ export default function DeckFlow({
           // the guided flow land here, so every finished deck feeds the loop.
           recordDeckSignals(
             results.filter(Boolean).map((r) => ({
+              platform: platform ?? "instagram",
               role: r.role,
               templateId: r.templateId,
               titleLen: (r.title ?? "").trim().length,

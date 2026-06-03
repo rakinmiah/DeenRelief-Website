@@ -416,14 +416,16 @@ function DesignLeaderboard({
         What designs convert
       </h2>
       <p className="text-charcoal/55 text-[13px] mb-3 max-w-2xl leading-snug">
-        Per template, ranked by £ raised per post (last-click). Once a design
-        clears the confidence bar it&apos;s marked a winner and the auto-draft
-        starts reaching for it on that slide type.
+        Per template, per platform, ranked by £ raised per post (last-click).
+        Once a design clears the confidence bar it&apos;s marked a winner and the
+        auto-draft starts reaching for it on that slide type — each platform
+        learns its own.
       </p>
       <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal/50 bg-charcoal/[0.02]">
+              <th className="text-left px-5 py-3 whitespace-nowrap">Platform</th>
               <th className="text-left px-5 py-3">Slide type</th>
               <th className="text-left px-5 py-3">Template</th>
               <th className="text-right px-5 py-3">Posts</th>
@@ -436,14 +438,17 @@ function DesignLeaderboard({
           </thead>
           <tbody>
             {sorted.map((o) => {
-              const isWinner =
-                prefs.winningTemplateByRole[o.role] === o.templateId;
-              const basis = prefs.basisByRole[o.role] ?? null;
+              const key = `${o.platform}:${o.role}`;
+              const isWinner = prefs.winningTemplateByKey[key] === o.templateId;
+              const basis = prefs.basisByKey[key] ?? null;
               return (
                 <tr
-                  key={`${o.role}:${o.templateId}`}
+                  key={`${o.platform}:${o.role}:${o.templateId}`}
                   className="border-t border-charcoal/5"
                 >
+                  <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
+                    {platformLabel(o.platform)}
+                  </td>
                   <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
                     {ROLE_LABEL[o.role] ?? o.role}
                   </td>
