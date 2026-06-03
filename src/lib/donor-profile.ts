@@ -378,6 +378,10 @@ function mapDonationRowForTimeline(raw: RawDonationJoined): AdminDonationRow {
     campaignLabel: raw.campaign_label ?? raw.campaign,
     frequency: raw.frequency as AdminDonationRow["frequency"],
     status: raw.status as AdminDonationRow["status"],
+    source:
+      (raw as { source?: string | null }).source === "offline"
+        ? "offline"
+        : "web",
     stripePaymentIntent: raw.stripe_payment_intent_id,
     stripeSetupIntent: raw.stripe_setup_intent_id,
     stripeCustomerId: raw.stripe_customer_id,

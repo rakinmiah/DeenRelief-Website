@@ -15,6 +15,7 @@ import {
 } from "@/lib/donation-messages";
 import { PageHeader, StatusBadge } from "@/components/admin/ui";
 import DonationActionsClient from "./DonationActionsClient";
+import ConfirmOfflineDonationClient from "./ConfirmOfflineDonationClient";
 import DonationMessageClient from "./DonationMessageClient";
 import DeleteDonationClient from "./DeleteDonationClient";
 import MobileActionPanel from "@/components/admin/MobileActionPanel";
@@ -76,6 +77,10 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
           <StatusBadge domain="donation" status={donation.status} variant="outline" />
         }
       />
+
+      {donation.source === "offline" && donation.status === "pending" && (
+        <ConfirmOfflineDonationClient donationId={donation.id} />
+      )}
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         {/* Main column */}

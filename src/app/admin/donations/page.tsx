@@ -279,6 +279,9 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
         className="mb-6"
         actions={
           <>
+            <Button href="/admin/donations/issue-receipt" variant="outline" size="sm">
+              Issue receipt
+            </Button>
             <Button href={exportCsvHref} prefetch={false} variant="outline" size="sm">
               Export CSV
             </Button>

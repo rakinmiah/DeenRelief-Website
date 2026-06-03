@@ -24,6 +24,8 @@ export type AdminAction =
   | "sign_in_rate_limited"
   | "sign_out"
   | "admin_password_changed"
+  | "confirm_offline_donation"
+  | "issue_manual_receipt"
   | "view_gift_aid_csv"
   | "view_donations_csv"
   | "view_reconciliation_csv"

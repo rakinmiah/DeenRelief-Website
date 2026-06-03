@@ -63,6 +63,20 @@ const limiters = {
         prefix: "rl:sponsor-auth",
       })
     : null,
+
+  /**
+   * Offline Gift Aid declaration form (public). Each submission creates a
+   * pending donation + declaration row, so cap it tightly per IP to stop
+   * scripted spam from filling the admin's review queue.
+   */
+  "gift-aid-offline": redis
+    ? new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(5, "600 s"),
+        analytics: true,
+        prefix: "rl:gift-aid-offline",
+      })
+    : null,
 } as const;
 
 type LimiterName = keyof typeof limiters;

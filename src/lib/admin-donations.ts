@@ -101,6 +101,8 @@ export interface AdminDonationRow {
   campaignLabel: string;
   frequency: AdminDonationFrequency;
   status: AdminDonationStatus;
+  /** 'web' = website checkout; 'offline' = logged via the /gift-aid form. */
+  source: "web" | "offline";
   stripePaymentIntent: string | null;
   stripeSetupIntent: string | null;
   stripeCustomerId: string | null;
@@ -150,6 +152,7 @@ interface RawDonationRow {
   campaign: string;
   campaign_label: string;
   gift_aid_claimed: boolean;
+  source?: string | null;
   completed_at: string | null;
   created_at: string;
   stripe_payment_intent_id: string | null;
@@ -228,6 +231,7 @@ function shapeRow(raw: RawDonationRow): AdminDonationRow {
     campaignLabel: raw.campaign_label,
     frequency: raw.frequency,
     status: raw.status,
+    source: raw.source === "offline" ? "offline" : "web",
     stripePaymentIntent: raw.stripe_payment_intent_id,
     stripeSetupIntent: raw.stripe_setup_intent_id,
     stripeCustomerId: raw.stripe_customer_id,
@@ -332,7 +336,7 @@ export async function fetchAdminDonationById(
     .from("donations")
     .select(
       `id, amount_pence, currency, status, frequency, campaign,
-       campaign_label, gift_aid_claimed, completed_at, created_at,
+       campaign_label, gift_aid_claimed, source, completed_at, created_at,
        stripe_payment_intent_id, stripe_setup_intent_id,
        stripe_customer_id, stripe_subscription_id,
        gclid, utm_source, utm_medium, utm_campaign,
