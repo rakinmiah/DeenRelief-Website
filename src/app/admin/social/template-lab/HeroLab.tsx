@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { buildTemplateSlide, type BrandLogo } from "@/lib/social-editor/presets";
 import type { EditorSlide } from "@/lib/social-editor/types";
-import { CATS, VARIANTS, variantsByCat, type Variant } from "./templateData";
+import { CATS, VARIANTS, isXVariant, variantsByCat, type Variant } from "./templateData";
 import { useTemplateOverrides } from "./useOverrides";
 
 export default function HeroLab({
@@ -202,7 +202,8 @@ function HeroCard({
       <div
         style={{
           width: 380,
-          height: 380,
+          // Landscape (16:9) box for X news-infographics; square otherwise.
+          height: isXVariant(variant.id) ? 214 : 380,
           borderRadius: 10,
           overflow: "hidden",
           background: "#163827",
@@ -220,9 +221,7 @@ function HeroCard({
           <img
             src={state.url}
             alt={variant.label}
-            width={380}
-            height={380}
-            style={{ display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
         )}
         {state.status === "error" && (

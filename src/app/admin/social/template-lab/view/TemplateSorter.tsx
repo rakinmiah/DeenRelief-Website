@@ -19,7 +19,7 @@ import {
 } from "react";
 import { buildTemplateSlide, type BrandLogo } from "@/lib/social-editor/presets";
 import type { EditorSlide } from "@/lib/social-editor/types";
-import { CATS, variantsByCat, type Variant } from "../templateData";
+import { CATS, isXVariant, variantsByCat, type Variant } from "../templateData";
 import { useTemplateOverrides } from "../useOverrides";
 
 const FOREST = "#163827";
@@ -433,7 +433,8 @@ function RailThumb({
       <div
         style={{
           width: 196,
-          height: 196,
+          // Landscape (16:9) thumb for X news-infographics; square otherwise.
+          height: isXVariant(variant.id) ? 110 : 196,
           flexShrink: 0,
           borderRadius: 4,
           overflow: "hidden",
@@ -446,7 +447,7 @@ function RailThumb({
       >
         {img.status === "ok" ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={img.url} alt={variant.label} width={196} height={196} style={{ display: "block" }} />
+          <img src={img.url} alt={variant.label} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : img.status === "error" ? (
           <span style={{ color: "#e6b8b8", fontSize: 9, padding: 6, textAlign: "center" }}>render error</span>
         ) : (
@@ -472,11 +473,10 @@ function Preview({
   return (
     <div
       style={{
-        // Fill the available height as a square (capped so it never gets
-        // wider than the pane) — no longer competes with caption/button for
-        // vertical space, so the slide renders full-size.
+        // Fill the available height (capped so it never gets wider than the
+        // pane) — landscape 16:9 for X news-infographics, square otherwise.
         height: "100%",
-        aspectRatio: "1 / 1",
+        aspectRatio: isXVariant(variant.id) ? "16 / 9" : "1 / 1",
         maxWidth: "100%",
         maxHeight: 760,
         borderRadius: 6,
