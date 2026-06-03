@@ -36,6 +36,8 @@ import {
   ROLES,
   autoFillPlan,
   defaultTemplateId,
+  infographicFacts,
+  reportSource,
   suggestPlan,
   type SlideRole,
 } from "./slideRoles";
@@ -188,6 +190,17 @@ export default function DeckFlow({
   // deterministic choices; proven winners outrank taste. £0.
   const { prefs, outcome } = useSmmPrefs();
 
+  // Report data points + source for the dense X news-infographics (they pack
+  // several facts into one image). Derived once from the extracted report.
+  const xFacts = useMemo(
+    () => (content ? infographicFacts(content) : []),
+    [content]
+  );
+  const xSource = useMemo(
+    () => (content ? reportSource(content) : null),
+    [content]
+  );
+
   // Seed the canvas deck from the per-slide build results.
   const seedSlides = useMemo(() => {
     if (!images) return [];
@@ -196,9 +209,15 @@ export default function DeckFlow({
         ? images.images.find((i) => i.id === r.imageId)?.url ?? null
         : null;
       const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo, logoLight };
+      // X infographics carry the whole report — inject the derived facts +
+      // source so the single image is dense, not just a headline.
+      if (r.templateId.startsWith("x-")) {
+        c.facts = xFacts;
+        c.source = xSource;
+      }
       return buildTemplateSlide(r.templateId, c, overrides);
     });
-  }, [results, images, eyebrow, logo, logoLight, overrides]);
+  }, [results, images, eyebrow, logo, logoLight, overrides, xFacts, xSource]);
 
   // The deck's DESIGN recipe ({role, templateId} per slide) — captured at the
   // canvas boundary (which discards templateId/role) so "Mark as posted" can
@@ -281,7 +300,7 @@ export default function DeckFlow({
       outcome?.winningTemplateByRole?.hero,
       prefs?.favTemplateByRole?.hero,
     ].find((id): id is string => !!id && id.startsWith("x-"));
-    const templateId = learned ?? (f.imageId ? "x-headline" : "x-headline-type");
+    const templateId = learned ?? "x-photo-facts";
     setResults([
       {
         role: "hero",

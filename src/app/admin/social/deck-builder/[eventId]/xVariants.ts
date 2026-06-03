@@ -1,19 +1,19 @@
 import type { TemplateMeta } from "@/lib/social-templates/types";
 
 /**
- * The landscape X (Twitter) news-infographic layouts (1200×675). X posts are
- * single images that read like a newswire graphic, not a square poster — so
- * these are a distinct, platform-only set. Ids match the `presetForTemplate`
- * routing (`buildXSlide`, all `x-*`) and the catalogue entries in
- * template-lab/templateData.ts. Both the picker preview and the canvas seed
- * render through the same layer/Satori pipeline, so the card she picks is
- * exactly what opens in the editor. `slots`/`previewPath` are unused here.
+ * The X (Twitter) single-image news-infographics (landscape 1200×675). Unlike
+ * the Instagram carousel, X is ONE image per post — so each of these is a
+ * dense infographic that carries the whole story: a disaster photo + the
+ * headline + several report data points + a source + the wordmark. They differ
+ * in LAYOUT, not in what they show. Ids match the `buildXSlide` routing (all
+ * `x-*`) and the catalogue entries in template-lab/templateData.ts. `slots`/
+ * `previewPath` are unused (these render through the layer/Satori pipeline).
  */
 export const X_VARIANTS: TemplateMeta[] = [
   {
-    id: "x-headline",
-    name: "Headline — photo + panel",
-    description: "Field photo left, headline + source in a forest panel right. The workhorse news graphic.",
+    id: "x-photo-facts",
+    name: "Photo + fact ribbon",
+    description: "Disaster photo full-bleed, headline over it, a 3-stat ribbon along the foot. The default.",
     platforms: ["x"],
     category: "hero",
     aspect: "wide",
@@ -22,9 +22,31 @@ export const X_VARIANTS: TemplateMeta[] = [
     previewPath: "",
   },
   {
-    id: "x-headline-type",
-    name: "Headline — editorial type",
-    description: "Type-only landscape cover on forest, gold accent on the key phrase. No photo.",
+    id: "x-split-facts",
+    name: "Photo + fact list",
+    description: "Photo left, headline + a vertical list of figures on a forest panel right.",
+    platforms: ["x"],
+    category: "stat",
+    aspect: "wide",
+    size: { w: 1200, h: 675 },
+    slots: [],
+    previewPath: "",
+  },
+  {
+    id: "x-top-photo-stats",
+    name: "Photo top + stat row",
+    description: "Photo banner across the top, headline + a 3-stat row beneath on forest.",
+    platforms: ["x"],
+    category: "stat",
+    aspect: "wide",
+    size: { w: 1200, h: 675 },
+    slots: [],
+    previewPath: "",
+  },
+  {
+    id: "x-photo-card",
+    name: "Photo + story card",
+    description: "Photo full-bleed with a translucent forest card carrying headline + facts.",
     platforms: ["x"],
     category: "hero",
     aspect: "wide",
@@ -33,20 +55,9 @@ export const X_VARIANTS: TemplateMeta[] = [
     previewPath: "",
   },
   {
-    id: "x-photo-banner",
-    name: "Photo banner",
-    description: "Full-bleed photo with the headline anchored lower-left over a gradient — breaking-news look.",
-    platforms: ["x"],
-    category: "hero",
-    aspect: "wide",
-    size: { w: 1200, h: 675 },
-    slots: [],
-    previewPath: "",
-  },
-  {
-    id: "x-stat",
-    name: "Key stat",
-    description: "One colossal figure left, the supporting beat right. For a single hard number.",
+    id: "x-hero-stat",
+    name: "Photo + big stat",
+    description: "Photo full-bleed, headline lower-left, one colossal figure + supporting facts right.",
     platforms: ["x"],
     category: "stat",
     aspect: "wide",
@@ -55,9 +66,9 @@ export const X_VARIANTS: TemplateMeta[] = [
     previewPath: "",
   },
   {
-    id: "x-multistat",
-    name: "By the numbers",
-    description: "Three figures across — the classic data infographic.",
+    id: "x-ledger",
+    name: "Numbered ledger",
+    description: "Photo left, a numbered ledger (01/02/03/04) of figures on forest right.",
     platforms: ["x"],
     category: "stat",
     aspect: "wide",
@@ -66,9 +77,9 @@ export const X_VARIANTS: TemplateMeta[] = [
     previewPath: "",
   },
   {
-    id: "x-beforeafter",
-    name: "Before / after",
-    description: "Two figures split by a centre rule — a then-and-now contrast.",
+    id: "x-grid",
+    name: "Photo + 2×2 grid",
+    description: "Photo banner top, headline, then a 2×2 grid of four figures.",
     platforms: ["x"],
     category: "stat",
     aspect: "wide",
@@ -77,31 +88,31 @@ export const X_VARIANTS: TemplateMeta[] = [
     previewPath: "",
   },
   {
-    id: "x-quote",
-    name: "Testimony",
-    description: "Portrait left, attributed quote right (type-led when there's no photo).",
+    id: "x-overlay-list",
+    name: "Darkened photo + list",
+    description: "Photo darkened under a heavy overlay, headline + a bulleted fact list. The explainer.",
     platforms: ["x"],
-    category: "testimony",
+    category: "fact",
     aspect: "wide",
     size: { w: 1200, h: 675 },
     slots: [],
     previewPath: "",
   },
   {
-    id: "x-response",
-    name: "Our response",
-    description: "DR field photo left, what we're delivering + a reach stat right.",
+    id: "x-right-photo",
+    name: "Facts + photo right",
+    description: "Headline + fact list left on forest, photo right. Mirror of the split.",
     platforms: ["x"],
-    category: "response",
+    category: "stat",
     aspect: "wide",
     size: { w: 1200, h: 675 },
     slots: [],
     previewPath: "",
   },
   {
-    id: "x-cta",
-    name: "Donate CTA",
-    description: "The closing ask + a scan-to-give QR — landscape.",
+    id: "x-cta-facts",
+    name: "Photo + facts + donate",
+    description: "Photo left, headline + two figures + a DONATE ask on forest right.",
     platforms: ["x"],
     category: "cta",
     aspect: "wide",

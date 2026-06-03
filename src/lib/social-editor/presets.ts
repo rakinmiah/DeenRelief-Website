@@ -82,6 +82,10 @@ function slide(layers: Layer[], background: string): EditorSlide {
  *  artwork so `objectFit: contain` fills it with no centring gap. */
 export type BrandLogo = { url: string; aspect: number };
 
+/** A single infographic data point — a punchy figure + what it measures.
+ *  Powers the dense X news-infographics, which pack several into one image. */
+export type InfographicFact = { value?: string | null; label: string };
+
 export type SlideContent = {
   primary: string;
   secondary: string | null;
@@ -90,6 +94,11 @@ export type SlideContent = {
   /** Optional gold accent tail rendered on its own line below the cream
    *  headline — the library's two-tone treatment. */
   accent?: string | null;
+  /** Multiple report data points — the X news-infographics lay several of
+   *  these out in one image alongside the headline + disaster photo. */
+  facts?: InfographicFact[] | null;
+  /** Source attribution line for the infographic foot (e.g. "OCHA · May 2026"). */
+  source?: string | null;
   /** The WHITE / on-dark logo — the reversed mark, used only where the
    *  corner sits on a dark field (forest / photo). Null → type lockup. */
   logo?: BrandLogo | null;
@@ -3784,247 +3793,302 @@ function xFoot(t: string, x: number, w: number, align: TextAlign = "left", color
   return text({ x, y: XH - 52, w, h: 26, text: t, fontFamily: BARLOW, fontSize: 16, fontWeight: 600, uppercase: true, letterSpacing: 3, color, opacity: 0.55, align });
 }
 
-// X-1 — Headline dispatch: photo-left + forest panel-right when there's a
-// photo; a clean editorial type cover when there isn't.
-function xHeadline(c: SlideContent): EditorSlide {
-  if (!c.imageUrl) return xHeadlineType(c);
-  const photoW = 700;
-  const panelX = photoW;
-  const innerX = panelX + 48;
-  const innerW = XW - XPAD - innerX; // right column text width
-  const headSize = 52;
-  const headY = 206;
-  const headBottom = headlineBottom(c.primary, c.accent, innerW, headSize, headY);
-  const barY = headBottom + 24;
-  return slideX(
-    [
-      image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl, objectFit: "cover" }),
-      shape({ x: panelX, y: 0, w: XW - panelX, h: XH, shape: "rect", fill: C.forest, locked: true }),
-      ...wordmark(innerX, 56, c),
-      hEyebrow(c.eyebrow, innerX, 150, innerW),
-      ...headlineBlock(c.primary, c.accent, innerX, headY, innerW, headSize),
-      goldBar(innerX, barY),
-      ...(c.secondary ? [hBody(c.secondary, innerX, barY + 22, innerW, 180)] : []),
-      xFoot("deenrelief.org · Charity No. 1158608", innerX, innerW),
-    ],
-    C.forest
+// Each X template is ONE dense infographic: a disaster photo + the headline +
+// several report data points + a source line + the wordmark. They differ in
+// how that payload is LAID OUT, not in what they show. Shared helpers below
+// keep the data points (facts), source line and photo base consistent.
+
+/** Sample data points so the picker previews render dense; the real flow
+ *  passes report-derived facts on `c.facts`. */
+const X_DEFAULT_FACTS: InfographicFact[] = [
+  { value: "2.1M", label: "now depend on humanitarian aid" },
+  { value: "9 in 10", label: "families skip meals every day" },
+  { value: "90%", label: "of water is unsafe to drink" },
+  { value: "1.9M", label: "displaced from their homes" },
+];
+function xFactsOf(c: SlideContent, max = 4): InfographicFact[] {
+  const f = (c.facts && c.facts.length ? c.facts : X_DEFAULT_FACTS).filter(
+    (x) => x && x.label
   );
+  return f.slice(0, max);
 }
-// X-1b — Type-led editorial cover (no photo).
-function xHeadlineType(c: SlideContent): EditorSlide {
-  const W = 820;
-  const headSize = 92;
-  const headY = 232;
-  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
-  const barY = headBottom + 28;
-  return slideX(
-    [
-      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(XPAD, XPAD, c),
-      hTag("Emergency Appeal", XW - XPAD - 420, XPAD + 6, 420, "right"),
-      hEyebrow(c.eyebrow, XPAD, 168, W),
-      ...headlineBlock(c.primary, c.accent, XPAD, headY, W, headSize),
-      goldBar(XPAD, barY),
-      ...(c.secondary ? [hBody(c.secondary, XPAD, barY + 24, Math.min(W, 900), 120)] : []),
-      xFoot("deenrelief.org · Charity No. 1158608", XPAD, 900),
-    ],
-    C.forest
-  );
+function xSourceOf(c: SlideContent): string {
+  return c.source
+    ? `Source: ${c.source} · deenrelief.org`
+    : "deenrelief.org · Charity No. 1158608";
+}
+/** Full-bleed photo + a bottom legibility scrim + a top scrim for the chrome. */
+function xPhotoBase(c: SlideContent, scrimFromY = 280): Layer[] {
+  return [
+    image({ x: 0, y: 0, w: XW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+    shape({ x: 0, y: scrimFromY, w: XW, h: XH - scrimFromY, shape: "rect", fill: X_SCRIM, locked: true }),
+    shape({ x: 0, y: 0, w: XW, h: 150, shape: "rect", fill: TOP_SCRIM, locked: true }),
+  ];
+}
+/** A stat CELL: a big figure stacked over its label (for rows / grids). */
+function xStatCell(f: InfographicFact, x: number, y: number, w: number, valueSize = 56): Layer[] {
+  const out: Layer[] = [];
+  let yy = y;
+  if (f.value) {
+    out.push(text({ x, y: yy, w, h: Math.round(valueSize * 0.92 + 8), text: f.value, fontFamily: ANTON, fontSize: valueSize, fontWeight: 400, uppercase: true, lineHeight: 0.9, letterSpacing: -2, color: C.amber }));
+    yy += Math.round(valueSize * 0.9) + 6;
+  }
+  out.push(text({ x, y: yy, w, h: 70, text: f.label, fontFamily: BARLOW, fontSize: 19, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }));
+  return out;
+}
+/** A fact ROW: figure inline-left + label to its right (for vertical lists). */
+function xFactRow(f: InfographicFact, x: number, y: number, w: number): Layer[] {
+  if (f.value) {
+    const valW = 156;
+    return [
+      text({ x, y, w: valW, h: 56, text: f.value, fontFamily: ANTON, fontSize: 46, fontWeight: 400, uppercase: true, lineHeight: 0.95, letterSpacing: -1, color: C.amber }),
+      text({ x: x + valW + 18, y: y + 6, w: w - valW - 18, h: 60, text: f.label, fontFamily: BARLOW, fontSize: 21, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+    ];
+  }
+  return [
+    shape({ x, y: y + 9, w: 11, h: 11, shape: "rect", fill: C.amber, rotation: 45 }),
+    text({ x: x + 28, y, w: w - 28, h: 64, text: f.label, fontFamily: BARLOW, fontSize: 23, fontWeight: 500, lineHeight: 1.2, color: C.cream }),
+  ];
 }
 
-// X-2 — Full-bleed photo banner (breaking-news look).
-function xPhotoBanner(c: SlideContent): EditorSlide {
-  const W = 880;
-  const headSize = 60;
-  const headY = 430;
+// X-1 — Photo full-bleed + headline + a 3-stat ribbon along the foot. The
+// default workhorse: the disaster fills the frame, the report sits on top.
+function xPhotoFacts(c: SlideContent): EditorSlide {
+  const facts = xFactsOf(c, 3);
+  const colW = Math.round((XW - 2 * XPAD - 2 * 28) / 3);
   return slideX(
     [
-      image({ x: 0, y: 0, w: XW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
-      shape({ x: 0, y: 250, w: XW, h: XH - 250, shape: "rect", fill: X_SCRIM, locked: true }),
-      shape({ x: 0, y: 0, w: XW, h: 168, shape: "rect", fill: TOP_SCRIM, locked: true }),
+      ...xPhotoBase(c, 250),
       ...wordmark(XPAD, XPAD, c),
       hTag("Field Report", XW - XPAD - 420, XPAD + 6, 420, "right"),
-      hEyebrow(c.eyebrow, XPAD, headY - 46, W),
-      ...headlineBlock(c.primary, c.accent, XPAD, headY, W, headSize),
-      xFoot("deenrelief.org", XW - XPAD - 360, 360, "right"),
+      hEyebrow(c.eyebrow, XPAD, 296, 900),
+      ...headlineBlock(c.primary, c.accent, XPAD, 332, 900, 50),
+      ...facts.flatMap((f, i) => xStatCell(f, XPAD + i * (colW + 28), 486, colW, 44)),
+      xFoot(xSourceOf(c), XPAD, XW - 2 * XPAD),
     ],
     C.forest
   );
 }
 
-// X-3 — Key stat: colossal numeral left, label + context right.
-function xStat(c: SlideContent): EditorSlide {
-  const figure = c.primary || "2.1M";
-  const figureSize = 300;
-  const colX = 620;
-  const colW = XW - XPAD - colX;
-  return slideX(
-    [
-      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(XPAD, XPAD, c),
-      hEyebrow(c.eyebrow, XPAD, 150, 520),
-      text({ x: XPAD - 4, y: 214, w: 560, h: Math.round(figureSize * 0.82 + 20), text: figure, fontFamily: ANTON, fontSize: figureSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -6, color: C.amber }),
-      ...(c.secondary
-        ? [text({ x: colX, y: 250, w: colW, h: 280, text: c.secondary, fontFamily: ANTON, fontSize: 56, fontWeight: 400, uppercase: true, lineHeight: 1.0, color: C.cream })]
-        : []),
-      goldBar(colX, 224),
-      xFoot("Source · deenrelief.org · Charity No. 1158608", XPAD, XW - 2 * XPAD),
-    ],
-    C.forest
-  );
-}
-
-// X-4 — Multi-stat "by the numbers": three figures across (the classic
-// news infographic).
-function xMultistat(c: SlideContent): EditorSlide {
-  const heading = c.primary || "By the numbers";
-  const rows = [
-    { num: "2.3M", label: "facing acute food insecurity" },
-    { num: "1.9M", label: "displaced from their homes" },
-    { num: "90%", label: "of water unsafe to drink" },
-  ];
-  const headSize = 56;
-  const headY = 132;
-  const ruleY = headY + Math.round(headSize * 0.96) + 18;
-  const gap = 36;
-  const colW = Math.round((XW - 2 * XPAD - 2 * gap) / 3); // ~333
-  const figY = 320;
-  return slideX(
-    [
-      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(XPAD, XPAD, c),
-      hTag("By the Numbers", XW - XPAD - 420, XPAD + 6, 420, "right"),
-      hHead(balanceLines(heading, 760, headSize), XPAD, headY, 760, Math.round(headSize * 0.96 + 12), headSize, "left", C.cream),
-      goldBar(XPAD, ruleY),
-      ...rows.flatMap((r, i) => {
-        const x = XPAD + i * (colW + gap);
-        return [
-          text({ x, y: figY, w: colW, h: 150, text: r.num, fontFamily: ANTON, fontSize: 124, fontWeight: 400, uppercase: true, lineHeight: 0.86, letterSpacing: -3, color: C.amber }),
-          text({ x, y: figY + 150, w: colW, h: 90, text: r.label, fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.22, color: C.creamDim }),
-        ];
-      }),
-      xFoot("Source · deenrelief.org · Charity No. 1158608", XPAD, XW - 2 * XPAD),
-    ],
-    C.forest
-  );
-}
-
-// X-5 — Before / After: two columns split by a centre gold rule.
-function xBeforeAfter(c: SlideContent): EditorSlide {
-  const heading = c.primary || "Then & now";
-  const numSize = 150;
-  const numY = 300;
-  const cx = XW / 2;
-  const leftX = XPAD;
-  const rightX = cx + 40;
-  const colW = cx - XPAD - 40;
-  return slideX(
-    [
-      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
-      ...wordmark(XPAD, XPAD, c),
-      hEyebrow(c.eyebrow, XPAD, 150, 760),
-      hHead(balanceLines(heading, 760, 48), XPAD, 190, 760, 60, 48, "left", C.cream),
-      shape({ x: cx - 1, y: 250, w: 2, h: 300, shape: "rect", fill: C.amber, opacity: 0.5, locked: true }),
-      // BEFORE
-      text({ x: leftX, y: numY - 50, w: colW, h: 32, text: "Before", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.creamDim }),
-      text({ x: leftX, y: numY, w: colW, h: 180, text: "1 in 3", fontFamily: ANTON, fontSize: numSize, fontWeight: 400, uppercase: true, lineHeight: 0.86, color: C.cream }),
-      text({ x: leftX, y: numY + 168, w: colW, h: 60, text: "had access to clean water", fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }),
-      // AFTER
-      text({ x: rightX, y: numY - 50, w: colW, h: 32, text: "Now", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }),
-      text({ x: rightX, y: numY, w: colW, h: 180, text: "1 in 10", fontFamily: ANTON, fontSize: numSize, fontWeight: 400, uppercase: true, lineHeight: 0.86, color: C.amber }),
-      text({ x: rightX, y: numY + 168, w: colW, h: 60, text: "have access today", fontFamily: BARLOW, fontSize: 24, fontWeight: 500, lineHeight: 1.2, color: C.creamDim }),
-      xFoot(c.secondary || "Source · deenrelief.org", XPAD, XW - 2 * XPAD),
-    ],
-    C.forest
-  );
-}
-
-// X-6 — Testimony: portrait left, quote right (type-led when no photo).
-function xQuote(c: SlideContent): EditorSlide {
-  const hasPhoto = !!c.imageUrl;
-  const photoW = 480;
-  const innerX = hasPhoto ? photoW + 56 : XPAD;
-  const innerW = XW - XPAD - innerX;
-  const quoteSize = hasPhoto ? 38 : 46;
-  return slideX(
-    [
-      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
-      ...(hasPhoto
-        ? [image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" })]
-        : []),
-      ...(hasPhoto ? [] : wordmark(XPAD, XPAD, c)),
-      text({ x: innerX - 6, y: 70, w: 200, h: 200, text: "“", fontFamily: ANTON, fontSize: 220, fontWeight: 400, lineHeight: 0.8, color: C.amber }),
-      text({ x: innerX, y: 188, w: innerW, h: 300, text: c.primary, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.2, color: C.cream }),
-      goldBar(innerX, XH - 132),
-      ...(c.secondary ? [text({ x: innerX, y: XH - 116, w: innerW, h: 40, text: c.secondary, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, uppercase: true, letterSpacing: 2, color: C.cream, opacity: 0.85 })] : []),
-      xFoot("deenrelief.org", innerX, innerW),
-    ],
-    C.forest
-  );
-}
-
-// X-7 — Our response: photo left, what-we're-delivering panel right.
-function xResponse(c: SlideContent): EditorSlide {
-  const photoW = 640;
+// X-2 — Photo left + a vertical fact list on a forest panel right.
+function xSplitFacts(c: SlideContent): EditorSlide {
+  const photoW = 624;
   const innerX = photoW + 48;
   const innerW = XW - XPAD - innerX;
-  const headSize = 46;
-  const headY = 196;
-  const headBottom = headlineBottom(c.primary, c.accent, innerW, headSize, headY);
+  const facts = xFactsOf(c, 3);
   return slideX(
     [
       image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
       shape({ x: photoW, y: 0, w: XW - photoW, h: XH, shape: "rect", fill: C.forest, locked: true }),
       ...wordmark(innerX, 56, c),
-      hEyebrow(c.eyebrow || "Our response", innerX, 142, innerW),
-      ...headlineBlock(c.primary, c.accent, innerX, headY, innerW, headSize),
-      ...(c.secondary
-        ? [
-            goldBar(innerX, headBottom + 22),
-            text({ x: innerX, y: headBottom + 40, w: innerW, h: 120, text: c.secondary, fontFamily: ANTON, fontSize: 44, fontWeight: 400, uppercase: true, lineHeight: 1.0, color: C.amber }),
-          ]
-        : []),
-      xFoot("deenrelief.org · Charity No. 1158608", innerX, innerW),
+      hEyebrow(c.eyebrow, innerX, 140, innerW),
+      ...headlineBlock(c.primary, c.accent, innerX, 180, innerW, 40),
+      goldBar(innerX, 326),
+      ...facts.flatMap((f, i) => xFactRow(f, innerX, 360 + i * 76, innerW)),
+      xFoot(xSourceOf(c), innerX, innerW),
     ],
     C.forest
   );
 }
 
-// X-8 — Closing CTA: ask + DONATE pill left, scan-to-give QR right.
-function xCta(c: SlideContent): EditorSlide {
-  const W = 660;
-  const headSize = 64;
-  const headY = 214;
-  const headBottom = headlineBottom(c.primary, c.accent, W, headSize, headY);
-  const pillY = headBottom + 36;
-  const qr = 300;
-  const qrX = XW - XPAD - qr;
-  const qrY = (XH - qr) / 2 + 10;
+// X-3 — Photo top band + headline + a 3-stat row below on forest.
+function xTopPhotoStats(c: SlideContent): EditorSlide {
+  const photoH = 300;
+  const colW = Math.round((XW - 2 * XPAD - 2 * 28) / 3);
+  const facts = xFactsOf(c, 3);
   return slideX(
     [
-      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      image({ x: 0, y: 0, w: XW, h: photoH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 0, w: XW, h: 130, shape: "rect", fill: TOP_SCRIM, locked: true }),
+      shape({ x: 0, y: photoH, w: XW, h: XH - photoH, shape: "rect", fill: C.forest, locked: true }),
       ...wordmark(XPAD, XPAD, c),
-      hEyebrow(c.eyebrow || "Stand with them", XPAD, 150, W),
-      ...headlineBlock(c.primary, c.accent, XPAD, headY, W, headSize),
-      ...donatePill(XPAD, pillY, 360),
-      qrPlaceholder(qrX, qrY, qr),
-      text({ x: qrX - 40, y: qrY + qr + 18, w: qr + 80, h: 28, text: "Scan to give", fontFamily: BARLOW, fontSize: 20, fontWeight: 700, uppercase: true, letterSpacing: 3, color: C.cream, opacity: 0.7, align: "center" }),
-      xFoot("deenrelief.org · Charity No. 1158608", XPAD, W),
+      hEyebrow(c.eyebrow, XPAD, photoH + 28, 900),
+      ...headlineBlock(c.primary, c.accent, XPAD, photoH + 64, 1000, 42),
+      ...facts.flatMap((f, i) => xStatCell(f, XPAD + i * (colW + 28), 500, colW, 50)),
+      xFoot(xSourceOf(c), XPAD, XW - 2 * XPAD),
     ],
     C.forest
   );
 }
 
-/** Route an `x-*` template id to its landscape news-infographic builder. */
+// X-4 — Photo full-bleed + a translucent forest card carrying the whole story.
+function xPhotoCard(c: SlideContent): EditorSlide {
+  const cardX = 56;
+  const cardY = 276;
+  const cardW = 760;
+  const innerX = cardX + 32;
+  const innerW = cardW - 64;
+  const facts = xFactsOf(c, 3);
+  return slideX(
+    [
+      ...xPhotoBase(c, 200),
+      shape({ x: cardX, y: cardY, w: cardW, h: 364, shape: "rect", fill: C.forestDim, radius: 16, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow, innerX, cardY + 28, innerW),
+      ...headlineBlock(c.primary, c.accent, innerX, cardY + 62, innerW, 38),
+      ...facts.flatMap((f, i) => xFactRow(f, innerX, cardY + 168 + i * 58, innerW)),
+      xFoot(xSourceOf(c), innerX, innerW),
+    ],
+    C.forest
+  );
+}
+
+// X-5 — Photo full-bleed + headline lower-left + a stat column lower-right.
+function xHeroStat(c: SlideContent): EditorSlide {
+  const facts = xFactsOf(c, 3);
+  const lead = facts[0];
+  const rest = facts.slice(1);
+  const colX = 770;
+  const colW = XW - XPAD - colX;
+  return slideX(
+    [
+      ...xPhotoBase(c, 230),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow, XPAD, 300, 660),
+      ...headlineBlock(c.primary, c.accent, XPAD, 338, 660, 50),
+      // lead figure, big
+      ...(lead
+        ? [
+            text({ x: colX, y: 250, w: colW, h: 150, text: lead.value ?? "", fontFamily: ANTON, fontSize: 132, fontWeight: 400, uppercase: true, lineHeight: 0.86, letterSpacing: -3, color: C.amber }),
+            text({ x: colX, y: 392, w: colW, h: 70, text: lead.label, fontFamily: BARLOW, fontSize: 21, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+          ]
+        : []),
+      ...rest.flatMap((f, i) => xFactRow(f, colX, 488 + i * 64, colW)),
+      xFoot(xSourceOf(c), XPAD, 660),
+    ],
+    C.forest
+  );
+}
+
+// X-6 — Photo left (narrow) + a numbered ledger of facts on forest right.
+function xLedger(c: SlideContent): EditorSlide {
+  const photoW = 440;
+  const innerX = photoW + 48;
+  const innerW = XW - XPAD - innerX;
+  const facts = xFactsOf(c, 4);
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: photoW, y: 0, w: XW - photoW, h: XH, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(innerX, 56, c),
+      hEyebrow(c.eyebrow, innerX, 138, innerW),
+      hHead(balanceLines(c.primary, innerW, 42), innerX, 176, innerW, 96, 42, "left", C.cream),
+      goldBar(innerX, 280),
+      ...facts.flatMap((f, i) => {
+        const y = 312 + i * 76;
+        return [
+          text({ x: innerX, y: y + 2, w: 52, h: 40, text: `0${i + 1}`, fontFamily: BARLOW, fontSize: 22, fontWeight: 700, color: C.amber }),
+          ...(f.value
+            ? [text({ x: innerX + 60, y, w: 140, h: 48, text: f.value, fontFamily: ANTON, fontSize: 40, fontWeight: 400, uppercase: true, lineHeight: 0.95, color: C.cream })]
+            : []),
+          text({ x: innerX + (f.value ? 210 : 60), y: y + 6, w: innerW - (f.value ? 210 : 60), h: 56, text: f.label, fontFamily: BARLOW, fontSize: 20, fontWeight: 500, lineHeight: 1.18, color: C.creamDim }),
+        ];
+      }),
+      xFoot(xSourceOf(c), innerX, innerW),
+    ],
+    C.forest
+  );
+}
+
+// X-7 — Photo top band + headline + a 2×2 fact grid below.
+function xGrid(c: SlideContent): EditorSlide {
+  const photoH = 270;
+  const facts = xFactsOf(c, 4);
+  const colW = Math.round((XW - 2 * XPAD - 40) / 2);
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: XW, h: photoH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 0, w: XW, h: 130, shape: "rect", fill: TOP_SCRIM, locked: true }),
+      shape({ x: 0, y: photoH, w: XW, h: XH - photoH, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow, XPAD, photoH + 26, 1000),
+      hHead(balanceLines(c.primary, 1000, 40), XPAD, photoH + 60, 1000, 52, 40, "left", C.cream),
+      ...facts.flatMap((f, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        return xStatCell(f, XPAD + col * (colW + 40), 430 + row * 96, colW, 44);
+      }),
+      xFoot(xSourceOf(c), XPAD, XW - 2 * XPAD),
+    ],
+    C.forest
+  );
+}
+
+// X-8 — Photo darkened full-bleed + headline + a bulleted fact list. The
+// "explainer" — most words, the photo as mood behind a heavy overlay.
+function xOverlayList(c: SlideContent): EditorSlide {
+  const facts = xFactsOf(c, 4);
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: XW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: 0, y: 0, w: XW, h: XH, shape: "rect", fill: "rgba(15,42,28,0.82)", locked: true }),
+      ...wordmark(XPAD, XPAD, c),
+      hTag("Field Report", XW - XPAD - 420, XPAD + 6, 420, "right"),
+      hEyebrow(c.eyebrow, XPAD, 144, 900),
+      ...headlineBlock(c.primary, c.accent, XPAD, 184, 980, 54),
+      ...facts.flatMap((f, i) =>
+        xFactRow({ value: f.value, label: f.label }, XPAD, 330 + i * 64, 1000)
+      ),
+      xFoot(xSourceOf(c), XPAD, XW - 2 * XPAD),
+    ],
+    C.forest
+  );
+}
+
+// X-9 — Mirror of split: fact list left on forest, photo right.
+function xRightPhoto(c: SlideContent): EditorSlide {
+  const photoX = 660;
+  const photoW = XW - photoX;
+  const innerW = photoX - 2 * XPAD;
+  const facts = xFactsOf(c, 3);
+  return slideX(
+    [
+      shape({ x: 0, y: 0, w: photoX, h: XH, shape: "rect", fill: GLOW, locked: true }),
+      image({ x: photoX, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      ...wordmark(XPAD, XPAD, c),
+      hEyebrow(c.eyebrow, XPAD, 140, innerW),
+      ...headlineBlock(c.primary, c.accent, XPAD, 180, innerW, 42),
+      goldBar(XPAD, 322),
+      ...facts.flatMap((f, i) => xFactRow(f, XPAD, 356 + i * 76, innerW)),
+      xFoot(xSourceOf(c), XPAD, innerW),
+    ],
+    C.forest
+  );
+}
+
+// X-10 — Photo left + headline, two facts and a donate ask on forest right.
+function xCtaFacts(c: SlideContent): EditorSlide {
+  const photoW = 560;
+  const innerX = photoW + 48;
+  const innerW = XW - XPAD - innerX;
+  const facts = xFactsOf(c, 2);
+  return slideX(
+    [
+      image({ x: 0, y: 0, w: photoW, h: XH, src: c.imageUrl ?? "", objectFit: "cover" }),
+      shape({ x: photoW, y: 0, w: XW - photoW, h: XH, shape: "rect", fill: C.forest, locked: true }),
+      ...wordmark(innerX, 56, c),
+      hEyebrow(c.eyebrow || "Stand with them", innerX, 140, innerW),
+      ...headlineBlock(c.primary, c.accent, innerX, 178, innerW, 44),
+      ...facts.flatMap((f, i) => xFactRow(f, innerX, 300 + i * 70, innerW)),
+      ...donatePill(innerX, 452, Math.min(360, innerW)),
+      xFoot(xSourceOf(c), innerX, innerW),
+    ],
+    C.forest
+  );
+}
+
+/** Route an `x-*` template id to its dense news-infographic builder. */
 function buildXSlide(id: string, c: SlideContent): EditorSlide {
-  if (id.includes("photo") || id.includes("banner")) return xPhotoBanner(c);
-  if (id.includes("multistat") || id.includes("numbers")) return xMultistat(c);
-  if (id.includes("beforeafter") || id.includes("before-after")) return xBeforeAfter(c);
-  if (id.includes("stat")) return xStat(c);
-  if (id.includes("quote") || id.includes("testimony")) return xQuote(c);
-  if (id.includes("response")) return xResponse(c);
-  if (id.includes("cta")) return xCta(c);
-  return xHeadline(c);
+  if (id.includes("split")) return xSplitFacts(c);
+  if (id.includes("top-photo")) return xTopPhotoStats(c);
+  if (id.includes("card")) return xPhotoCard(c);
+  if (id.includes("hero-stat")) return xHeroStat(c);
+  if (id.includes("ledger")) return xLedger(c);
+  if (id.includes("grid")) return xGrid(c);
+  if (id.includes("overlay") || id.includes("list")) return xOverlayList(c);
+  if (id.includes("right")) return xRightPhoto(c);
+  if (id.includes("cta")) return xCtaFacts(c);
+  return xPhotoFacts(c);
 }
 
 /** Use a template to build a slide, honouring a saved override if present. */

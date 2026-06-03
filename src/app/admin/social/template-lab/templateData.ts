@@ -32,16 +32,33 @@ export const CATS: { key: string; title: string; sub: string }[] = [
 /** The catalogue ids that are landscape X templates — used to filter the
  *  Templates panel by platform (X shows these; IG/FB hide them). */
 export const X_VARIANT_IDS = new Set<string>([
-  "x-headline",
-  "x-headline-type",
-  "x-photo-banner",
-  "x-stat",
-  "x-multistat",
-  "x-beforeafter",
-  "x-quote",
-  "x-response",
-  "x-cta",
+  "x-photo-facts",
+  "x-split-facts",
+  "x-top-photo-stats",
+  "x-photo-card",
+  "x-hero-stat",
+  "x-ledger",
+  "x-grid",
+  "x-overlay-list",
+  "x-right-photo",
+  "x-cta-facts",
 ]);
+
+/** Sample report payload for the X infographic previews — a disaster photo,
+ *  a headline, several data points + a source. The real flow fills these from
+ *  the news report. */
+const X_SAMPLE = {
+  primary: "881 killed since the ceasefire.",
+  eyebrow: "From Gaza · 25 May 2026",
+  imageUrl: SAMPLE_IMG,
+  source: "Gaza Health Ministry · May 2026",
+  facts: [
+    { value: "2.1M", label: "now depend on humanitarian aid" },
+    { value: "9 in 10", label: "families skip meals every day" },
+    { value: "90%", label: "of water is unsafe to drink" },
+    { value: "1.9M", label: "displaced from their homes" },
+  ],
+};
 
 /** Is this a landscape X (Twitter) template? */
 export function isXVariant(id: string): boolean {
@@ -613,82 +630,59 @@ export const VARIANTS: Variant[] = [
     c: { primary: "Our teams are distributing food, water and medical aid across Gaza.", secondary: "12,000 families reached this week.", imageUrl: SAMPLE_IMG, eyebrow: "Our response" },
   },
 
-  /* ─── X (Twitter) · landscape 1200×675 news-infographics ─────────── */
+  /* ─── X (Twitter) · landscape 1200×675 single-image news-infographics ──
+   * Each is ONE dense graphic: a disaster photo + the headline + several
+   * report data points + a source. They differ in LAYOUT, not content. The
+   * real flow fills `c` from the news report; X_SAMPLE keeps previews dense. */
   {
-    id: "x-headline",
-    label: "X · Headline — photo + panel",
-    c: {
-      primary: "881 killed since\nthe ceasefire.",
-      secondary: "Gaza's Health Ministry reports strikes have continued across the Strip since the January truce.",
-      imageUrl: SAMPLE_IMG,
-      eyebrow: "From Gaza · 25 May 2026",
-    },
+    id: "x-photo-facts",
+    label: "X · Photo + fact ribbon",
+    c: { ...X_SAMPLE, secondary: null },
   },
   {
-    id: "x-headline-type",
-    label: "X · Headline — editorial type",
-    c: {
-      primary: "Gaza, after",
-      accent: "the ceasefire.",
-      secondary: "Four months after the truce, the bombardment has not stopped.",
-      imageUrl: null,
-      eyebrow: "Emergency Appeal · Palestine",
-    },
+    id: "x-split-facts",
+    label: "X · Photo + fact list",
+    c: { ...X_SAMPLE, secondary: null },
   },
   {
-    id: "x-photo-banner",
-    label: "X · Photo banner",
-    c: {
-      primary: "No safe place to shelter.",
-      secondary: null,
-      imageUrl: SAMPLE_IMG,
-      eyebrow: "Gaza City · 25 May 2026",
-    },
+    id: "x-top-photo-stats",
+    label: "X · Photo top + stat row",
+    c: { ...X_SAMPLE, secondary: null },
   },
   {
-    id: "x-stat",
-    label: "X · Key stat",
-    c: {
-      primary: "2.1M",
-      secondary: "now depend on humanitarian aid",
-      imageUrl: null,
-      eyebrow: "By the numbers · Gaza",
-    },
+    id: "x-photo-card",
+    label: "X · Photo + story card",
+    c: { ...X_SAMPLE, secondary: null },
   },
   {
-    id: "x-multistat",
-    label: "X · By the numbers",
-    c: { primary: "Gaza today", secondary: null, imageUrl: null, eyebrow: "By the numbers" },
+    id: "x-hero-stat",
+    label: "X · Photo + big stat",
+    c: { ...X_SAMPLE, secondary: null },
   },
   {
-    id: "x-beforeafter",
-    label: "X · Before / after",
-    c: { primary: "Healthcare in collapse", secondary: "Source: WHO · May 2026", imageUrl: null, eyebrow: "Palestine Appeal" },
+    id: "x-ledger",
+    label: "X · Numbered ledger",
+    c: { ...X_SAMPLE, primary: "Gaza today", secondary: null },
   },
   {
-    id: "x-quote",
-    label: "X · Testimony",
-    c: {
-      primary: "We do not need pity. We need the world to act before there is no one left to save.",
-      secondary: "Dr. Layla K. · Surgeon, Khan Younis",
-      imageUrl: SAMPLE_IMG,
-      eyebrow: "In their words",
-    },
+    id: "x-grid",
+    label: "X · Photo + 2×2 grid",
+    c: { ...X_SAMPLE, primary: "Gaza today", secondary: null },
   },
   {
-    id: "x-response",
-    label: "X · Our response",
-    c: {
-      primary: "Food, water and medical aid, across Gaza.",
-      secondary: "12,000 families reached",
-      imageUrl: SAMPLE_IMG,
-      eyebrow: "Our response",
-    },
+    id: "x-overlay-list",
+    label: "X · Darkened photo + list",
+    c: { ...X_SAMPLE, secondary: null },
   },
   {
-    id: "x-cta",
-    label: "X · Donate CTA",
-    c: { primary: "Stand with them today.", secondary: null, imageUrl: null, eyebrow: "Palestine Appeal" },
+    id: "x-right-photo",
+    label: "X · Facts + photo right",
+    c: { ...X_SAMPLE, secondary: null },
+  },
+  {
+    id: "x-cta-facts",
+    label: "X · Photo + facts + donate",
+    c: { ...X_SAMPLE, primary: "Stand with Gaza today.", secondary: null, facts: X_SAMPLE.facts.slice(0, 2) },
   },
 ];
 

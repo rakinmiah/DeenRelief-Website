@@ -12,6 +12,7 @@ import type { ContentBundle, ImageBundle } from "./types";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import type { LearnedPrefs } from "@/lib/smm-preferences";
 import type { OutcomePrefs } from "@/lib/social-outcomes";
+import type { InfographicFact } from "@/lib/social-editor/presets";
 
 export type SlideRole =
   | "hero"
@@ -53,6 +54,47 @@ const quotes = (c: ContentBundle) =>
   c.cards.filter((x) => x.card.kind === "quote").map((x) => (x.card.kind === "quote" ? x.card.text : "")).filter(Boolean).slice(0, 6);
 const attributions = (c: ContentBundle) =>
   c.cards.filter((x) => x.card.kind === "quote").map((x) => (x.card.kind === "quote" ? x.card.attribution : "")).filter(Boolean).slice(0, 6);
+
+/* ─── X infographic data points ───────────────────────────────────── */
+
+/** Split a fact sentence into a punchy figure + what it measures, for the X
+ *  news-infographics. "881 killed since the ceasefire" → {value:"881",
+ *  label:"killed since the ceasefire"}; "9 in 10 families skip meals" →
+ *  {value:"9 in 10", label:"families skip meals"}. Falls back to {label:<whole
+ *  sentence>} when no figure stands out. Deterministic, £0. */
+function splitStat(text: string): InfographicFact {
+  const t = text.trim().replace(/\s+/g, " ");
+  // "9 in 10" first, else a number (with optional %, M/K/bn, or word unit).
+  const m = t.match(
+    /(\d+\s+in\s+\d+|\d[\d,.]*\s?(?:%|m|k|bn|million|billion|thousand)?)/i
+  );
+  if (m && m.index !== undefined) {
+    const value = m[0].trim();
+    let label = (t.slice(0, m.index) + t.slice(m.index + m[0].length))
+      .replace(/\s+/g, " ")
+      .replace(/^[\s,.:;–—-]+|[\s,.:;–—-]+$/g, "")
+      .trim();
+    if (!label || label.length < 3) label = t;
+    if (label.length > 58) label = label.slice(0, 55).trimEnd() + "…";
+    return { value, label };
+  }
+  return { value: null, label: t.length > 64 ? t.slice(0, 61).trimEnd() + "…" : t };
+}
+
+/** Up to `max` report data points for the X news-infographics, derived from
+ *  the extracted fact cards. */
+export function infographicFacts(content: ContentBundle, max = 4): InfographicFact[] {
+  return facts(content).map(splitStat).slice(0, max);
+}
+
+/** The first source attribution found among the report's fact/source cards. */
+export function reportSource(content: ContentBundle): string | null {
+  for (const x of content.cards) {
+    if (x.card.kind === "fact" && x.card.source) return x.card.source;
+    if (x.card.kind === "source" && x.card.text) return x.card.text;
+  }
+  return null;
+}
 
 const CTA_HEADLINES = [
   "Your support can't wait.",
