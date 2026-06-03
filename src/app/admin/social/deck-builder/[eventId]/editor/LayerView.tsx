@@ -273,7 +273,11 @@ function TextBody({
     letterSpacing: layer.letterSpacing * scale,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    overflow: "hidden",
+    // Glyph ink (heavy display faces, tight line-height, negative tracking)
+    // bleeds slightly past the text box; the Satori export renders it in full
+    // (no clip), so the canvas must match — otherwise big figures/headlines
+    // look cropped in the editor but export fine. `visible` keeps canvas = PNG.
+    overflow: "visible",
     outline: editing ? "none" : undefined,
     cursor: editing ? "text" : undefined,
     // Text layers use text-shadow (Satori honours it) rather than
