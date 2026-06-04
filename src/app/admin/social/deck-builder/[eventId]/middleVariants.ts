@@ -33,6 +33,8 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
     meta("tiers-h", "Two-tone", "A gold-bordered card — a forest panel carries the ladder, a cream band holds the URL."),
     meta("tiers-i", "Keyline card", "The ladder inside a gold keyline card on forest, with an eyebrow, heading and URL."),
     meta("tiers-j", "Scan to give", "A QR placeholder beside the ladder — the donor scans to give at any tier."),
+    meta("tiers-chart-progress", "Appeal gauge", "A donation progress bar — amount raised, a gold fill scaled to the percent funded, and the goal. Edit the figures."),
+    meta("tiers-chart-stacked", "Gift breakdown", "A single bar split into where each gift goes (food / shelter / medical) with a legend. Edit the shares."),
   ],
   beforeafter: [
     meta("beforeafter-a", "Then & now", "Two figures split by a gold divider — a before/after contrast with a source line."),

@@ -3949,6 +3949,80 @@ function chartBars(c: SlideContent): EditorSlide {
   return slide(layers, C.forest);
 }
 
+/** Progress / appeal gauge — amount raised + a gold fill scaled to the
+ *  percent funded, over the brand forest field. DR's own appeal numbers
+ *  (editable defaults), not news data, so it doesn't auto-fill from facts. */
+function chartProgress(c: SlideContent): EditorSlide {
+  const pct = 42; // editable: drag the fill or edit the figures
+  const raised = "£420,000";
+  const goal = "£1,000,000";
+  const X = 56;
+  const trackW = B - 112;
+  const barY = 648;
+  const barH = 48;
+  const fillW = Math.max(barH, Math.round((trackW * pct) / 100));
+  return slide(
+    [
+      ...wordmark(X, 52, c),
+      eyebrowLayer(c.eyebrow || "Our emergency appeal", 150),
+      text({ x: X, y: 200, w: B - 112, h: 110, text: c.primary || "Help us reach the goal", fontFamily: ANTON, fontSize: 60, fontWeight: 400, uppercase: true, lineHeight: 0.98, letterSpacing: -1, color: C.cream }),
+      text({ x: X, y: 372, w: B - 112, h: 150, text: raised, fontFamily: ANTON, fontSize: 132, fontWeight: 400, uppercase: true, lineHeight: 0.9, letterSpacing: -2, color: C.amber }),
+      text({ x: X, y: 540, w: B - 112, h: 44, text: `raised of our ${goal} goal`, fontFamily: BARLOW, fontSize: 28, fontWeight: 500, color: C.cream }),
+      shape({ x: X, y: barY, w: trackW, h: barH, shape: "rect", fill: "rgba(247,243,232,0.14)", radius: barH / 2 }),
+      shape({ x: X, y: barY, w: fillW, h: barH, shape: "rect", fill: C.amber, radius: barH / 2 }),
+      text({ x: X, y: barY + barH + 16, w: trackW, h: 44, text: `${pct}% funded`, fontFamily: ANTON, fontSize: 36, fontWeight: 400, uppercase: true, letterSpacing: -1, color: C.amber }),
+      text({ x: X, y: barY + barH + 22, w: trackW, h: 40, text: "deenrelief.org/donate", fontFamily: BARLOW, fontSize: 24, fontWeight: 600, uppercase: true, letterSpacing: 2, color: C.creamDim, align: "right" }),
+      footer(),
+    ],
+    C.forest
+  );
+}
+
+/** Stacked "where your gift goes" — one bar split into spend shares, with a
+ *  legend. A monochrome gold ramp (no rainbow chartjunk) keeps it editorial
+ *  and on-brand. Editable defaults; the shares are DR's allocation. */
+const STACKED_DEFAULT: { label: string; pct: number; color: string }[] = [
+  { label: "Food parcels", pct: 45, color: "#D4A843" },
+  { label: "Shelter & blankets", pct: 30, color: "#E0B564" },
+  { label: "Medical aid", pct: 20, color: "#EFD79B" },
+  { label: "Safe delivery", pct: 5, color: "#A9842B" },
+];
+function chartStacked(c: SlideContent): EditorSlide {
+  const segs = STACKED_DEFAULT;
+  const total = segs.reduce((s, x) => s + x.pct, 0) || 100;
+  const X = 56;
+  const trackW = B - 112;
+  const barY = 430;
+  const barH = 72;
+
+  const layers: Layer[] = [
+    ...wordmark(X, 52, c),
+    eyebrowLayer(c.eyebrow || "100% donation policy", 150),
+    text({ x: X, y: 200, w: B - 112, h: 150, text: c.primary || "Where your gift goes", fontFamily: ANTON, fontSize: 72, fontWeight: 400, uppercase: true, lineHeight: 0.96, letterSpacing: -1, color: C.cream }),
+  ];
+
+  // Segmented bar — butted colour blocks summing to the full track width.
+  let cx = X;
+  segs.forEach((s) => {
+    const w = Math.round((trackW * s.pct) / total);
+    layers.push(shape({ x: cx, y: barY, w, h: barH, shape: "rect", fill: s.color, radius: 0 }));
+    cx += w;
+  });
+
+  // Legend — swatch + label (left) and share (right) per row.
+  segs.forEach((s, i) => {
+    const ly = 584 + i * 84;
+    layers.push(
+      shape({ x: X, y: ly + 4, w: 28, h: 28, shape: "rect", fill: s.color, radius: 6 }),
+      text({ x: X + 44, y: ly, w: 620, h: 40, text: s.label, fontFamily: BARLOW, fontSize: 27, fontWeight: 600, color: C.cream }),
+      text({ x: X, y: ly - 4, w: trackW, h: 44, text: `${s.pct}%`, fontFamily: ANTON, fontSize: 38, fontWeight: 400, color: C.amber, align: "right" })
+    );
+  });
+
+  layers.push(footer());
+  return slide(layers, C.forest);
+}
+
 // X-1 — Photo full-bleed + headline + a 3-stat ribbon along the foot. The
 // default workhorse: the disaster fills the frame, the report sits on top.
 function xPhotoFacts(c: SlideContent): EditorSlide {
@@ -4316,8 +4390,11 @@ function buildPresetSlide(templateId: string, c: SlideContent): EditorSlide {
   if (id.includes("hero-typography")) return heroTypeCover(c);
   if (id.includes("hero-panel")) return heroTopPanel(c);
   if (id.includes("hero")) return heroPhotoFull(c);
-  // Data charts (Stage 1) — BEFORE the multistat/stat matches so a
-  // "multistat-chart" id routes to the bar chart, not the figure stack.
+  // Data charts (Stage 1) — BEFORE the multistat/tiers/stat matches so a
+  // "*-chart*" id routes to a chart, not the figure stack / ladder. Specific
+  // chart kinds first; the generic "chart" falls back to the ranked bars.
+  if (id.includes("chart-progress")) return chartProgress(c);
+  if (id.includes("chart-stacked")) return chartStacked(c);
   if (id.includes("chart")) return chartBars(c);
   // New middle types — multistat BEFORE the generic "stat" match below.
   // Specific ids first so "multistat-a" doesn't get swallowed by the generic
