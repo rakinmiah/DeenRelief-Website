@@ -277,53 +277,63 @@ export default async function FirstResponsePage() {
         </div>
       </section>
 
-      {/* ─── Coverage map ─── */}
-      <section>
-        <h2 className="text-charcoal font-heading font-semibold text-xl mb-3">
-          Active Campaign Coverage Map
-        </h2>
-        <p className="text-charcoal/70 text-[14px] mb-5 max-w-2xl leading-relaxed">
-          Which campaigns can respond to which crises, ranked by strategic
-          importance. Edit this map as DR&apos;s operational reach grows —
-          adding Pakistan or Sudan capability simply means adding/updating
-          rows.
-        </p>
+      {/* ─── Coverage map — collapsed by default. It's config/ops reference
+          (which campaigns respond to which crises), not daily SMM use, so it's
+          tucked behind a disclosure to keep the alerts view focused. ─── */}
+      <details className="group">
+        <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden flex items-center gap-2 py-2 text-charcoal/75 hover:text-charcoal transition-colors">
+          <span className="text-charcoal/40 transition-transform group-open:rotate-90">
+            ▸
+          </span>
+          <span className="font-heading font-semibold text-lg">
+            Active campaign coverage map
+          </span>
+          <span className="text-charcoal/45 text-[13px] font-normal">
+            — which campaigns respond to which crises
+          </span>
+        </summary>
+        <div className="mt-4">
+          <p className="text-charcoal/70 text-[14px] mb-5 max-w-2xl leading-relaxed">
+            Edit this map as DR&apos;s operational reach grows — adding Pakistan
+            or Sudan capability simply means adding/updating rows.
+          </p>
 
-        <CoverageGroup
-          title="Strategic — field presence"
-          subtitle="DR is on-the-ground in these geographies. First-mover advantage on these events."
-          accent="text-green-dark"
-          rows={strategic}
-        />
-        <CoverageGroup
-          title="Partner network"
-          subtitle="Important secondary capability via partners or close-adjacent programmes."
-          accent="text-charcoal/70"
-          rows={partner}
-        />
-        {diaspora.length > 0 && (
           <CoverageGroup
-            title="Diaspora appeal"
-            subtitle="No DR field team here, but large UK Muslim diaspora + high donor responsiveness. Surfaced as rapid online-appeal opportunities to evaluate — typically delivered via partners, not a delivery guarantee. Caps at HIGH, never critical."
+            title="Strategic — field presence"
+            subtitle="DR is on-the-ground in these geographies. First-mover advantage on these events."
+            accent="text-green-dark"
+            rows={strategic}
+          />
+          <CoverageGroup
+            title="Partner network"
+            subtitle="Important secondary capability via partners or close-adjacent programmes."
+            accent="text-charcoal/70"
+            rows={partner}
+          />
+          {diaspora.length > 0 && (
+            <CoverageGroup
+              title="Diaspora appeal"
+              subtitle="No DR field team here, but large UK Muslim diaspora + high donor responsiveness. Surfaced as rapid online-appeal opportunities to evaluate — typically delivered via partners, not a delivery guarantee. Caps at HIGH, never critical."
+              accent="text-amber-dark"
+              rows={diaspora}
+            />
+          )}
+          <CoverageGroup
+            title="Catch-all routing"
+            subtitle="Religious-giving channels that flexibly route to any humanitarian crisis when no geography-specific row matches."
             accent="text-amber-dark"
-            rows={diaspora}
+            rows={catchAll}
           />
-        )}
-        <CoverageGroup
-          title="Catch-all routing"
-          subtitle="Religious-giving channels that flexibly route to any humanitarian crisis when no geography-specific row matches."
-          accent="text-amber-dark"
-          rows={catchAll}
-        />
-        {evergreen.length > 0 && (
-          <CoverageGroup
-            title="Evergreen / seasonal"
-            subtitle="Not news-triggered. Excluded from event matching."
-            accent="text-charcoal/50"
-            rows={evergreen}
-          />
-        )}
-      </section>
+          {evergreen.length > 0 && (
+            <CoverageGroup
+              title="Evergreen / seasonal"
+              subtitle="Not news-triggered. Excluded from event matching."
+              accent="text-charcoal/50"
+              rows={evergreen}
+            />
+          )}
+        </div>
+      </details>
 
       {/* Test scenarios — collapsed by default. Lets the SMM spin up
           realistic test emergencies on demand for demos / QA without
