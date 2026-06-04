@@ -88,7 +88,9 @@ export default function AdminShell({
               Admin
             </span>
           </Link>
-          <AdminNotificationBell />
+          {/* Sidebar bell sits on the LEFT of the screen → open the panel
+              rightward so it doesn't overflow the viewport's left edge. */}
+          <AdminNotificationBell align="left" />
         </div>
 
         {/* Grouped nav */}
