@@ -46,9 +46,15 @@ export default async function FirstResponsePage() {
     getConversionLookup(),
   ]);
 
-  // Strategic / partner / catch-all tiers driven by weight.
+  // Strategic / partner / diaspora / catch-all tiers driven by weight.
+  // Diaspora-appeal rows are weight-2 but flagged launch_readiness =
+  // 'rapid-appeal' so they render in their own honest tier (no field
+  // presence) rather than under "Partner network".
   const strategic = coverage.filter((c) => c.weight >= 3);
-  const partner = coverage.filter((c) => c.weight === 2);
+  const diaspora = coverage.filter((c) => c.launchReadiness === "rapid-appeal");
+  const partner = coverage.filter(
+    (c) => c.weight === 2 && c.launchReadiness !== "rapid-appeal"
+  );
   const catchAll = coverage.filter((c) => c.isCatchAll);
   const evergreen = coverage.filter(
     (c) => c.weight > 0 && c.weight < 2 && !c.isCatchAll
@@ -284,6 +290,14 @@ export default async function FirstResponsePage() {
           accent="text-charcoal/70"
           rows={partner}
         />
+        {diaspora.length > 0 && (
+          <CoverageGroup
+            title="Diaspora appeal"
+            subtitle="No DR field team here, but large UK Muslim diaspora + high donor responsiveness. Surfaced as rapid online-appeal opportunities to evaluate — typically delivered via partners, not a delivery guarantee. Caps at HIGH, never critical."
+            accent="text-amber-dark"
+            rows={diaspora}
+          />
+        )}
         <CoverageGroup
           title="Catch-all routing"
           subtitle="Religious-giving channels that flexibly route to any humanitarian crisis when no geography-specific row matches."
