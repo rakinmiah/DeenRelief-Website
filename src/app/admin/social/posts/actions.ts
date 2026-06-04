@@ -20,8 +20,29 @@ import {
   CAMPAIGN_LANDING_PATHS,
   buildShortLinkUrl,
   isShortLinkPlatform,
+  normalizeSlug,
 } from "@/lib/short-links";
+import { createSpotlight } from "@/lib/now-spotlight";
 import { getSupabaseAdmin } from "@/lib/supabase";
+
+/** Where the SMM put the tracked link. On Instagram a caption isn't clickable,
+ *  so the link lives in the bio (/now), a Story sticker, or a comment-to-DM —
+ *  this records which path so attribution confidence is legible. */
+export const LINK_PLACEMENTS = [
+  "post_text",
+  "first_comment",
+  "bio_link",
+  "story_sticker",
+  "dm",
+  "caption",
+  "none",
+] as const;
+export type LinkPlacement = (typeof LINK_PLACEMENTS)[number];
+function sanitizePlacement(p: unknown): LinkPlacement | null {
+  return typeof p === "string" && (LINK_PLACEMENTS as readonly string[]).includes(p)
+    ? (p as LinkPlacement)
+    : null;
+}
 
 export type SocialPostActionResult =
   | { ok: true; postId: string }
@@ -76,31 +97,38 @@ function sanitizeDeckRecipe(recipe: unknown): DeckRecipeEntry[] | null {
  */
 async function insertSocialPost(
   base: Record<string, unknown>,
-  provenance: { event_id: string | null; deck_recipe: DeckRecipeEntry[] | null }
+  provenance: { event_id: string | null; deck_recipe: DeckRecipeEntry[] | null },
+  placement: { link_placement: LinkPlacement | null } = { link_placement: null }
 ): Promise<{ id: string } | { error: string }> {
   const supabase = getSupabaseAdmin();
   const hasProvenance =
     provenance.event_id != null || provenance.deck_recipe != null;
+  const hasPlacement = placement.link_placement != null;
 
-  let res = await supabase
-    .from("social_posts")
-    .insert(hasProvenance ? { ...base, ...provenance } : base)
-    .select("id")
-    .maybeSingle<{ id: string }>();
+  const ins = (row: Record<string, unknown>) =>
+    supabase.from("social_posts").insert(row).select("id").maybeSingle<{ id: string }>();
+  const isUndefinedColumn = (e: unknown) =>
+    (e as { code?: string } | null)?.code === PG_UNDEFINED_COLUMN;
 
-  if (
-    res.error &&
-    hasProvenance &&
-    (res.error as { code?: string }).code === PG_UNDEFINED_COLUMN
-  ) {
+  // Progressive degradation: try the full row, then drop link_placement (040
+  // unapplied), then drop provenance too (037 unapplied) — so a missing
+  // newer column never loses an older one, and posting never hard-breaks.
+  let res = await ins({
+    ...base,
+    ...(hasProvenance ? provenance : {}),
+    ...(hasPlacement ? placement : {}),
+  });
+  if (res.error && hasPlacement && isUndefinedColumn(res.error)) {
+    console.warn(
+      "[social-posts] link_placement column missing (apply migration 040); inserting without it"
+    );
+    res = await ins({ ...base, ...(hasProvenance ? provenance : {}) });
+  }
+  if (res.error && hasProvenance && isUndefinedColumn(res.error)) {
     console.warn(
       "[social-posts] provenance columns missing (apply migration 037); inserting without them"
     );
-    res = await supabase
-      .from("social_posts")
-      .insert(base)
-      .select("id")
-      .maybeSingle<{ id: string }>();
+    res = await ins(base);
   }
 
   if (res.error || !res.data) {
@@ -197,6 +225,8 @@ export interface MarkDeckAsPostedInput {
   campaignSlug?: string;
   title?: string;
   publishedAtIso?: string;
+  /** Where the tracked link was distributed (caption vs bio vs story…). */
+  linkPlacement?: string;
 }
 
 /**
@@ -244,6 +274,8 @@ export async function markDeckAsPosted(
     return { ok: false, error: "Invalid published-at date." };
   }
 
+  const linkPlacement = sanitizePlacement(input.linkPlacement);
+
   const result = await insertSocialPost(
     {
       platform,
@@ -254,7 +286,8 @@ export async function markDeckAsPosted(
       published_at: publishedAt.toISOString(),
       created_by_email: session.email,
     },
-    { event_id: eventId, deck_recipe: deckRecipe }
+    { event_id: eventId, deck_recipe: deckRecipe },
+    { link_placement: linkPlacement }
   );
   if ("error" in result) return { ok: false, error: result.error };
 
@@ -266,6 +299,7 @@ export async function markDeckAsPosted(
       platform,
       eventId,
       shortLinkId,
+      linkPlacement,
       slides: deckRecipe?.length ?? 0,
     },
   });
@@ -273,6 +307,57 @@ export async function markDeckAsPosted(
   revalidatePath("/admin/social/performance");
   revalidatePath("/admin/social/posts");
   return { ok: true, postId: result.id };
+}
+
+/* ─── Point the Instagram bio link at a specific post ───────────── */
+
+/**
+ * Instagram captions aren't clickable, so the trackable link lives in the bio
+ * as the single, never-changing URL `deenrelief.org/now`. This makes /now
+ * redirect to a SPECIFIC post's tracked short link (`/r/<slug>`), so a tap from
+ * the bio is logged as a click on that link and a resulting donation attributes
+ * to this exact post (utm_content = slug) — post-level attribution, not just
+ * campaign-level. The /now → /r/slug hop rebuilds the destination from the
+ * link's own URL, so the slug wins as utm_content (verified in buildDestinationUrl).
+ */
+export async function pointBioLinkAtShortLink(input: {
+  slug: string;
+  campaignSlug?: string | null;
+  socialPostId?: string;
+  durationDays?: number;
+}): Promise<{ ok: true; expiresAt: string } | { ok: false; error: string }> {
+  const session = await requireAdminSession();
+  const slug = normalizeSlug(input.slug);
+  if (!slug) return { ok: false, error: "That short link looks invalid." };
+  const campaign = input.campaignSlug;
+  if (!campaign || !isValidCampaign(campaign)) {
+    return {
+      ok: false,
+      error:
+        "This link isn't tied to a campaign yet — set its campaign on the Short links page, then try again.",
+    };
+  }
+
+  const res = await createSpotlight({
+    campaignSlug: campaign,
+    destinationPath: `/r/${slug}`,
+    socialPostId:
+      input.socialPostId && UUID_RE.test(input.socialPostId)
+        ? input.socialPostId
+        : undefined,
+    durationDays: input.durationDays,
+    byEmail: session.email,
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+
+  await logAdminAction({
+    action: "bio_link_pointed_at_post",
+    userEmail: session.email,
+    targetId: slug,
+    metadata: { slug, campaignSlug: input.campaignSlug },
+  });
+  revalidatePath("/admin/social/spotlight");
+  return { ok: true, expiresAt: res.expiresAt.toISOString() };
 }
 
 /* ─── Auto-create a tracked link from a news event ──────────────── */

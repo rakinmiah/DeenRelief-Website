@@ -30,23 +30,41 @@ export default function PostCompleteDialog({
   onMarkPosted: () => void;
   onClose: () => void;
 }) {
-  const isX = platform === "x";
+  const isIG = platform === "instagram";
+  const isFB = platform === "facebook";
   const platformLabel = PLATFORM_LABEL[platform] ?? "your channel";
-  const where = isX ? "the post text" : "the caption";
+
+  const step1Body: ReactNode = isIG ? (
+    <>
+      Upload the images you just downloaded. Instagram captions aren&apos;t
+      clickable — so put your{" "}
+      <strong className="font-semibold text-charcoal/80">tracked link</strong>{" "}
+      where people can tap it: set your bio link to{" "}
+      <span className="font-mono text-[12px]">deenrelief.org/now</span> and point
+      it at this post (next screen), or add it as a Story link sticker. That link
+      is what we measure.
+    </>
+  ) : isFB ? (
+    <>
+      Upload the images you just downloaded. Put your{" "}
+      <strong className="font-semibold text-charcoal/80">tracked link</strong> (
+      <span className="font-mono text-[12px]">deenrelief.org/r/…</span>) in the
+      post — or the first comment, since Facebook shows link posts to fewer
+      people. That link is what we measure.
+    </>
+  ) : (
+    <>
+      Upload the image you just downloaded. Put your{" "}
+      <strong className="font-semibold text-charcoal/80">tracked link</strong> (
+      <span className="font-mono text-[12px]">deenrelief.org/r/…</span>) in the
+      post text — that link is what we measure.
+    </>
+  );
 
   const steps: { title: string; body: ReactNode }[] = [
     {
       title: `Post it on ${platformLabel}`,
-      body: (
-        <>
-          Upload the image{isX ? "" : "s"} you just downloaded. Put your{" "}
-          <strong className="font-semibold text-charcoal/80">
-            campaign short link
-          </strong>{" "}
-          (e.g. <span className="font-mono text-[12px]">deenrelief.org/r/…</span>
-          ) in {where} — that link is what we measure.
-        </>
-      ),
+      body: step1Body,
     },
     {
       title: "Come back and Mark as posted",
@@ -134,7 +152,7 @@ export default function PostCompleteDialog({
           >
             Short links
           </a>{" "}
-          — it&apos;s the trackable address you share in the post.
+          — it&apos;s the trackable address you share where people can tap it.
         </p>
 
         {/* Actions */}

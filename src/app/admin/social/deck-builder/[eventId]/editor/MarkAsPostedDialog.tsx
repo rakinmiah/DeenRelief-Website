@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createTrackedLinkForEvent,
   markDeckAsPosted,
+  pointBioLinkAtShortLink,
   type DeckRecipeEntry,
 } from "@/app/admin/social/posts/actions";
 
@@ -26,6 +27,36 @@ type ShortLinkOption = {
   platform: string | null;
   notes: string | null;
 };
+
+type PlacementOpt = { value: string; label: string; tracked: boolean };
+
+/**
+ * Where the SMM can put a CLICKABLE tracked link, per platform. Instagram
+ * captions (and IG comments) aren't clickable — so IG only offers the bio
+ * link, a Story sticker, or a comment-to-DM. Facebook + X allow links in the
+ * post itself.
+ */
+const PLACEMENTS_BY_PLATFORM: Record<string, PlacementOpt[]> = {
+  instagram: [
+    { value: "bio_link", label: "Link in bio (deenrelief.org/now)", tracked: true },
+    { value: "story_sticker", label: "Story link sticker", tracked: true },
+    { value: "dm", label: "Comment-to-DM reply", tracked: true },
+    { value: "none", label: "No link yet — log for the design record only", tracked: false },
+  ],
+  facebook: [
+    { value: "post_text", label: "In the post", tracked: true },
+    { value: "first_comment", label: "First comment", tracked: true },
+    { value: "bio_link", label: "Page link (deenrelief.org/now)", tracked: true },
+    { value: "none", label: "No link yet — log for the design record only", tracked: false },
+  ],
+  x: [
+    { value: "post_text", label: "In the post", tracked: true },
+    { value: "none", label: "No link yet — log for the design record only", tracked: false },
+  ],
+};
+function placementsFor(platform: string): PlacementOpt[] {
+  return PLACEMENTS_BY_PLATFORM[platform] ?? PLACEMENTS_BY_PLATFORM.x!;
+}
 
 /** A Date → the value a <input type="datetime-local"> expects (local time). */
 function toLocalInput(d: Date): string {
@@ -48,8 +79,10 @@ export default function MarkAsPostedDialog({
   defaultTitle?: string;
   onClose: () => void;
 }) {
+  const placements = placementsFor(platform);
   const [links, setLinks] = useState<ShortLinkOption[]>([]);
   const [shortLinkId, setShortLinkId] = useState("");
+  const [placement, setPlacement] = useState(placements[0]!.value);
   const [externalUrl, setExternalUrl] = useState("");
   const [publishedAt, setPublishedAt] = useState(() => toLocalInput(new Date()));
   const [saving, setSaving] = useState(false);
@@ -58,6 +91,13 @@ export default function MarkAsPostedDialog({
   const [creatingLink, setCreatingLink] = useState(false);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [createLinkError, setCreateLinkError] = useState<string | null>(null);
+  // Bio-link spotlight (Instagram): point deenrelief.org/now at this post.
+  const [bioPinning, setBioPinning] = useState(false);
+  const [bioPinned, setBioPinned] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
+
+  const isIG = platform === "instagram";
+  const currentPlacement = placements.find((p) => p.value === placement) ?? null;
 
   // Auto-make a tracked link from the news story this post was built from, and
   // select it — so she doesn't have to detour to the Short links page.
@@ -105,6 +145,31 @@ export default function MarkAsPostedDialog({
     [links, shortLinkId]
   );
 
+  // Re-pinning is needed if the chosen link changes after a pin.
+  useEffect(() => {
+    setBioPinned(false);
+    setBioError(null);
+  }, [shortLinkId, placement]);
+
+  // Point the bio link (deenrelief.org/now) at THIS post's tracked link, so an
+  // Instagram bio tap is logged as a click on this link and attributes a
+  // resulting donation to this exact post.
+  async function pinBioLink() {
+    if (!selectedLink) return;
+    setBioPinning(true);
+    setBioError(null);
+    const res = await pointBioLinkAtShortLink({
+      slug: selectedLink.slug,
+      campaignSlug: selectedLink.campaignSlug,
+    });
+    setBioPinning(false);
+    if (!res.ok) {
+      setBioError(res.error);
+      return;
+    }
+    setBioPinned(true);
+  }
+
   async function submit() {
     setSaving(true);
     setError(null);
@@ -117,6 +182,7 @@ export default function MarkAsPostedDialog({
       campaignSlug: selectedLink?.campaignSlug || undefined,
       title: defaultTitle,
       publishedAtIso: new Date(publishedAt).toISOString(),
+      linkPlacement: placement,
     });
     setSaving(false);
     if (res.ok) setDone(true);
@@ -174,13 +240,13 @@ export default function MarkAsPostedDialog({
         ) : (
           <>
             <p className="text-[12.5px] text-charcoal/55 leading-relaxed mb-4">
-              Pick the short link you put in the caption — or make one for this
-              story in a tap — so we can track this post&apos;s clicks and
-              donations.
+              {isIG
+                ? "Instagram captions aren't clickable — so pick the tracked link you'll use (bio link, Story sticker, or comment-to-DM) and tell us where. That's how we track this post's clicks and donations."
+                : "Pick the tracked link you put in the post — or make one for this story in a tap — and tell us where you put it, so we can track this post's clicks and donations."}
             </p>
 
             <label className="block text-[12px] font-medium text-charcoal/55 mb-1.5">
-              Short link in the post
+              Tracked link
             </label>
             <select
               value={shortLinkId}
@@ -213,12 +279,72 @@ export default function MarkAsPostedDialog({
             {createdSlug && (
               <p className="text-[11.5px] text-green-dark mt-1.5">
                 Created <span className="font-mono">/r/{createdSlug}</span> and
-                selected it — put that link in your caption.
+                selected it — now choose where you&apos;ll place it below.
               </p>
             )}
             {createLinkError && (
               <p className="text-[11px] text-red-600 mt-1.5">{createLinkError}</p>
             )}
+
+            {/* Where the (clickable) link goes — platform-aware, since an IG
+                caption can't carry one. */}
+            <label className="block text-[12px] font-medium text-charcoal/55 mt-3 mb-1.5">
+              Where did you put the link?
+            </label>
+            <select
+              value={placement}
+              onChange={(e) => setPlacement(e.target.value)}
+              className="dr-input mb-1"
+            >
+              {placements.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            {currentPlacement && !currentPlacement.tracked && (
+              <p className="text-[11px] text-amber-dark mt-1.5">
+                No link means no click/donation tracking — logged for the design
+                record only.
+              </p>
+            )}
+
+            {/* Instagram bio path: point deenrelief.org/now at THIS post's
+                tracked link, so a bio tap is logged + attributed to this post. */}
+            {placement === "bio_link" &&
+              (selectedLink ? (
+                bioPinned ? (
+                  <p className="text-[11.5px] text-green-dark mt-2 leading-relaxed">
+                    ✓ Your bio link now sends people to this post and tracks it.
+                    Your caption can just say &ldquo;link in bio&rdquo;.
+                  </p>
+                ) : (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={pinBioLink}
+                      disabled={bioPinning}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-green-dark hover:text-green disabled:opacity-50 transition-colors"
+                    >
+                      {bioPinning
+                        ? "Pointing your bio link…"
+                        : "🔗 Point deenrelief.org/now at this post"}
+                    </button>
+                    <p className="text-[11px] text-charcoal/45 mt-1 leading-relaxed">
+                      Redirects your bio link to this post&apos;s tracked link, so
+                      a tap from your bio counts for this exact post.
+                    </p>
+                    {bioError && (
+                      <p className="text-[11px] text-red-600 mt-1">{bioError}</p>
+                    )}
+                  </div>
+                )
+              ) : (
+                <p className="text-[11px] text-amber-dark mt-1.5">
+                  Pick or make a tracked link above first — then point your bio
+                  link at it.
+                </p>
+              ))}
 
             {!shortLinkId && (
               <p className="text-[11px] text-amber-dark mt-2 mb-3">
