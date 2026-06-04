@@ -12,6 +12,7 @@ import {
   conversionMultiplierFor,
   getConversionLookup,
 } from "@/lib/social-outcomes";
+import { displayPriority, priorityLabel } from "@/lib/first-response-scoring";
 import TestEventPanel from "./TestEventPanel";
 
 export const metadata: Metadata = {
@@ -114,12 +115,21 @@ export default async function FirstResponsePage() {
             <span className="font-semibold text-charcoal">UK Met Office</span>{" "}
             (severe weather warnings, hourly, Brighton-region filtered), and{" "}
             <span className="font-semibold text-charcoal">NASA EONET</span>{" "}
-            (curated natural events, hourly). Each event is scored by{" "}
+            (curated natural events, hourly). Each event gets a{" "}
             <span className="font-semibold text-charcoal">
-              severity × coverage weight × UK Muslim diaspora × Muslim-majority
+              priority out of 10
             </span>{" "}
-            and pushed to your DR Admin bell when the score crosses 10 (amber)
-            or 20 (critical, audible). Every source is filtered at ingest
+            — how much it&apos;s worth acting on, from{" "}
+            <span className="font-semibold text-charcoal">
+              severity, how close it is to our campaigns, UK diaspora size, and
+              Muslim-majority reach
+            </span>{" "}
+            — and is pushed to your DR Admin bell when it reaches{" "}
+            <span className="font-semibold text-charcoal">5/10 (amber)</span> or{" "}
+            <span className="font-semibold text-charcoal">
+              8/10 (critical, audible)
+            </span>
+            . Every source is filtered at ingest
             to DR&apos;s coverage + diaspora-adjacent geographies — events
             from regions outside that set never reach the database. Click
             any alert to draft a Claude-written launch packet + one-click
@@ -230,16 +240,17 @@ export default async function FirstResponsePage() {
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       {ev.drPriorityScore !== null && (
                         <span
-                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full ${scoreClasses(
+                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full ${scoreClasses(
                             ev.drPriorityScore
                           )}`}
-                          title={
-                            ev.severityRaw !== null
-                              ? `Raw severity ${ev.severityRaw.toFixed(1)} × coverage × diaspora × Muslim-majority`
-                              : "DR priority score"
-                          }
+                          title={`${priorityLabel(ev.drPriorityScore)} priority · composite ${ev.drPriorityScore.toFixed(
+                            1
+                          )} (severity × coverage × diaspora × Muslim-majority${
+                            ev.severityRaw !== null ? `, raw severity ${ev.severityRaw.toFixed(1)}` : ""
+                          })`}
                         >
-                          Score {ev.drPriorityScore.toFixed(1)}
+                          {displayPriority(ev.drPriorityScore)}/10 ·{" "}
+                          {priorityLabel(ev.drPriorityScore)}
                         </span>
                       )}
                       {conversionMultiplierFor(conversionLookup, {
@@ -323,11 +334,12 @@ export default async function FirstResponsePage() {
 }
 
 /**
- * Score colour pill. Aligned to the push-tier thresholds in
- * src/lib/first-response-scoring.ts:
- *   ≥ 20 → CRITICAL (red — fires an immediate push)
- *   ≥ 10 → HIGH     (amber — bell-only push)
- *   <  10 → standard (charcoal — dashboard only)
+ * Score colour pill. The SMM sees a friendly N/10 (displayPriority) inside it,
+ * but the COLOUR is keyed off the raw composite so the tiers stay exact —
+ * aligned to the push-tier thresholds in src/lib/first-response-scoring.ts:
+ *   ≥ 20 (8/10)  → CRITICAL (red — fires an immediate push)
+ *   ≥ 10 (5/10)  → HIGH     (amber — bell-only push)
+ *   <  10 (<5/10) → standard (charcoal — dashboard only)
  */
 function scoreClasses(score: number): string {
   if (score >= 20) return "bg-red-100 text-red-800";

@@ -8,6 +8,7 @@ import {
   createTestEventAction,
 } from "./test-actions";
 import { TEST_SCENARIOS, type TestScenarioId } from "./test-scenarios";
+import { displayPriority } from "@/lib/first-response-scoring";
 
 /**
  * Test-scenario panel — collapsed by default so it doesn't clutter
@@ -145,9 +146,12 @@ export default function TestEventPanel() {
             <div className="mt-3 pt-3 border-t border-amber/30">
               <p className="text-[12px] text-charcoal/85 leading-relaxed">
                 <strong>Created:</strong> {lastResult.scenario} ·{" "}
-                <strong>Score:</strong>{" "}
-                {lastResult.score?.toFixed(1) ?? "—"} ·{" "}
-                <strong>Push tier:</strong>{" "}
+                <strong>Priority:</strong>{" "}
+                {displayPriority(lastResult.score) ?? "—"}/10{" "}
+                <span className="text-charcoal/45">
+                  (composite {lastResult.score?.toFixed(1) ?? "—"})
+                </span>{" "}
+                · <strong>Push tier:</strong>{" "}
                 <span
                   className={`uppercase font-bold tracking-[0.05em] ${
                     lastResult.tier === "critical"

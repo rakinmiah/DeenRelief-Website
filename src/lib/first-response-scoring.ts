@@ -211,3 +211,39 @@ export function getPushTier(score: number | null): PushTier {
   if (score >= HIGH_THRESHOLD) return "high";
   return "none";
 }
+
+/* ─── SMM-facing display scale (1–10) ────────────────────────────────
+ *
+ * The raw dr_priority_score is a composite (severity × coverage × diaspora
+ * × Muslim-majority × conversion × 10) that runs ~0–30 and is hard for the
+ * SMM to read at a glance ("is 13.5 a big deal?"). `displayPriority` maps it
+ * to a friendly 1–10. This is DISPLAY ONLY — the raw score stays the source
+ * of truth for sorting, push thresholds, and the historical-conversion loop;
+ * nothing in the backend changes.
+ *
+ * The mapping is tier-aligned so the number tracks the push tiers the SMM
+ * already learns, with the thresholds landing on round marks:
+ *   raw  0–10  (watch)          → 1–5   (HIGH_THRESHOLD 10  → exactly 5)
+ *   raw 10–20  (high / amber)   → 5–8   (CRITICAL_THRESHOLD 20 → exactly 8)
+ *   raw 20–30+ (critical / red) → 8–10  (a perfect storm → 10)
+ */
+export const DISPLAY_HIGH = 5; // a 1–10 event at/above this would push (amber)
+export const DISPLAY_CRITICAL = 8; // …and at/above this is audible-critical (red)
+
+export function displayPriority(score: number | null): number | null {
+  if (score === null || score === undefined) return null;
+  let v: number;
+  if (score <= 0) v = 1;
+  else if (score <= HIGH_THRESHOLD) v = 1 + (score / HIGH_THRESHOLD) * 4;
+  else if (score <= CRITICAL_THRESHOLD)
+    v = 5 + ((score - HIGH_THRESHOLD) / (CRITICAL_THRESHOLD - HIGH_THRESHOLD)) * 3;
+  else v = 8 + ((score - CRITICAL_THRESHOLD) / 10) * 2;
+  return Math.max(1, Math.min(10, Math.round(v)));
+}
+
+/** The plain-word tier for a raw score (matches the push tier + pill colour). */
+export function priorityLabel(score: number | null): "Critical" | "High" | "Watch" | null {
+  if (score === null || score === undefined) return null;
+  const tier = getPushTier(score);
+  return tier === "critical" ? "Critical" : tier === "high" ? "High" : "Watch";
+}
