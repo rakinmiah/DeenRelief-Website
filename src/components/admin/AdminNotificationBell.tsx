@@ -38,7 +38,16 @@ interface NotificationRow {
 
 const POLL_INTERVAL_MS = 30_000;
 
-export default function AdminNotificationBell() {
+export default function AdminNotificationBell({
+  align = "right",
+}: {
+  /** Which edge of the bell the dropdown aligns to. Use "left" when the
+   *  bell sits on the LEFT of the screen (the desktop sidebar header) so
+   *  the panel opens rightward into the content instead of overflowing the
+   *  viewport's left edge; "right" (default) suits the mobile top bar where
+   *  the bell is on the right. */
+  align?: "left" | "right";
+} = {}) {
   const router = useRouter();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [open, setOpen] = useState(false);
@@ -186,7 +195,7 @@ export default function AdminNotificationBell() {
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 top-full mt-2 w-[22rem] sm:w-[26rem] max-w-[calc(100vw-2rem)] bg-white border border-charcoal/10 rounded-2xl shadow-lg overflow-hidden z-50"
+          className={`absolute ${align === "left" ? "left-0" : "right-0"} top-full mt-2 w-[22rem] sm:w-[26rem] max-w-[calc(100vw-2rem)] bg-white border border-charcoal/10 rounded-2xl shadow-lg overflow-hidden z-50`}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-charcoal/8 bg-cream/40">
             <h3 className="text-sm font-semibold text-charcoal">
