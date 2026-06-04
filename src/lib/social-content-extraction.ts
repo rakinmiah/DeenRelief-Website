@@ -220,6 +220,43 @@ export const ContentBlocksSchema = z.object({
         "Email body — 150–300 words. Opens with the situation, narrows to what donations enable, closes with a clear CTA to the campaign page. UK English. No 'Dear Valued Supporter'."
       ),
   }),
+  chart_series: z
+    .array(
+      z.object({
+        title: z
+          .string()
+          .max(60)
+          .describe("What the chart shows, e.g. 'Displaced people by region'."),
+        unit: z
+          .string()
+          .max(24)
+          .nullable()
+          .describe(
+            "The shared unit/dimension of EVERY point — 'people', '%', '£', 'homes'. null if unitless."
+          ),
+        source: z
+          .string()
+          .nullable()
+          .describe("Source tag, 'AGENCY · DD MMM YYYY'. null if none."),
+        points: z
+          .array(
+            z.object({
+              label: z.string().max(40).describe("The category, e.g. 'Gaza', 'Food'."),
+              value: z
+                .string()
+                .max(16)
+                .describe("The figure VERBATIM from raw_payload, e.g. '1.7M', '45%', '£0.40'."),
+            })
+          )
+          .min(2)
+          .max(6),
+      })
+    )
+    .max(3)
+    .default([])
+    .describe(
+      "0–3 COMPARABLE data series for charts. A series is 2–6 data points that share ONE unit/dimension and belong on a single axis — displacement BY REGION, spend BY SECTOR, need met BY CATEGORY, casualties BY AREA. ONLY include a series when raw_payload genuinely supports 2+ DIRECTLY COMPARABLE points (same unit, same kind of thing). NEVER mix units in one series (no '1.7M' beside '88%'). Values VERBATIM — no fabrication. Return [] when the report has no comparable grouping; a lone scattered fact is NOT a series."
+    ),
 });
 
 export type ContentBlocks = z.infer<typeof ContentBlocksSchema>;
@@ -805,6 +842,19 @@ function buildFixtureBlocks(event: EmergencyEvent): ContentBlocks {
       ],
       body: `Our team is monitoring the situation in ${country}.\n\nYour donations enable us to respond with our partner network on the ground.\n\nDonate at deenrelief.org.`,
     },
+    chart_series: [
+      {
+        title: "Fixture series — replace with real comparable figures",
+        unit: "people",
+        source: event.source,
+        points: [
+          { label: "Region A", value: "1.7M" },
+          { label: "Region B", value: "310k" },
+          { label: "Region C", value: "140k" },
+          { label: "Region D", value: "90k" },
+        ],
+      },
+    ],
   };
 }
 

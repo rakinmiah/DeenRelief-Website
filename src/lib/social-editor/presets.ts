@@ -3888,7 +3888,7 @@ const CHART_DEFAULT_DATA: InfographicFact[] = [
 ];
 /** Parse a comparable numeric magnitude from a stat string for bar scaling:
  *  "1.7M"→1_700_000, "90%"→0.9, "9 in 10"→0.9, "2,000+"→2000. null = no number. */
-function parseMagnitude(v?: string | null): number | null {
+export function parseMagnitude(v?: string | null): number | null {
   if (!v) return null;
   const s = v.toLowerCase().replace(/,/g, "").trim();
   const inM = s.match(/(\d+(?:\.\d+)?)\s*in\s*(\d+(?:\.\d+)?)/);

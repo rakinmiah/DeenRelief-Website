@@ -36,6 +36,7 @@ import { X_VARIANTS } from "./xVariants";
 import {
   ROLES,
   autoFillPlan,
+  bestChartSeries,
   defaultTemplateId,
   infographicFacts,
   reportSource,
@@ -203,6 +204,12 @@ export default function DeckFlow({
     () => (content ? reportSource(content) : null),
     [content]
   );
+  // The best COMPARABLE series for a bar chart (AI-extracted, else a
+  // conservative cluster of the report's numbers, else null → sample data).
+  const chartSeries = useMemo(
+    () => (content ? bestChartSeries(content) : null),
+    [content]
+  );
 
   // Seed the canvas deck from the per-slide build results.
   const seedSlides = useMemo(() => {
@@ -212,16 +219,26 @@ export default function DeckFlow({
         ? images.images.find((i) => i.id === r.imageId)?.url ?? null
         : null;
       const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo, logoLight };
-      // X infographics AND data charts carry the whole report — inject the
-      // derived facts + source so the bars / cells fill from real numbers
-      // rather than sample data.
-      if (r.templateId.startsWith("x-") || r.templateId.includes("chart")) {
+      const tid = r.templateId;
+      const isBarChart =
+        tid.includes("chart") &&
+        !tid.includes("chart-progress") &&
+        !tid.includes("chart-stacked");
+      if (tid.startsWith("x-")) {
+        // X infographics pack ALL the report's data points (no shared axis).
         c.facts = xFacts;
         c.source = xSource;
+      } else if (isBarChart && chartSeries) {
+        // Bar chart fills from a COMPARABLE series so bars don't collapse;
+        // the series title describes what it shows. No series → the preset's
+        // editable sample data shows instead of a misleading mix.
+        c.facts = chartSeries.points;
+        c.source = chartSeries.source ?? xSource;
+        if (chartSeries.title) c.primary = chartSeries.title;
       }
       return buildTemplateSlide(r.templateId, c, overrides);
     });
-  }, [results, images, eyebrow, logo, logoLight, overrides, xFacts, xSource]);
+  }, [results, images, eyebrow, logo, logoLight, overrides, xFacts, xSource, chartSeries]);
 
   // The deck's DESIGN recipe ({role, templateId} per slide) — captured at the
   // canvas boundary (which discards templateId/role) so "Mark as posted" can

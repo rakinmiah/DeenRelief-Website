@@ -40,11 +40,26 @@ export type DragPayload =
   | { kind: "content"; card: ContentCard; cardId: string }
   | { kind: "image"; image: ImageCandidate };
 
+/** A COMPARABLE data series for charts — 2–6 points that share one unit /
+ *  dimension and belong on a single axis (e.g. displacement by region). The
+ *  extractor emits these so a bar chart auto-fills with numbers that are
+ *  actually comparable, instead of a mix of '1.7M' and '88%'. */
+export type ChartSeriesPoint = { label: string; value: string };
+export type ChartSeries = {
+  title: string;
+  unit: string | null;
+  source: string | null;
+  points: ChartSeriesPoint[];
+};
+
 /** Shape returned by the Phase 6b extraction endpoint (and matched by
  *  MOCK_CONTENT for fallback). Each card carries a stable id so the UI
  *  can key the list and detect re-renders. */
 export type ContentBundle = {
   cards: Array<{ id: string; card: ContentCard }>;
+  /** Comparable data series for charts (0–3). May be absent on legacy /
+   *  cached extractions made before this field existed. */
+  chartSeries?: ChartSeries[];
 };
 
 export type ImageBundle = {

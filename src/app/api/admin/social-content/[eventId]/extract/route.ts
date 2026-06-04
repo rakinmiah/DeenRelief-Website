@@ -42,6 +42,9 @@ async function run(eventId: string) {
       eventId,
       blocks,
       cards,
+      // Comparable data series for charts (0–3). Absent on legacy cached
+      // extractions → []. The deck builder falls back to fact-clustering.
+      chartSeries: blocks.chart_series ?? [],
       usage: { inputTokens, outputTokens },
     });
   } catch (err) {

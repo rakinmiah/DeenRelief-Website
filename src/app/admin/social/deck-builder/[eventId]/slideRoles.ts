@@ -8,11 +8,11 @@
  * and which template category to show.
  */
 
-import type { ContentBundle, ImageBundle } from "./types";
+import type { ChartSeries, ContentBundle, ImageBundle } from "./types";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import type { LearnedPrefs } from "@/lib/smm-preferences";
 import type { OutcomePrefs } from "@/lib/social-outcomes";
-import type { InfographicFact } from "@/lib/social-editor/presets";
+import { parseMagnitude, type InfographicFact } from "@/lib/social-editor/presets";
 
 export type SlideRole =
   | "hero"
@@ -159,6 +159,53 @@ function shortenFact(raw: string): string {
 }
 const shortFacts = (c: ContentBundle) =>
   facts(c).map(shortenFact).filter(Boolean).slice(0, 12);
+
+/* ─── Comparable data series for charts ───────────────────────────── */
+
+/**
+ * Cluster the report's numeric facts into ONE comparable series so a bar
+ * chart's bars don't collapse. The dimension can't be inferred from a number
+ * alone, so this is deliberately conservative: it prefers a clean percentage
+ * set, else keeps only counts within ~50× of the largest (dropping tiny
+ * outliers that would otherwise vanish), and bails (returns null) unless ≥3
+ * comparable points survive. Labels are the fact's descriptive half — rough,
+ * but the SMM edits. Deterministic, £0.
+ */
+function comparableSeriesFromFacts(content: ContentBundle): ChartSeries | null {
+  const pairs: { value: string; label: string; m: number }[] = [];
+  for (const t of facts(content)) {
+    const s = splitStat(t);
+    if (!s.value) continue;
+    const m = parseMagnitude(s.value);
+    if (m == null || m <= 0) continue;
+    pairs.push({ value: s.value, label: s.label, m });
+  }
+  if (pairs.length < 3) return null;
+  const pct = pairs.filter((x) => x.value.includes("%"));
+  const base = pct.length >= 3 ? pct : pairs.filter((x) => !x.value.includes("%"));
+  if (base.length < 3) return null;
+  const max = Math.max(...base.map((x) => x.m));
+  const kept = base.filter((x) => x.m >= max / 50).slice(0, 6);
+  if (kept.length < 3) return null;
+  return {
+    title: "By the numbers",
+    unit: pct.length >= 3 ? "%" : null,
+    source: reportSource(content),
+    points: kept.map((x) => ({ label: x.label, value: x.value })),
+  };
+}
+
+/**
+ * The best comparable series for a bar chart: the AI-extracted series if the
+ * extractor found one (real categories, one unit), else a conservative
+ * cluster of the report's comparable numbers, else null — in which case the
+ * chart preset shows editable sample data rather than a misleading mix.
+ */
+export function bestChartSeries(content: ContentBundle): ChartSeries | null {
+  const ai = content.chartSeries?.find((s) => s.points.length >= 2) ?? null;
+  if (ai) return ai;
+  return comparableSeriesFromFacts(content);
+}
 
 /** The first source attribution found among the report's fact/source cards. */
 export function reportSource(content: ContentBundle): string | null {
