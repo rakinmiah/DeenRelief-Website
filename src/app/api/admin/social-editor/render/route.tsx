@@ -134,6 +134,10 @@ async function render(request: Request): Promise<Response> {
   );
   const uriEntries = await Promise.all(
     imageLayers.map(async (l) => {
+      // Inline data: sources (e.g. generated chart SVGs) are already the final
+      // bytes — hand them straight to Satori (it rasterises SVG itself). This
+      // skips the fetch + sharp round-trip and keeps vector art crisp.
+      if (l.src.startsWith("data:")) return [l.id, l.src] as const;
       const UA = {
         "User-Agent":
           "DeenReliefSocial/1.0 (https://deenrelief.org; tech@deenrelief.org)",

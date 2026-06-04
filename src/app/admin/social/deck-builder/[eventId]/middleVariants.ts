@@ -35,6 +35,7 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
     meta("tiers-j", "Scan to give", "A QR placeholder beside the ladder — the donor scans to give at any tier."),
     meta("tiers-chart-progress", "Appeal gauge", "A donation progress bar — amount raised, a gold fill scaled to the percent funded, and the goal. Edit the figures."),
     meta("tiers-chart-stacked", "Gift breakdown", "A single bar split into where each gift goes (food / shelter / medical) with a legend. Edit the shares."),
+    meta("tiers-chart-donut", "Gift donut", "A donut ring of where each gift goes, with a legend. Edit the shares."),
   ],
   beforeafter: [
     meta("beforeafter-a", "Then & now", "Two figures split by a gold divider — a before/after contrast with a source line."),
@@ -60,6 +61,7 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
     meta("multistat-i", "Connecting timeline", "The three figures on a connecting vertical timeline (gold spine + nodes)."),
     meta("multistat-j", "Ledger", "Left-aligned figures, right-aligned labels — a ‘ledger’ of the crisis, with a source."),
     meta("multistat-chart", "Bar chart", "A ranked horizontal bar chart — each figure a gold bar scaled to the largest, with a source line. Auto-fills from the report's numbers; edit any bar or value."),
+    meta("multistat-chart-line", "Trend line", "A trend line over time — points joined into a gold line with x-axis labels and a source. Edit the values and periods."),
   ],
   testimony: [
     meta("testimony-a", "Open-quote", "An oversized gold open-quote, the quote tight beneath in Barlow, a gold rule and an attribution row."),

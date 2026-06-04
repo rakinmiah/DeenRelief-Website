@@ -220,10 +220,14 @@ export default function DeckFlow({
         : null;
       const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo, logoLight };
       const tid = r.templateId;
+      // Only the ranked BAR chart auto-fills from the comparable series; the
+      // donut / line / stacked / progress charts carry their own data.
       const isBarChart =
         tid.includes("chart") &&
         !tid.includes("chart-progress") &&
-        !tid.includes("chart-stacked");
+        !tid.includes("chart-stacked") &&
+        !tid.includes("chart-donut") &&
+        !tid.includes("chart-line");
       if (tid.startsWith("x-")) {
         // X infographics pack ALL the report's data points (no shared axis).
         c.facts = xFacts;

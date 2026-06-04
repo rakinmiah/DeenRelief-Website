@@ -4023,6 +4023,111 @@ function chartStacked(c: SlideContent): EditorSlide {
   return slide(layers, C.forest);
 }
 
+/* ─── Data charts — Stage 2: SVG-image donut + trend line ─────────────
+ * Arcs and curves can't be expressed as rect layers, so these are generated
+ * as a deterministic SVG and dropped in as ONE image layer. The render route
+ * hands data: URIs straight to Satori (which rasterises SVG itself — verified),
+ * and browsers render the same SVG natively, so canvas and export stay
+ * identical. Labels / legend stay EDITABLE text layers AROUND the image; the
+ * graphic itself is one image (regenerate to change its underlying data). */
+function svgToDataUri(svg: string): string {
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+/** A stacked donut ring from share segments (pct summing to ~100). */
+function donutSvg(segs: { pct: number; color: string }[], size = 640, stroke = 132): string {
+  const r = (size - stroke) / 2;
+  const c = size / 2;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  const rings = segs
+    .map((s) => {
+      const len = (circ * s.pct) / 100;
+      const el = `<circle cx="${c}" cy="${c}" r="${r.toFixed(2)}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-dasharray="${len.toFixed(2)} ${(circ - len).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
+      offset += len;
+      return el;
+    })
+    .join("");
+  // rotate -90 so the first segment begins at 12 o'clock.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><g transform="rotate(-90 ${c} ${c})">${rings}</g></svg>`;
+}
+function chartDonut(c: SlideContent): EditorSlide {
+  const segs = STACKED_DEFAULT;
+  const uri = svgToDataUri(donutSvg(segs));
+  const X = 56;
+  const dSize = 470;
+  const dY = 384;
+  const legendX = 596;
+  const layers: Layer[] = [
+    ...wordmark(X, 52, c),
+    eyebrowLayer(c.eyebrow || "100% donation policy", 150),
+    text({ x: X, y: 200, w: B - 112, h: 150, text: c.primary || "Where your gift goes", fontFamily: ANTON, fontSize: 64, fontWeight: 400, uppercase: true, lineHeight: 0.96, letterSpacing: -1, color: C.cream }),
+    image({ x: X, y: dY, w: dSize, h: dSize, src: uri, objectFit: "contain" }),
+  ];
+  segs.forEach((s, i) => {
+    const ly = dY + 26 + i * 110;
+    layers.push(
+      shape({ x: legendX, y: ly + 6, w: 30, h: 30, shape: "rect", fill: s.color, radius: 6 }),
+      text({ x: legendX + 48, y: ly, w: 380, h: 40, text: s.label, fontFamily: BARLOW, fontSize: 26, fontWeight: 600, color: C.cream }),
+      text({ x: legendX + 48, y: ly + 38, w: 380, h: 42, text: `${s.pct}%`, fontFamily: ANTON, fontSize: 34, fontWeight: 400, color: C.amber })
+    );
+  });
+  layers.push(footer());
+  return slide(layers, C.forest);
+}
+
+/** A trend polyline from a series of magnitudes, normalised to the box. */
+function lineSvg(values: number[], w = 920, h = 360, color = "#D4A843"): string {
+  const pad = 14;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const span = max - min || 1;
+  const n = Math.max(1, values.length - 1);
+  const xy = values.map((v, i) => {
+    const x = pad + (i * (w - 2 * pad)) / n;
+    const y = h - pad - ((v - min) / span) * (h - 2 * pad);
+    return [x, y] as const;
+  });
+  const dots = xy.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${color}"/>`).join("");
+  const poly = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const baseline = `<line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" stroke="rgba(247,243,232,0.22)" stroke-width="2"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${baseline}<polyline points="${poly}" fill="none" stroke="${color}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>${dots}</svg>`;
+}
+const LINE_DEFAULT: { label: string; value: string }[] = [
+  { label: "Jan", value: "210" },
+  { label: "Feb", value: "340" },
+  { label: "Mar", value: "520" },
+  { label: "Apr", value: "610" },
+  { label: "May", value: "881" },
+];
+function chartLine(c: SlideContent): EditorSlide {
+  const data = (c.facts && c.facts.length >= 2 ? c.facts : LINE_DEFAULT).slice(0, 8);
+  const vals = data.map((f) => parseMagnitude(f.value) ?? 0);
+  const X = 56;
+  const gY = 440;
+  const gW = B - 112;
+  const gH = 360;
+  const uri = svgToDataUri(lineSvg(vals, gW, gH)); // match box aspect exactly
+  const n = Math.max(1, data.length - 1);
+  const layers: Layer[] = [
+    ...wordmark(X, 52, c),
+    eyebrowLayer(c.eyebrow || "Over time", 150),
+    text({ x: X, y: 200, w: B - 112, h: 150, text: c.primary || "The trend", fontFamily: ANTON, fontSize: 64, fontWeight: 400, uppercase: true, lineHeight: 0.96, letterSpacing: -1, color: C.cream }),
+    image({ x: X, y: gY, w: gW, h: gH, src: uri, objectFit: "contain" }),
+  ];
+  // X-axis labels, roughly centred under each plotted point.
+  data.forEach((f, i) => {
+    const px = X + 14 + (i * (gW - 28)) / n; // mirrors lineSvg's pad
+    const lx = Math.max(X, Math.min(B - 56 - 120, Math.round(px - 60)));
+    layers.push(
+      text({ x: lx, y: gY + gH + 10, w: 120, h: 30, text: f.label, fontFamily: BARLOW, fontSize: 20, fontWeight: 600, color: C.creamDim, align: "center" })
+    );
+  });
+  layers.push(
+    text({ x: X, y: 942, w: B - 112, h: 30, text: xSourceOf(c), fontFamily: BARLOW, fontSize: 19, fontWeight: 500, uppercase: true, letterSpacing: 2, color: C.creamDim })
+  );
+  return slide(layers, C.forest);
+}
+
 // X-1 — Photo full-bleed + headline + a 3-stat ribbon along the foot. The
 // default workhorse: the disaster fills the frame, the report sits on top.
 function xPhotoFacts(c: SlideContent): EditorSlide {
@@ -4393,6 +4498,8 @@ function buildPresetSlide(templateId: string, c: SlideContent): EditorSlide {
   // Data charts (Stage 1) — BEFORE the multistat/tiers/stat matches so a
   // "*-chart*" id routes to a chart, not the figure stack / ladder. Specific
   // chart kinds first; the generic "chart" falls back to the ranked bars.
+  if (id.includes("chart-donut")) return chartDonut(c);
+  if (id.includes("chart-line")) return chartLine(c);
   if (id.includes("chart-progress")) return chartProgress(c);
   if (id.includes("chart-stacked")) return chartStacked(c);
   if (id.includes("chart")) return chartBars(c);
