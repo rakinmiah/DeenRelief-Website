@@ -1629,8 +1629,9 @@ function WebImageGrid({ items, onPick }: { items: WebImageResult[]; onPick: (i: 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={img.thumbnailUrl ?? img.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
           <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/70 to-transparent text-[9px] font-medium text-white/90 leading-tight text-left truncate">
-            {img.sourceLabel}
-            {img.license ? ` · ${img.license}` : ""}
+            {img.license && img.license !== img.sourceLabel
+              ? `${img.sourceLabel} · ${img.license}`
+              : img.sourceLabel}
           </span>
         </button>
       ))}
