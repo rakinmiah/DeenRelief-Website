@@ -122,10 +122,10 @@ export const ContentBlocksSchema = z.object({
         char_count: z.number().int(),
       })
     )
-    .min(3)
-    .max(6)
+    .min(4)
+    .max(8)
     .describe(
-      "3–6 supporting prose options — one to three sentences, ≤ 250 chars each. Each MUST contain a verbatim number, named location, agency, or dated event from raw_payload. Generic 'communities are suffering' bodies are rejected."
+      "4–8 supporting prose options — one to three sentences, ≤ 250 chars each. Each MUST contain a verbatim number, named location, agency, or dated event from raw_payload, and each MUST cover a DIFFERENT angle (don't restate the same figure twice). Generic 'communities are suffering' bodies are rejected."
     ),
   verified_facts: z
     .array(
@@ -139,10 +139,10 @@ export const ContentBlocksSchema = z.object({
           ),
       })
     )
-    .min(3)
-    .max(8)
+    .min(5)
+    .max(12)
     .describe(
-      "3–8 verified facts. Each is ONE punchy line (≤ ~14 words, ≤ 160 chars) — a single hard beat, NOT a paragraph: lead with the figure and stop ('881 killed since the October ceasefire.'). Each MUST include a specific number, magnitude, coordinate, agency, or named institution drawn verbatim from raw_payload. These feed both Key-fact slides (the short fact IS the slide) and Stat slides (a giant figure pulled from the fact — so put the number first and keep it standalone). NO fabrication — if you don't have the number, don't write the fact."
+      "5–12 verified facts — DIG DEEP into raw_payload and surface as many DISTINCT data points as it genuinely supports. Each is ONE punchy line (≤ ~14 words, ≤ 160 chars) — a single hard beat, NOT a paragraph: lead with the figure and stop ('881 killed since the October ceasefire.'). Each MUST include a specific number, magnitude, coordinate, agency, or named institution drawn verbatim from raw_payload. CRITICAL — no two facts may restate the SAME figure or angle; span the different dimensions the source covers (casualties, injuries, displacement, access/siege, funding/appeal, children, health, infrastructure, food). These feed both Key-fact slides (the short fact IS the slide) and Stat slides (a giant figure pulled from the fact — so put the number first and keep it standalone). NO fabrication — if you don't have the number, don't write the fact."
     ),
   quotes: z
     .array(

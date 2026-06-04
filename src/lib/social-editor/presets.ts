@@ -203,7 +203,9 @@ function headlineBottom(
   return Math.round(y + lines * lh);
 }
 function hBody(t: string, x: number, y: number, w: number, h: number): TextLayer {
-  return text({ x, y, w, h, text: t, fontFamily: BARLOW, fontSize: 28, fontWeight: 400, lineHeight: 1.34, color: C.creamDim });
+  // Base supporting subtext — full white (cream), not dimmed, so the line
+  // under the headline reads clearly on dark / photo slides.
+  return text({ x, y, w, h, text: t, fontFamily: BARLOW, fontSize: 28, fontWeight: 400, lineHeight: 1.34, color: C.cream });
 }
 function goldBar(x: number, y: number, w: number = 64): ShapeLayer {
   return shape({ x, y, w, h: 3, shape: "rect", fill: C.amber });
@@ -303,7 +305,7 @@ function heroTypeCover(c: SlideContent): EditorSlide {
       // Standfirst in the lower-right — fills the old void and balances the
       // left-weighted headline (right-aligned, anchored above the footer).
       ...(c.secondary
-        ? [text({ x: B - HPAD - 540, y: 866, w: 540, h: 88, text: c.secondary, fontFamily: BARLOW, fontSize: 27, fontWeight: 400, lineHeight: 1.34, color: C.creamDim, align: "right" })]
+        ? [text({ x: B - HPAD - 540, y: 866, w: 540, h: 88, text: c.secondary, fontFamily: BARLOW, fontSize: 27, fontWeight: 400, lineHeight: 1.34, color: C.cream, align: "right" })]
         : []),
       goldBar(HPAD, 985),
       hTag("deenrelief.org", 162, 977, 600, "left", 0.8),
@@ -900,7 +902,7 @@ function statHeadline(c: SlideContent): EditorSlide {
       rule(64, 320),
       eyebrowLayer(c.eyebrow, 352),
       text({ x: 64, y: 404, w: B - 128, h: 420, text: c.primary, fontFamily: DISPLAY, fontSize: 64, fontWeight: 400, uppercase: true, lineHeight: 1.04, color: C.cream }),
-      ...(c.secondary ? [text({ x: 64, y: 840, w: B - 128, h: 90, text: c.secondary, fontSize: 24, lineHeight: 1.4, color: C.cream, opacity: 0.82 })] : []),
+      ...(c.secondary ? [text({ x: 64, y: 840, w: B - 128, h: 90, text: c.secondary, fontSize: 24, lineHeight: 1.4, color: C.cream })] : []),
       footer(),
     ],
     C.forest

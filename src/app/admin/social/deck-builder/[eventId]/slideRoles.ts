@@ -45,15 +45,15 @@ export type RoleConfig = {
 
 /* ─── Content selectors ───────────────────────────────────────────── */
 const titles = (c: ContentBundle) =>
-  c.cards.filter((x) => x.card.kind === "title").map((x) => (x.card.kind === "title" ? x.card.text : "")).filter(Boolean).slice(0, 6);
+  c.cards.filter((x) => x.card.kind === "title").map((x) => (x.card.kind === "title" ? x.card.text : "")).filter(Boolean).slice(0, 12);
 const facts = (c: ContentBundle) =>
-  c.cards.filter((x) => x.card.kind === "fact").map((x) => (x.card.kind === "fact" ? x.card.text : "")).filter(Boolean).slice(0, 6);
+  c.cards.filter((x) => x.card.kind === "fact").map((x) => (x.card.kind === "fact" ? x.card.text : "")).filter(Boolean).slice(0, 12);
 const bodies = (c: ContentBundle) =>
-  c.cards.filter((x) => x.card.kind === "body" || x.card.kind === "fact").map((x) => (x.card.kind === "body" || x.card.kind === "fact" ? x.card.text : "")).filter(Boolean).slice(0, 6);
+  c.cards.filter((x) => x.card.kind === "body" || x.card.kind === "fact").map((x) => (x.card.kind === "body" || x.card.kind === "fact" ? x.card.text : "")).filter(Boolean).slice(0, 12);
 const quotes = (c: ContentBundle) =>
-  c.cards.filter((x) => x.card.kind === "quote").map((x) => (x.card.kind === "quote" ? x.card.text : "")).filter(Boolean).slice(0, 6);
+  c.cards.filter((x) => x.card.kind === "quote").map((x) => (x.card.kind === "quote" ? x.card.text : "")).filter(Boolean).slice(0, 12);
 const attributions = (c: ContentBundle) =>
-  c.cards.filter((x) => x.card.kind === "quote").map((x) => (x.card.kind === "quote" ? x.card.attribution : "")).filter(Boolean).slice(0, 6);
+  c.cards.filter((x) => x.card.kind === "quote").map((x) => (x.card.kind === "quote" ? x.card.attribution : "")).filter(Boolean).slice(0, 12);
 
 /* ─── X infographic data points ───────────────────────────────────── */
 
@@ -97,25 +97,51 @@ export function infographicFacts(content: ContentBundle, max = 4): InfographicFa
  *  (if the story has no number she should pick a different role). This is
  *  what stops "881 Palestinians killed since the ceasefire…" landing in a
  *  400px display slot and overflowing the board. Deterministic, £0. */
-const statValues = (c: ContentBundle) => {
+/** How "headline-worthy" a stat figure is — a giant magnitude ("1.7 million",
+ *  "88%") earns the big slot over a small bare count ("5"), so the stat slide
+ *  leads with the most striking number AND tends to diverge from the literal
+ *  fact a Key-fact slide is already using. */
+function statStrength(v: string): number {
+  const s = v.toLowerCase();
+  if (/\b(million|billion|bn)\b|\d\s?m\b/.test(s)) return 6;
+  if (/\b(thousand)\b|\d\s?k\b/.test(s)) return 5;
+  if (/%/.test(s)) return 4;
+  if (/\bin\b/.test(s)) return 4; // "9 in 10"
+  const n = parseFloat(s.replace(/[, ]/g, ""));
+  if (!Number.isNaN(n)) {
+    if (n >= 1000) return 5;
+    if (n >= 100) return 3;
+    if (n >= 10) return 2;
+    return 1;
+  }
+  return 1;
+}
+/** Stat figure + its explaining beat, de-duplicated and ranked strongest
+ *  first — so `statValues` and `statBeats` stay index-aligned (value[0] ↔
+ *  beat[0]) while the most striking magnitude leads the slot. */
+function statPairs(c: ContentBundle): InfographicFact[] {
   const seen = new Set<string>();
-  const out: string[] = [];
+  const out: InfographicFact[] = [];
   for (const t of facts(c)) {
-    const v = splitStat(t).value;
-    if (v && !seen.has(v.toLowerCase())) {
-      seen.add(v.toLowerCase());
-      out.push(v);
+    const s = splitStat(t);
+    if (s.value && !seen.has(s.value.toLowerCase())) {
+      seen.add(s.value.toLowerCase());
+      out.push(s);
     }
   }
-  return out.slice(0, 6);
-};
+  // Stable sort (ties keep report order) by descending headline strength.
+  return out
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => statStrength(b.p.value || "") - statStrength(a.p.value || "") || a.i - b.i)
+    .map((x) => x.p)
+    .slice(0, 12);
+}
+const statValues = (c: ContentBundle) =>
+  statPairs(c).map((p) => p.value).filter((v): v is string => !!v);
 /** The beat that explains the stat figure — the label half of the split
- *  ("killed since the ceasefire"), used as the stat slide's supporting line. */
+ *  ("killed since the ceasefire"), aligned to statValues' order. */
 const statBeats = (c: ContentBundle) =>
-  facts(c)
-    .map((t) => splitStat(t).label)
-    .filter(Boolean)
-    .slice(0, 6);
+  statPairs(c).map((p) => p.label).filter(Boolean);
 
 /** Trim a fact to one punchy line for the Key-fact slide — never a
  *  paragraph. Cuts at the first sentence end in range, else the last word
@@ -132,7 +158,7 @@ function shortenFact(raw: string): string {
   return (sp >= 32 ? cut.slice(0, sp) : cut).replace(/[\s,;:–—-]+$/, "") + "…";
 }
 const shortFacts = (c: ContentBundle) =>
-  facts(c).map(shortenFact).filter(Boolean).slice(0, 6);
+  facts(c).map(shortenFact).filter(Boolean).slice(0, 12);
 
 /** The first source attribution found among the report's fact/source cards. */
 export function reportSource(content: ContentBundle): string | null {
@@ -319,9 +345,14 @@ export function topPrimary(
   role: SlideRole,
   content: ContentBundle,
   prefs?: LearnedPrefs | null,
-  platform: string = "instagram"
+  platform: string = "instagram",
+  /** Copy already placed on earlier slides — skipped so two slides never
+   *  show the same line. Falls back to the full list if everything's used. */
+  used?: Set<string>
 ): string {
-  const opts = ROLES[role].primary(content);
+  const all = ROLES[role].primary(content);
+  const fresh = used ? all.filter((o) => !used.has(normContent(o))) : all;
+  const opts = fresh.length ? fresh : all;
   if (opts.length === 0) return "";
   const target = prefs?.avgTitleLenByPlatform?.[platform] ?? null;
   if (target == null) return opts[0]!;
@@ -337,10 +368,22 @@ export function topPrimary(
   return best;
 }
 
-/** The top secondary option for a role (only when the role uses one). */
-export function topSecondary(role: SlideRole, content: ContentBundle): string | null {
+/** The top secondary option for a role (only when the role uses one),
+ *  skipping any line already used elsewhere in the deck. */
+export function topSecondary(
+  role: SlideRole,
+  content: ContentBundle,
+  used?: Set<string>
+): string | null {
   if (!ROLES[role].hasSecondary) return null;
-  return ROLES[role].secondary(content)[0] ?? null;
+  const all = ROLES[role].secondary(content);
+  const fresh = used ? all.filter((o) => !used.has(normContent(o))) : all;
+  return (fresh.length ? fresh : all)[0] ?? null;
+}
+
+/** Normalise a copy string for repeat-detection (case/space-insensitive). */
+function normContent(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 /**
@@ -430,26 +473,47 @@ export function autoFillPlan(
   prefs?: LearnedPrefs | null,
   platform: string = "instagram"
 ): SlideDraftFill[] {
-  const used = new Set<string>();
+  const usedImg = new Set<string>();
+  // Copy already placed — so two slides never restate the same fact / line.
+  const usedTitle = new Set<string>();
+  const usedSub = new Set<string>();
   return plan.map((role) => {
-    const title = topPrimary(role, content, prefs, platform);
-    const subtext = topSecondary(role, content);
+    const title = topPrimary(role, content, prefs, platform, usedTitle);
+    if (title) usedTitle.add(normContent(title));
+    const subtext = topSecondary(role, content, usedSub);
+    if (subtext) usedSub.add(normContent(subtext));
     // Match imagery to the slide's actual copy (title + supporting line) so a
     // reporting slide pulls the aftermath photo that fits the fact.
-    const imageId = pickImageId(role, images, used, `${title} ${subtext ?? ""}`);
-    if (imageId) used.add(imageId);
+    const imageId = pickImageId(role, images, usedImg, `${title} ${subtext ?? ""}`);
+    if (imageId) usedImg.add(imageId);
     return { role, title, subtext, imageId };
   });
 }
 
-/** A sensible default plan given the count + what content exists. */
+/** A sensible default plan given the count + what content exists. Builds the
+ *  middle from DISTINCT roles, each gated on whether the report actually has
+ *  the content to fill it — so we don't seed two identical fact slides when a
+ *  stat / quote / response / multi-stat would add variety. A role only repeats
+ *  once every distinct role is spent (and even then the auto-fill dedups the
+ *  copy so the two slides read differently). */
 export function suggestPlan(count: number, content: ContentBundle): SlideRole[] {
   const n = Math.max(2, count);
   const plan: SlideRole[] = ["hero"];
   const middleCount = n - 2;
-  const hasQuotes = quotes(content).length > 0;
-  // Rotate through fact → stat → (testimony if available) → response.
-  const rotation: SlideRole[] = ["fact", "stat", hasQuotes ? "testimony" : "fact", "response"];
+  const factN = facts(content).length;
+  const statN = statValues(content).length;
+  const quoteN = quotes(content).length;
+
+  // Editorial priority, each gated on available content.
+  const rotation: SlideRole[] = [];
+  if (factN >= 1) rotation.push("fact");
+  if (statN >= 1) rotation.push("stat");
+  if (quoteN >= 1) rotation.push("testimony");
+  rotation.push("response");
+  if (factN >= 3) rotation.push("multistat");
+  if (factN >= 4) rotation.push("fact"); // a second, distinct fact only when deep
+  if (rotation.length === 0) rotation.push("fact");
+
   for (let i = 0; i < middleCount; i++) {
     plan.push(rotation[i % rotation.length]!);
   }
