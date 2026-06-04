@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
+import {
+  createServerSupabase,
+  getSponsorUser,
+  sponsorMfaBlocked,
+} from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +21,9 @@ export async function GET() {
   const user = await getSponsorUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+  if (await sponsorMfaBlocked()) {
+    return NextResponse.json({ error: "Verification required." }, { status: 403 });
   }
 
   const supabase = await createServerSupabase();

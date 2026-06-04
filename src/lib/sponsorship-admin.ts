@@ -82,6 +82,7 @@ export interface SponsorProfile {
   contactEmail: string;
   phone: string | null;
   marketingConsent: boolean;
+  notifyNewUpdate: boolean;
   status: SponsorStatus;
   stripeCustomerId: string | null;
   invitedByEmail: string | null;
@@ -234,6 +235,7 @@ function mapSponsor(r: Row): SponsorProfile {
     contactEmail: (r.contact_email as string) ?? "",
     phone: (r.phone as string) ?? null,
     marketingConsent: Boolean(r.marketing_consent),
+    notifyNewUpdate: r.notify_new_update !== false,
     status: (r.status as SponsorStatus) ?? "invited",
     stripeCustomerId: (r.stripe_customer_id as string) ?? null,
     invitedByEmail: (r.invited_by_email as string) ?? null,
@@ -263,7 +265,7 @@ const UPDATE_COLUMNS =
 const MEDIA_COLUMNS =
   "id, update_id, orphan_id, kind, storage_path, mime_type, size_bytes, caption, sort_order, created_at";
 const SPONSOR_COLUMNS =
-  "id, full_name, contact_email, phone, marketing_consent, status, stripe_customer_id, invited_by_email, activated_at, created_at";
+  "id, full_name, contact_email, phone, marketing_consent, notify_new_update, status, stripe_customer_id, invited_by_email, activated_at, created_at";
 const SPONSORSHIP_COLUMNS =
   "id, sponsor_id, orphan_id, status, started_on, ended_on, stripe_subscription_id, created_by_email, created_at";
 
@@ -650,6 +652,43 @@ export async function getSponsorByEmail(
   return data ? mapSponsor(data) : null;
 }
 
+/**
+ * Clear ALL of a sponsor's MFA factors (admin recovery for a lost
+ * authenticator). Uses the Supabase admin MFA API. Returns how many were
+ * removed so the UI can confirm or report "no 2FA was set up".
+ */
+export async function resetSponsorMfa(
+  sponsorId: string
+): Promise<{ ok: boolean; error?: string; removed: number }> {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data, error } = await supabase.auth.admin.mfa.listFactors({
+      userId: sponsorId,
+    });
+    if (error) {
+      console.error("[sponsorship-admin] listFactors failed:", error.message);
+      return { ok: false, error: "Couldn't read 2FA settings.", removed: 0 };
+    }
+    const factors = data?.factors ?? [];
+    let removed = 0;
+    for (const f of factors) {
+      const { error: delErr } = await supabase.auth.admin.mfa.deleteFactor({
+        id: f.id,
+        userId: sponsorId,
+      });
+      if (delErr) {
+        console.error("[sponsorship-admin] deleteFactor failed:", delErr.message);
+      } else {
+        removed += 1;
+      }
+    }
+    return { ok: true, removed };
+  } catch (err) {
+    console.error("[sponsorship-admin] resetSponsorMfa threw:", err);
+    return { ok: false, error: "Couldn't reset 2FA.", removed: 0 };
+  }
+}
+
 export async function setSponsorStatus(
   id: string,
   status: SponsorStatus
@@ -697,6 +736,45 @@ export async function listSponsorshipsForOrphan(
     return [];
   }
   return (data ?? []).map(mapSponsorship);
+}
+
+/**
+ * Active, opted-in recipients to email when a new update is published for an
+ * orphan: sponsors with a non-ended link to the child, an active account, and
+ * notify_new_update on. Two-step (links → profiles) to keep it simple and
+ * dependable across PostgREST embed quirks.
+ */
+export async function listUpdateEmailRecipients(
+  orphanId: string
+): Promise<{ email: string; fullName: string }[]> {
+  const supabase = getSupabaseAdmin();
+  const { data: links, error: linkErr } = await supabase
+    .from("sponsorships")
+    .select("sponsor_id")
+    .eq("orphan_id", orphanId)
+    .neq("status", "ended");
+  if (linkErr || !links?.length) {
+    if (linkErr) console.error("[sponsorship-admin] recipients links failed:", linkErr.message);
+    return [];
+  }
+  const sponsorIds = Array.from(new Set(links.map((l) => l.sponsor_id as string)));
+
+  const { data: profiles, error: profErr } = await supabase
+    .from("sponsor_profiles")
+    .select("contact_email, full_name, status, notify_new_update")
+    .in("id", sponsorIds)
+    .eq("status", "active")
+    .eq("notify_new_update", true);
+  if (profErr || !profiles) {
+    if (profErr) console.error("[sponsorship-admin] recipients profiles failed:", profErr.message);
+    return [];
+  }
+  return profiles
+    .map((p) => ({
+      email: (p.contact_email as string) ?? "",
+      fullName: (p.full_name as string) ?? "",
+    }))
+    .filter((r) => r.email.includes("@"));
 }
 
 export async function createSponsorshipLink(input: {

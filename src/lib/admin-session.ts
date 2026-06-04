@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyAdminSession, type AdminSessionPayload } from "./signed-token";
+import { canAccessSocial } from "./admin-social-access";
 
 /**
  * Server-side admin session helpers.
@@ -26,16 +27,31 @@ import { verifyAdminSession, type AdminSessionPayload } from "./signed-token";
 
 const COOKIE_NAME = "dr_admin_session";
 
+/** Forced-password-change destination (migration 035). */
+const CHANGE_PASSWORD_PATH = "/admin/change-password";
+
 /**
  * Read + verify the current admin session. Returns the payload or null.
  * No redirect — for pages that want to render different UI based on
- * sign-in state without forcing a redirect.
+ * sign-in state without forcing a redirect. The change-password page
+ * uses this (not the require* helpers) so a mustChange session can
+ * actually reach it without looping.
  */
 export async function getAdminSession(): Promise<AdminSessionPayload | null> {
   const cookieStore = await cookies();
   const value = cookieStore.get(COOKIE_NAME)?.value;
   if (!value) return null;
   return verifyAdminSession(value);
+}
+
+/**
+ * If the session is flagged mustChange (a one-time temporary password),
+ * bounce to the change-password screen. Every require* guard runs this
+ * after confirming a session exists, so a forced user can't reach any
+ * other admin page until they've set a real password.
+ */
+function enforcePasswordChange(session: AdminSessionPayload): void {
+  if (session.mustChange) redirect(CHANGE_PASSWORD_PATH);
 }
 
 /**
@@ -49,6 +65,7 @@ export async function getAdminSession(): Promise<AdminSessionPayload | null> {
 export async function requireAdminSession(): Promise<AdminSessionPayload> {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  enforcePasswordChange(session);
   return session;
 }
 
@@ -90,6 +107,7 @@ export async function requireSocialSectionAccess(): Promise<AdminSessionPayload>
 export async function requireRoleAdmin(): Promise<AdminSessionPayload> {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  enforcePasswordChange(session);
   if (session.role !== "admin") {
     // Authenticated but not authorised — land them on a page they can
     // actually use rather than bouncing back to login.
@@ -120,6 +138,7 @@ function landingForNonAdmin(role: AdminSessionPayload["role"]): string {
 export async function requireBlogAccess(): Promise<AdminSessionPayload> {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  enforcePasswordChange(session);
   if (session.role !== "admin" && session.role !== "writer") {
     redirect(landingForNonAdmin(session.role));
   }
@@ -140,8 +159,29 @@ export async function requireBlogAccess(): Promise<AdminSessionPayload> {
 export async function requireSponsorshipAccess(): Promise<AdminSessionPayload> {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  enforcePasswordChange(session);
   if (session.role !== "admin" && session.role !== "sponsorship") {
     redirect(landingForNonAdmin(session.role));
+  }
+  return session;
+}
+
+/**
+ * Require a session that may use the /admin/social section. Unlike the
+ * other guards this is gated by EMAIL (SOCIAL_ALLOWED_EMAILS), not role:
+ * a general admin/trustee is intentionally NOT given the social tools.
+ * Enforced once at the section layout (src/app/admin/social/layout.tsx),
+ * which covers every social page.
+ *
+ * A signed-in-but-not-authorised user is sent somewhere they can use
+ * rather than back to login.
+ */
+export async function requireSocialAccess(): Promise<AdminSessionPayload> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  enforcePasswordChange(session);
+  if (!canAccessSocial(session.email)) {
+    redirect(session.role === "admin" ? "/admin/donations" : "/admin/login");
   }
   return session;
 }

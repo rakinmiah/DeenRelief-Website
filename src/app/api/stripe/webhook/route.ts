@@ -1186,6 +1186,26 @@ async function dispatchReceipt(
         pathwayLabel: pathwayLabel ?? undefined,
       }),
     ]);
+
+    // Admin bell + web-push notification for the new donation. Fires on
+    // the same successful-payment event as the receipt above — one-time
+    // gifts, the first payment of a new monthly subscription, and every
+    // monthly renewal all reach dispatchReceipt(). enqueueNotification
+    // writes the bell row and fans out push, and never throws, so the
+    // receipt path is unaffected either way.
+    const donorName =
+      `${donor.first_name ?? ""} ${donor.last_name ?? ""}`.trim() || "A donor";
+    const amountGbp = fromPence(donation.amount_pence).toFixed(2);
+    await enqueueNotification({
+      type: "donation_new",
+      severity: "info",
+      title: `New donation — £${amountGbp}`,
+      body: `${donorName} · ${donation.campaign_label}${
+        donation.frequency === "monthly" ? " · monthly" : ""
+      }`,
+      targetUrl: `/admin/donations/${donation.id}`,
+      targetId: donation.id,
+    });
   } catch (err) {
     console.error("[webhook] Receipt dispatch failed:", err);
   }

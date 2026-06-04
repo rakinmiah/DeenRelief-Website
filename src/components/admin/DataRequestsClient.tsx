@@ -7,6 +7,7 @@ import {
   fulfillErasureRequestAction,
 } from "@/app/admin/sponsorship/actions";
 import type { SponsorDataRequest } from "@/lib/sponsorship-admin";
+import { Button, StatusBadge } from "@/components/admin/ui";
 
 function formatWhen(iso: string): string {
   if (!iso) return "";
@@ -93,21 +94,23 @@ export default function DataRequestsClient({
                   </p>
                 </div>
                 {r.requestType === "erasure" ? (
-                  <button
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => handleErasure(r)}
-                    disabled={busy === r.id}
-                    className="px-3.5 py-1.5 text-sm rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors disabled:opacity-60"
+                    loading={busy === r.id}
                   >
-                    {busy === r.id ? "Erasing…" : "Erase"}
-                  </button>
+                    Erase
+                  </Button>
                 ) : (
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => handleExport(r)}
-                    disabled={busy === r.id}
-                    className="px-3.5 py-1.5 text-sm rounded-lg bg-charcoal text-white font-medium hover:bg-charcoal/90 transition-colors disabled:opacity-60"
+                    loading={busy === r.id}
                   >
-                    {busy === r.id ? "…" : "Mark fulfilled"}
-                  </button>
+                    Mark fulfilled
+                  </Button>
                 )}
               </div>
             ))}
@@ -123,8 +126,11 @@ export default function DataRequestsClient({
           <div className="rounded-xl border border-charcoal/10 divide-y divide-charcoal/8 overflow-hidden bg-white mt-2 opacity-80">
             {handled.map((r) => (
               <div key={r.id} className="px-4 py-3 text-sm">
-                <p className="text-charcoal">
-                  {r.sponsorEmail ?? r.sponsorId} · {r.requestType} · {r.status}
+                <p className="text-charcoal flex items-center gap-2 flex-wrap">
+                  <span>
+                    {r.sponsorEmail ?? r.sponsorId} · {r.requestType}
+                  </span>
+                  <StatusBadge domain="dataRequest" status={r.status} />
                 </p>
                 <p className="text-xs text-grey/70">
                   {r.handledByEmail ? `by ${r.handledByEmail} · ` : ""}

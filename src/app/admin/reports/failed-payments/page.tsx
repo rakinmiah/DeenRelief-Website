@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   fetchFailedDonations,
@@ -10,6 +9,15 @@ import {
   fetchAdminRecurring,
 } from "@/lib/admin-recurring";
 import { formatPence } from "@/lib/bazaar-format";
+import {
+  Button,
+  PageHeader,
+  StatusBadge,
+  StatCard,
+  ResponsiveTable,
+  EmptyState,
+  type Column,
+} from "@/components/admin/ui";
 
 export const metadata: Metadata = {
   title: "Failed payments | Deen Relief Admin",
@@ -17,6 +25,9 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+type FailedDonationRow = Awaited<ReturnType<typeof fetchFailedDonations>>[number];
+type RecurringRow = Awaited<ReturnType<typeof fetchAdminRecurring>>[number];
 
 /**
  * Failed payments report.
@@ -31,6 +42,10 @@ export const dynamic = "force-dynamic";
  *      follow up before the donor lapses.
  *
  * Both filtered to livemode=true. Both sorted newest first.
+ *
+ * Note: these tables use an explicit "Open" action column rather than
+ * a whole-row link, because the donor cell carries a `mailto:` link —
+ * nesting that inside a row link would be invalid markup.
  */
 export default async function AdminFailedPaymentsPage() {
   await requireRoleAdmin();
@@ -44,141 +59,175 @@ export default async function AdminFailedPaymentsPage() {
     ["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(r.status)
   );
 
+  const donationColumns: Column<FailedDonationRow>[] = [
+    {
+      key: "attempted",
+      header: "Attempted",
+      cell: (d) => formatAdminDate(d.createdAt),
+      cellClassName: "whitespace-nowrap text-charcoal/70",
+    },
+    {
+      key: "donor",
+      header: "Donor",
+      primary: true,
+      cell: (d) => (
+        <div>
+          <div className="text-charcoal font-medium">{d.donorName}</div>
+          <div className="text-charcoal/50 text-xs">
+            <a href={`mailto:${d.donorEmail}`} className="hover:underline">
+              {d.donorEmail}
+            </a>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "campaign",
+      header: "Campaign",
+      cell: (d) => <span className="text-charcoal/80">{d.campaignLabel}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      secondary: true,
+      cell: (d) => (
+        <span className="text-charcoal font-semibold whitespace-nowrap">
+          {formatPence(d.amountPence)}
+        </span>
+      ),
+    },
+    {
+      key: "receipt",
+      header: "Receipt",
+      hideOnMobile: true,
+      cell: (d) => (
+        <span className="font-mono text-[11px] text-charcoal/60">{d.receiptNumber}</span>
+      ),
+    },
+    {
+      key: "open",
+      header: "",
+      align: "right",
+      isAction: true,
+      cell: (d) => (
+        <Button href={`/admin/donations/${d.id}`} variant="outline" size="sm">
+          Open
+        </Button>
+      ),
+    },
+  ];
+
+  const recurringColumns: Column<RecurringRow>[] = [
+    {
+      key: "donor",
+      header: "Donor",
+      primary: true,
+      cell: (sub) => (
+        <div>
+          <div className="text-charcoal font-medium">{sub.donorName}</div>
+          <div className="text-charcoal/50 text-xs">
+            <a href={`mailto:${sub.donorEmail}`} className="hover:underline">
+              {sub.donorEmail}
+            </a>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "campaign",
+      header: "Campaign",
+      cell: (sub) => <span className="text-charcoal/80">{sub.campaignLabel}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount / month",
+      align: "right",
+      secondary: true,
+      cell: (sub) => (
+        <span className="text-charcoal font-semibold whitespace-nowrap">
+          {formatPence(sub.amountPerCyclePence)}
+        </span>
+      ),
+    },
+    {
+      key: "card",
+      header: "Card",
+      hideOnMobile: true,
+      cell: (sub) =>
+        sub.cardLast4
+          ? `${cardBrandLabel(sub.cardBrand)} ····${sub.cardLast4}`
+          : "—",
+      cellClassName: "whitespace-nowrap text-charcoal/70 text-[12px]",
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (sub) => (
+        <StatusBadge domain="recurring" status={sub.status} variant="outline" />
+      ),
+    },
+    {
+      key: "open",
+      header: "",
+      align: "right",
+      isAction: true,
+      cell: (sub) => (
+        <Button href={`/admin/recurring/${sub.id}`} variant="outline" size="sm">
+          Open
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <Link
-          href="/admin/reports"
-          className="inline-block text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors mb-2"
-        >
-          ← Reports
-        </Link>
-        <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-          Operations
-        </span>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-          Failed payments
-        </h1>
-        <p className="text-grey text-sm mt-2 max-w-2xl">
-          Donations and recurring renewals where the donor&apos;s card
-          declined. Most common cause is an expired card or insufficient
-          funds. A friendly email or call usually recovers the donation.
-        </p>
-      </div>
+      <PageHeader
+        backHref="/admin/reports"
+        backLabel="Reports"
+        eyebrow="Operations"
+        title="Failed payments"
+        description="Donations and recurring renewals where the donor's card declined. Most common cause is an expired card or insufficient funds. A friendly email or call usually recovers the donation."
+      />
 
-      {/* Stats strip */}
-      <div className="grid sm:grid-cols-2 gap-4 mb-8">
-        <div
-          className={`bg-white border rounded-2xl p-5 ${failedDonations.length > 0 ? "border-amber/40" : "border-charcoal/10"}`}
-        >
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5">
-            Failed one-time donations
-          </p>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-charcoal mb-0.5 leading-tight">
-            {failedDonations.length}
-          </p>
-          <p className="text-[12px] text-charcoal/50">
-            {failedDonations.length === 0
+      {/* Stats strip — two tiles, so a fixed 2-up grid (not StatStrip). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+        <StatCard
+          label="Failed one-time donations"
+          value={failedDonations.length.toString()}
+          hint={
+            failedDonations.length === 0
               ? "nothing to follow up"
-              : "needs trustee attention"}
-          </p>
-        </div>
-        <div
-          className={`bg-white border rounded-2xl p-5 ${pastDueRecurring.length > 0 ? "border-amber/40" : "border-charcoal/10"}`}
-        >
-          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5">
-            Recurring · past due / failed renewal
-          </p>
-          <p className="text-2xl sm:text-3xl font-heading font-bold text-charcoal mb-0.5 leading-tight">
-            {pastDueRecurring.length}
-          </p>
-          <p className="text-[12px] text-charcoal/50">
-            {pastDueRecurring.length === 0
+              : "needs trustee attention"
+          }
+        />
+        <StatCard
+          label="Recurring · past due / failed renewal"
+          value={pastDueRecurring.length.toString()}
+          hint={
+            pastDueRecurring.length === 0
               ? "all subscriptions healthy"
-              : "renewal retry in progress"}
-          </p>
-        </div>
+              : "renewal retry in progress"
+          }
+        />
       </div>
 
-      {/* Failed one-time donations table */}
+      {/* Failed one-time donations */}
       <section className="mb-8">
         <h2 className="text-charcoal font-heading font-semibold text-lg mb-3">
           One-time donations ({failedDonations.length})
         </h2>
-        <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-          {failedDonations.length === 0 ? (
-            <div className="p-8 text-center text-charcoal/50 text-sm">
-              No failed one-time donations. New failures will appear here
-              within seconds of Stripe declining a charge.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-cream border-b border-charcoal/10">
-                  <tr className="text-left">
-                    {[
-                      "Attempted",
-                      "Donor",
-                      "Campaign",
-                      "Amount",
-                      "Receipt",
-                      "",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 sm:px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-charcoal/8">
-                  {failedDonations.map((d) => (
-                    <tr
-                      key={d.id}
-                      className="hover:bg-cream/50 transition-colors"
-                    >
-                      <td className="px-4 sm:px-5 py-4 text-charcoal/70 whitespace-nowrap">
-                        {formatAdminDate(d.createdAt)}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4">
-                        <div className="text-charcoal font-medium">
-                          {d.donorName}
-                        </div>
-                        <div className="text-charcoal/50 text-xs">
-                          <a
-                            href={`mailto:${d.donorEmail}`}
-                            className="hover:underline"
-                          >
-                            {d.donorEmail}
-                          </a>
-                        </div>
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-charcoal/80">
-                        {d.campaignLabel}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-charcoal font-medium whitespace-nowrap">
-                        {formatPence(d.amountPence)}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 font-mono text-[11px] text-charcoal/60">
-                        {d.receiptNumber}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-right">
-                        <Link
-                          href={`/admin/donations/${d.id}`}
-                          className="text-green text-sm font-medium hover:underline whitespace-nowrap"
-                        >
-                          Open →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ResponsiveTable<FailedDonationRow>
+          rows={failedDonations}
+          getRowKey={(d) => d.id}
+          columns={donationColumns}
+          empty={
+            <EmptyState
+              title="No failed one-time donations"
+              description="New failures will appear here within seconds of Stripe declining a charge."
+            />
+          }
+        />
       </section>
 
       {/* Past-due recurring */}
@@ -186,84 +235,17 @@ export default async function AdminFailedPaymentsPage() {
         <h2 className="text-charcoal font-heading font-semibold text-lg mb-3">
           Recurring subscriptions ({pastDueRecurring.length})
         </h2>
-        <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-          {pastDueRecurring.length === 0 ? (
-            <div className="p-8 text-center text-charcoal/50 text-sm">
-              All recurring subscriptions are healthy. Renewal failures
-              will appear here when Stripe&apos;s retry cycle starts.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-cream border-b border-charcoal/10">
-                  <tr className="text-left">
-                    {[
-                      "Donor",
-                      "Campaign",
-                      "Amount / month",
-                      "Card",
-                      "Status",
-                      "",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 sm:px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-charcoal/8">
-                  {pastDueRecurring.map((sub) => (
-                    <tr
-                      key={sub.id}
-                      className="hover:bg-cream/50 transition-colors"
-                    >
-                      <td className="px-4 sm:px-5 py-4">
-                        <div className="text-charcoal font-medium">
-                          {sub.donorName}
-                        </div>
-                        <div className="text-charcoal/50 text-xs">
-                          <a
-                            href={`mailto:${sub.donorEmail}`}
-                            className="hover:underline"
-                          >
-                            {sub.donorEmail}
-                          </a>
-                        </div>
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-charcoal/80">
-                        {sub.campaignLabel}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-charcoal font-medium whitespace-nowrap">
-                        {formatPence(sub.amountPerCyclePence)}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-charcoal/70 whitespace-nowrap text-[12px]">
-                        {sub.cardLast4
-                          ? `${cardBrandLabel(sub.cardBrand)} ····${sub.cardLast4}`
-                          : "—"}
-                      </td>
-                      <td className="px-4 sm:px-5 py-4">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border bg-amber-light text-amber-dark border-amber/30">
-                          {sub.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 sm:px-5 py-4 text-right">
-                        <Link
-                          href={`/admin/recurring/${sub.id}`}
-                          className="text-green text-sm font-medium hover:underline whitespace-nowrap"
-                        >
-                          Open →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ResponsiveTable<RecurringRow>
+          rows={pastDueRecurring}
+          getRowKey={(sub) => sub.id}
+          columns={recurringColumns}
+          empty={
+            <EmptyState
+              title="All recurring subscriptions are healthy"
+              description="Renewal failures will appear here when Stripe's retry cycle starts."
+            />
+          }
+        />
       </section>
     </main>
   );

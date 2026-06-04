@@ -28,6 +28,7 @@ import "server-only";
  */
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
@@ -81,4 +82,56 @@ export async function getSponsorUser(): Promise<User | null> {
     data: { user },
   } = await supabase.auth.getUser();
   return user ?? null;
+}
+
+/**
+ * Whether the current sponsor session must complete a second-factor (TOTP)
+ * challenge: the user has a verified MFA factor (nextLevel aal2) but the
+ * session is still aal1. Fails OPEN on error so a transient MFA-API hiccup
+ * never locks a sponsor out.
+ */
+export async function sponsorNeedsMfaChallenge(): Promise<boolean> {
+  try {
+    const supabase = await createServerSupabase();
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    return Boolean(
+      data && data.currentLevel === "aal1" && data.nextLevel === "aal2"
+    );
+  } catch (err) {
+    // Page guards fail OPEN to avoid a redirect loop locking sponsors out on a
+    // transient MFA-API error (the API routes below use the fail-CLOSED gate).
+    console.error("[supabase-server] AAL check failed:", err);
+    return false;
+  }
+}
+
+/**
+ * Fail-CLOSED MFA gate for sensitive API routes (child media, downloads, GDPR
+ * export). Returns true (= block) when a second factor is owed OR when the AAL
+ * check can't be evaluated — so a transient error can never serve children's
+ * data or full PII to an un-stepped-up session. A blocked sponsor just retries.
+ */
+export async function sponsorMfaBlocked(): Promise<boolean> {
+  try {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) return true;
+    return data.currentLevel === "aal1" && data.nextLevel === "aal2";
+  } catch (err) {
+    console.error("[supabase-server] AAL gate failed — blocking:", err);
+    return true;
+  }
+}
+
+/**
+ * Page guard for protected /sponsor pages: returns the verified user, or
+ * redirects — to /sponsor/login when signed out, or to /sponsor/mfa when a
+ * second factor is enrolled but not yet satisfied this session. Do NOT use on
+ * /sponsor/mfa itself (it would loop) — that page uses getSponsorUser.
+ */
+export async function requireSponsor(): Promise<User> {
+  const user = await getSponsorUser();
+  if (!user) redirect("/sponsor/login");
+  if (await sponsorNeedsMfaChallenge()) redirect("/sponsor/mfa");
+  return user;
 }

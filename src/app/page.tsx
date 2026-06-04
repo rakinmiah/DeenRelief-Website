@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 import Hero from "@/components/Hero";
 import TrustBar from "@/components/TrustBar";
-import FeaturedCampaign from "@/components/FeaturedCampaign";
+import FeaturedCampaignSection from "@/components/FeaturedCampaignSection";
 import FeaturedCampaignCallout from "@/components/FeaturedCampaignCallout";
 import CancerCareCentres from "@/components/CancerCareCentres";
 import GivingPathways from "@/components/GivingPathways";
@@ -73,12 +73,13 @@ export default function Home() {
       <main id="main-content" className="flex-1">
         <Hero />
         <Partners background="cream" />
-        {/* SMM-controlled featured-campaign callout. Renders only when
-            an active campaign is set in /admin/social/featured.
-            Sits above the Palestine-specific FeaturedCampaign block so
-            it's the first thing donors see after the trust bar. */}
+        {/* SMM-controlled featured campaign. The hero (FeaturedCampaignSection)
+            renders the featured campaign's full donation panel when it has
+            hero content; the callout strip only appears as a fallback when
+            the featured campaign has no full hero yet (so it's never shown
+            redundantly above its own hero). */}
         <FeaturedCampaignCallout />
-        <FeaturedCampaign />
+        <FeaturedCampaignSection />
         <CancerCareCentres />
         <GivingPathways />
         <TrustBar />

@@ -6,14 +6,16 @@ import {
   fetchAdminDonationById,
   fetchQurbaniOrderDetails,
   formatAdminDate,
-  type AdminDonationStatus,
 } from "@/lib/admin-donations";
+import { resolveStatus } from "@/lib/admin-status";
 import { formatPence } from "@/lib/bazaar-format";
 import {
   fetchDonationMessages,
   type DonationMessageRow,
 } from "@/lib/donation-messages";
+import { PageHeader, StatusBadge } from "@/components/admin/ui";
 import DonationActionsClient from "./DonationActionsClient";
+import ConfirmOfflineDonationClient from "./ConfirmOfflineDonationClient";
 import DonationMessageClient from "./DonationMessageClient";
 import DeleteDonationClient from "./DeleteDonationClient";
 import MobileActionPanel from "@/components/admin/MobileActionPanel";
@@ -28,20 +30,6 @@ export const dynamic = "force-dynamic";
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const STATUS_STYLES: Record<AdminDonationStatus, string> = {
-  succeeded: "bg-green/10 text-green-dark border-green/30",
-  pending: "bg-amber-light text-amber-dark border-amber/30",
-  failed: "bg-red-50 text-red-700 border-red-200",
-  refunded: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-};
-
-const STATUS_LABEL: Record<AdminDonationStatus, string> = {
-  succeeded: "paid",
-  pending: "pending",
-  failed: "failed",
-  refunded: "refunded",
-};
 
 /**
  * Donation detail — fully wired to real Supabase data.
@@ -81,24 +69,18 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link
-            href="/admin/donations"
-            className="inline-block text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors mb-1"
-          >
-            ← All donations
-          </Link>
-          <h1 className="text-charcoal font-heading font-semibold text-xl sm:text-2xl font-mono">
-            {donation.receiptNumber}
-          </h1>
-        </div>
-        <span
-          className={`inline-block px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[donation.status]}`}
-        >
-          {STATUS_LABEL[donation.status]}
-        </span>
-      </div>
+      <PageHeader
+        backHref="/admin/donations"
+        backLabel="All donations"
+        title={<span className="font-mono">{donation.receiptNumber}</span>}
+        actions={
+          <StatusBadge domain="donation" status={donation.status} variant="outline" />
+        }
+      />
+
+      {donation.source === "offline" && donation.status === "pending" && (
+        <ConfirmOfflineDonationClient donationId={donation.id} />
+      )}
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         {/* Main column */}
@@ -462,7 +444,7 @@ export default async function AdminDonationDetailPage({ params }: RouteParams) {
                 <span className="font-semibold text-charcoal">
                   {formatPence(donation.amountPence)}
                 </span>{" "}
-                · {STATUS_LABEL[donation.status]}
+                · {resolveStatus("donation", donation.status).label}
               </>
             }
           >

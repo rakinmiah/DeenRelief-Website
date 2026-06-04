@@ -116,6 +116,23 @@ export async function setMarketingConsent(input: {
   });
 }
 
+/** Toggle the "email me when there's a new update" preference. */
+export async function setUpdateNotification(input: {
+  sponsorId: string;
+  enabled: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("sponsor_profiles")
+    .update({ notify_new_update: input.enabled })
+    .eq("id", input.sponsorId);
+  if (error) {
+    console.error("[sponsor-consent] setUpdateNotification failed:", error.message);
+    return { ok: false, error: "Couldn't update preference." };
+  }
+  return { ok: true };
+}
+
 /** Raise an export/erasure request on the sponsor's behalf. */
 export async function createDataRequest(input: {
   sponsorId: string;

@@ -1,23 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { requireSponsorshipAccess } from "@/lib/admin-session";
-import {
-  listOrphans,
-  type Orphan,
-  type OrphanStatus,
-} from "@/lib/sponsorship-admin";
+import { listOrphans, type Orphan } from "@/lib/sponsorship-admin";
+import { PageHeader, Button, StatusBadge } from "@/components/admin/ui";
 import { createOrphanAction } from "./actions";
 
 export const metadata: Metadata = { title: "Sponsorship | Deen Relief Admin" };
 export const dynamic = "force-dynamic";
-
-const STATUS_STYLE: Record<OrphanStatus, string> = {
-  available: "bg-grey-light text-grey",
-  sponsored: "bg-green-light text-green",
-  paused: "bg-amber-light text-amber-dark",
-  graduated: "bg-blue-50 text-blue-700",
-  withdrawn: "bg-red-50 text-red-600",
-};
 
 function OrphanRow({ orphan }: { orphan: Orphan }) {
   return (
@@ -41,11 +30,7 @@ function OrphanRow({ orphan }: { orphan: Orphan }) {
           {orphan.ageBand && <span> · age {orphan.ageBand}</span>}
         </p>
       </div>
-      <span
-        className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2 py-1 rounded-full ${STATUS_STYLE[orphan.status]}`}
-      >
-        {orphan.status}
-      </span>
+      <StatusBadge domain="orphan" status={orphan.status} className="shrink-0" />
     </Link>
   );
 }
@@ -58,40 +43,26 @@ export default async function SponsorshipAdminPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <div className="flex items-center justify-between gap-3 mb-1">
-        <h1 className="text-2xl font-heading font-bold text-charcoal">
-          Sponsorship
-        </h1>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/admin/sponsorship/sponsors"
-            className="px-3.5 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors"
-          >
-            Sponsors
-          </Link>
-          <Link
-            href="/admin/sponsorship/data-requests"
-            className="px-3.5 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors"
-          >
-            Data requests
-          </Link>
-          <form action={createOrphanAction}>
-            <input type="hidden" name="displayName" value="" />
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm rounded-lg bg-green text-white font-medium hover:bg-green-dark transition-colors"
-            >
-              + New profile
-            </button>
-          </form>
-        </div>
-      </div>
-      <p className="text-sm text-grey mb-7">
-        Manage orphan profiles, post monthly updates, and link sponsors.
-        Profiles are data-minimised by design — first name or pseudonym,
-        country and broad region only, age band not date of birth. Photos and
-        videos are stored privately and only ever shown to a linked sponsor.
-      </p>
+      <PageHeader
+        title="Sponsorship"
+        description="Manage orphan profiles, post monthly updates, and link sponsors. Profiles are data-minimised by design — first name or pseudonym, country and broad region only, age band not date of birth. Photos and videos are stored privately and only ever shown to a linked sponsor."
+        actions={
+          <>
+            <Button href="/admin/sponsorship/sponsors" variant="outline" size="sm">
+              Sponsors
+            </Button>
+            <Button href="/admin/sponsorship/data-requests" variant="outline" size="sm">
+              Data requests
+            </Button>
+            <form action={createOrphanAction}>
+              <input type="hidden" name="displayName" value="" />
+              <Button type="submit" variant="secondary" size="sm">
+                + New profile
+              </Button>
+            </form>
+          </>
+        }
+      />
 
       <section>
         <h2 className="text-xs font-bold uppercase tracking-wide text-grey mb-2">

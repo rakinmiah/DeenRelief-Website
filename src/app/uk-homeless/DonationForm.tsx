@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import Button from "@/components/Button";
+import DonationUpsell from "@/components/DonationUpsell";
+import { getUpsellChips } from "@/lib/donation-upsell";
+import { UK_HOMELESS_UPSELL } from "./upsell";
 
 export const donationAmounts = {
   "one-time": [
@@ -54,6 +57,16 @@ export default function DonationForm() {
     setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][0].value);
   };
 
+  // "Make your gift go further" — adds a researched increment to the gift; if
+  // the new total lands on a preset we let that preset highlight, otherwise we
+  // surface it in the custom field.
+  const upsellChips = getUpsellChips(amountForUrl, UK_HOMELESS_UPSELL);
+  const handleUpsell = (add: number) => {
+    const next = amountForUrl + add;
+    setSelectedAmount(next);
+    setCustomAmount(amounts.some((a) => a.value === next) ? "" : String(next));
+  };
+
   return (
     <div className="text-center">
       <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">Our Community</span>
@@ -88,6 +101,12 @@ export default function DonationForm() {
           <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
           {currentOutcome}
         </p>
+      )}
+
+      {/* Make your gift go further — adaptive upsell nudges (monthly only;
+          one-time gifts get the static add-on cards at checkout instead). */}
+      {isAmountValid && frequency === "monthly" && (
+        <DonationUpsell chips={upsellChips} onAdd={handleUpsell} />
       )}
 
       {amountForUrl > 0 && isAmountValid && (

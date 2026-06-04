@@ -23,6 +23,9 @@ export type AdminAction =
   | "sign_in_failed"
   | "sign_in_rate_limited"
   | "sign_out"
+  | "admin_password_changed"
+  | "confirm_offline_donation"
+  | "issue_manual_receipt"
   | "view_gift_aid_csv"
   | "view_donations_csv"
   | "view_reconciliation_csv"
@@ -127,6 +130,7 @@ export type AdminAction =
   | "sponsorship_paused"
   | "sponsorship_ended"
   | "sponsor_suspended"
+  | "sponsor_mfa_reset"
   | "sponsor_data_export_fulfilled"
   | "sponsor_erasure_fulfilled";
 
@@ -238,6 +242,33 @@ export async function countRecentLoginFailures(
 }
 
 /**
+ * Count sign_in_failed rows for a given EMAIL in the rate-limit window — a
+ * per-account throttle so an attacker rotating IPs can't get unlimited guesses
+ * against one account. Fail-open (returns 0) on error, like the IP counter.
+ */
+export async function countRecentLoginFailuresByEmail(
+  email: string | null
+): Promise<number> {
+  if (!email) return 0;
+  try {
+    const supabase = getSupabaseAdmin();
+    const cutoff = new Date(
+      Date.now() - LOGIN_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000
+    ).toISOString();
+    const { count, error } = await supabase
+      .from("admin_audit_log")
+      .select("*", { count: "exact", head: true })
+      .eq("action", "sign_in_failed")
+      .ilike("user_email", email.toLowerCase().trim())
+      .gte("created_at", cutoff);
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Audit log row shape for the viewer page. Keeps the column set small
  * — sensitive metadata stays in the jsonb but is rendered only on
  * detail expansion.
@@ -257,22 +288,9 @@ export interface AdminAuditLogRow {
  * Fetch the most-recent N audit log entries for the viewer page.
  * Sorted by created_at DESC — newest first.
  */
-export async function fetchAdminAuditLog(
-  limit = 200
-): Promise<AdminAuditLogRow[]> {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("admin_audit_log")
-    .select("id, user_email, action, target_id, ip, user_agent, metadata, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error("[admin-audit] fetchAdminAuditLog failed:", error);
-    return [];
-  }
-
-  return (data ?? []).map((r) => ({
+/** Map a raw admin_audit_log row to the typed shape. */
+function mapAuditRow(r: Record<string, unknown>): AdminAuditLogRow {
+  return {
     id: r.id as string,
     userEmail: (r.user_email as string | null) ?? null,
     action: r.action as AdminAction,
@@ -281,5 +299,71 @@ export async function fetchAdminAuditLog(
     userAgent: (r.user_agent as string | null) ?? null,
     metadata: (r.metadata as Record<string, unknown> | null) ?? null,
     createdAt: r.created_at as string,
-  }));
+  };
+}
+
+const AUDIT_SELECT =
+  "id, user_email, action, target_id, ip, user_agent, metadata, created_at";
+
+export async function fetchAdminAuditLog(
+  limit = 200
+): Promise<AdminAuditLogRow[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("admin_audit_log")
+    .select(AUDIT_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[admin-audit] fetchAdminAuditLog failed:", error);
+    return [];
+  }
+
+  return (data ?? []).map((r) => mapAuditRow(r as Record<string, unknown>));
+}
+
+export interface AdminAuditLogPage {
+  rows: AdminAuditLogRow[];
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Paginated audit-log fetch. `page` is zero-based. We over-fetch a
+ * single extra row to learn whether a next page exists, avoiding a
+ * separate COUNT query (the log can grow large and exact totals aren't
+ * worth a second round-trip).
+ */
+export async function fetchAdminAuditLogPage(
+  page = 0,
+  pageSize = 50
+): Promise<AdminAuditLogPage> {
+  const safePage = Math.max(0, Math.floor(page));
+  const safeSize = Math.min(200, Math.max(1, Math.floor(pageSize)));
+  const from = safePage * safeSize;
+  // `range` is inclusive on both ends, so this asks for safeSize + 1 rows.
+  const to = from + safeSize;
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("admin_audit_log")
+    .select(AUDIT_SELECT)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error("[admin-audit] fetchAdminAuditLogPage failed:", error);
+    return { rows: [], hasMore: false, page: safePage, pageSize: safeSize };
+  }
+
+  const all = (data ?? []).map((r) => mapAuditRow(r as Record<string, unknown>));
+  const hasMore = all.length > safeSize;
+  return {
+    rows: all.slice(0, safeSize),
+    hasMore,
+    page: safePage,
+    pageSize: safeSize,
+  };
 }

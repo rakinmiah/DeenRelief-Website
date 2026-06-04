@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireRoleAdmin } from "@/lib/admin-session";
 import {
   computeDonationStats,
   fetchAdminDonations,
   formatAdminDate,
+  type AdminDonationRow,
   type AdminDonationStatus,
   type AdminDonationFrequency,
   type DonationFilters,
@@ -12,6 +12,16 @@ import {
 import { formatPence } from "@/lib/bazaar-format";
 import { CAMPAIGNS } from "@/lib/campaigns";
 import PullToRefresh from "@/components/admin/PullToRefresh";
+import {
+  Button,
+  PageHeader,
+  StatusBadge,
+  StatCard,
+  StatStrip,
+  ResponsiveTable,
+  EmptyState,
+  type Column,
+} from "@/components/admin/ui";
 import DonationsFilters from "./DonationsFilters";
 
 export const metadata: Metadata = {
@@ -23,19 +33,33 @@ export const metadata: Metadata = {
 // Supabase — must be dynamic per request, never prerendered.
 export const dynamic = "force-dynamic";
 
-const STATUS_STYLES: Record<AdminDonationStatus, string> = {
-  succeeded: "bg-green/10 text-green-dark border-green/30",
-  pending: "bg-amber-light text-amber-dark border-amber/30",
-  failed: "bg-red-50 text-red-700 border-red-200",
-  refunded: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-};
+/** Small "Monthly" pill shown beside a recurring donation's campaign. */
+function MonthlyTag() {
+  return (
+    <span className="inline-block text-[10px] font-bold uppercase tracking-[0.1em] text-charcoal/60 bg-charcoal/8 px-2 py-0.5 rounded-full">
+      Monthly
+    </span>
+  );
+}
 
-const STATUS_LABEL: Record<AdminDonationStatus, string> = {
-  succeeded: "paid",
-  pending: "pending",
-  failed: "failed",
-  refunded: "refunded",
-};
+/** Gift Aid cell — green tick + reclaimable amount, or an em dash. */
+function giftAidCell(d: AdminDonationRow) {
+  if (d.giftAidClaimed && !d.giftAidDeclarationRevoked) {
+    return (
+      <span className="inline-flex items-center gap-1 text-green-dark text-[11px] font-medium">
+        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            fillRule="evenodd"
+            d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.3a1 1 0 0 0-1.4-1.4L9 10.6 7.7 9.3a1 1 0 0 0-1.4 1.4l2 2a1 1 0 0 0 1.4 0l4-4Z"
+            clipRule="evenodd"
+          />
+        </svg>
+        +{formatPence(d.giftAidReclaimablePence)}
+      </span>
+    );
+  }
+  return <span className="text-charcoal/30 text-[11px]">—</span>;
+}
 
 interface RouteParams {
   searchParams: Promise<{
@@ -177,6 +201,69 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
 
   const justDeleted = rawParams.deleted === "1";
 
+  // Column definitions drive both the desktop table and the mobile
+  // cards. `donor` is the primary (link) column; `amount` is pulled up
+  // beside it on mobile.
+  const donationColumns: Column<AdminDonationRow>[] = [
+    {
+      key: "date",
+      header: "Date",
+      cell: (d) => formatAdminDate(d.chargedAt ?? d.createdAt),
+      cellClassName: "whitespace-nowrap text-charcoal/70",
+    },
+    {
+      key: "receipt",
+      header: "Receipt",
+      hideOnMobile: true,
+      cell: (d) => (
+        <span className="font-mono text-[11px] text-charcoal">{d.receiptNumber}</span>
+      ),
+    },
+    {
+      key: "donor",
+      header: "Donor",
+      primary: true,
+      cell: (d) => (
+        <div>
+          <div className="text-charcoal font-medium">{d.donorName}</div>
+          <div className="text-charcoal/50 text-xs">{d.donorEmail}</div>
+        </div>
+      ),
+    },
+    {
+      key: "campaign",
+      header: "Campaign",
+      cell: (d) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          <span className="text-charcoal/80 text-sm">{d.campaignLabel}</span>
+          {d.frequency === "monthly" && <MonthlyTag />}
+        </span>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      secondary: true,
+      cell: (d) => (
+        <span className="text-charcoal font-semibold whitespace-nowrap">
+          {formatPence(d.amountPence)}
+        </span>
+      ),
+    },
+    {
+      key: "giftaid",
+      header: "Gift Aid",
+      align: "right",
+      cell: (d) => giftAidCell(d),
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (d) => <StatusBadge domain="donation" status={d.status} variant="outline" />,
+    },
+  ];
+
   return (
     <PullToRefresh>
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -186,253 +273,66 @@ export default async function AdminDonationsPage({ searchParams }: RouteParams) 
           of what was removed.
         </p>
       )}
-      {/* Page header */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-            Income
-          </span>
-          <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-            Donations
-          </h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href={exportCsvHref}
-            className="px-4 py-2 rounded-full bg-white border border-charcoal/15 text-charcoal text-sm font-medium hover:bg-charcoal/5 transition-colors"
-          >
-            Export CSV
-          </a>
-          <Link
-            href="/admin/reports/gift-aid"
-            className="px-4 py-2 rounded-full bg-charcoal text-white text-sm font-medium hover:bg-charcoal/90 transition-colors"
-          >
-            Gift Aid export →
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Income"
+        title="Donations"
+        className="mb-6"
+        actions={
+          <>
+            <Button href="/admin/donations/issue-receipt" variant="outline" size="sm">
+              Issue receipt
+            </Button>
+            <Button href={exportCsvHref} prefetch={false} variant="outline" size="sm">
+              Export CSV
+            </Button>
+            <Button href="/admin/reports/gift-aid" size="sm">
+              Gift Aid export →
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[
-          {
-            label: "Last 30 days · count",
-            value: stats.last30dCount.toString(),
-            sub: "donations received",
-          },
-          {
-            label: "Last 30 days · raised",
-            value: formatPence(stats.last30dTotalPence),
-            sub: "before Gift Aid",
-            accent: true,
-          },
-          {
-            label: "Gift Aid reclaimable",
-            value: formatPence(stats.last30dGiftAidReclaimablePence),
-            sub: "from HMRC, last 30 days",
-          },
-          {
-            label: "Active monthly recurring",
-            value: stats.activeRecurringCount.toString(),
-            sub: `${formatPence(stats.activeRecurringMonthlyPence)} / month`,
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className={`bg-white border rounded-2xl p-5 ${s.accent ? "border-amber/40" : "border-charcoal/10"}`}
-          >
-            <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5">
-              {s.label}
-            </p>
-            <p className="text-2xl sm:text-3xl font-heading font-bold text-charcoal mb-0.5 leading-tight">
-              {s.value}
-            </p>
-            <p className="text-[12px] text-charcoal/50">{s.sub}</p>
-          </div>
-        ))}
-      </div>
+      <StatStrip className="mb-8">
+        <StatCard
+          label="Last 30 days · count"
+          value={stats.last30dCount.toString()}
+          hint="donations received"
+        />
+        <StatCard
+          label="Last 30 days · raised"
+          value={formatPence(stats.last30dTotalPence)}
+          hint="before Gift Aid"
+        />
+        <StatCard
+          label="Gift Aid reclaimable"
+          value={formatPence(stats.last30dGiftAidReclaimablePence)}
+          hint="from HMRC, last 30 days"
+        />
+        <StatCard
+          label="Active monthly recurring"
+          value={stats.activeRecurringCount.toString()}
+          hint={`${formatPence(stats.activeRecurringMonthlyPence)} / month`}
+        />
+      </StatStrip>
 
       {/* Filters bar — date range, dimensions popover, donor search */}
       <DonationsFilters availableCampaigns={availableCampaigns} />
 
-      {/* Mobile card list (<md). Stacked cards beat a 6-column
-          table on a 390px viewport — every column would otherwise
-          fight for ~50px and become unreadable. The desktop table
-          below stays untouched. */}
-      <ul className="md:hidden space-y-3">
-        {donations.length === 0 ? (
-          <li className="bg-white border border-charcoal/10 rounded-2xl p-8 text-center text-charcoal/50 text-sm">
-            No donations yet.
-          </li>
-        ) : (
-          donations.map((donation) => (
-            <li key={donation.id}>
-              <Link
-                href={`/admin/donations/${donation.id}`}
-                className="block bg-white border border-charcoal/10 rounded-2xl p-4 hover:border-charcoal/25 active:bg-cream/40 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="min-w-0">
-                    <p className="text-charcoal font-semibold text-base truncate">
-                      {donation.donorName}
-                    </p>
-                    <p className="text-charcoal/50 text-[12px] truncate">
-                      {donation.donorEmail}
-                    </p>
-                  </div>
-                  <p className="text-charcoal font-heading font-semibold text-lg whitespace-nowrap">
-                    {formatPence(donation.amountPence)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-                  <span className="text-charcoal/60">
-                    {formatAdminDate(donation.chargedAt ?? donation.createdAt)}
-                  </span>
-                  <span className="text-charcoal/30">·</span>
-                  <span className="text-charcoal/70">
-                    {donation.campaignLabel}
-                  </span>
-                  {donation.frequency === "monthly" && (
-                    <span className="text-charcoal/30">·</span>
-                  )}
-                  {donation.frequency === "monthly" && (
-                    <span className="font-bold uppercase tracking-wider text-charcoal/60">
-                      Monthly
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <span
-                    className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border ${STATUS_STYLES[donation.status]}`}
-                  >
-                    {STATUS_LABEL[donation.status]}
-                  </span>
-                  {donation.giftAidClaimed && !donation.giftAidDeclarationRevoked && (
-                    <span className="text-green-dark text-[11px] font-medium">
-                      +{formatPence(donation.giftAidReclaimablePence)} Gift Aid
-                    </span>
-                  )}
-                </div>
-              </Link>
-            </li>
-          ))
-        )}
-      </ul>
-
-      {/* Donations table (desktop only) */}
-      <div className="hidden md:block bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-cream border-b border-charcoal/10">
-              <tr className="text-left">
-                {[
-                  "Date",
-                  "Receipt",
-                  "Donor",
-                  "Campaign",
-                  "Amount",
-                  "Gift Aid",
-                  "Status",
-                  "",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 sm:px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-charcoal/8">
-              {donations.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-12 text-center text-charcoal/50 text-sm"
-                  >
-                    No donations yet. New donations will appear here within
-                    seconds of being received.
-                  </td>
-                </tr>
-              ) : (
-                donations.map((donation) => (
-                  <tr
-                    key={donation.id}
-                    className="hover:bg-cream/50 transition-colors"
-                  >
-                    <td className="px-4 sm:px-5 py-4 text-charcoal/70 whitespace-nowrap">
-                      {formatAdminDate(donation.chargedAt ?? donation.createdAt)}
-                    </td>
-                    <td className="px-4 sm:px-5 py-4">
-                      <span className="font-mono text-[11px] text-charcoal">
-                        {donation.receiptNumber}
-                      </span>
-                    </td>
-                    <td className="px-4 sm:px-5 py-4">
-                      <div className="text-charcoal font-medium">
-                        {donation.donorName}
-                      </div>
-                      <div className="text-charcoal/50 text-xs">
-                        {donation.donorEmail}
-                      </div>
-                    </td>
-                    <td className="px-4 sm:px-5 py-4">
-                      <span className="text-charcoal/80 text-sm">
-                        {donation.campaignLabel}
-                      </span>
-                      {donation.frequency === "monthly" && (
-                        <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-charcoal/60 bg-charcoal/8 px-2 py-0.5 rounded-full">
-                          Monthly
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 sm:px-5 py-4 text-charcoal font-medium whitespace-nowrap">
-                      {formatPence(donation.amountPence)}
-                    </td>
-                    <td className="px-4 sm:px-5 py-4 whitespace-nowrap">
-                      {donation.giftAidClaimed && !donation.giftAidDeclarationRevoked ? (
-                        <span className="inline-flex items-center gap-1 text-green-dark text-[11px] font-medium">
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.3a1 1 0 0 0-1.4-1.4L9 10.6 7.7 9.3a1 1 0 0 0-1.4 1.4l2 2a1 1 0 0 0 1.4 0l4-4Z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          +{formatPence(donation.giftAidReclaimablePence)}
-                        </span>
-                      ) : (
-                        <span className="text-charcoal/30 text-[11px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 sm:px-5 py-4">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${STATUS_STYLES[donation.status]}`}
-                      >
-                        {STATUS_LABEL[donation.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 sm:px-5 py-4 text-right">
-                      <Link
-                        href={`/admin/donations/${donation.id}`}
-                        className="text-green text-sm font-medium hover:underline whitespace-nowrap"
-                      >
-                        Open →
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* One definition → desktop table on md+, stacked cards below. */}
+      <ResponsiveTable<AdminDonationRow>
+        rows={donations}
+        getRowKey={(d) => d.id}
+        rowHref={(d) => `/admin/donations/${d.id}`}
+        rowLabel={(d) => `Donation from ${d.donorName}`}
+        columns={donationColumns}
+        empty={
+          <EmptyState
+            title="No donations yet"
+            description="New donations will appear here within seconds of being received."
+          />
+        }
+      />
 
       {donations.length > 0 && (
         <p className="mt-4 text-[11px] text-charcoal/40">

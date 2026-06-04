@@ -3,24 +3,28 @@ import { CAMPAIGNS } from "@/lib/campaigns";
 import { getCampaignReceiptMessage } from "@/lib/campaigns";
 import { CAMPAIGN_LANDING_PATHS } from "@/lib/short-links";
 import { getFeaturedCampaign } from "@/lib/site-config";
+import { getCampaignHero } from "@/lib/campaign-hero";
 
 /**
- * Small horizontal callout strip on the homepage surfacing the
- * currently-featured campaign chosen by the SMM in /admin/social/featured.
+ * Fallback strip surfacing the SMM-chosen featured campaign when that
+ * campaign has NO full homepage hero (src/lib/campaign-hero.ts).
  *
- * Renders nothing when no featured campaign is set — homepage looks
- * exactly as it does today. When set, slots a clean strip above the
- * existing FeaturedCampaign (Palestine-specific) block telling donors
- * "this is what we're actively pushing this week" with a single
- * tap-through to the campaign's landing page.
+ * - Featured campaign WITH a hero → the hero (FeaturedCampaignSection)
+ *   already shows it prominently, so this strip renders nothing (no
+ *   redundant double-billing).
+ * - Featured campaign WITHOUT a hero (e.g. a retired/asset-less campaign)
+ *   → the hero falls back to Palestine, and this strip surfaces the
+ *   featured choice with a tap-through to its landing page.
+ * - Nothing featured → renders nothing.
  *
  * The campaign's short blurb comes from CAMPAIGN_RECEIPT_MESSAGE
- * (already maintained in src/lib/campaigns.ts for the receipt email)
- * — single source of truth for the per-campaign one-line description.
+ * (already maintained in src/lib/campaigns.ts for the receipt email).
  */
 export default async function FeaturedCampaignCallout() {
   const slug = await getFeaturedCampaign();
   if (!slug) return null;
+  // The hero already gives this campaign top billing — don't double up.
+  if (getCampaignHero(slug)) return null;
 
   const label = CAMPAIGNS[slug];
   const destination = CAMPAIGN_LANDING_PATHS[slug];

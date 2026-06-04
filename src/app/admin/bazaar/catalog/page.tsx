@@ -5,6 +5,7 @@ import {
   fetchAdminMakers,
   fetchAdminProducts,
 } from "@/lib/bazaar-catalog";
+import { PageHeader } from "@/components/admin/ui";
 
 export const metadata: Metadata = {
   title: "Catalog | Bazaar Admin",
@@ -34,19 +35,11 @@ export default async function AdminBazaarCatalogPage() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-          Bazaar
-        </span>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-          Catalog
-        </h1>
-        <p className="text-grey text-sm mt-2 max-w-2xl">
-          Products and makers that power the public /bazaar shop.
-          Stock adjustments, variants, and active/hidden toggles all
-          live here.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Bazaar"
+        title="Catalog"
+        description="Products and makers that power the public /bazaar shop. Stock adjustments, variants, and active/hidden toggles all live here."
+      />
 
       <div className="grid sm:grid-cols-2 gap-4">
         <Link

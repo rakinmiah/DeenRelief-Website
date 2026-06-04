@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import Button from "@/components/Button";
+import DonationUpsell from "@/components/DonationUpsell";
+import { getUpsellChips } from "@/lib/donation-upsell";
+import { CANCER_CARE_UPSELL } from "./upsell";
 
 export const donationAmounts = {
   "one-time": [
@@ -58,6 +61,16 @@ export default function DonationForm() {
     setCustomAmount("");
     const defaultAmount = donationAmounts[f].find((a) => a.default);
     setSelectedAmount(defaultAmount?.value ?? donationAmounts[f][1].value);
+  };
+
+  // "Make your gift go further" — adds a researched increment to the gift; if
+  // the new total lands on a preset we let that preset highlight, otherwise we
+  // surface it in the custom field.
+  const upsellChips = getUpsellChips(amountForUrl, CANCER_CARE_UPSELL);
+  const handleUpsell = (add: number) => {
+    const next = amountForUrl + add;
+    setSelectedAmount(next);
+    setCustomAmount(amounts.some((a) => a.value === next) ? "" : String(next));
   };
 
   return (
@@ -188,6 +201,12 @@ export default function DonationForm() {
           </svg>
           {currentOutcome}
         </p>
+      )}
+
+      {/* Make your gift go further — adaptive upsell nudges (monthly only;
+          one-time gifts get the static add-on cards at checkout instead). */}
+      {isAmountValid && frequency === "monthly" && (
+        <DonationUpsell chips={upsellChips} onAdd={handleUpsell} />
       )}
 
       {/* Gift Aid callout */}

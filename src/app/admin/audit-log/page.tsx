@@ -1,11 +1,22 @@
 import type { Metadata } from "next";
 import { requireRoleAdmin } from "@/lib/admin-session";
 import {
-  fetchAdminAuditLog,
+  fetchAdminAuditLogPage,
   type AdminAction,
   type AdminAuditLogRow,
 } from "@/lib/admin-audit";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { TONE_CLASSES, type StatusTone } from "@/lib/admin-status";
+import { cn } from "@/lib/cn";
+import {
+  Button,
+  PageHeader,
+  ResponsiveTable,
+  EmptyState,
+  type Column,
+} from "@/components/admin/ui";
+
+const PAGE_SIZE = 50;
 
 export const metadata: Metadata = {
   title: "Audit log | Deen Relief Admin",
@@ -19,6 +30,9 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   sign_in_failed: "Failed sign-in",
   sign_in_rate_limited: "Sign-in rate-limited",
   sign_out: "Sign-out",
+  admin_password_changed: "Admin password changed",
+  confirm_offline_donation: "Offline donation confirmed",
+  issue_manual_receipt: "Manual receipt issued",
   view_gift_aid_csv: "Gift Aid CSV downloaded",
   view_donations_csv: "Donations CSV downloaded",
   view_reconciliation_csv: "Reconciliation CSV downloaded",
@@ -108,107 +122,156 @@ const ACTION_LABEL: Record<AdminAction, string> = {
   sponsorship_paused: "Sponsorship paused",
   sponsorship_ended: "Sponsorship ended",
   sponsor_suspended: "Sponsor account suspended",
+  sponsor_mfa_reset: "Sponsor 2FA reset",
   sponsor_data_export_fulfilled: "Sponsor data export fulfilled",
   sponsor_erasure_fulfilled: "Sponsor erasure fulfilled",
 };
 
-const ACTION_STYLES: Record<AdminAction, string> = {
-  sign_in: "bg-green/10 text-green-dark border-green/30",
-  sign_in_failed: "bg-amber-light text-amber-dark border-amber/30",
-  sign_in_rate_limited: "bg-red-50 text-red-700 border-red-200",
-  sign_out: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  view_gift_aid_csv: "bg-amber-light text-amber-dark border-amber/30",
-  view_donations_csv: "bg-amber-light text-amber-dark border-amber/30",
-  view_reconciliation_csv: "bg-amber-light text-amber-dark border-amber/30",
-  refund_donation: "bg-red-50 text-red-700 border-red-200",
-  resend_receipt: "bg-green/10 text-green-dark border-green/30",
-  cancel_subscription: "bg-amber-light text-amber-dark border-amber/30",
-  send_portal_link: "bg-green/10 text-green-dark border-green/30",
-  send_donation_message: "bg-green/10 text-green-dark border-green/30",
-  backfill_livemode: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  mark_bazaar_order_shipped: "bg-green/10 text-green-dark border-green/30",
-  update_bazaar_order_notes: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  resend_bazaar_shipping_email: "bg-green/10 text-green-dark border-green/30",
-  mark_bazaar_order_delivered: "bg-green/10 text-green-dark border-green/30",
-  refund_bazaar_order: "bg-red-50 text-red-700 border-red-200",
-  view_click_and_drop_csv: "bg-amber-light text-amber-dark border-amber/30",
-  create_bazaar_maker: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  update_bazaar_maker: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  create_bazaar_product: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  update_bazaar_product: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  create_bazaar_variant: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  update_bazaar_variant: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  delete_bazaar_variant: "bg-amber-light text-amber-dark border-amber/30",
-  adjust_bazaar_stock: "bg-amber-light text-amber-dark border-amber/30",
-  upload_bazaar_image: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  ai_analyze_bazaar_image: "bg-green/10 text-green-dark border-green/30",
-  delete_bazaar_product: "bg-red-50 text-red-700 border-red-200",
-  delete_bazaar_maker: "bg-red-50 text-red-700 border-red-200",
-  send_bazaar_inquiry_reply: "bg-green/10 text-green-dark border-green/30",
-  update_bazaar_inquiry_status: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  log_manual_inquiry_message: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  send_bazaar_order_message: "bg-green/10 text-green-dark border-green/30",
-  push_to_click_and_drop: "bg-blue-50 text-blue-800 border-blue-200",
-  delete_bazaar_order: "bg-red-50 text-red-700 border-red-200",
-  delete_donation: "bg-red-50 text-red-700 border-red-200",
-  upload_media: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  delete_media: "bg-red-50 text-red-700 border-red-200",
-  update_media_metadata: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  short_link_created: "bg-green/10 text-green-dark border-green/30",
-  short_link_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  short_link_restored: "bg-green/10 text-green-dark border-green/30",
-  banner_updated: "bg-amber-light text-amber-dark border-amber/30",
-  featured_campaign_updated: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  spotlight_created: "bg-green/10 text-green-dark border-green/30",
-  spotlight_created_from_post: "bg-green/10 text-green-dark border-green/30",
-  spotlight_extended: "bg-green/10 text-green-dark border-green/30",
-  spotlight_cleared: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  first_response_packet_drafted: "bg-green/10 text-green-dark border-green/30",
-  first_response_event_reviewed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  first_response_event_dismissed: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  first_response_appeal_launched: "bg-red-100 text-red-800 border-red-200",
-  social_post_logged: "bg-green/10 text-green-dark border-green/30",
-  deck_marked_as_posted: "bg-green/10 text-green-dark border-green/30",
-  bio_link_pointed_at_post: "bg-green/10 text-green-dark border-green/30",
-  social_post_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  social_post_restored: "bg-green/10 text-green-dark border-green/30",
-  media_uploaded: "bg-amber-light text-amber-dark border-amber/30",
-  media_saved_to_library: "bg-green/10 text-green-dark border-green/30",
-  media_edited: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  media_archived_from_library: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  media_storage_scan: "bg-amber-light text-amber-dark border-amber/30",
-  media_retag_proposed: "bg-amber-light text-amber-dark border-amber/30",
-  first_response_test_event_created: "bg-amber-light text-amber-dark border-amber/30",
-  first_response_test_events_cleared: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  brand_asset_uploaded: "bg-green/10 text-green-dark border-green/30",
-  brand_asset_archived: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  blog_post_created: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  blog_post_updated: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  blog_post_submitted: "bg-amber-light text-amber-dark border-amber/30",
-  blog_post_published: "bg-green/10 text-green-dark border-green/30",
-  blog_post_unpublished: "bg-amber-light text-amber-dark border-amber/30",
-  blog_post_returned_to_draft: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  blog_post_archived: "bg-red-50 text-red-700 border-red-200",
-  blog_writer_added: "bg-green/10 text-green-dark border-green/30",
-  blog_writer_removed: "bg-red-50 text-red-700 border-red-200",
-  orphan_created: "bg-green/10 text-green-dark border-green/30",
-  orphan_updated: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  orphan_status_changed: "bg-amber-light text-amber-dark border-amber/30",
-  orphan_deleted: "bg-red-50 text-red-700 border-red-200",
-  orphan_update_created: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  orphan_update_updated: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  orphan_update_published: "bg-green/10 text-green-dark border-green/30",
-  orphan_update_unpublished: "bg-amber-light text-amber-dark border-amber/30",
-  orphan_media_uploaded: "bg-charcoal/8 text-charcoal/60 border-charcoal/15",
-  orphan_media_deleted: "bg-red-50 text-red-700 border-red-200",
-  sponsor_invited: "bg-green/10 text-green-dark border-green/30",
-  sponsorship_linked: "bg-green/10 text-green-dark border-green/30",
-  sponsorship_paused: "bg-amber-light text-amber-dark border-amber/30",
-  sponsorship_ended: "bg-amber-light text-amber-dark border-amber/30",
-  sponsor_suspended: "bg-red-50 text-red-700 border-red-200",
-  sponsor_data_export_fulfilled: "bg-green/10 text-green-dark border-green/30",
-  sponsor_erasure_fulfilled: "bg-red-50 text-red-700 border-red-200",
+// Audit "actions" aren't lifecycle statuses, so they live here rather
+// than in admin-status — but they reuse the shared tone palette
+// (outline variant) so the colours match the rest of the admin.
+const ACTION_TONE: Record<AdminAction, StatusTone> = {
+  sign_in: "positive",
+  sign_in_failed: "warning",
+  sign_in_rate_limited: "critical",
+  sign_out: "neutral",
+  admin_password_changed: "warning",
+  confirm_offline_donation: "positive",
+  issue_manual_receipt: "neutral",
+  view_gift_aid_csv: "warning",
+  view_donations_csv: "warning",
+  view_reconciliation_csv: "warning",
+  refund_donation: "critical",
+  resend_receipt: "positive",
+  cancel_subscription: "warning",
+  send_portal_link: "positive",
+  send_donation_message: "positive",
+  backfill_livemode: "neutral",
+  mark_bazaar_order_shipped: "positive",
+  update_bazaar_order_notes: "neutral",
+  resend_bazaar_shipping_email: "positive",
+  mark_bazaar_order_delivered: "positive",
+  refund_bazaar_order: "critical",
+  view_click_and_drop_csv: "warning",
+  create_bazaar_maker: "neutral",
+  update_bazaar_maker: "neutral",
+  create_bazaar_product: "neutral",
+  update_bazaar_product: "neutral",
+  create_bazaar_variant: "neutral",
+  update_bazaar_variant: "neutral",
+  delete_bazaar_variant: "warning",
+  adjust_bazaar_stock: "warning",
+  upload_bazaar_image: "neutral",
+  ai_analyze_bazaar_image: "positive",
+  delete_bazaar_product: "critical",
+  delete_bazaar_maker: "critical",
+  send_bazaar_inquiry_reply: "positive",
+  update_bazaar_inquiry_status: "neutral",
+  log_manual_inquiry_message: "neutral",
+  send_bazaar_order_message: "positive",
+  push_to_click_and_drop: "info",
+  delete_bazaar_order: "critical",
+  delete_donation: "critical",
+  upload_media: "neutral",
+  delete_media: "critical",
+  update_media_metadata: "neutral",
+  short_link_created: "positive",
+  short_link_archived: "neutral",
+  short_link_restored: "positive",
+  banner_updated: "warning",
+  featured_campaign_updated: "neutral",
+  spotlight_created: "positive",
+  spotlight_created_from_post: "positive",
+  spotlight_extended: "positive",
+  spotlight_cleared: "neutral",
+  first_response_packet_drafted: "positive",
+  first_response_event_reviewed: "neutral",
+  first_response_event_dismissed: "neutral",
+  first_response_appeal_launched: "critical",
+  social_post_logged: "positive",
+  deck_marked_as_posted: "positive",
+  bio_link_pointed_at_post: "positive",
+  social_post_archived: "neutral",
+  social_post_restored: "positive",
+  media_uploaded: "warning",
+  media_saved_to_library: "positive",
+  media_edited: "neutral",
+  media_archived_from_library: "neutral",
+  media_storage_scan: "warning",
+  media_retag_proposed: "warning",
+  first_response_test_event_created: "warning",
+  first_response_test_events_cleared: "neutral",
+  brand_asset_uploaded: "positive",
+  brand_asset_archived: "neutral",
+  blog_post_created: "neutral",
+  blog_post_updated: "neutral",
+  blog_post_submitted: "warning",
+  blog_post_published: "positive",
+  blog_post_unpublished: "warning",
+  blog_post_returned_to_draft: "neutral",
+  blog_post_archived: "critical",
+  blog_writer_added: "positive",
+  blog_writer_removed: "critical",
+  orphan_created: "positive",
+  orphan_updated: "neutral",
+  orphan_status_changed: "warning",
+  orphan_deleted: "critical",
+  orphan_update_created: "neutral",
+  orphan_update_updated: "neutral",
+  orphan_update_published: "positive",
+  orphan_update_unpublished: "warning",
+  orphan_media_uploaded: "neutral",
+  orphan_media_deleted: "critical",
+  sponsor_invited: "positive",
+  sponsorship_linked: "positive",
+  sponsorship_paused: "warning",
+  sponsorship_ended: "warning",
+  sponsor_suspended: "critical",
+  sponsor_mfa_reset: "warning",
+  sponsor_data_export_fulfilled: "positive",
+  sponsor_erasure_fulfilled: "critical",
 };
+
+/** Action pill — reuses the shared outline tone classes. */
+function AuditActionBadge({ action }: { action: AdminAction }) {
+  const tone = ACTION_TONE[action] ?? "neutral";
+  const label = ACTION_LABEL[action] ?? action;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold",
+        TONE_CLASSES.outline[tone]
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Expandable metadata / user-agent cell. */
+function AuditDetail({ row }: { row: AdminAuditLogRow }) {
+  const hasMeta = row.metadata && Object.keys(row.metadata).length > 0;
+  if (!hasMeta && !row.userAgent) {
+    return <span className="text-charcoal/30 text-[11px]">—</span>;
+  }
+  return (
+    <details className="text-[11px]">
+      <summary className="cursor-pointer text-charcoal/60 hover:text-charcoal transition-colors">
+        View
+      </summary>
+      {hasMeta && (
+        <pre className="mt-2 p-2 bg-cream rounded-lg text-[10px] text-charcoal/70 whitespace-pre-wrap break-words max-w-[28rem] overflow-x-auto">
+          {JSON.stringify(row.metadata, null, 2)}
+        </pre>
+      )}
+      {row.userAgent && (
+        <p className="mt-2 text-[10px] text-charcoal/40 italic break-all">
+          UA: {row.userAgent}
+        </p>
+      )}
+    </details>
+  );
+}
 
 /**
  * Audit log viewer.
@@ -218,147 +281,143 @@ const ACTION_STYLES: Record<AdminAction, string> = {
  * The metadata jsonb is rendered as collapsed JSON in a <details>
  * element so trustees can drill in without bloating the row height.
  *
- * Filtering: Phase 4 — for now the table fits on one page at our
- * scale and trustees can Ctrl-F. Add server-side filters once the log
- * exceeds a few thousand rows.
+ * Pagination: 50 rows per page, newest first, navigated via ?page=N
+ * (zero-based). hasMore is detected by over-fetching one row, so there's
+ * no separate COUNT query. Server-side filtering is a later phase.
  */
-export default async function AdminAuditLogPage() {
+export default async function AdminAuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   await requireRoleAdmin();
-  const rows = await fetchAdminAuditLog(200);
-
-  return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-          Compliance
-        </span>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-          Audit log
-        </h1>
-        <p className="text-grey text-sm mt-2 max-w-2xl">
-          Every admin action is recorded here. Sign-ins (including
-          failures), refunds, subscription cancellations, Gift Aid CSV
-          downloads — anything privileged. Use this when answering
-          &quot;who looked at this donor&apos;s record?&quot; or
-          investigating a credential leak.
-        </p>
-      </div>
-
-      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-        {rows.length === 0 ? (
-          <div className="p-8 text-center text-charcoal/50 text-sm">
-            No admin actions logged yet. The first entry will be your
-            sign-in.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-cream border-b border-charcoal/10">
-                <tr className="text-left">
-                  {[
-                    "When",
-                    "Who",
-                    "Action",
-                    "Target",
-                    "IP",
-                    "Detail",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 sm:px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-charcoal/8">
-                {rows.map((row) => (
-                  <AuditRow key={row.id} row={row} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {rows.length > 0 && (
-        <p className="mt-4 text-[11px] text-charcoal/40">
-          Showing the {rows.length} most recent actions. Older entries
-          remain in the database.
-        </p>
-      )}
-    </main>
+  const sp = await searchParams;
+  const requestedPage = Number.parseInt(sp.page ?? "0", 10);
+  const { rows, hasMore, page } = await fetchAdminAuditLogPage(
+    Number.isFinite(requestedPage) ? requestedPage : 0,
+    PAGE_SIZE
   );
-}
 
-function AuditRow({ row }: { row: AdminAuditLogRow }) {
-  const actionStyle =
-    ACTION_STYLES[row.action] ??
-    "bg-charcoal/8 text-charcoal/60 border-charcoal/15";
-  const actionLabel = ACTION_LABEL[row.action] ?? row.action;
-
-  return (
-    <tr className="hover:bg-cream/50 transition-colors align-top">
-      <td className="px-4 sm:px-5 py-4 text-charcoal/70 whitespace-nowrap">
-        {formatAdminDate(row.createdAt)}
-      </td>
-      <td className="px-4 sm:px-5 py-4">
-        {row.userEmail ? (
+  const columns: Column<AdminAuditLogRow>[] = [
+    {
+      key: "when",
+      header: "When",
+      secondary: true,
+      cell: (row) => formatAdminDate(row.createdAt),
+      cellClassName: "whitespace-nowrap text-charcoal/70 align-top",
+    },
+    {
+      key: "who",
+      header: "Who",
+      cell: (row) =>
+        row.userEmail ? (
           <span className="text-charcoal text-[12px]">{row.userEmail}</span>
         ) : (
-          <span className="text-charcoal/40 text-[11px] italic">
-            scripted / bearer
-          </span>
-        )}
-      </td>
-      <td className="px-4 sm:px-5 py-4">
-        <span
-          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium uppercase tracking-wider border ${actionStyle}`}
-        >
-          {actionLabel}
-        </span>
-      </td>
-      <td className="px-4 sm:px-5 py-4">
-        {row.targetId ? (
+          <span className="text-charcoal/40 text-[11px] italic">scripted / bearer</span>
+        ),
+      cellClassName: "align-top",
+    },
+    {
+      key: "action",
+      header: "Action",
+      primary: true,
+      cell: (row) => <AuditActionBadge action={row.action} />,
+      cellClassName: "align-top",
+    },
+    {
+      key: "target",
+      header: "Target",
+      cell: (row) =>
+        row.targetId ? (
           <span className="font-mono text-[11px] text-charcoal/70 break-all">
             {row.targetId}
           </span>
         ) : (
           <span className="text-charcoal/30 text-[11px]">—</span>
-        )}
-      </td>
-      <td className="px-4 sm:px-5 py-4 text-charcoal/60 text-[11px] font-mono whitespace-nowrap">
-        {row.ip ?? "—"}
-      </td>
-      <td className="px-4 sm:px-5 py-4">
-        {row.metadata && Object.keys(row.metadata).length > 0 ? (
-          <details className="text-[11px]">
-            <summary className="cursor-pointer text-charcoal/60 hover:text-charcoal transition-colors">
-              View
-            </summary>
-            <pre className="mt-2 p-2 bg-cream rounded-lg text-[10px] text-charcoal/70 whitespace-pre-wrap break-words max-w-[28rem] overflow-x-auto">
-              {JSON.stringify(row.metadata, null, 2)}
-            </pre>
-            {row.userAgent && (
-              <p className="mt-2 text-[10px] text-charcoal/40 italic break-all">
-                UA: {row.userAgent}
-              </p>
+        ),
+      cellClassName: "align-top",
+    },
+    {
+      key: "ip",
+      header: "IP",
+      cell: (row) => row.ip ?? "—",
+      cellClassName: "text-charcoal/60 text-[11px] font-mono whitespace-nowrap align-top",
+    },
+    {
+      key: "detail",
+      header: "Detail",
+      isAction: true,
+      cell: (row) => <AuditDetail row={row} />,
+      cellClassName: "align-top",
+    },
+  ];
+
+  return (
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageHeader
+        eyebrow="Compliance"
+        title="Audit log"
+        description={
+          <>
+            Every admin action is recorded here. Sign-ins (including failures),
+            refunds, subscription cancellations, Gift Aid CSV downloads —
+            anything privileged. Use this when answering &quot;who looked at
+            this donor&apos;s record?&quot; or investigating a credential leak.
+          </>
+        }
+      />
+
+      <ResponsiveTable<AdminAuditLogRow>
+        rows={rows}
+        getRowKey={(row) => row.id}
+        columns={columns}
+        empty={
+          <EmptyState
+            title={page > 0 ? "Nothing on this page" : "No admin actions logged yet"}
+            description={
+              page > 0
+                ? "You've reached the end of the log."
+                : "The first entry will be your sign-in."
+            }
+          />
+        }
+      />
+
+      {(rows.length > 0 || page > 0) && (
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <p className="text-[11px] text-charcoal/40">
+            Page {page + 1} · {PAGE_SIZE} per page · newest first
+          </p>
+          <div className="flex items-center gap-2">
+            {page > 0 ? (
+              <Button
+                href={`/admin/audit-log?page=${page - 1}`}
+                variant="outline"
+                size="sm"
+              >
+                ← Newer
+              </Button>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-charcoal/10 px-3 py-1.5 text-sm font-semibold text-charcoal/30">
+                ← Newer
+              </span>
             )}
-          </details>
-        ) : row.userAgent ? (
-          <details className="text-[11px]">
-            <summary className="cursor-pointer text-charcoal/60 hover:text-charcoal transition-colors">
-              View
-            </summary>
-            <p className="mt-2 text-[10px] text-charcoal/40 italic break-all">
-              UA: {row.userAgent}
-            </p>
-          </details>
-        ) : (
-          <span className="text-charcoal/30 text-[11px]">—</span>
-        )}
-      </td>
-    </tr>
+            {hasMore ? (
+              <Button
+                href={`/admin/audit-log?page=${page + 1}`}
+                variant="outline"
+                size="sm"
+              >
+                Older →
+              </Button>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-charcoal/10 px-3 py-1.5 text-sm font-semibold text-charcoal/30">
+                Older →
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

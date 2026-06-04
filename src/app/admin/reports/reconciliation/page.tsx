@@ -10,6 +10,14 @@ import {
 } from "@/lib/admin-reconciliation";
 import { formatPence } from "@/lib/bazaar-format";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { cn } from "@/lib/cn";
+import {
+  Button,
+  PageHeader,
+  ResponsiveTable,
+  EmptyState,
+  type Column,
+} from "@/components/admin/ui";
 import ReconciliationFiltersClient from "./ReconciliationFiltersClient";
 
 export const metadata: Metadata = {
@@ -18,6 +26,8 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+type ReconRow = Awaited<ReturnType<typeof fetchReconciliationRows>>[number];
 
 /**
  * Reconciliation report — combined donations + bazaar trading
@@ -109,33 +119,114 @@ export default async function AdminReconciliationPage({
   const refundsTileActive =
     filters.subset === "refunds" && !filters.type;
 
+  const columns: Column<ReconRow>[] = [
+    {
+      key: "date",
+      header: "Date",
+      cell: (r) => formatAdminDate(r.date),
+      cellClassName: "whitespace-nowrap text-charcoal/70",
+    },
+    {
+      key: "type",
+      header: "Type",
+      cell: (r) => (
+        <span
+          className={cn(
+            "inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.1em] border",
+            r.type === "donation"
+              ? "bg-green/10 text-green-dark border-green/30"
+              : "bg-amber-light text-amber-dark border-amber/30"
+          )}
+        >
+          {r.type === "donation" ? "Donation" : "Bazaar"}
+        </span>
+      ),
+    },
+    {
+      key: "reference",
+      header: "Reference",
+      primary: true,
+      cell: (r) => (
+        <Link
+          href={
+            r.type === "donation"
+              ? `/admin/donations/${r.id}`
+              : `/admin/bazaar/orders/${r.id}`
+          }
+          className="font-mono text-xs text-green hover:underline"
+        >
+          {r.receiptNumber}
+        </Link>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      cell: (r) => (
+        <div>
+          <div className="text-charcoal text-[13px]">{r.customerName}</div>
+          <div className="text-charcoal/50 text-[11px] break-all">{r.customerEmail}</div>
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      secondary: true,
+      cell: (r) => (
+        <span
+          className={cn(
+            "font-semibold whitespace-nowrap tabular-nums",
+            r.isIncome ? "text-charcoal" : "text-red-700"
+          )}
+        >
+          {r.isIncome ? "" : "−"}
+          {formatPence(r.amountPence)}
+        </span>
+      ),
+    },
+    {
+      key: "campaign",
+      header: "Campaign",
+      cell: (r) => (
+        <span className="text-charcoal/70 text-[12px]">{r.campaign ?? "—"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      cell: (r) => (
+        <span className="text-charcoal/70 text-[12px] capitalize">
+          {r.status.replace(/_/g, " ")}
+        </span>
+      ),
+    },
+    {
+      key: "stripePi",
+      header: "Stripe PI",
+      hideOnMobile: true,
+      cell: (r) => (
+        <span className="font-mono text-[11px] text-charcoal/50 break-all">
+          {r.stripePaymentIntent ?? "—"}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Page header */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link
-            href="/admin/reports"
-            className="text-charcoal/60 hover:text-charcoal text-xs uppercase tracking-[0.1em] font-bold transition-colors"
-          >
-            ← All reports
-          </Link>
-          <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl mt-1">
-            Reconciliation
-          </h1>
-          <p className="text-grey text-sm mt-2 max-w-2xl">
-            Donation income and bazaar trading income side by side, in
-            one report. Pick a date range, then export the CSV for the
-            accountant&apos;s ledger.
-          </p>
-        </div>
-        <a
-          href={exportHref}
-          className="px-4 py-2 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/90 transition-colors whitespace-nowrap"
-        >
-          Export CSV
-        </a>
-      </div>
+      <PageHeader
+        backHref="/admin/reports"
+        backLabel="All reports"
+        title="Reconciliation"
+        description="Donation income and bazaar trading income side by side, in one report. Pick a date range, then export the CSV for the accountant's ledger."
+        actions={
+          <Button href={exportHref} prefetch={false} size="sm">
+            Export CSV
+          </Button>
+        }
+      />
 
       {/* Stats strip — each tile is a clickable filter shortcut */}
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
@@ -257,101 +348,13 @@ export default async function AdminReconciliationPage({
       </p>
 
       {/* Table */}
-      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden">
-        {rows.length === 0 ? (
-          <div className="p-12 text-center text-charcoal/60 text-sm">
-            No transactions in this range.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[920px]">
-              <thead className="bg-cream border-b border-charcoal/10">
-                <tr className="text-left">
-                  {[
-                    "Date",
-                    "Type",
-                    "Reference",
-                    "Customer",
-                    "Amount",
-                    "Campaign",
-                    "Status",
-                    "Stripe PI",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3 font-bold uppercase tracking-[0.1em] text-charcoal/60 text-[11px] whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-charcoal/8">
-                {rows.map((r) => (
-                  <tr
-                    key={`${r.type}-${r.id}`}
-                    className={`hover:bg-cream/50 transition-colors ${
-                      !r.isIncome ? "bg-red-50/30" : ""
-                    }`}
-                  >
-                    <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
-                      {formatAdminDate(r.date)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.1em] border ${
-                          r.type === "donation"
-                            ? "bg-green/10 text-green-dark border-green/30"
-                            : "bg-amber-light text-amber-dark border-amber/30"
-                        }`}
-                      >
-                        {r.type === "donation" ? "Donation" : "Bazaar"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <Link
-                        href={
-                          r.type === "donation"
-                            ? `/admin/donations/${r.id}`
-                            : `/admin/bazaar/orders/${r.id}`
-                        }
-                        className="font-mono text-xs text-green hover:underline"
-                      >
-                        {r.receiptNumber}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="text-charcoal text-[13px]">
-                        {r.customerName}
-                      </div>
-                      <div className="text-charcoal/50 text-[11px] break-all">
-                        {r.customerEmail}
-                      </div>
-                    </td>
-                    <td
-                      className={`px-5 py-3 font-medium whitespace-nowrap tabular-nums ${
-                        r.isIncome ? "text-charcoal" : "text-red-700"
-                      }`}
-                    >
-                      {r.isIncome ? "" : "−"}
-                      {formatPence(r.amountPence)}
-                    </td>
-                    <td className="px-5 py-3 text-charcoal/70 text-[12px]">
-                      {r.campaign ?? "—"}
-                    </td>
-                    <td className="px-5 py-3 text-charcoal/70 text-[12px] capitalize">
-                      {r.status.replace(/_/g, " ")}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-[11px] text-charcoal/50 break-all">
-                      {r.stripePaymentIntent ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <ResponsiveTable<ReconRow>
+        rows={rows}
+        getRowKey={(r) => `${r.type}-${r.id}`}
+        rowClassName={(r) => (!r.isIncome ? "bg-red-50/30" : undefined)}
+        columns={columns}
+        empty={<EmptyState title="No transactions in this range" />}
+      />
 
       {rows.length > 0 && (
         <p className="mt-4 text-[11px] text-charcoal/40">

@@ -45,6 +45,9 @@ import {
 } from "@/lib/analytics";
 import { convertGbpForDisplay, isUKDonor } from "@/lib/geo";
 import MonthlyCommitmentModal from "./MonthlyCommitmentModal";
+import UpsellInterstitial from "./UpsellInterstitial";
+import { getCheckoutUpsellCards } from "./checkout-upsell-cards";
+import type { UpsellCard } from "@/lib/donation-upsell";
 
 const stripePromise: Promise<Stripe | null> = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
@@ -494,6 +497,18 @@ function CheckoutForm({
     [amountGbp]
   );
 
+  // Confirm-step upsell — ONE-TIME gifts on campaigns that have cards
+  // (orphan, palestine, cancer-care, uk-homeless). On the first valid Pay click
+  // we open the interstitial; once the donor picks a card or skips,
+  // `upsellResolved` flips so a retry (e.g. after a card decline) goes straight
+  // to payment using `resolvedAddon`.
+  const checkoutUpsellCards = getCheckoutUpsellCards(campaign);
+  const isOneTimeUpsell =
+    frequency === "one-time" && checkoutUpsellCards !== null;
+  const [showUpsell, setShowUpsell] = useState(false);
+  const [upsellResolved, setUpsellResolved] = useState(false);
+  const [resolvedAddon, setResolvedAddon] = useState<UpsellCard | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -529,7 +544,52 @@ function CheckoutForm({
       return;
     }
 
+    // Form is valid — offer the one-off add-on once before charging.
+    if (isOneTimeUpsell && !upsellResolved) {
+      setShowUpsell(true);
+      return;
+    }
+
+    await processPayment(resolvedAddon);
+  };
+
+  // Bump the PaymentIntent amount (if an add-on was chosen), store the donor,
+  // then confirm with Stripe. Extracted from handleSubmit so the interstitial
+  // can drive it directly. If the amount bump fails we fall back to the
+  // original amount rather than blocking the donation.
+  const processPayment = async (addon: UpsellCard | null) => {
+    setShowUpsell(false);
+    setError(null);
+
+    if (!stripe || !elements || !paymentIntentId) {
+      setError("Payment form not ready. Please refresh and try again.");
+      return;
+    }
+
     setSubmitting(true);
+
+    let finalAmount = amountGbp;
+    if (addon) {
+      try {
+        const res = await fetch("/api/donations/update-intent-amount", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentIntentId,
+            amount: Math.round((amountGbp + addon.add) * 100),
+            campaign,
+            upsellItem: addon.id,
+          }),
+        });
+        if (res.ok) finalAmount = amountGbp + addon.add;
+        else console.warn("[upsell] amount bump rejected; keeping original amount.");
+      } catch (err) {
+        console.warn("[upsell] amount bump failed; keeping original amount.", err);
+      }
+    }
+    // Declaration text embeds the amount, so rebuild it for the final total.
+    const finalDeclarationText =
+      finalAmount === amountGbp ? declarationText : buildDeclarationText(finalAmount);
 
     try {
       // Store donor + pending donation BEFORE confirming payment. If confirm
@@ -548,7 +608,7 @@ function CheckoutForm({
           postcode: postcode.trim().toUpperCase(),
         },
         giftAid: giftAidEnabled
-          ? { enabled: true, scope: GIFT_AID_SCOPE, declarationText }
+          ? { enabled: true, scope: GIFT_AID_SCOPE, declarationText: finalDeclarationText }
           : { enabled: false },
         marketingConsent: false,
       };
@@ -866,6 +926,23 @@ function CheckoutForm({
         By donating you confirm the payment details above are correct. Your card
         is charged in GBP by Deen Relief (Charity No. 1158608).
       </p>
+
+      {showUpsell && (
+        <UpsellInterstitial
+          cards={checkoutUpsellCards ?? []}
+          baseAmountGbp={amountGbp}
+          onSelect={(card) => {
+            setUpsellResolved(true);
+            setResolvedAddon(card);
+            processPayment(card);
+          }}
+          onSkip={() => {
+            setUpsellResolved(true);
+            setResolvedAddon(null);
+            processPayment(null);
+          }}
+        />
+      )}
     </form>
   );
 }

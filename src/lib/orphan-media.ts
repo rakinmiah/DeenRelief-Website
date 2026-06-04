@@ -80,7 +80,7 @@ export function orphanMediaKindFromMime(mime: string): OrphanMediaKind {
 /** Upload a binary to the PRIVATE bucket. Throws on failure. */
 export async function uploadOrphanMedia(
   storagePath: string,
-  body: ArrayBuffer | Blob | File,
+  body: ArrayBuffer | Blob | File | Buffer | Uint8Array,
   mimeType: string
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
@@ -120,6 +120,44 @@ export async function createSignedOrphanMediaUrl(
 }
 
 /**
+ * Download the raw bytes of a private object (service-role). Used by the
+ * sponsor download endpoint to watermark photos before sending them.
+ */
+export async function downloadOrphanMediaBytes(
+  storagePath: string
+): Promise<Buffer | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.storage
+    .from(ORPHAN_MEDIA_BUCKET)
+    .download(storagePath);
+  if (error || !data) {
+    console.error("[orphan-media] download failed:", error?.message);
+    return null;
+  }
+  return Buffer.from(await data.arrayBuffer());
+}
+
+/**
+ * Signed URL that forces a download (Content-Disposition: attachment) with the
+ * given filename. Used for videos, which we can't watermark on the fly.
+ */
+export async function createSignedDownloadUrl(
+  storagePath: string,
+  filename: string,
+  ttlSeconds: number = DEFAULT_SIGNED_URL_TTL_SECONDS
+): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.storage
+    .from(ORPHAN_MEDIA_BUCKET)
+    .createSignedUrl(storagePath, ttlSeconds, { download: filename });
+  if (error || !data?.signedUrl) {
+    console.error("[orphan-media] createSignedDownloadUrl failed:", error?.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+/**
  * Remove an object from the private bucket. Best-effort: logs on failure
  * but doesn't throw (an orphaned object is harmless and sweepable).
  */
@@ -147,7 +185,7 @@ export async function logChildMediaAccess(input: {
   sponsorId: string;
   orphanId: string;
   mediaId?: string | null;
-  action: "view_profile" | "signed_url_issued";
+  action: "view_profile" | "signed_url_issued" | "downloaded";
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<void> {

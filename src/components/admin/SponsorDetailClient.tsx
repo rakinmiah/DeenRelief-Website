@@ -6,6 +6,7 @@ import {
   linkSponsorshipAction,
   setSponsorshipStatusAction,
   resendActivationAction,
+  resetSponsorMfaAction,
 } from "@/app/admin/sponsorship/actions";
 import type { SponsorshipStatus, SponsorStatus } from "@/lib/sponsorship-admin";
 
@@ -41,6 +42,7 @@ export default function SponsorDetailClient({
   const [subId, setSubId] = useState("");
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resettingMfa, setResettingMfa] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function handleResend() {
@@ -52,6 +54,27 @@ export default function SponsorDetailClient({
       result.ok
         ? { ok: true, text: "Activation email re-sent." }
         : { ok: false, text: result.error ?? "Couldn't send." }
+    );
+  }
+
+  async function handleResetMfa() {
+    const ok = window.confirm(
+      "Reset this sponsor's two-factor authentication? They'll sign in with just their password until they set it up again. Only do this after verifying their identity."
+    );
+    if (!ok) return;
+    setResettingMfa(true);
+    setMsg(null);
+    const result = await resetSponsorMfaAction(sponsorId);
+    setResettingMfa(false);
+    setMsg(
+      result.ok
+        ? {
+            ok: true,
+            text: result.removed
+              ? `Two-factor authentication reset (${result.removed} removed).`
+              : "No two-factor authentication was set up.",
+          }
+        : { ok: false, text: result.error ?? "Couldn't reset 2FA." }
     );
   }
 
@@ -99,13 +122,22 @@ export default function SponsorDetailClient({
                 : `Status: ${status}.`}
             </p>
           </div>
-          <button
-            onClick={handleResend}
-            disabled={resending}
-            className="px-4 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors disabled:opacity-60"
-          >
-            {resending ? "Sending…" : "Resend activation email"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleResetMfa}
+              disabled={resettingMfa}
+              className="px-4 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-amber-dark hover:text-amber-dark transition-colors disabled:opacity-60"
+            >
+              {resettingMfa ? "Resetting…" : "Reset 2FA"}
+            </button>
+            <button
+              onClick={handleResend}
+              disabled={resending}
+              className="px-4 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors disabled:opacity-60"
+            >
+              {resending ? "Sending…" : "Resend activation email"}
+            </button>
+          </div>
         </div>
         {msg && (
           <p

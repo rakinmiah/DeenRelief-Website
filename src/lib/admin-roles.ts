@@ -38,23 +38,35 @@ export function isValidRole(value: unknown): value is AdminRole {
 }
 
 /**
- * Look up (or bootstrap) the role for a given admin email.
+ * Resolved login info for an admin email: the role plus per-user
+ * password state (migration 035). `passwordHash` is null when the
+ * account uses the shared role passphrase (the default / legacy
+ * behaviour); set when the account signs in with its own password.
+ */
+export interface AdminLoginInfo {
+  role: AdminRole;
+  passwordHash: string | null;
+  mustChange: boolean;
+}
+
+/**
+ * Look up (or bootstrap) the login info for a given admin email.
  *
  * Behaviour:
- *   - If a row exists in admin_users for this email → return its role
- *     (and update last_login_at as a side-effect).
+ *   - If a row exists in admin_users for this email → return its role +
+ *     password state (and update last_login_at as a side-effect).
  *   - If no row exists but the email is in the ADMIN_ALLOWED_EMAILS
- *     env var → auto-create an admin_users row with role='admin' and
- *     return 'admin'. This is the bootstrap path for trustees set up
- *     under the old env-var-only system.
+ *     env var → auto-create an admin_users row with role='admin' (no
+ *     per-user password) and return it. Bootstrap path for trustees set
+ *     up under the old env-var-only system.
  *   - Otherwise → return null (caller should reject the login).
  *
  * Email comparison is case-insensitive; the unique index on
  * lower(email) enforces this at the DB level too.
  */
-export async function resolveAdminRoleForLogin(
+export async function resolveAdminLogin(
   email: string
-): Promise<AdminRole | null> {
+): Promise<AdminLoginInfo | null> {
   const normalised = email.toLowerCase().trim();
   if (!normalised) return null;
 
@@ -63,7 +75,7 @@ export async function resolveAdminRoleForLogin(
   // 1. Look up existing row.
   const { data: existing, error: lookupErr } = await supabase
     .from("admin_users")
-    .select("id, role")
+    .select("id, role, password_hash, must_change_password")
     .ilike("email", normalised)
     .maybeSingle();
 
@@ -84,7 +96,11 @@ export async function resolveAdminRoleForLogin(
       .from("admin_users")
       .update({ last_login_at: new Date().toISOString() })
       .eq("id", existing.id);
-    return existing.role;
+    return {
+      role: existing.role,
+      passwordHash: (existing.password_hash as string | null) ?? null,
+      mustChange: existing.must_change_password === true,
+    };
   }
 
   // 2. No row — fall back to env-var bootstrap (admin only).
@@ -114,7 +130,18 @@ export async function resolveAdminRoleForLogin(
     );
   }
 
-  return "admin";
+  return { role: "admin", passwordHash: null, mustChange: false };
+}
+
+/**
+ * Thin wrapper returning just the role. Retained for callers that don't
+ * need the password state.
+ */
+export async function resolveAdminRoleForLogin(
+  email: string
+): Promise<AdminRole | null> {
+  const info = await resolveAdminLogin(email);
+  return info?.role ?? null;
 }
 
 /**

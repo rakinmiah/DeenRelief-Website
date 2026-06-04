@@ -15,8 +15,11 @@ import {
   getMediaRowById,
   deleteMediaRow,
   getOrphanById,
+  getUpdateById,
   getSponsorById,
+  listUpdateEmailRecipients,
   setSponsorStatus,
+  resetSponsorMfa,
   createSponsorshipLink,
   setSponsorshipStatus,
   markDataRequestFulfilled,
@@ -26,6 +29,7 @@ import {
 } from "@/lib/sponsorship-admin";
 import { deleteOrphanMedia } from "@/lib/orphan-media";
 import { provisionSponsorAndSendActivation } from "@/lib/sponsor-onboarding";
+import { sendSponsorUpdateEmail } from "@/lib/sponsor-update-email";
 
 /**
  * Server actions for /admin/sponsorship.
@@ -117,10 +121,43 @@ export async function publishUpdateAction(
   updateId: string
 ): Promise<{ ok: boolean; error?: string }> {
   const session = await requireSponsorshipAccess();
+  const before = await getUpdateById(updateId);
   const result = await publishUpdate(updateId);
   if (!result.ok) return result;
   await audit("orphan_update_published", session.email, updateId, {});
+
+  // Email linked, opted-in sponsors — but ONLY on the first-ever publish
+  // (publishedAt still null beforehand), so re-publishing never re-notifies.
+  if (before && !before.publishedAt) {
+    await notifySponsorsOfUpdate(before.orphanId, before.periodLabel);
+  }
   return { ok: true };
+}
+
+/** Fire-and-forget: email a child's active, opted-in sponsors about a new
+ *  update. Never throws — a notification failure must not fail publishing. */
+async function notifySponsorsOfUpdate(
+  orphanId: string,
+  periodLabel: string | null
+): Promise<void> {
+  try {
+    const orphan = await getOrphanById(orphanId);
+    if (!orphan) return;
+    const recipients = await listUpdateEmailRecipients(orphanId);
+    await Promise.allSettled(
+      recipients.map((r) =>
+        sendSponsorUpdateEmail({
+          toEmail: r.email,
+          toName: r.fullName,
+          childName: orphan.displayName,
+          orphanSlug: orphan.slug,
+          periodLabel,
+        })
+      )
+    );
+  } catch (err) {
+    console.error("[sponsorship] update notification failed:", err);
+  }
 }
 
 export async function unpublishUpdateAction(
@@ -269,6 +306,19 @@ export async function suspendSponsorAction(
   await audit("sponsor_suspended", session.email, sponsorId, {});
   revalidatePath(`/admin/sponsorship/sponsors/${sponsorId}`);
   return { ok: true };
+}
+
+/** Clear a sponsor's 2FA factors (recovery for a lost authenticator). */
+export async function resetSponsorMfaAction(
+  sponsorId: string
+): Promise<{ ok: boolean; error?: string; removed?: number }> {
+  const session = await requireSponsorshipAccess();
+  const result = await resetSponsorMfa(sponsorId);
+  if (!result.ok) return { ok: false, error: result.error };
+  await audit("sponsor_mfa_reset", session.email, sponsorId, {
+    removed: result.removed,
+  });
+  return { ok: true, removed: result.removed };
 }
 
 // ─────────────────────────────────────────────────────────────────

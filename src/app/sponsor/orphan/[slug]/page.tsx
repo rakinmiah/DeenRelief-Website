@@ -1,115 +1,59 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { createServerSupabase, getSponsorUser } from "@/lib/supabase-server";
-import { logChildMediaAccess } from "@/lib/orphan-media";
-import { clientIpFromRequest } from "@/lib/admin-audit";
-import MediaPlayer from "./MediaPlayer";
+import { createSignedOrphanMediaUrl } from "@/lib/orphan-media";
+import { loadOrphanContext, loadUpdates, loadGallery, snippet } from "./data";
+import { formatMonthYear, durationBare } from "./format";
+import CardPhotoPreview from "./CardPhotoPreview";
 
-export const metadata: Metadata = { title: "Updates" };
+export const metadata: Metadata = { title: "Your sponsored child" };
 export const dynamic = "force-dynamic";
 
-interface MediaItem {
-  id: string;
-  kind: "photo" | "video";
-  caption: string | null;
-}
-interface UpdateItem {
-  id: string;
-  title: string;
-  bodyHtml: string;
-  periodLabel: string | null;
-  publishedAt: string | null;
-  media: MediaItem[];
-}
-
-function formatWhen(iso: string | null): string {
-  if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+function Chevron() {
+  return (
+    <svg
+      className="w-5 h-5 text-charcoal/30 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
+  );
 }
 
-export default async function OrphanProfilePage({
+const cardCls =
+  "block rounded-2xl border border-charcoal/8 bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5";
+
+export default async function OrphanHubPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const user = await getSponsorUser();
-  if (!user) redirect("/sponsor/login");
   const { slug } = await params;
+  const { orphan, startedOn } = await loadOrphanContext(slug);
+  const base = `/sponsor/orphan/${slug}`;
 
-  const supabase = await createServerSupabase();
+  const [heroUrl, updates, gallery] = await Promise.all([
+    orphan.profilePhotoPath
+      ? createSignedOrphanMediaUrl(orphan.profilePhotoPath)
+      : Promise.resolve(null),
+    loadUpdates(orphan.id),
+    loadGallery(orphan.id),
+  ]);
 
-  // RLS: returns the orphan ONLY if this sponsor is actively linked.
-  const { data: orphan } = await supabase
-    .from("orphans")
-    .select("id, slug, display_name, country, region, age_band, bio")
-    .eq("slug", slug)
-    .maybeSingle();
-  if (!orphan) notFound();
-
-  // Published updates for this child (RLS also enforces published + link).
-  const { data: updateRows } = await supabase
-    .from("orphan_updates")
-    .select("id, title, body_html, period_label, published_at")
-    .eq("orphan_id", orphan.id)
-    .eq("published", true)
-    .order("published_at", { ascending: false });
-
-  const updateIds = (updateRows ?? []).map((u) => u.id as string);
-  let mediaByUpdate = new Map<string, MediaItem[]>();
-  if (updateIds.length > 0) {
-    const { data: mediaRows } = await supabase
-      .from("orphan_update_media")
-      .select("id, update_id, kind, caption, sort_order")
-      .in("update_id", updateIds)
-      .order("sort_order", { ascending: true });
-    mediaByUpdate = (mediaRows ?? []).reduce((acc, m) => {
-      const list = acc.get(m.update_id as string) ?? [];
-      list.push({
-        id: m.id as string,
-        kind: m.kind as "photo" | "video",
-        caption: (m.caption as string) ?? null,
-      });
-      acc.set(m.update_id as string, list);
-      return acc;
-    }, new Map<string, MediaItem[]>());
-  }
-
-  const updates: UpdateItem[] = (updateRows ?? []).map((u) => ({
-    id: u.id as string,
-    title: (u.title as string) ?? "",
-    bodyHtml: (u.body_html as string) ?? "",
-    periodLabel: (u.period_label as string) ?? null,
-    publishedAt: (u.published_at as string) ?? null,
-    media: mediaByUpdate.get(u.id as string) ?? [],
-  }));
-
-  // Safeguarding access log (fire-and-forget).
-  const h = await headers();
-  const fauxReq = new Request("http://server.local", {
-    headers: {
-      "user-agent": h.get("user-agent") ?? "",
-      "x-forwarded-for": h.get("x-forwarded-for") ?? "",
-    },
-  });
-  await logChildMediaAccess({
-    sponsorId: user.id,
-    orphanId: orphan.id as string,
-    action: "view_profile",
-    ip: clientIpFromRequest(fauxReq),
-    userAgent: h.get("user-agent"),
-  });
+  const name = orphan.displayName;
+  const initial = name?.trim()?.[0]?.toUpperCase() ?? "•";
+  const place = [orphan.country, orphan.region].filter(Boolean).join(" · ");
+  const latest = updates[0];
+  const previewIds = gallery.filter((g) => g.kind === "photo").slice(0, 3).map((g) => g.id);
 
   return (
     <div className="bg-white">
-      {/* Header band */}
-      <section className="bg-cream border-b border-charcoal/5">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+      {/* ── Hero ── */}
+      <section className="bg-cream">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-7 pb-9 md:pt-10 md:pb-12">
           <Link
             href="/sponsor/dashboard"
             className="inline-flex items-center gap-1 text-sm font-medium text-grey hover:text-green transition-colors"
@@ -117,87 +61,127 @@ export default async function OrphanProfilePage({
             ← Your sponsorships
           </Link>
 
-          <span className="block mt-6 text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-2">
-            The child you sponsor
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-heading font-bold text-charcoal leading-[1.05]">
-            {orphan.display_name as string}
-          </h1>
-          <p className="text-grey text-base mt-2">
-            {[orphan.country, orphan.region].filter(Boolean).join(" · ")}
-            {orphan.age_band && <span> · age {orphan.age_band as string}</span>}
-          </p>
+          <div className="mt-7 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
+            {heroUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={heroUrl}
+                alt={name}
+                className="w-28 h-28 sm:w-36 sm:h-36 rounded-3xl object-cover shadow-md ring-1 ring-charcoal/5 shrink-0"
+              />
+            ) : (
+              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-3xl bg-green/10 ring-1 ring-charcoal/5 shadow-sm flex items-center justify-center shrink-0">
+                <span className="font-heading font-bold text-4xl text-green/70">{initial}</span>
+              </div>
+            )}
+            <div className="min-w-0">
+              <span className="block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-1.5">
+                The child you sponsor
+              </span>
+              <h1 className="text-4xl sm:text-5xl font-heading font-bold text-charcoal leading-[1.03]">
+                {name}
+              </h1>
+              {(place || orphan.ageBand) && (
+                <p className="text-grey text-base mt-2">
+                  {place}
+                  {place && orphan.ageBand ? " · " : ""}
+                  {orphan.ageBand ? `age ${orphan.ageBand}` : ""}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {startedOn && (
+            <div className="mt-6 flex items-center gap-2.5 text-sm text-charcoal/80">
+              <span className="w-2 h-2 rounded-full bg-amber shrink-0" aria-hidden />
+              <span>
+                Together since{" "}
+                <strong className="text-charcoal">{formatMonthYear(startedOn)}</strong> ·{" "}
+                {durationBare(startedOn)}
+              </span>
+            </div>
+          )}
+
           {orphan.bio ? (
             <div
-              className="dr-prose mt-5"
-              dangerouslySetInnerHTML={{ __html: orphan.bio as string }}
+              className="dr-prose mt-5 max-w-2xl"
+              dangerouslySetInnerHTML={{ __html: orphan.bio }}
             />
           ) : null}
         </div>
       </section>
 
-      {/* Updates */}
-      <section className="bg-white">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 md:py-16">
-          <div className="flex items-start gap-2.5 rounded-2xl bg-amber-light/50 border border-amber/20 px-4 py-3 mb-10">
-            <svg
-              className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-dark"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.7}
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-              />
-            </svg>
-            <p className="text-[13px] text-amber-dark leading-relaxed">
-              These updates and media are shared with you in confidence. Please
-              keep them private and do not share or republish them.
-            </p>
-          </div>
-
-          {updates.length === 0 ? (
-            <p className="text-grey text-center py-12">
-              No updates yet — we&apos;ll post the first one soon.
-            </p>
-          ) : (
-            <div className="space-y-12">
-              {updates.map((u) => (
-                <article key={u.id}>
-                  <span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-green mb-2">
-                    {u.periodLabel || formatWhen(u.publishedAt)}
-                  </span>
-                  <h2 className="text-2xl font-heading font-bold text-charcoal leading-tight mb-4">
-                    {u.title || "Update"}
-                  </h2>
-                  {u.media.length > 0 && (
-                    <div className="space-y-4 mb-5">
-                      {u.media.map((m) => (
-                        <MediaPlayer
-                          key={m.id}
-                          mediaId={m.id}
-                          kind={m.kind}
-                          caption={m.caption}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {u.bodyHtml ? (
-                    <div
-                      className="dr-prose"
-                      dangerouslySetInnerHTML={{ __html: u.bodyHtml }}
-                    />
-                  ) : null}
-                </article>
-              ))}
+      {/* ── Section cards ── */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 md:py-10 space-y-4">
+        {/* Updates */}
+        <Link href={`${base}/updates`} className={`${cardCls} p-5`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-green">
+                Updates
+              </span>
+              {latest ? (
+                <>
+                  <h3 className="text-lg font-heading font-bold text-charcoal leading-snug mt-1">
+                    {latest.title || "Latest update"}
+                  </h3>
+                  <p className="text-sm text-grey/90 mt-1 line-clamp-2">
+                    {snippet(latest.bodyHtml)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-grey mt-1">
+                  No updates yet — we&apos;ll post the first one soon.
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      </section>
+            <Chevron />
+          </div>
+        </Link>
+
+        {/* Photos & videos */}
+        <Link href={`${base}/photos`} className={`${cardCls} overflow-hidden`}>
+          {previewIds.length > 0 && <CardPhotoPreview ids={previewIds} />}
+          <div className="flex items-center justify-between gap-4 p-5">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-green">
+                Photos &amp; videos
+              </span>
+              <p className="text-sm text-grey/90 mt-0.5">
+                {gallery.length > 0
+                  ? `${gallery.length} ${gallery.length === 1 ? "item" : "items"}`
+                  : "No photos or videos yet"}
+              </p>
+            </div>
+            <Chevron />
+          </div>
+        </Link>
+
+        {/* Your support */}
+        <Link href="/sponsor/account" className={`${cardCls} p-5`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-green">
+                Your support
+              </span>
+              <p className="text-sm text-grey/90 mt-1">
+                {startedOn
+                  ? `Supporting ${name} since ${formatMonthYear(startedOn)}. Manage your sponsorship.`
+                  : `Manage your monthly sponsorship of ${name}.`}
+              </p>
+            </div>
+            <Chevron />
+          </div>
+        </Link>
+
+        {/* Confidentiality */}
+        <p className="flex items-center justify-center gap-1.5 text-xs text-grey/60 pt-4">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+          Shared with you in confidence — please keep these private.
+        </p>
+      </div>
     </div>
   );
 }

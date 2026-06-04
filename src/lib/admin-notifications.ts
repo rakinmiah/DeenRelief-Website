@@ -30,6 +30,17 @@ export type NotificationType =
   // not as urgent as an unfulfilled order but a missed reply
   // hurts the brand promise on the bazaar contact page.
   | "bazaar_inquiry_new"
+  // A donation payment just succeeded — a one-time gift, the first
+  // payment of a newly-started monthly subscription, or a monthly
+  // renewal. Emitted from the Stripe webhook's dispatchReceipt(), the
+  // same event that sends the donor receipt. Severity "info": it's a
+  // good-news heads-up for trustees, not an action item.
+  | "donation_new"
+  // A donor submitted the offline Gift Aid declaration form (bank
+  // transfer / cash). Creates a PENDING donation that needs an admin to
+  // confirm the money arrived before it counts or is claimed. Severity
+  // "warning" — it's an action item sitting in the review queue.
+  | "donation_offline_pending"
   // Resend failed to send a customer-facing email. Emitted by the
   // donation + bazaar email senders in their error branch. Severity
   // "urgent" because a failed send means a customer didn't receive

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { requireSponsorshipAccess } from "@/lib/admin-session";
@@ -7,6 +6,7 @@ import {
   listSponsorshipsForSponsor,
   listOrphans,
 } from "@/lib/sponsorship-admin";
+import { PageHeader, StatusBadge } from "@/components/admin/ui";
 import SponsorDetailClient from "@/components/admin/SponsorDetailClient";
 
 export const metadata: Metadata = { title: "Sponsor | Deen Relief Admin" };
@@ -35,19 +35,22 @@ export default async function SponsorDetailPage({
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <Link
-        href="/admin/sponsorship/sponsors"
-        className="text-sm text-grey hover:text-charcoal transition-colors"
-      >
-        ← Sponsors
-      </Link>
-      <h1 className="mt-3 text-2xl font-heading font-bold text-charcoal">
-        {sponsor.fullName || sponsor.contactEmail}
-      </h1>
-      <p className="text-sm text-grey mb-6">
-        {sponsor.contactEmail} · {sponsor.status}
-        {sponsor.stripeCustomerId ? ` · ${sponsor.stripeCustomerId}` : ""}
-      </p>
+      <PageHeader
+        backHref="/admin/sponsorship/sponsors"
+        backLabel="Sponsors"
+        title={sponsor.fullName || sponsor.contactEmail}
+        description={
+          <span className="inline-flex items-center gap-2 flex-wrap">
+            {sponsor.contactEmail}
+            <StatusBadge domain="sponsor" status={sponsor.status} />
+            {sponsor.stripeCustomerId && (
+              <span className="font-mono text-xs text-charcoal/50">
+                {sponsor.stripeCustomerId}
+              </span>
+            )}
+          </span>
+        }
+      />
 
       <SponsorDetailClient
         sponsorId={id}

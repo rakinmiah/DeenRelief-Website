@@ -10,6 +10,7 @@ import {
   type MediaKind,
 } from "@/lib/dr-media";
 import { formatAdminDate } from "@/lib/admin-donations";
+import { PageHeader, EmptyState } from "@/components/admin/ui";
 import MediaUploaderClient from "./MediaUploaderClient";
 import MediaDeleteButton from "./MediaDeleteButton";
 
@@ -59,18 +60,11 @@ export default async function AdminMediaPage({
         </p>
       )}
 
-      <div className="mb-8">
-        <span className="block text-[11px] font-bold tracking-[0.15em] uppercase text-amber-dark mb-1">
-          Assets
-        </span>
-        <h1 className="text-charcoal font-heading font-bold text-2xl sm:text-3xl">
-          Media library
-        </h1>
-        <p className="text-grey text-sm mt-2 max-w-2xl">
-          Photos, videos, and documents uploaded by the team. Public
-          URLs — paste them anywhere. Drop new files below.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Assets"
+        title="Media library"
+        description="Photos, videos, and documents uploaded by the team. Public URLs — paste them anywhere. Drop new files below."
+      />
 
       <div className="mb-8">
         <MediaUploaderClient />
@@ -102,11 +96,14 @@ export default async function AdminMediaPage({
       </div>
 
       {media.length === 0 ? (
-        <div className="bg-white border border-charcoal/10 rounded-2xl p-12 text-center text-charcoal/60 text-sm">
-          {search || tag || kind
-            ? "No files match those filters."
-            : "No files yet. Drop the first one above."}
-        </div>
+        <EmptyState
+          title={search || tag || kind ? "No matching files" : "No files yet"}
+          description={
+            search || tag || kind
+              ? "No files match those filters."
+              : "Drop the first one above to get started."
+          }
+        />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {media.map((m) => (

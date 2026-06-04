@@ -1,24 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { requireBlogAccess } from "@/lib/admin-session";
-import { listPosts, type AdminBlogPost, type BlogStatus } from "@/lib/blog-admin";
+import { listPosts, type AdminBlogPost } from "@/lib/blog-admin";
+import { PageHeader, Button, StatusBadge } from "@/components/admin/ui";
 import { createDraftAction } from "./actions";
 
 export const metadata: Metadata = { title: "Blog | Deen Relief Admin" };
 export const dynamic = "force-dynamic";
-
-const STATUS_LABEL: Record<BlogStatus, string> = {
-  draft: "Draft",
-  in_review: "In review",
-  published: "Published",
-  archived: "Archived",
-};
-const STATUS_STYLE: Record<BlogStatus, string> = {
-  draft: "bg-grey-light text-grey",
-  in_review: "bg-amber-light text-amber-dark",
-  published: "bg-green-light text-green",
-  archived: "bg-red-50 text-red-600",
-};
 
 function formatWhen(iso: string): string {
   if (!iso) return "";
@@ -47,11 +35,7 @@ function PostRow({ post, showAuthor }: { post: AdminBlogPost; showAuthor: boolea
           Updated {formatWhen(post.updatedAt)}
         </p>
       </div>
-      <span
-        className={`shrink-0 text-[10px] font-bold tracking-wide uppercase px-2 py-1 rounded-full ${STATUS_STYLE[post.status]}`}
-      >
-        {STATUS_LABEL[post.status]}
-      </span>
+      <StatusBadge domain="blog" status={post.status} className="shrink-0" />
     </Link>
   );
 }
@@ -70,32 +54,28 @@ export default async function BlogAdminPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <div className="flex items-center justify-between gap-3 mb-1">
-        <h1 className="text-2xl font-heading font-bold text-charcoal">Blog</h1>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Link
-              href="/admin/blog/writers"
-              className="px-3.5 py-2 text-sm rounded-lg border border-charcoal/15 text-charcoal hover:border-green hover:text-green transition-colors"
-            >
-              Writers
-            </Link>
-          )}
-          <form action={createDraftAction}>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm rounded-lg bg-green text-white font-medium hover:bg-green-dark transition-colors"
-            >
-              + New post
-            </button>
-          </form>
-        </div>
-      </div>
-      <p className="text-sm text-grey mb-7">
-        {isAdmin
-          ? "Review submissions, publish posts, and manage your writers."
-          : "Write posts and submit them for review. An editor publishes them."}
-      </p>
+      <PageHeader
+        title="Blog"
+        description={
+          isAdmin
+            ? "Review submissions, publish posts, and manage your writers."
+            : "Write posts and submit them for review. An editor publishes them."
+        }
+        actions={
+          <>
+            {isAdmin && (
+              <Button href="/admin/blog/writers" variant="outline" size="sm">
+                Writers
+              </Button>
+            )}
+            <form action={createDraftAction}>
+              <Button type="submit" variant="secondary" size="sm">
+                + New post
+              </Button>
+            </form>
+          </>
+        }
+      />
 
       {/* Admin review queue */}
       {isAdmin && needsReview.length > 0 && (

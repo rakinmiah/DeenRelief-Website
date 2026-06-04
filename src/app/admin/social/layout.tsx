@@ -1,16 +1,19 @@
-import type { ReactNode } from "react";
-import { requireSocialSectionAccess } from "@/lib/admin-session";
+import { requireSocialAccess } from "@/lib/admin-session";
+
+export const dynamic = "force-dynamic";
 
 /**
- * Server guard for the whole Social section. The /admin/social/* area is
- * restricted to the single ops account (info@deenrelief.org) — any other
- * signed-in user is redirected to a safe landing before the page renders.
- * This is the real boundary; the nav-hiding in AdminShell is UX only.
- *
- * Transparent wrapper: it adds no markup, so the section's own full-bleed
- * editors / pages render exactly as before.
+ * Section guard for /admin/social/*. The social tools are restricted to
+ * the SOCIAL_ALLOWED_EMAILS allow-list (info@ + socialmedia@), so a
+ * general admin (e.g. a trustee like Melissa or Ola) who navigates here
+ * directly is redirected away. This is the single hard-enforcement
+ * point — the nav also hides the link, but this blocks URL access.
  */
-export default async function SocialSectionLayout({ children }: { children: ReactNode }) {
-  await requireSocialSectionAccess();
+export default async function AdminSocialLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  await requireSocialAccess();
   return <>{children}</>;
 }
