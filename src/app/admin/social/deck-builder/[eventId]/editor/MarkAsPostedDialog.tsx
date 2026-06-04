@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  createTrackedLinkForEvent,
   markDeckAsPosted,
   type DeckRecipeEntry,
 } from "@/app/admin/social/posts/actions";
@@ -54,6 +55,35 @@ export default function MarkAsPostedDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const [createLinkError, setCreateLinkError] = useState<string | null>(null);
+
+  // Auto-make a tracked link from the news story this post was built from, and
+  // select it — so she doesn't have to detour to the Short links page.
+  async function autoCreateLink() {
+    if (!eventId) return;
+    setCreatingLink(true);
+    setCreateLinkError(null);
+    const res = await createTrackedLinkForEvent({ eventId, platform });
+    setCreatingLink(false);
+    if (!res.ok) {
+      setCreateLinkError(res.error);
+      return;
+    }
+    setLinks((prev) => [
+      {
+        id: res.link.id,
+        slug: res.link.slug,
+        campaignSlug: res.link.campaignSlug,
+        platform: res.link.platform,
+        notes: null,
+      },
+      ...prev.filter((l) => l.id !== res.link.id),
+    ]);
+    setShortLinkId(res.link.id);
+    setCreatedSlug(res.link.slug);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -144,8 +174,9 @@ export default function MarkAsPostedDialog({
         ) : (
           <>
             <p className="text-[12.5px] text-charcoal/55 leading-relaxed mb-4">
-              Pick the short link you put in the caption so we can track this
-              post&apos;s clicks and donations.
+              Pick the short link you put in the caption — or make one for this
+              story in a tap — so we can track this post&apos;s clicks and
+              donations.
             </p>
 
             <label className="block text-[12px] font-medium text-charcoal/55 mb-1.5">
@@ -165,8 +196,32 @@ export default function MarkAsPostedDialog({
                 </option>
               ))}
             </select>
+
+            {/* One-tap: make + select a tracked link from this news story. */}
+            {eventId && !createdSlug && (
+              <button
+                type="button"
+                onClick={autoCreateLink}
+                disabled={creatingLink}
+                className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-green-dark hover:text-green disabled:opacity-50 transition-colors"
+              >
+                {creatingLink
+                  ? "Making a link…"
+                  : "✨ Make a tracked link for this post"}
+              </button>
+            )}
+            {createdSlug && (
+              <p className="text-[11.5px] text-green-dark mt-1.5">
+                Created <span className="font-mono">/r/{createdSlug}</span> and
+                selected it — put that link in your caption.
+              </p>
+            )}
+            {createLinkError && (
+              <p className="text-[11px] text-red-600 mt-1.5">{createLinkError}</p>
+            )}
+
             {!shortLinkId && (
-              <p className="text-[11px] text-amber-dark mb-3">
+              <p className="text-[11px] text-amber-dark mt-2 mb-3">
                 Without a short link there&apos;s no click/donation tracking —
                 the post is logged for the design record only.
               </p>

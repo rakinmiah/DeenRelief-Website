@@ -13,8 +13,14 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
-import { isValidCampaign } from "@/lib/campaigns";
+import { isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import { isSocialPlatform } from "@/lib/social-performance";
+import { getEmergencyEventById } from "@/lib/first-response";
+import {
+  CAMPAIGN_LANDING_PATHS,
+  buildShortLinkUrl,
+  isShortLinkPlatform,
+} from "@/lib/short-links";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 export type SocialPostActionResult =
@@ -267,6 +273,128 @@ export async function markDeckAsPosted(
   revalidatePath("/admin/social/performance");
   revalidatePath("/admin/social/posts");
   return { ok: true, postId: result.id };
+}
+
+/* ─── Auto-create a tracked link from a news event ──────────────── */
+
+export interface CreatedTrackedLink {
+  id: string;
+  slug: string;
+  campaignSlug: string | null;
+  platform: string | null;
+  url: string;
+}
+
+/** Turn an event title into a clean short-link slug (lowercase, a–z/0–9/-,
+ *  trimmed, ≤40 chars so a collision suffix still fits). */
+function slugifyForLink(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip accents
+    .replace(/[^a-z0-9]+/g, "-") // non-alphanumeric → hyphen
+    .replace(/^-+|-+$/g, "") // trim leading/trailing hyphens
+    .replace(/-{2,}/g, "-") // collapse runs
+    .slice(0, 40)
+    .replace(/-+$/g, ""); // re-trim after the slice
+}
+
+/**
+ * One-tap tracked link for an event-backed post — so the SMM doesn't have to
+ * make one by hand before her post can be tracked. The destination is the
+ * event's matched campaign page (or /donate if nothing matched); the slug comes
+ * from the event title with a collision-safe fallback. Returns the created link
+ * so the caller can drop it into the dropdown and select it.
+ */
+export async function createTrackedLinkForEvent(input: {
+  eventId: string;
+  platform: string;
+}): Promise<
+  { ok: true; link: CreatedTrackedLink } | { ok: false; error: string }
+> {
+  try {
+    const session = await requireAdminSession();
+    if (!input.eventId || !UUID_RE.test(input.eventId)) {
+      return { ok: false, error: "This post isn't linked to a news story." };
+    }
+    const event = await getEmergencyEventById(input.eventId);
+    if (!event) return { ok: false, error: "News story not found." };
+
+    // Destination = the event's matched campaign page; /donate if none.
+    const campaignSlug = (event.matchedCampaigns ?? []).find((c) =>
+      isValidCampaign(c)
+    ) as CampaignSlug | undefined;
+    const destinationUrl = campaignSlug
+      ? CAMPAIGN_LANDING_PATHS[campaignSlug]
+      : "/donate";
+
+    const platform =
+      input.platform && isShortLinkPlatform(input.platform)
+        ? input.platform
+        : null;
+
+    // Clean slug from the title; fall back to the campaign, then a generic.
+    const base =
+      slugifyForLink(event.title) ||
+      (campaignSlug ? slugifyForLink(campaignSlug) : "appeal");
+    const idToken = input.eventId.replace(/-/g, "").slice(0, 6);
+    const candidates = [base, `${base}-2`, `${base}-3`, `${base}-4`, `${base}-${idToken}`];
+
+    const supabase = getSupabaseAdmin();
+    for (const slug of candidates) {
+      const { data, error } = await supabase
+        .from("short_links")
+        .insert({
+          slug,
+          destination_url: destinationUrl,
+          campaign_slug: campaignSlug ?? null,
+          platform,
+          notes: `Auto-created for: ${event.title}`.slice(0, 240),
+          created_by_email: session.email,
+        })
+        .select("id, slug, campaign_slug, platform")
+        .single<{
+          id: string;
+          slug: string;
+          campaign_slug: string | null;
+          platform: string | null;
+        }>();
+
+      if (!error && data) {
+        await logAdminAction({
+          action: "short_link_created",
+          userEmail: session.email,
+          metadata: { slug: data.slug, eventId: input.eventId, auto: true },
+        });
+        revalidatePath("/admin/social/links");
+        return {
+          ok: true,
+          link: {
+            id: data.id,
+            slug: data.slug,
+            campaignSlug: data.campaign_slug,
+            platform: data.platform,
+            url: buildShortLinkUrl(data.slug),
+          },
+        };
+      }
+      // 23505 = slug already taken → try the next candidate. Anything else → bail.
+      if ((error as { code?: string } | null)?.code !== "23505") {
+        console.error("[createTrackedLinkForEvent] insert failed:", error);
+        return { ok: false, error: "Couldn't create the link. Try again." };
+      }
+    }
+    return {
+      ok: false,
+      error: "All the obvious link names are taken — create one manually.",
+    };
+  } catch (err) {
+    console.error("[createTrackedLinkForEvent] failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to create the link.",
+    };
+  }
 }
 
 export async function archiveSocialPost(
