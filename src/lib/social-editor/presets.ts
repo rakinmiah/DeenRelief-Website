@@ -2126,28 +2126,35 @@ function quoteSplit(c: SlideContent): EditorSlide {
   );
 }
 
-// TESTIMONY D — Portrait chip: forest field, a small circular portrait (an
-// image with radius = half its box), the quote, and an attribution row.
+// TESTIMONY D — Portrait chip: the classic testimonial. A gold open-quote, the
+// quote set large as the hero, and the circular portrait as an avatar "chip"
+// beside the attribution name, anchored at the bottom (was a lonely small
+// circle floating top-left — unbalanced; this reads as an intentional design).
 function quotePortraitChip(c: SlideContent): EditorSlide {
   const W = B - 2 * HPAD;
-  const quoteSize = 56;
+  const quoteW = Math.min(W, 884);
+  const quoteSize = 58;
   const quote = c.primary || Q_DEFAULT;
-  const dia = 150; // circular portrait diameter
-  const portraitY = 232;
-  const quoteY = portraitY + dia + 64;
-  const quoteLines = quoteLineCount(quote, W, quoteSize, 5);
+  const markY = 248;
+  const quoteY = markY + 150;
+  const quoteLines = quoteLineCount(quote, quoteW, quoteSize, 5);
   const quoteH = Math.round(quoteLines * quoteSize * 1.18);
-  const attrY = quoteY + quoteH + 40;
+  // Avatar chip + name row, anchored to the bottom inset.
+  const avatar = 116;
+  const avatarY = B - HPAD - avatar;
+  const nameX = HPAD + avatar + 30;
   return slide(
     [
       shape({ x: 0, y: 0, w: B, h: B, shape: "rect", fill: GLOW, locked: true }),
       ...wordmark(HPAD, HPAD, c),
       hTag(c.eyebrow || "In Their Words", B - HPAD - 420, HPAD + 6, 420, "right"),
-      // Circular portrait: square image, radius = half → a circle; gold ring.
-      image({ x: HPAD, y: portraitY, w: dia, h: dia, src: c.imageUrl ?? "", objectFit: "cover", radius: Math.round(dia / 2) }),
-      shape({ x: HPAD, y: portraitY, w: dia, h: dia, shape: "ellipse", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
-      text({ x: HPAD, y: quoteY, w: W, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
-      ...attribRow(c.secondary || Q_ATTR, HPAD, attrY, W),
+      openMark(HPAD, markY, 150, "left", W),
+      text({ x: HPAD, y: quoteY, w: quoteW, h: quoteH, text: quote, fontFamily: BARLOW, fontSize: quoteSize, fontWeight: 500, lineHeight: 1.18, color: C.cream }),
+      // Circular portrait chip (square image, radius = half → circle) + gold ring.
+      image({ x: HPAD, y: avatarY, w: avatar, h: avatar, src: c.imageUrl ?? "", objectFit: "cover", radius: Math.round(avatar / 2) }),
+      shape({ x: HPAD, y: avatarY, w: avatar, h: avatar, shape: "ellipse", fill: "transparent", stroke: C.amber, strokeWidth: 2, locked: true }),
+      // Name / role beside the chip, vertically centred against it.
+      ...attribRow(c.secondary || Q_ATTR, nameX, avatarY + 28, W - avatar - 30, "left"),
     ],
     C.forest
   );
