@@ -6,8 +6,14 @@ import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import {
   getCoverageMap,
   getEmergencyEvents,
+  REPORT_EXPIRY_DAYS,
   type CoverageEntry,
 } from "@/lib/first-response";
+import {
+  conversionMultiplierFor,
+  getConversionLookup,
+} from "@/lib/social-outcomes";
+import { displayPriority, priorityLabel } from "@/lib/first-response-scoring";
 import TestEventPanel from "./TestEventPanel";
 
 export const metadata: Metadata = {
@@ -36,14 +42,21 @@ export const dynamic = "force-dynamic";
  */
 export default async function FirstResponsePage() {
   await requireAdminSession();
-  const [coverage, events] = await Promise.all([
+  const [coverage, events, conversionLookup] = await Promise.all([
     getCoverageMap(),
     getEmergencyEvents({ limit: 20 }),
+    getConversionLookup(),
   ]);
 
-  // Strategic / partner / catch-all tiers driven by weight.
+  // Strategic / partner / diaspora / catch-all tiers driven by weight.
+  // Diaspora-appeal rows are weight-2 but flagged launch_readiness =
+  // 'rapid-appeal' so they render in their own honest tier (no field
+  // presence) rather than under "Partner network".
   const strategic = coverage.filter((c) => c.weight >= 3);
-  const partner = coverage.filter((c) => c.weight === 2);
+  const diaspora = coverage.filter((c) => c.launchReadiness === "rapid-appeal");
+  const partner = coverage.filter(
+    (c) => c.weight === 2 && c.launchReadiness !== "rapid-appeal"
+  );
   const catchAll = coverage.filter((c) => c.isCatchAll);
   const evergreen = coverage.filter(
     (c) => c.weight > 0 && c.weight < 2 && !c.isCatchAll
@@ -62,11 +75,8 @@ export default async function FirstResponsePage() {
           First Response
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Crisis intelligence tailored to Deen Relief&apos;s actual campaigns
-          and field regions. When a humanitarian crisis hits a geography we
-          can convert on, alerts land here ranked by revenue potential — so
-          the SMM and trustees can launch a coordinated appeal in minutes,
-          not days.
+          When a disaster hits somewhere Deen Relief can help, it shows up
+          here — most important first — so you can post an appeal fast.
         </p>
       </div>
 
@@ -89,50 +99,37 @@ export default async function FirstResponsePage() {
         </span>
         <div>
           <p className="text-charcoal font-semibold text-[14px]">
-            Signal monitoring is live — Tier 1 sources active, multi-factor
-            scoring + push alerts wired.
+            We watch trusted disaster feeds around the clock and alert you the
+            moment something big hits a place we work. Tap any alert to build a
+            post about it.
           </p>
-          <p className="text-charcoal/70 text-[13px] mt-0.5 leading-relaxed">
-            Ingesting from six authoritative sources:{" "}
-            <span className="font-semibold text-charcoal">GDACS</span> (15 min),{" "}
-            <span className="font-semibold text-charcoal">USGS earthquakes</span>{" "}
-            (15 min),{" "}
-            <span className="font-semibold text-charcoal">ReliefWeb</span> (30 min),{" "}
-            <span className="font-semibold text-charcoal">IFRC GO</span>{" "}
-            (Red Crescent national societies, 30 min),{" "}
-            <span className="font-semibold text-charcoal">UK Met Office</span>{" "}
-            (severe weather warnings, hourly, Brighton-region filtered), and{" "}
-            <span className="font-semibold text-charcoal">NASA EONET</span>{" "}
-            (curated natural events, hourly). Each event is scored by{" "}
-            <span className="font-semibold text-charcoal">
-              severity × coverage weight × UK Muslim diaspora × Muslim-majority
-            </span>{" "}
-            and pushed to your DR Admin bell when the score crosses 10 (amber)
-            or 20 (critical, audible). Every source is filtered at ingest
-            to DR&apos;s coverage + diaspora-adjacent geographies — events
-            from regions outside that set never reach the database. Click
-            any alert to draft a Claude-written launch packet + one-click
-            emergency launch.
+          <p className="text-charcoal/60 text-[12px] mt-0.5">
+            Updated continuously
           </p>
         </div>
       </div>
 
       {/* ─── Detected events (currently empty) ─── */}
       <section className="mb-10">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-charcoal font-heading font-semibold text-xl">
-            Active alerts
-          </h2>
-          <span className="text-[12px] text-charcoal/50 font-medium">
-            {events.length} total
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <h2 className="text-charcoal font-heading font-semibold text-xl">
+              Active alerts
+            </h2>
+            <p className="text-[12px] text-charcoal/45 mt-0.5">
+              Reports drop off after {REPORT_EXPIRY_DAYS} days — the feed only
+              shows current emergencies.
+            </p>
+          </div>
+          <span className="text-[12px] text-charcoal/50 font-medium shrink-0">
+            {events.length} active
           </span>
         </div>
         <div className="bg-white border border-charcoal/10 rounded-2xl">
           {events.length === 0 ? (
             <div className="px-6 py-10 text-center text-charcoal/50 text-sm">
-              No events detected yet. The first cron run will populate this
-              within a few minutes of deployment — ranked by severity, with
-              matched campaigns alongside each entry.
+              No alerts from the last {REPORT_EXPIRY_DAYS} days. New ones appear
+              here automatically as disasters come in.
             </div>
           ) : (
             <ul className="divide-y divide-charcoal/5">
@@ -147,10 +144,14 @@ export default async function FirstResponsePage() {
                       anchors. The source ↗ link below gets z-10 +
                       relative to sit above this and remain
                       independently clickable. */}
+                  {/* Phase 6 — link goes to the deck builder (primary
+                      SMM entry point now). The legacy auto-gen view
+                      remains reachable at /admin/social/first-response/
+                      legacy/[id]/ as a fallback. */}
                   <Link
-                    href={`/admin/social/first-response/${ev.id}`}
+                    href={`/admin/social/deck-builder/${ev.id}`}
                     className="absolute inset-0 z-0"
-                    aria-label={`Open event: ${ev.title}`}
+                    aria-label={`Open deck builder for: ${ev.title}`}
                   />
                   <div className="relative flex items-start justify-between gap-3 flex-wrap pointer-events-none">
                     <div className="flex-1 min-w-0">
@@ -215,16 +216,25 @@ export default async function FirstResponsePage() {
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       {ev.drPriorityScore !== null && (
                         <span
-                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full ${scoreClasses(
+                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full ${scoreClasses(
                             ev.drPriorityScore
                           )}`}
-                          title={
-                            ev.severityRaw !== null
-                              ? `Raw severity ${ev.severityRaw.toFixed(1)} × coverage × diaspora × Muslim-majority`
-                              : "DR priority score"
-                          }
+                          title="Higher = more worth posting about right now."
                         >
-                          Score {ev.drPriorityScore.toFixed(1)}
+                          {displayPriority(ev.drPriorityScore)}/10 ·{" "}
+                          {priorityLabel(ev.drPriorityScore)}
+                        </span>
+                      )}
+                      {conversionMultiplierFor(conversionLookup, {
+                        eventType: ev.eventType,
+                        countryIso: ev.countryIso,
+                        matchedCampaigns: ev.matchedCampaigns,
+                      }) > 1.05 && (
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full bg-green/10 text-green-dark"
+                          title="This topic has historically converted donations above average — its priority gets a small, capped boost."
+                        >
+                          Converts well
                         </span>
                       )}
                       <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
@@ -239,45 +249,63 @@ export default async function FirstResponsePage() {
         </div>
       </section>
 
-      {/* ─── Coverage map ─── */}
-      <section>
-        <h2 className="text-charcoal font-heading font-semibold text-xl mb-3">
-          Active Campaign Coverage Map
-        </h2>
-        <p className="text-charcoal/70 text-[14px] mb-5 max-w-2xl leading-relaxed">
-          Which campaigns can respond to which crises, ranked by strategic
-          importance. Edit this map as DR&apos;s operational reach grows —
-          adding Pakistan or Sudan capability simply means adding/updating
-          rows.
-        </p>
+      {/* ─── Coverage map — collapsed by default. It's config/ops reference
+          (which campaigns respond to which crises), not daily SMM use, so it's
+          tucked behind a disclosure to keep the alerts view focused. ─── */}
+      <details className="group">
+        <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden flex items-center gap-2 py-2 text-charcoal/75 hover:text-charcoal transition-colors">
+          <span className="text-charcoal/40 transition-transform group-open:rotate-90">
+            ▸
+          </span>
+          <span className="font-heading font-semibold text-lg">
+            Active campaign coverage map
+          </span>
+          <span className="text-charcoal/45 text-[13px] font-normal">
+            — which campaigns respond to which crises
+          </span>
+        </summary>
+        <div className="mt-4">
+          <p className="text-charcoal/70 text-[14px] mb-5 max-w-2xl leading-relaxed">
+            Edit this map as DR&apos;s operational reach grows — adding Pakistan
+            or Sudan capability simply means adding/updating rows.
+          </p>
 
-        <CoverageGroup
-          title="Strategic — field presence"
-          subtitle="DR is on-the-ground in these geographies. First-mover advantage on these events."
-          accent="text-green-dark"
-          rows={strategic}
-        />
-        <CoverageGroup
-          title="Partner network"
-          subtitle="Important secondary capability via partners or close-adjacent programmes."
-          accent="text-charcoal/70"
-          rows={partner}
-        />
-        <CoverageGroup
-          title="Catch-all routing"
-          subtitle="Religious-giving channels that flexibly route to any humanitarian crisis when no geography-specific row matches."
-          accent="text-amber-dark"
-          rows={catchAll}
-        />
-        {evergreen.length > 0 && (
           <CoverageGroup
-            title="Evergreen / seasonal"
-            subtitle="Not news-triggered. Excluded from event matching."
-            accent="text-charcoal/50"
-            rows={evergreen}
+            title="Strategic — field presence"
+            subtitle="DR is on-the-ground in these geographies. First-mover advantage on these events."
+            accent="text-green-dark"
+            rows={strategic}
           />
-        )}
-      </section>
+          <CoverageGroup
+            title="Partner network"
+            subtitle="Important secondary capability via partners or close-adjacent programmes."
+            accent="text-charcoal/70"
+            rows={partner}
+          />
+          {diaspora.length > 0 && (
+            <CoverageGroup
+              title="Diaspora appeal"
+              subtitle="No DR field team here, but large UK Muslim diaspora + high donor responsiveness. Surfaced as rapid online-appeal opportunities to evaluate — typically delivered via partners, not a delivery guarantee. Caps at HIGH, never critical."
+              accent="text-amber-dark"
+              rows={diaspora}
+            />
+          )}
+          <CoverageGroup
+            title="Catch-all routing"
+            subtitle="Religious-giving channels that flexibly route to any humanitarian crisis when no geography-specific row matches."
+            accent="text-amber-dark"
+            rows={catchAll}
+          />
+          {evergreen.length > 0 && (
+            <CoverageGroup
+              title="Evergreen / seasonal"
+              subtitle="Not news-triggered. Excluded from event matching."
+              accent="text-charcoal/50"
+              rows={evergreen}
+            />
+          )}
+        </div>
+      </details>
 
       {/* Test scenarios — collapsed by default. Lets the SMM spin up
           realistic test emergencies on demand for demos / QA without
@@ -288,11 +316,12 @@ export default async function FirstResponsePage() {
 }
 
 /**
- * Score colour pill. Aligned to the push-tier thresholds in
- * src/lib/first-response-scoring.ts:
- *   ≥ 20 → CRITICAL (red — fires an immediate push)
- *   ≥ 10 → HIGH     (amber — bell-only push)
- *   <  10 → standard (charcoal — dashboard only)
+ * Score colour pill. The SMM sees a friendly N/10 (displayPriority) inside it,
+ * but the COLOUR is keyed off the raw composite so the tiers stay exact —
+ * aligned to the push-tier thresholds in src/lib/first-response-scoring.ts:
+ *   ≥ 20 (8/10)  → CRITICAL (red — fires an immediate push)
+ *   ≥ 10 (5/10)  → HIGH     (amber — bell-only push)
+ *   <  10 (<5/10) → standard (charcoal — dashboard only)
  */
 function scoreClasses(score: number): string {
   if (score >= 20) return "bg-red-100 text-red-800";

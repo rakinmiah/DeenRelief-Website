@@ -10,6 +10,7 @@
  *                     × coverage_weight            (0–3)
  *                     × diaspora_multiplier        (1.0–2.0)
  *                     × muslim_multiplier          (1.0 or 1.5)
+ *                     × conversion_multiplier      (0.85–1.4, default 1.0)
  *
  * Why these factors:
  *   - humanitarian_severity: raw severity transformed to reflect
@@ -27,10 +28,15 @@
  *   - muslim_multiplier: Muslim-majority countries are higher-priority
  *     for an Islamic charity's donor base by default.
  *
- * Three signals deliberately NOT scored yet (tracked as Phase 3d/3e/3f):
+ * Signals deliberately NOT scored yet (tracked as Phase 3d/3e):
  *   - Media velocity (event-frequency tracker over time)
  *   - Competitor activity (Tier 4 signal source)
- *   - Historical pattern match (comparable-event archive)
+ *
+ * Phase 3f (historical conversion) IS now wired: `conversion_multiplier` is a
+ * gated, capped nudge (default 1.0) derived from real donation outcomes per
+ * topic — see conversionMultiplierFor() in src/lib/social-outcomes.ts. It only
+ * augments revenue-likelihood (already a designed factor here), never overrides
+ * humanitarian severity, and is 1.0 until a topic has earned a verdict.
  *
  * Push tier thresholds:
  *   ≥ 20 → CRITICAL — immediate audible push (urgent)
@@ -169,6 +175,9 @@ export interface ScoreInputs {
   countryIso: string | null;
   /** Signal source — drives severity normalisation. */
   source: string;
+  /** Gated historical-conversion nudge (Phase 3f), default 1.0 (no effect).
+   *  Clamped to [0.85, 1.4] by its producer (conversionMultiplierFor). */
+  conversionMultiplier?: number;
 }
 
 /**
@@ -188,8 +197,12 @@ export function computeDrPriorityScore(input: ScoreInputs): number | null {
   if (severity === 0) return 0;
   const diaspora = diasporaMultiplierFor(input.countryIso);
   const muslim = muslimMultiplierFor(input.countryIso);
+  // Gated, capped historical-conversion nudge (Phase 3f). Default 1.0 — no
+  // effect until a topic has earned a verdict, so pre-existing scores are
+  // unchanged.
+  const conversion = input.conversionMultiplier ?? 1.0;
   // Round to 1dp for compact display.
-  return Math.round(severity * weight * diaspora * muslim * 10) / 10;
+  return Math.round(severity * weight * diaspora * muslim * conversion * 10) / 10;
 }
 
 export function getPushTier(score: number | null): PushTier {
@@ -197,4 +210,40 @@ export function getPushTier(score: number | null): PushTier {
   if (score >= CRITICAL_THRESHOLD) return "critical";
   if (score >= HIGH_THRESHOLD) return "high";
   return "none";
+}
+
+/* ─── SMM-facing display scale (1–10) ────────────────────────────────
+ *
+ * The raw dr_priority_score is a composite (severity × coverage × diaspora
+ * × Muslim-majority × conversion × 10) that runs ~0–30 and is hard for the
+ * SMM to read at a glance ("is 13.5 a big deal?"). `displayPriority` maps it
+ * to a friendly 1–10. This is DISPLAY ONLY — the raw score stays the source
+ * of truth for sorting, push thresholds, and the historical-conversion loop;
+ * nothing in the backend changes.
+ *
+ * The mapping is tier-aligned so the number tracks the push tiers the SMM
+ * already learns, with the thresholds landing on round marks:
+ *   raw  0–10  (watch)          → 1–5   (HIGH_THRESHOLD 10  → exactly 5)
+ *   raw 10–20  (high / amber)   → 5–8   (CRITICAL_THRESHOLD 20 → exactly 8)
+ *   raw 20–30+ (critical / red) → 8–10  (a perfect storm → 10)
+ */
+export const DISPLAY_HIGH = 5; // a 1–10 event at/above this would push (amber)
+export const DISPLAY_CRITICAL = 8; // …and at/above this is audible-critical (red)
+
+export function displayPriority(score: number | null): number | null {
+  if (score === null || score === undefined) return null;
+  let v: number;
+  if (score <= 0) v = 1;
+  else if (score <= HIGH_THRESHOLD) v = 1 + (score / HIGH_THRESHOLD) * 4;
+  else if (score <= CRITICAL_THRESHOLD)
+    v = 5 + ((score - HIGH_THRESHOLD) / (CRITICAL_THRESHOLD - HIGH_THRESHOLD)) * 3;
+  else v = 8 + ((score - CRITICAL_THRESHOLD) / 10) * 2;
+  return Math.max(1, Math.min(10, Math.round(v)));
+}
+
+/** The plain-word tier for a raw score (matches the push tier + pill colour). */
+export function priorityLabel(score: number | null): "Critical" | "High" | "Watch" | null {
+  if (score === null || score === undefined) return null;
+  const tier = getPushTier(score);
+  return tier === "critical" ? "Critical" : tier === "high" ? "High" : "Watch";
 }

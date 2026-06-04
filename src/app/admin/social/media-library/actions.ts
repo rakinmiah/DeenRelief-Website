@@ -23,15 +23,19 @@ import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/admin-session";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
+  archiveManyMedia,
   archiveMedia,
   createMedia,
   getAllKnownStoragePaths,
+  getMediaByIds,
   listAllStorageFiles,
   MEDIA_BUCKET,
   publicUrlForPath,
   updateMedia,
   type MediaItem,
+  type UpdateMediaInput,
 } from "@/lib/media-library";
+import { isValidCampaign } from "@/lib/campaigns";
 import {
   suggestMediaTags,
   type MediaTagSuggestions,
@@ -354,6 +358,113 @@ export async function archiveMediaAction(
   });
   revalidatePath("/admin/social/media-library");
   return { ok: true };
+}
+
+/* ─── Preselect bulk actions: retag / quick delete ───────────────
+ *
+ * The library grid has a "Select" mode where the SMM ticks several items
+ * then either (a) bulk-applies tags/campaign/country/tone to all of them,
+ * or (b) quick-deletes (archives) the lot. Both are £0 / 0 tokens — plain
+ * Postgres, no Vision calls (the AI re-tag flow stays separate).
+ */
+
+export interface BulkRetagInput {
+  ids: string[];
+  /** Campaign slugs to UNION into each item's campaigns (additive). */
+  addCampaignSlugs?: string[];
+  /** Tags to UNION into each item's tags (additive, lower-cased). */
+  addTags?: string[];
+  /** When the key is present, OVERWRITE country on every item (null clears). */
+  countryIso?: string | null;
+  /** When the key is present, OVERWRITE tone on every item (null clears). */
+  tone?: string | null;
+}
+
+const uniq = (xs: string[]) => Array.from(new Set(xs));
+
+/** Apply a shared metadata patch to many library items at once. Array
+ *  fields (campaigns, tags) are unioned so existing per-item tags survive;
+ *  scalar fields (country, tone) overwrite. */
+export async function bulkRetagMediaAction(
+  input: BulkRetagInput
+): Promise<MediaActionResult<{ updated: number }>> {
+  try {
+    const session = await requireAdminSession();
+    const ids = uniq((input.ids ?? []).filter((s) => typeof s === "string")).slice(0, 100);
+    if (ids.length === 0) return { ok: false, error: "No items selected." };
+
+    const addCampaignSlugs = uniq((input.addCampaignSlugs ?? []).filter(isValidCampaign));
+    const addTags = uniq(
+      (input.addTags ?? [])
+        .map((t) => (typeof t === "string" ? t.trim().toLowerCase() : ""))
+        .filter(Boolean)
+    ).slice(0, 20);
+    const setCountry = "countryIso" in input;
+    const setTone = "tone" in input;
+
+    if (!addCampaignSlugs.length && !addTags.length && !setCountry && !setTone) {
+      return { ok: false, error: "Choose at least one field to apply." };
+    }
+
+    const items = await getMediaByIds(ids);
+    const results = await Promise.all(
+      items.map(async (item) => {
+        const patch: UpdateMediaInput = {};
+        if (addCampaignSlugs.length)
+          patch.campaignSlugs = uniq([...item.campaignSlugs, ...addCampaignSlugs]);
+        if (addTags.length) patch.tags = uniq([...item.tags, ...addTags]);
+        if (setCountry)
+          patch.countryIso = input.countryIso
+            ? input.countryIso.trim().toUpperCase().slice(0, 5)
+            : null;
+        if (setTone) patch.tone = input.tone || null;
+        if (Object.keys(patch).length === 0) return false;
+        const res = await updateMedia(item.id, patch);
+        return !!res;
+      })
+    );
+    const updated = results.filter(Boolean).length;
+
+    await logAdminAction({
+      action: "media_edited",
+      userEmail: session.email,
+      metadata: { bulk: true, count: updated, ids: ids.slice(0, 20) },
+    });
+    revalidatePath("/admin/social/media-library");
+    return { ok: true, data: { updated } };
+  } catch (err) {
+    console.error("[media-library] bulkRetagMediaAction failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? `Bulk retag failed: ${err.message}` : "Bulk retag failed.",
+    };
+  }
+}
+
+/** Quick-delete: archive (soft-delete) many items at once. */
+export async function bulkArchiveMediaAction(
+  ids: string[]
+): Promise<MediaActionResult<{ archived: number }>> {
+  try {
+    const session = await requireAdminSession();
+    const clean = uniq((ids ?? []).filter((s) => typeof s === "string")).slice(0, 200);
+    if (clean.length === 0) return { ok: false, error: "No items selected." };
+
+    const archived = await archiveManyMedia(clean);
+    await logAdminAction({
+      action: "media_archived_from_library",
+      userEmail: session.email,
+      metadata: { bulk: true, count: archived, ids: clean.slice(0, 20) },
+    });
+    revalidatePath("/admin/social/media-library");
+    return { ok: true, data: { archived } };
+  } catch (err) {
+    console.error("[media-library] bulkArchiveMediaAction failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? `Bulk delete failed: ${err.message}` : "Bulk delete failed.",
+    };
+  }
 }
 
 /* ─── Bulk-import: scan Storage + auto-tag orphans ──────────────── */

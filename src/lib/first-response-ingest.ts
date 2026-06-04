@@ -29,6 +29,11 @@ import {
   getPushTier,
   type PushTier,
 } from "./first-response-scoring";
+import {
+  conversionMultiplierFor,
+  getConversionLookup,
+  type ConversionLookup,
+} from "./social-outcomes";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "./campaigns";
 
 export interface EmergencyEventInput {
@@ -109,6 +114,12 @@ export interface IngestOptions {
    * letting each event re-fetch it.
    */
   coverage?: CoverageEntry[];
+  /**
+   * Pre-fetched historical-conversion lookup (Phase 3f). Pass once per cron
+   * run; when absent the conversion nudge is skipped (multiplier 1.0) so a
+   * single event ingest stays cheap and scores are unchanged.
+   */
+  conversionLookup?: ConversionLookup;
 }
 
 /**
@@ -140,11 +151,23 @@ export async function ingestEmergencyEvent(
     input.eventType
   );
 
+  // Gated, capped historical-conversion nudge (Phase 3f). Only applied when a
+  // lookup was supplied (cron batch); 1.0 otherwise so single ingests are cheap
+  // and scores are identical to before this feature.
+  const conversionMultiplier = options.conversionLookup
+    ? conversionMultiplierFor(options.conversionLookup, {
+        eventType: input.eventType,
+        countryIso: input.countryIso,
+        matchedCampaigns: matched,
+      })
+    : 1.0;
+
   const score = computeDrPriorityScore({
     severityRaw: input.severityRaw,
     matchedCoverage,
     countryIso: input.countryIso,
     source: input.source,
+    conversionMultiplier,
   });
   const tier = getPushTier(score);
 
@@ -289,6 +312,9 @@ export async function ingestBatch(
   high: number;
 }> {
   const coverage = await getCoverageMap();
+  // One conversion-lookup read per batch (Phase 3f). Degrades to the identity
+  // lookup (no nudge) before migration 037 / on error.
+  const conversionLookup = await getConversionLookup();
   let inserted = 0;
   let skipped = 0;
   let errors = 0;
@@ -296,7 +322,10 @@ export async function ingestBatch(
   let high = 0;
   for (const ev of events) {
     try {
-      const result = await ingestEmergencyEvent(ev, { coverage });
+      const result = await ingestEmergencyEvent(ev, {
+        coverage,
+        conversionLookup,
+      });
       if (result.inserted) {
         inserted += 1;
         if (result.pushTier === "critical") critical += 1;

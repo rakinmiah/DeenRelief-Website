@@ -291,13 +291,6 @@ export default function UploadForm() {
           onFiles={handleFilesSelected}
           fileInputRef={inputRef}
         />
-        <p className="text-[12px] text-charcoal/55">
-          JPEG, PNG, or WebP. Max 10 MB per image. Drop a folder of
-          photos or shift-click to select multiple — each one gets
-          Claude Vision auto-tagged and saved with default metadata.
-          Review and edit any that need correction in the library
-          afterwards.
-        </p>
       </div>
     );
   }
@@ -457,10 +450,8 @@ function DropZone({
         Drop photos here, or click to choose
       </p>
       <p className="text-[12px] text-charcoal/55 text-center max-w-md">
-        Drop a single file, a batch, or a whole folder. JPEG · PNG · WebP ·
-        max 10 MB each. Each upload runs Claude Vision for auto-tagging
-        then saves with default metadata — review afterwards from the
-        library.
+        One photo, a batch, or a whole folder. JPEG · PNG · WebP ·
+        max 10 MB each.
       </p>
       <input
         ref={fileInputRef}

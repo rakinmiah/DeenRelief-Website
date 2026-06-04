@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/admin-session";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import { listMedia } from "@/lib/media-library";
 import ScanStorageButton from "./ScanStorageButton";
+import MediaLibraryGrid, { type MediaCardData } from "./MediaLibraryGrid";
 
 export const metadata: Metadata = {
   title: "Media library | Deen Relief Admin",
@@ -60,10 +61,9 @@ export default async function MediaLibraryPage({
             Media library
           </h1>
           <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-            DR&apos;s sorted photo inventory. Upload once, tag once — the launch-
-            packet generator queries this library and Claude auto-selects
-            imagery for emergency carousel slides based on country, event
-            type, and campaign match.
+            Your photo library. Upload once and we tag everything
+            automatically, so the slide builder can pick the right photos
+            for your posts.
           </p>
         </div>
         <div className="shrink-0 flex flex-col sm:flex-row gap-2">
@@ -82,113 +82,82 @@ export default async function MediaLibraryPage({
         </div>
       </div>
 
-      {/* ─── Bulk-import scanner ─── */}
-      <ScanStorageButton />
+      {/* ─── Bulk-import scanner (collapsed by default) ─── */}
+      <details className="mb-6">
+        <summary className="text-[13px] text-charcoal/55 hover:text-charcoal/80 cursor-pointer underline underline-offset-2">
+          Uploaded photos somewhere else? Find untagged ones
+        </summary>
+        <div className="mt-3">
+          <ScanStorageButton />
+        </div>
+      </details>
 
       {/* ─── Filter strip ─── */}
       <form
         action="/admin/social/media-library"
         method="get"
-        className="mb-6 flex items-center gap-2 flex-wrap"
+        className="mb-6 flex flex-col sm:flex-row items-start gap-3"
       >
-        <Link
-          href="/admin/social/media-library"
-          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-            !campaign
-              ? "bg-charcoal text-white"
-              : "bg-white border border-charcoal/15 text-charcoal/80 hover:bg-cream"
-          }`}
-        >
-          All campaigns
-        </Link>
-        {(Object.keys(CAMPAIGNS) as CampaignSlug[]).map((slug) => (
+        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
           <Link
-            key={slug}
-            href={`/admin/social/media-library?campaign=${slug}`}
+            href="/admin/social/media-library"
             className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-              campaign === slug
+              !campaign
                 ? "bg-charcoal text-white"
                 : "bg-white border border-charcoal/15 text-charcoal/80 hover:bg-cream"
             }`}
           >
-            {CAMPAIGNS[slug]}
+            All campaigns
           </Link>
-        ))}
+          {(Object.keys(CAMPAIGNS) as CampaignSlug[]).map((slug) => (
+            <Link
+              key={slug}
+              href={`/admin/social/media-library?campaign=${slug}`}
+              className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+                campaign === slug
+                  ? "bg-charcoal text-white"
+                  : "bg-white border border-charcoal/15 text-charcoal/80 hover:bg-cream"
+              }`}
+            >
+              {CAMPAIGNS[slug]}
+            </Link>
+          ))}
+        </div>
         <input
           type="text"
           name="q"
           defaultValue={params.q ?? ""}
           placeholder="Search captions…"
-          className="ml-auto px-3 py-1.5 rounded-full bg-white border border-charcoal/15 text-charcoal text-[13px] focus:outline-none focus:ring-2 focus:ring-charcoal/10 min-w-[200px]"
+          className="w-full sm:w-[220px] shrink-0 px-3 py-1.5 rounded-full bg-white border border-charcoal/15 text-charcoal text-[13px] focus:outline-none focus:ring-2 focus:ring-charcoal/10"
         />
         {campaign && <input type="hidden" name="campaign" value={campaign} />}
       </form>
 
-      {/* ─── Grid ─── */}
+      {/* ─── Grid (with preselect mode: bulk retag / quick delete) ─── */}
       {items.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {items.map((item) => (
-            <MediaCard key={item.id} item={item} />
-          ))}
-        </div>
+        <MediaLibraryGrid items={items.map(toCardData)} />
       )}
     </main>
   );
 }
 
-function MediaCard({
-  item,
-}: {
-  item: Awaited<ReturnType<typeof listMedia>>[number];
-}) {
-  return (
-    <Link
-      href={`/admin/social/media-library/${item.id}`}
-      className="group flex flex-col bg-white border border-charcoal/10 rounded-2xl overflow-hidden hover:border-charcoal/25 transition-colors"
-    >
-      <div
-        className="aspect-square bg-cream"
-        style={{
-          backgroundColor: item.dominantColor ?? "#F7F3E8",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={item.publicUrl}
-          alt={item.caption ?? "Media item"}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      </div>
-      <div className="p-3 flex flex-col gap-2 flex-1">
-        <p className="text-[12px] text-charcoal/85 leading-snug line-clamp-2 min-h-[2.5em]">
-          {item.caption ?? <span className="text-charcoal/40">No caption</span>}
-        </p>
-        <div className="flex items-center flex-wrap gap-1 mt-auto">
-          {item.tone && (
-            <span className="text-[10px] font-semibold tracking-[0.08em] uppercase px-1.5 py-0.5 rounded-full bg-amber-light text-amber-dark">
-              {item.tone}
-            </span>
-          )}
-          {item.countryIso && (
-            <span className="text-[10px] font-semibold tracking-[0.08em] uppercase px-1.5 py-0.5 rounded-full bg-charcoal/8 text-charcoal/70">
-              {item.countryIso}
-            </span>
-          )}
-          {item.campaignSlugs.slice(0, 1).map((c) => (
-            <span
-              key={c}
-              className="text-[10px] font-semibold tracking-[0.08em] uppercase px-1.5 py-0.5 rounded-full bg-green/10 text-green-dark"
-            >
-              {isValidCampaign(c) ? CAMPAIGNS[c] : c}
-            </span>
-          ))}
-        </div>
-      </div>
-    </Link>
-  );
+/** Trim a full MediaItem down to the serialisable shape the client grid
+ *  needs (no Date fields cross the server→client boundary). */
+function toCardData(
+  item: Awaited<ReturnType<typeof listMedia>>[number]
+): MediaCardData {
+  return {
+    id: item.id,
+    publicUrl: item.publicUrl,
+    caption: item.caption,
+    tags: item.tags,
+    campaignSlugs: item.campaignSlugs,
+    countryIso: item.countryIso,
+    tone: item.tone,
+    dominantColor: item.dominantColor,
+  };
 }
 
 function EmptyState() {
@@ -198,10 +167,8 @@ function EmptyState() {
         No media uploaded yet
       </p>
       <p className="text-charcoal/60 text-[13px] max-w-md mx-auto leading-relaxed mb-4">
-        Upload photos from DR field operations, event coverage, and
-        programme imagery. Claude will auto-suggest tags on each upload —
-        you review, edit, and save. The launch-packet generator then pulls
-        from this library when drafting emergency carousels.
+        Upload photos from the field and your events. We tag each one
+        automatically so they&apos;re ready to drop into posts.
       </p>
       <Link
         href="/admin/social/media-library/new"

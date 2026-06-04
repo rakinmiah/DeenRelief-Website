@@ -12,13 +12,17 @@
  *   as a URL query parameter. From 1 November 2025, that appname must
  *   be PRE-APPROVED by ReliefWeb — unapproved appnames get 403. We
  *   handle this gracefully (warn + return [], no throw) so the cron
- *   stays green while waiting on approval.
+ *   stays green if an appname is ever revoked.
  *
- *   Register at: https://apidoc.reliefweb.int/parameters#appname
+ *   DR's APPROVED appname is "DRRelief-Charity-456" (verified live:
+ *   returns HTTP 200 with coverage-country reports). It's baked in as
+ *   DEFAULT_APPNAME below so the source works on deploy without any env
+ *   config. The appname is NOT a secret — ReliefWeb sends it back in
+ *   the response href and it travels in the URL query string — so it's
+ *   safe to commit. Override via RELIEFWEB_APPNAME only if DR ever
+ *   re-registers under a different name.
  *
- *   Once approved, set RELIEFWEB_APPNAME in env (Vercel + .env.local).
- *   The default value ("deenrelief.org") is the registration the SMM
- *   needs to request.
+ *   Register / manage at: https://apidoc.reliefweb.int/parameters#appname
  *
  * We query for the most recent reports tagged as alerts or appeals
  * affecting our coverage countries (and adjacent regions we might
@@ -101,7 +105,9 @@ interface ReliefWebResponse {
 }
 
 const API_BASE_URL = "https://api.reliefweb.int/v2/reports";
-const DEFAULT_APPNAME = "deenrelief.org";
+// DR's ReliefWeb-approved appname (verified 200 against the live v2 API).
+// Not a secret — see file header. Override with RELIEFWEB_APPNAME if needed.
+const DEFAULT_APPNAME = "DRRelief-Charity-456";
 
 /** Read appname from env with a sensible fallback. See file header. */
 function getAppname(): string {

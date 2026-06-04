@@ -8,6 +8,7 @@ import {
   createTestEventAction,
 } from "./test-actions";
 import { TEST_SCENARIOS, type TestScenarioId } from "./test-scenarios";
+import { displayPriority } from "@/lib/first-response-scoring";
 
 /**
  * Test-scenario panel — collapsed by default so it doesn't clutter
@@ -86,11 +87,8 @@ export default function TestEventPanel() {
               Test scenarios — for demos &amp; QA
             </p>
             <p className="text-charcoal/70 text-[13px] leading-relaxed max-w-2xl">
-              Each click inserts a realistic test emergency through the same
-              ingester real events use — scoring, push gating, and matched
-              campaigns all behave identically. Test events are tagged{" "}
-              <code className="font-mono text-charcoal">source=test</code> and
-              can be wiped in one click below.
+              Create a pretend emergency to try things out or demo. They look
+              real but are clearly marked, and you can clear them anytime.
             </p>
           </div>
 
@@ -145,9 +143,9 @@ export default function TestEventPanel() {
             <div className="mt-3 pt-3 border-t border-amber/30">
               <p className="text-[12px] text-charcoal/85 leading-relaxed">
                 <strong>Created:</strong> {lastResult.scenario} ·{" "}
-                <strong>Score:</strong>{" "}
-                {lastResult.score?.toFixed(1) ?? "—"} ·{" "}
-                <strong>Push tier:</strong>{" "}
+                <strong>Priority:</strong>{" "}
+                {displayPriority(lastResult.score) ?? "—"}/10{" "}
+                · <strong>Alert level:</strong>{" "}
                 <span
                   className={`uppercase font-bold tracking-[0.05em] ${
                     lastResult.tier === "critical"

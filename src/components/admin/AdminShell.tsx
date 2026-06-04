@@ -54,7 +54,9 @@ export default function AdminShell({
 
   // Role-filtered nav, computed once. `homeHref` is the first item the
   // role can actually reach, so the wordmark never dead-ends a
-  // non-admin user (e.g. a writer lands on /admin/blog).
+  // non-admin user (e.g. a writer lands on /admin/blog). Social visibility
+  // is handled inside admin-nav (gated by the SOCIAL_ALLOWED_EMAILS
+  // allow-list), so the Social group only appears for permitted accounts.
   const groups = visibleGroups(role, signedInAs);
   const homeHref = flatVisible(role, signedInAs)[0]?.href ?? "/admin/donations";
 

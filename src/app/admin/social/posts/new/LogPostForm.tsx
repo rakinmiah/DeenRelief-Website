@@ -8,7 +8,7 @@ import {
   platformLabel,
   type SocialPlatform,
 } from "@/lib/social-performance";
-import { logSocialPost } from "../actions";
+import { logSocialPost, type DeckRecipeEntry } from "../actions";
 
 export interface ShortLinkOption {
   id: string;
@@ -16,6 +16,16 @@ export interface ShortLinkOption {
   campaignSlug: string | null;
   platform: string | null;
   notes: string | null;
+}
+
+export interface EventOption {
+  id: string;
+  title: string;
+  region: string | null;
+  /** Design recipe ({role, templateId}) recovered from a guided deck draft
+   *  for this event, if any — lets a manually-logged post still carry design
+   *  provenance for the template leaderboard. */
+  deckRecipe: DeckRecipeEntry[] | null;
 }
 
 /**
@@ -31,11 +41,16 @@ export interface ShortLinkOption {
  */
 export default function LogPostForm({
   shortLinks,
+  events = [],
+  initialEventId = "",
 }: {
   shortLinks: ShortLinkOption[];
+  events?: EventOption[];
+  initialEventId?: string;
 }) {
   const router = useRouter();
   const [platform, setPlatform] = useState<SocialPlatform>("instagram");
+  const [eventId, setEventId] = useState<string>(initialEventId);
   const [shortLinkId, setShortLinkId] = useState<string>("");
   const [externalUrl, setExternalUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -71,6 +86,8 @@ export default function LogPostForm({
       ? new Date(publishedAt).toISOString()
       : new Date().toISOString();
 
+    const recipe = events.find((e) => e.id === eventId)?.deckRecipe ?? undefined;
+
     startTransition(async () => {
       const result = await logSocialPost({
         platform,
@@ -81,6 +98,8 @@ export default function LogPostForm({
         campaignSlug: campaignSlug || undefined,
         captionKeyword: captionKeyword.trim() || undefined,
         publishedAtIso,
+        eventId: eventId || undefined,
+        deckRecipe: recipe,
       });
       if (result.ok) {
         router.push("/admin/social/performance");
@@ -144,6 +163,40 @@ export default function LogPostForm({
           />
         </div>
       </div>
+
+      {/* News report (event) — design + topic provenance */}
+      {events.length > 0 && (
+        <div>
+          <label
+            htmlFor="eventId"
+            className="block text-xs font-bold uppercase tracking-[0.1em] text-charcoal/60 mb-1.5"
+          >
+            News report this post is about{" "}
+            <span className="text-charcoal/40 normal-case font-normal">
+              (optional)
+            </span>
+          </label>
+          <select
+            id="eventId"
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+            className="w-full px-3 py-3 rounded-xl bg-cream border border-charcoal/10 focus:border-charcoal/30 focus:outline-none focus:ring-2 focus:ring-charcoal/10 text-charcoal text-sm"
+          >
+            <option value="">— none —</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.title}
+                {ev.region ? ` · ${ev.region}` : ""}
+                {ev.deckRecipe ? " · has deck" : ""}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[12px] text-charcoal/50 leading-snug">
+            Links this post to the news story it&apos;s about. If you built it
+            in the slide builder, that detail comes along too.
+          </p>
+        </div>
+      )}
 
       {/* Short link — the attribution glue */}
       <div>
@@ -288,9 +341,7 @@ export default function LogPostForm({
           className="w-full px-3 py-3 rounded-xl bg-cream border border-charcoal/10 focus:border-charcoal/30 focus:outline-none focus:ring-2 focus:ring-charcoal/10 text-charcoal text-sm font-mono uppercase"
         />
         <p className="mt-1.5 text-[12px] text-charcoal/50 leading-snug">
-          If you asked donors to comment a keyword for a DM link, record
-          it here. Used by the future auto-DM responder once Meta
-          verification clears.
+          Optional — for an auto-reply feature we&apos;re still building.
         </p>
       </div>
 

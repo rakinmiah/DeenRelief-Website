@@ -15,7 +15,28 @@ import {
   platformLabel,
   type SocialPostStats,
 } from "@/lib/social-performance";
+import {
+  getOutcomePrefs,
+  getTemplateOutcomes,
+  getTopicOutcomes,
+  type OutcomePrefs,
+  type TemplateOutcome,
+  type TopicSignal,
+} from "@/lib/social-outcomes";
 import SpotlightFromPostButton from "./SpotlightFromPostButton";
+
+/** Display labels for slide roles in the design leaderboard. */
+const ROLE_LABEL: Record<string, string> = {
+  hero: "Hero",
+  fact: "Fact",
+  stat: "Stat",
+  testimony: "Testimony",
+  response: "Our response",
+  tiers: "Donation tiers",
+  beforeafter: "Before / after",
+  multistat: "Multi-stat",
+  cta: "Call to action",
+};
 
 export const metadata: Metadata = {
   title: "Performance | Deen Relief Admin",
@@ -58,6 +79,14 @@ export default async function PerformancePage() {
   const byPlatform = aggregateBy(posts, (p) => p.platform);
   const byCampaign = aggregateBy(posts, (p) => p.campaignSlug ?? "(untagged)");
 
+  // Outcome-learning leaderboards (migration 037). Degrade to empty before the
+  // migration / before any provenance exists — the sections just don't render.
+  const [templateOutcomes, topicOutcomes, outcomePrefs] = await Promise.all([
+    getTemplateOutcomes().catch(() => [] as TemplateOutcome[]),
+    getTopicOutcomes().catch(() => [] as TopicSignal[]),
+    getOutcomePrefs(),
+  ]);
+
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       {/* ─── Header ─── */}
@@ -73,10 +102,9 @@ export default async function PerformancePage() {
             Per-post performance
           </h1>
           <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-            Which posts actually raised money — not just likes. Click counts
-            from short-link redirects, donations attributed via UTMs,
-            conversion rate per post. Log a post first; once a donor
-            converts through its short link, it appears here.
+            See which posts actually raised money, not just likes. Log a post
+            with the short link you used, and its clicks and donations show up
+            here.
           </p>
         </div>
         <Link
@@ -129,6 +157,19 @@ export default async function PerformancePage() {
                 totals: t,
               }))}
             />
+          )}
+
+          {/* ─── Design leaderboard (what designs convert) ─── */}
+          {templateOutcomes.length > 0 && (
+            <DesignLeaderboard
+              outcomes={templateOutcomes}
+              prefs={outcomePrefs}
+            />
+          )}
+
+          {/* ─── Topic leaderboard (what reports/campaigns convert) ─── */}
+          {topicOutcomes.length > 0 && (
+            <TopicLeaderboard topics={topicOutcomes} />
           )}
 
           {/* ─── Posts table ─── */}
@@ -353,6 +394,152 @@ function PostsTable({
         </table>
       </div>
     </div>
+  );
+}
+
+function DesignLeaderboard({
+  outcomes,
+  prefs,
+}: {
+  outcomes: TemplateOutcome[];
+  prefs: OutcomePrefs;
+}) {
+  // Flat, ranked by £/post — the metric the learning loop optimises. The
+  // winner pill (and its basis) tells the story per slide type.
+  const sorted = [...outcomes].sort(
+    (a, b) => b.pencePerPost - a.pencePerPost || b.donations - a.donations
+  );
+  return (
+    <section className="mb-8">
+      <h2 className="text-charcoal font-heading font-semibold text-base mb-1">
+        What designs convert
+      </h2>
+      <p className="text-charcoal/55 text-[13px] mb-3 max-w-2xl leading-snug">
+        Which slide designs raise the most on each platform. Once one proves
+        itself, we start suggesting it by default.
+      </p>
+      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal/50 bg-charcoal/[0.02]">
+              <th className="text-left px-5 py-3 whitespace-nowrap">Platform</th>
+              <th className="text-left px-5 py-3">Slide type</th>
+              <th className="text-left px-5 py-3">Template</th>
+              <th className="text-right px-5 py-3">Posts</th>
+              <th className="text-right px-5 py-3">Clicks</th>
+              <th className="text-right px-5 py-3">Donations</th>
+              <th className="text-right px-5 py-3">£ raised</th>
+              <th className="text-right px-5 py-3 whitespace-nowrap">£/post</th>
+              <th className="text-right px-5 py-3 whitespace-nowrap">Conv %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((o) => {
+              const key = `${o.platform}:${o.role}`;
+              const isWinner = prefs.winningTemplateByKey[key] === o.templateId;
+              const basis = prefs.basisByKey[key] ?? null;
+              return (
+                <tr
+                  key={`${o.platform}:${o.role}:${o.templateId}`}
+                  className="border-t border-charcoal/5"
+                >
+                  <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
+                    {platformLabel(o.platform)}
+                  </td>
+                  <td className="px-5 py-3 text-charcoal/70 whitespace-nowrap">
+                    {ROLE_LABEL[o.role] ?? o.role}
+                  </td>
+                  <td className="px-5 py-3 text-charcoal font-mono text-[12px]">
+                    <span className="font-semibold">{o.templateId}</span>
+                    {isWinner && (
+                      <span className="ml-2 inline-block align-middle px-1.5 py-0.5 rounded-md bg-green/10 text-green-dark text-[10px] font-sans font-bold uppercase tracking-wide">
+                        {basis === "donations" ? "Winner" : "Leading"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                    {o.posts}
+                  </td>
+                  <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                    {o.clicks.toLocaleString()}
+                  </td>
+                  <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                    {o.donations.toLocaleString()}
+                  </td>
+                  <td className="px-5 py-3 text-right text-charcoal font-mono font-semibold">
+                    {o.donationTotalPence > 0
+                      ? formatGbp(o.donationTotalPence)
+                      : "—"}
+                  </td>
+                  <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                    {o.pencePerPost > 0 ? formatGbp(Math.round(o.pencePerPost)) : "—"}
+                  </td>
+                  <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                    {o.donationRate > 0
+                      ? `${(o.donationRate * 100).toFixed(1)}%`
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function TopicLeaderboard({ topics }: { topics: TopicSignal[] }) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-charcoal font-heading font-semibold text-base mb-1">
+        What topics convert
+      </h2>
+      <p className="text-charcoal/55 text-[13px] mb-3 max-w-2xl leading-snug">
+        Which kinds of stories raise the most — we use this to suggest what to
+        post about next.
+      </p>
+      <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] font-bold uppercase tracking-[0.08em] text-charcoal/50 bg-charcoal/[0.02]">
+              <th className="text-left px-5 py-3">Topic / campaign</th>
+              <th className="text-right px-5 py-3">Posts</th>
+              <th className="text-right px-5 py-3">Clicks</th>
+              <th className="text-right px-5 py-3">Donations</th>
+              <th className="text-right px-5 py-3">£ raised</th>
+              <th className="text-right px-5 py-3 whitespace-nowrap">Conv %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topics.map((t) => (
+              <tr key={t.key} className="border-t border-charcoal/5">
+                <td className="px-5 py-3 text-charcoal font-semibold">
+                  {t.label}
+                </td>
+                <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                  {t.posts}
+                </td>
+                <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                  {t.clicks.toLocaleString()}
+                </td>
+                <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                  {t.donations.toLocaleString()}
+                </td>
+                <td className="px-5 py-3 text-right text-charcoal font-mono font-semibold">
+                  {t.donationTotalPence > 0 ? formatGbp(t.donationTotalPence) : "—"}
+                </td>
+                <td className="px-5 py-3 text-right text-charcoal/70 font-mono">
+                  {t.donationRate > 0
+                    ? `${(t.donationRate * 100).toFixed(1)}%`
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

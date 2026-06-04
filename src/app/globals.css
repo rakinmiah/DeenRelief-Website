@@ -199,6 +199,60 @@ main {
 }
 
 /* ============================================
+   SOCIAL DECK BUILDER — soft, professional motion
+   ============================================
+   A calm ease-out curve + gentle entrances across the deck builder,
+   editor, panels and dialogs, so it feels like a real app rather than
+   snapping between states. Opt-in via `.dr-soft-motion` on the editor /
+   wizard / sandbox roots; descendants inherit. All of it is auto-disabled
+   by the prefers-reduced-motion block above. */
+:root {
+  --dr-ease: cubic-bezier(0.22, 1, 0.36, 1); /* gentle ease-out */
+  --dr-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Soften the curve of every transition in the deck builder. Only the timing
+   function is overridden (never the duration / property), so elements that
+   don't already transition stay instant — this just makes the existing hovers,
+   toggles and panel states ease gently instead of snapping. */
+.dr-soft-motion * {
+  transition-timing-function: var(--dr-ease);
+}
+/* Calmer duration ONLY for elements that already opt into a transition (the
+   Tailwind transition utilities already set transition-property), so nothing
+   that was instant becomes laggy. */
+.dr-soft-motion .transition,
+.dr-soft-motion .transition-all,
+.dr-soft-motion .transition-colors,
+.dr-soft-motion .transition-transform,
+.dr-soft-motion .transition-opacity,
+.dr-soft-motion .transition-shadow {
+  transition-duration: 220ms;
+}
+
+/* Gentle entrances for flyout panels, dialogs and their overlays. */
+@keyframes dr-panel-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes dr-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes dr-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes dr-rise-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dr-anim-panel { animation: dr-panel-in 300ms var(--dr-ease) both; }
+.dr-anim-dialog { animation: dr-dialog-in 240ms var(--dr-ease) both; }
+.dr-anim-overlay { animation: dr-overlay-in 220ms ease-out both; }
+.dr-anim-rise { animation: dr-rise-in 340ms var(--dr-ease) both; }
+
+/* ============================================
    BLOG CMS — shared prose + form input styles
    ============================================
    .dr-prose styles the rendered article body. It's applied BOTH to the
@@ -373,4 +427,50 @@ main {
 .dr-input:focus {
   outline: none;
   border-color: var(--color-green);
+}
+
+/* ============================================
+   SLIDE EDITOR — Figma-style smart-alignment guides
+   ============================================
+   The deck-builder canvas runs react-moveable with snapping on: when a
+   layer's edge or centre lines up with the slide (edges + centre) or with
+   another layer, a guide line is drawn and the layer snaps to it. By
+   default moveable paints those guides a thin blue (#4af) — the SAME colour
+   as the selection box — so they barely register. We recolour them to a
+   bold Figma red and thicken the active (snapped) line, while leaving the
+   selection box + handles their own colour. The result reads like Figma:
+   blue = your selection, red = "this edge/centre is aligned", and it sticks
+   when fully aligned. !important is used because moveable injects its own
+   single-class rules into <head> at runtime. */
+
+/* Solid guide line (slide-edge / centre snap). */
+.moveable-line.moveable-guideline {
+  background: #ff2d2d !important;
+}
+/* Active snapped line — solid + thicker so "fully aligned" is unmistakable. */
+.moveable-line.moveable-guideline.moveable-bold.moveable-vertical {
+  width: 2px !important;
+  background: #ff2d2d !important;
+}
+.moveable-line.moveable-guideline.moveable-bold.moveable-horizontal {
+  height: 2px !important;
+  background: #ff2d2d !important;
+}
+/* Pre-snap dashed element guides — colour the dashed border, keep fill clear. */
+.moveable-line.moveable-guideline.moveable-dashed.moveable-horizontal {
+  background: transparent !important;
+  border-top-color: #ff2d2d !important;
+}
+.moveable-line.moveable-guideline.moveable-dashed.moveable-vertical {
+  background: transparent !important;
+  border-left-color: #ff2d2d !important;
+}
+/* Equal-spacing (gap) markers + the distance digits, in the same red. */
+.moveable-line.moveable-gap,
+.moveable-gap {
+  background: #ff2d2d !important;
+}
+.moveable-size-value,
+.moveable-size-value.moveable-gap {
+  color: #ff2d2d !important;
 }

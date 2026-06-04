@@ -50,10 +50,8 @@ export default async function RetagPage() {
           Re-tag with AI
         </h1>
         <p className="text-charcoal/65 text-[14px] leading-relaxed max-w-2xl">
-          Walk through the library and let Claude Vision propose fresh metadata
-          for each photo. Click <span className="font-bold">Re-tag</span> on any
-          card to see what Claude suggests; the current values appear alongside
-          the proposal as a diff. Apply per card or discard. {items.length}{" "}
+          Let us suggest better tags for your photos. You&apos;ll see the old
+          and new side by side — keep or skip each one. {items.length}{" "}
           photos in your library.
         </p>
       </div>

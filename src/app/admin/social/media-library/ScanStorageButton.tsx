@@ -35,17 +35,16 @@ export default function ScanStorageButton() {
   }
 
   return (
-    <div className="bg-amber-light/30 border border-amber/20 rounded-2xl p-4 md:p-5 mb-6">
+    <div className="bg-amber-light/30 border border-amber/20 rounded-2xl p-4 md:p-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
           <p className="text-charcoal font-semibold text-[14px] mb-1">
-            Bulk-uploaded directly to Supabase?
+            Find untagged photos
           </p>
           <p className="text-charcoal/70 text-[13px] leading-relaxed max-w-2xl">
-            Click to scan the <span className="font-mono">dr-media</span>{" "}
-            bucket for files that don&apos;t yet have library rows. Each
-            orphan gets Claude Vision auto-tagging and shows up in the grid
-            below. Processes up to 20 per scan — click again until done.
+            Find any photos you uploaded straight to storage that
+            aren&apos;t in your library yet, and tag them automatically.
+            Up to 20 at a time — click again to keep going.
           </p>
         </div>
         <button
@@ -73,7 +72,7 @@ export default function ScanStorageButton() {
             <Stat label="In storage" value={result.totalInStorage} />
             <Stat label="Already tagged" value={result.alreadyInLibrary} />
             <Stat
-              label="Orphans found"
+              label="New photos"
               value={result.orphansFound}
               accent={result.orphansFound > 0}
             />
@@ -85,16 +84,16 @@ export default function ScanStorageButton() {
           </div>
           <p className="text-[13px] text-charcoal/85">
             {result.orphansProcessed === 0 ? (
-              <>All files in storage already have library rows — nothing to do. 🤍</>
+              <>Everything in storage is already in your library — nothing to do. 🤍</>
             ) : (
               <>
-                Tagged <strong>{result.tagged}</strong> via Claude Vision
+                Tagged <strong>{result.tagged}</strong> automatically
                 {result.taggingFailed > 0 && (
                   <>
                     {" "}
                     · <strong className="text-red-700">{result.taggingFailed}</strong>{" "}
-                    tagging failures (rows created with empty tags — edit
-                    them manually)
+                    we couldn&apos;t tag (added with empty tags — add them
+                    yourself)
                   </>
                 )}
                 {result.moreToProcess && (
@@ -104,7 +103,7 @@ export default function ScanStorageButton() {
                     <strong>
                       {result.orphansFound - result.orphansProcessed} more
                     </strong>{" "}
-                    waiting — click Scan Storage again to continue.
+                    waiting — click again to keep going.
                   </>
                 )}
               </>

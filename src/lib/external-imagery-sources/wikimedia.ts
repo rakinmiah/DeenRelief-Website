@@ -89,9 +89,16 @@ interface ImageInfoEntry {
   thumburl?: string;
   width?: number;
   height?: number;
+  mime?: string;
   timestamp?: string;
   extmetadata?: Record<string, { value?: string } | undefined>;
 }
+
+/** File-title words that mark a Wikimedia asset as a NON-photograph — a
+ *  diagram / map / chart / illustration. Slide backgrounds must be real
+ *  photography (the same keyword search returns these alongside photos). */
+const NON_PHOTO_TITLE_RE =
+  /\b(diagram|schematic|map|maps|chart|charts|graph|graphs|graphic|graphics|infographic|infographics|illustration|illustrated|isometric|vector|blueprint|flowchart|cartoon|clip-?art|logo|icon|seal|coat[\s-]?of[\s-]?arms|flag)\b/i;
 interface ImageInfoResponse {
   query?: {
     pages?: Record<
@@ -234,6 +241,11 @@ export async function fetchWikimediaImagery(
     const info = page.imageinfo?.[0];
     if (!info || !info.url) continue;
     if ((info.width ?? 0) < MIN_WIDTH) continue;
+
+    // Backgrounds must be real photography — drop SVG/vector files and any
+    // file whose title marks it as a diagram / map / chart / illustration.
+    if ((info.mime ?? "").includes("svg")) continue;
+    if (NON_PHOTO_TITLE_RE.test(page.title ?? "")) continue;
 
     const meta = info.extmetadata ?? {};
     const licenseRaw =

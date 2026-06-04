@@ -69,6 +69,30 @@ export async function requireAdminSession(): Promise<AdminSessionPayload> {
   return session;
 }
 
+/** The single ops account allowed into the Social section. */
+export const SOCIAL_SECTION_EMAIL = "info@deenrelief.org";
+
+/**
+ * Require the account that owns the Social section. The whole
+ * /admin/social/* area is restricted to {@link SOCIAL_SECTION_EMAIL},
+ * regardless of role. Redirects to /admin/login when unauthenticated, and to
+ * a safe non-social landing for any other signed-in user (never back to
+ * /admin/social, so there's no redirect loop). Enforced once in
+ * src/app/admin/social/layout.tsx, which wraps every social sub-route.
+ */
+export async function requireSocialSectionAccess(): Promise<AdminSessionPayload> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  if ((session.email ?? "").trim().toLowerCase() !== SOCIAL_SECTION_EMAIL) {
+    if (session.role === "writer") redirect("/admin/blog");
+    if (session.role === "sponsorship") redirect("/admin/sponsorship");
+    if (session.role === "admin") redirect("/admin/donations");
+    // A 'social'-role account that isn't the ops email has no other home.
+    redirect("/admin/login");
+  }
+  return session;
+}
+
 /**
  * Require an admin-role session. Redirects to /admin/login on missing
  * session, and to /admin/social (the social-role landing page) when the
