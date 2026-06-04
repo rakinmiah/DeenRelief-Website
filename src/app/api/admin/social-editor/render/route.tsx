@@ -20,6 +20,7 @@ import { loadGoogleFont } from "@/lib/social-templates/fonts";
 import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
 import { cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
+import { fitTextLayers } from "@/lib/social-editor/presets";
 import type {
   EditorSlide,
   Layer,
@@ -98,10 +99,14 @@ async function render(request: Request): Promise<Response> {
      *  any instance layer into its concrete component layers. */
     registry?: ComponentRegistry;
   };
-  const slide = body.slide;
-  if (!slide || !Array.isArray(slide.layers)) {
+  const rawSlide = body.slide;
+  if (!rawSlide || !Array.isArray(rawSlide.layers)) {
     return new Response("Missing slide.", { status: 400 });
   }
+  // Guarantee text never overflows its box in the export: shrink-to-fit any
+  // over-long text layer (the SAME deterministic pass the canvas runs on
+  // load) so the PNG matches the stage and no two text layers can collide.
+  const slide = fitTextLayers(rawSlide);
   const registry = body.registry;
 
   // Auto-layout overrides: members of an auto-layout group are positioned

@@ -64,9 +64,13 @@ const attributions = (c: ContentBundle) =>
  *  sentence>} when no figure stands out. Deterministic, £0. */
 function splitStat(text: string): InfographicFact {
   const t = text.trim().replace(/\s+/g, " ");
-  // "9 in 10" first, else a number (with optional %, M/K/bn, or word unit).
+  // "9 in 10" first; else a number with an optional unit. The unit branch
+  // lists the WORD units (million/billion/…) before the single letters m/k
+  // and ends with (?![a-z]) so the "m" in "million" is never grabbed on its
+  // own (which used to yield value "1.7 m" + label "illion…"). A bare number
+  // is the final fallback so a plain count ("2,621") still matches.
   const m = t.match(
-    /(\d+\s+in\s+\d+|\d[\d,.]*\s?(?:%|m|k|bn|million|billion|thousand)?)/i
+    /(\d+\s+in\s+\d+|\d[\d,.]*\s?(?:%|million|billion|thousand|bn|[mk])(?![a-z])|\d[\d,.]*)/i
   );
   if (m && m.index !== undefined) {
     const value = m[0].trim();
@@ -86,6 +90,49 @@ function splitStat(text: string): InfographicFact {
 export function infographicFacts(content: ContentBundle, max = 4): InfographicFact[] {
   return facts(content).map(splitStat).slice(0, max);
 }
+
+/** Short magnitude tokens for a STAT slide's giant figure — the NUMBER is
+ *  the slide, never a whole sentence. Derived from the fact cards with the
+ *  same splitter the X infographics use; facts with no figure are dropped
+ *  (if the story has no number she should pick a different role). This is
+ *  what stops "881 Palestinians killed since the ceasefire…" landing in a
+ *  400px display slot and overflowing the board. Deterministic, £0. */
+const statValues = (c: ContentBundle) => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of facts(c)) {
+    const v = splitStat(t).value;
+    if (v && !seen.has(v.toLowerCase())) {
+      seen.add(v.toLowerCase());
+      out.push(v);
+    }
+  }
+  return out.slice(0, 6);
+};
+/** The beat that explains the stat figure — the label half of the split
+ *  ("killed since the ceasefire"), used as the stat slide's supporting line. */
+const statBeats = (c: ContentBundle) =>
+  facts(c)
+    .map((t) => splitStat(t).label)
+    .filter(Boolean)
+    .slice(0, 6);
+
+/** Trim a fact to one punchy line for the Key-fact slide — never a
+ *  paragraph. Cuts at the first sentence end in range, else the last word
+ *  boundary before the cap, so the slide reads as a single hard beat
+ *  instead of a wall of text. Deterministic, £0. */
+const FACT_DISPLAY_MAX = 100;
+function shortenFact(raw: string): string {
+  const s = raw.trim().replace(/\s+/g, " ");
+  if (s.length <= FACT_DISPLAY_MAX) return s;
+  const stop = s.search(/[.!?](\s|$)/);
+  if (stop >= 32 && stop <= FACT_DISPLAY_MAX) return s.slice(0, stop + 1);
+  const cut = s.slice(0, FACT_DISPLAY_MAX);
+  const sp = cut.lastIndexOf(" ");
+  return (sp >= 32 ? cut.slice(0, sp) : cut).replace(/[\s,;:–—-]+$/, "") + "…";
+}
+const shortFacts = (c: ContentBundle) =>
+  facts(c).map(shortenFact).filter(Boolean).slice(0, 6);
 
 /** The first source attribution found among the report's fact/source cards. */
 export function reportSource(content: ContentBundle): string | null {
@@ -120,16 +167,16 @@ export const ROLES: Record<SlideRole, RoleConfig> = {
   fact: {
     label: "Key fact", short: "Fact", description: "One hard, sourced fact.",
     category: "fact", needsImage: true, hasSecondary: false,
-    primaryHeading: "Choose the fact", primarySub: "The single fact this slide drives home.",
+    primaryHeading: "Choose the fact", primarySub: "The single fact this slide drives home — kept short and sharp.",
     secondaryHeading: "Add context", secondarySub: "Optional supporting line.",
-    primary: facts, secondary: bodies,
+    primary: shortFacts, secondary: bodies,
   },
   stat: {
     label: "Statistic", short: "Stat", description: "A big number with a short beat.",
     category: "stat", needsImage: false, hasSecondary: true,
-    primaryHeading: "Choose the statistic", primarySub: "The number this slide centres on.",
+    primaryHeading: "Choose the statistic", primarySub: "The number this slide centres on — just the figure, the beat goes below.",
     secondaryHeading: "Add a supporting beat", secondarySub: "One short line of context — or skip it.",
-    primary: facts, secondary: bodies,
+    primary: statValues, secondary: statBeats,
   },
   testimony: {
     label: "Testimony", short: "Quote", description: "An attributed quote.",

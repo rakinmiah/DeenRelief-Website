@@ -27,6 +27,29 @@ import type {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Words in an external image's title/description that mark it as a
+ *  NON-photograph — a diagram, map, chart, infographic, illustration, etc.
+ *  Slide backgrounds must be real photography; data-visual treatments come
+ *  later. High-precision list (word-boundary matched) so we exclude the
+ *  isometric "perimeter fence" diagrams without dropping genuine aftermath
+ *  photos. */
+const NON_PHOTO_RE =
+  /\b(diagram|schematic|map|maps|chart|charts|graph|graphs|graphic|graphics|infographic|infographics|illustration|illustrated|isometric|vector|blueprint|flowchart|cartoon|clip-?art|render(?:ing|ed)?|3d)\b/i;
+
+/** True when an external candidate is (probably) a real photograph. No
+ *  textual signal → assume photo (don't over-filter); an .svg URL is always
+ *  a vector, never a photo. */
+function isLikelyPhotograph(
+  title: string | null,
+  description: string | null,
+  url: string
+): boolean {
+  if (/\.svg(\?|#|$)/i.test(url)) return false;
+  const hay = `${title ?? ""} ${description ?? ""}`.trim();
+  if (!hay) return true;
+  return !NON_PHOTO_RE.test(hay);
+}
+
 /** Classify orientation from width/height with a small "square-ish"
  *  tolerance — IG square crops (1080×1080) and ones close to it should
  *  count as `square` so they fit both portrait and landscape slots. */
@@ -80,8 +103,15 @@ export async function GET(
     });
   }
 
+  let droppedNonPhoto = 0;
   for (const e of extCandidates) {
     if (e.archivedAt) continue;
+    // Backgrounds must be real photographs — skip diagrams / maps / charts /
+    // infographics / illustrations that slipped into the imagery pool.
+    if (!isLikelyPhotograph(e.title, e.description, e.url)) {
+      droppedNonPhoto++;
+      continue;
+    }
     candidates.push({
       id: `ext:${e.id}`,
       source: "external",
@@ -100,6 +130,9 @@ export async function GET(
     total: candidates.length,
     drCount: drCandidates.length,
     externalCount: candidates.length - drCandidates.length,
+    // How many external assets were excluded as non-photographic (diagrams,
+    // maps, charts) — surfaced for debugging the imagery pool.
+    droppedNonPhoto,
     // Both field names are populated so consumers can use either.
     // `images` matches the deck-builder Compose UI's ImageBundle
     // shape; `candidates` is the original Phase 6c contract.

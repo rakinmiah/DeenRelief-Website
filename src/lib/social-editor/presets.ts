@@ -3662,12 +3662,17 @@ function fitFontSize(l: TextLayer): number {
   if (!trimmed || base <= 12 || trimmed.length <= 2) return base;
   const upper = !!l.uppercase;
   const lh = l.lineHeight || 1.2;
-  // Floor low enough to rescue extreme cases (a 12-letter word in a giant
-  // stat slot), but not zero — so normal copy never shrinks absurdly.
-  const floor = Math.max(14, Math.round(base * 0.32));
+  // Floor: keep SHORT display copy bold (≥32% of base — a stat numeral or a
+  // 2-word headline never shrinks absurdly), but let LONG strings shrink all
+  // the way down. The long case is exactly the bug we're guarding: a whole
+  // sentence wrongly dropped into a 400px stat slot must be allowed to get
+  // small enough to fit its box rather than overflow and collide with a
+  // neighbouring layer. 16 chars ≈ "1.7 MILLION"/"2,000+" — still display copy.
+  const floor =
+    trimmed.length > 16 ? 16 : Math.max(14, Math.round(base * 0.32));
   const longestWord = trimmed.split(/\s+/).reduce((m, w) => Math.max(m, w.length), 1);
   let size = base;
-  for (let i = 0; i < 120 && size > floor; i++) {
+  for (let i = 0; i < 240 && size > floor; i++) {
     const charW = size * glyphWidthFactor(l.fontFamily, upper) + Math.max(0, l.letterSpacing);
     const lines = estimateLineCount(trimmed, size, l.w, l.fontFamily, l.letterSpacing, upper);
     // Tolerances absorb line-height padding + heuristic error so we only
@@ -3675,7 +3680,12 @@ function fitFontSize(l: TextLayer): number {
     const fitsH = lines * size * lh <= l.h * 1.12;
     const fitsW = longestWord * charW <= l.w * 1.06;
     if (fitsH && fitsW) break;
-    size -= 1;
+    // Adaptive step — bigger jumps when far oversized, 1px near the end — so
+    // even a giant slot reaches a fitting size within the iteration budget
+    // (a flat 1px step could only travel ~120px from a 400px start, leaving
+    // a long sentence still overflowing). Content that already fits its box
+    // breaks on iteration 0 and is returned untouched.
+    size -= Math.max(1, Math.round(size * 0.05));
   }
   return Math.max(floor, Math.round(size));
 }

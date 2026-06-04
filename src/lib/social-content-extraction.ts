@@ -130,7 +130,7 @@ export const ContentBlocksSchema = z.object({
   verified_facts: z
     .array(
       z.object({
-        text: z.string().max(280),
+        text: z.string().max(160),
         source: z
           .string()
           .nullable()
@@ -142,7 +142,7 @@ export const ContentBlocksSchema = z.object({
     .min(3)
     .max(8)
     .describe(
-      "3–8 verified facts. Each MUST include a specific number, magnitude, coordinate, agency, or named institution drawn verbatim from raw_payload. NO fabrication — if you don't have the number, don't write the fact."
+      "3–8 verified facts. Each is ONE punchy line (≤ ~14 words, ≤ 160 chars) — a single hard beat, NOT a paragraph: lead with the figure and stop ('881 killed since the October ceasefire.'). Each MUST include a specific number, magnitude, coordinate, agency, or named institution drawn verbatim from raw_payload. These feed both Key-fact slides (the short fact IS the slide) and Stat slides (a giant figure pulled from the fact — so put the number first and keep it standalone). NO fabrication — if you don't have the number, don't write the fact."
     ),
   quotes: z
     .array(
