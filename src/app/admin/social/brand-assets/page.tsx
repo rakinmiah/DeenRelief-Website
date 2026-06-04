@@ -44,11 +44,8 @@ export default async function BrandAssetsPage() {
           Brand assets
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Upload colour variants of the Deen Relief logo. The slide and
-          social-image renderers automatically pick the right variant
-          per context: the dark/green logo on cream backgrounds, the
-          light/white logo on dark backgrounds. PNG or SVG with
-          transparent backgrounds work best.
+          Upload your logo in light and dark versions — we use the right one
+          automatically depending on the slide background.
         </p>
       </div>
 

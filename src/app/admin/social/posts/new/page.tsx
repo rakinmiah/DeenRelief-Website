@@ -130,9 +130,8 @@ export default async function NewPostPage({
           Log a post
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Tell DR Admin about a post you&apos;ve just published. Picking the
-          short link you put in the post is what makes the dashboard
-          attribute clicks and donations to it.
+          Tell us about a post you just published. Pick the short link you used
+          so we can track its clicks and donations.
         </p>
       </div>
 

@@ -49,12 +49,8 @@ export default async function AdminSocialLandingPage() {
           Welcome{session.email ? `, ${session.email.split("@")[0]}` : ""}
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed max-w-2xl">
-          Tactical controls for the public site — change what donors land on
-          without a dev cycle. Signed in as{" "}
-          <span className="font-semibold text-charcoal">{session.role}</span>
-          {session.role === "social"
-            ? " — social tools only, no donor data."
-            : " — full admin access via the nav above."}
+          Everything you need to run Deen Relief&apos;s social media — links,
+          posts, emergency appeals, and the slide builder, all in one place.
         </p>
       </div>
 
@@ -128,8 +124,8 @@ export default async function AdminSocialLandingPage() {
           status="available"
           statusLabel="Available"
         >
-          Branded URLs like deenrelief.org/r/q that redirect to the right
-          campaign page with attribution baked in.
+          Short, branded links (like deenrelief.org/r/abc) that send people to
+          the right page — and let you see clicks and donations from each one.
         </DashboardCard>
 
         {/* ─── Coming soon ─── */}
@@ -147,13 +143,10 @@ export default async function AdminSocialLandingPage() {
           title="First Response"
           href="/admin/social/first-response"
           status="active"
-          statusLabel="Live · launch-packet drafting"
+          statusLabel="Live"
         >
-          Crisis intelligence + AI-drafted launch packets. GDACS / USGS /
-          ReliefWeb feeds, multi-factor priority scoring, push alerts on
-          high-priority events. Click any event to draft a full launch
-          packet (page copy, donation tiers, social posts, email, press
-          release) in the Deen Relief voice via Claude.
+          Get alerted when a disaster hits a place we work, then build a post
+          about it in minutes.
         </DashboardCard>
 
         <DashboardCard
@@ -162,9 +155,7 @@ export default async function AdminSocialLandingPage() {
           status="available"
           statusLabel="Available"
         >
-          Which posts actually raised money — not which got likes. Log a
-          post, pick the short link you put in it, and the dashboard
-          shows clicks + donations + £ raised end-to-end.
+          See which posts actually raised money, not just likes.
         </DashboardCard>
 
         <DashboardCard
@@ -173,10 +164,8 @@ export default async function AdminSocialLandingPage() {
           status="available"
           statusLabel="Available"
         >
-          DR&apos;s sorted photo inventory. Upload once, Claude auto-tags
-          on the way in, and the launch-packet generator pulls relevant
-          imagery into carousel slides automatically. Pure-typography
-          slides become photo-backed slides when matching media exists.
+          Your photo library. Upload once and we tag everything, so the slide
+          builder can drop the right photos into your posts.
         </DashboardCard>
 
         <DashboardCard
@@ -185,24 +174,18 @@ export default async function AdminSocialLandingPage() {
           status="available"
           statusLabel="Available"
         >
-          Logo variants for the slide renderer. Upload your DR logo
-          in light and dark colour versions (PNG/SVG with transparent
-          backgrounds work best). The renderer auto-picks the right
-          variant per slide context — green logo on cream chips,
-          white logo on dark green chips.
+          Upload your light and dark logos — we pick the right one
+          automatically for each slide background.
         </DashboardCard>
 
         <DashboardCard
-          title="Template Lab"
+          title="Slide designs"
           href="/admin/social/template-lab"
           status="available"
           statusLabel="Available"
         >
-          The full slide library — 95 templates across 9 types (Hero, Key
-          Fact, Big Stat, Multi-stat, Before/After, Donation Tiers, Testimony,
-          Our Response, Call to Action), each rendered through the live Satori
-          pipeline. Browse by category to review every layout before building
-          a deck.
+          Browse every slide layout before you build a post — 95 designs to
+          choose from.
         </DashboardCard>
       </div>
     </main>

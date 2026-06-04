@@ -1690,7 +1690,7 @@ export default function CanvasDeckEditor({
                   <button
                     type="button"
                     onClick={() => setShowMarkPosted(true)}
-                    title="Record this deck against its news report + template designs so clicks and donations teach the builder over time"
+                    title="Track this post's clicks and donations."
                     className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition"
                   >
                     Mark as posted

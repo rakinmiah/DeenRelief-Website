@@ -102,10 +102,9 @@ export default async function PerformancePage() {
             Per-post performance
           </h1>
           <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-            Which posts actually raised money — not just likes. Click counts
-            from short-link redirects, donations attributed via UTMs,
-            conversion rate per post. Log a post first; once a donor
-            converts through its short link, it appears here.
+            See which posts actually raised money, not just likes. Log a post
+            with the short link you used, and its clicks and donations show up
+            here.
           </p>
         </div>
         <Link
@@ -416,10 +415,8 @@ function DesignLeaderboard({
         What designs convert
       </h2>
       <p className="text-charcoal/55 text-[13px] mb-3 max-w-2xl leading-snug">
-        Per template, per platform, ranked by £ raised per post (last-click).
-        Once a design clears the confidence bar it&apos;s marked a winner and the
-        auto-draft starts reaching for it on that slide type — each platform
-        learns its own.
+        Which slide designs raise the most on each platform. Once one proves
+        itself, we start suggesting it by default.
       </p>
       <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
@@ -488,10 +485,6 @@ function DesignLeaderboard({
           </tbody>
         </table>
       </div>
-      <p className="text-charcoal/40 text-[11px] mt-2">
-        Carousel outcomes are credited to every template in the post (last-click,
-        post-level) — fair for ranking, not per-slide precise.
-      </p>
     </section>
   );
 }
@@ -503,9 +496,8 @@ function TopicLeaderboard({ topics }: { topics: TopicSignal[] }) {
         What topics convert
       </h2>
       <p className="text-charcoal/55 text-[13px] mb-3 max-w-2xl leading-snug">
-        Which kinds of news report + campaign drive the most donations. Feeds a
-        gentle, capped boost to First Response so the system suggests what to
-        target next.
+        Which kinds of stories raise the most — we use this to suggest what to
+        post about next.
       </p>
       <div className="bg-white border border-charcoal/10 rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">

@@ -122,8 +122,8 @@ export default async function ShortLinksPage({
             Short links
           </h1>
           <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-            Branded URLs that redirect to the right campaign page with
-            attribution baked in.
+            Short, branded links (like deenrelief.org/r/abc) that send people to
+            the right page — and let you see clicks and donations from each one.
           </p>
         </div>
         <Link

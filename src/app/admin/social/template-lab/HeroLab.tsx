@@ -46,7 +46,7 @@ export default function HeroLab({
       <div style={{ maxWidth: 1320, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1A1A2E", margin: 0 }}>
-            Template Lab — Slide library
+            Slide designs
           </h1>
           <a
             href="/admin/social/template-lab/sandbox"
@@ -56,10 +56,9 @@ export default function HeroLab({
           </a>
         </div>
         <p style={{ color: "#555", marginTop: 6, fontSize: 14, lineHeight: 1.5, maxWidth: 820 }}>
-          {total} templates across {CATS.length} slide types, each rendered through the
-          real Satori export pipeline with sample copy + photo — exactly what a published
-          PNG looks like. Use the nav to jump between sections; cards lazy-render as you
-          scroll.
+          {total} templates across {CATS.length} slide types, shown exactly as
+          they&apos;ll look when published, with sample copy and a photo. Use the
+          nav to jump between sections; cards load as you scroll.
         </p>
         {/* Sticky category nav — flick between sections. */}
         <nav

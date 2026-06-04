@@ -61,10 +61,9 @@ export default async function MediaLibraryPage({
             Media library
           </h1>
           <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-            DR&apos;s sorted photo inventory. Upload once, tag once — the launch-
-            packet generator queries this library and Claude auto-selects
-            imagery for emergency carousel slides based on country, event
-            type, and campaign match.
+            Your photo library. Upload once and we tag everything
+            automatically, so the slide builder can pick the right photos
+            for your posts.
           </p>
         </div>
         <div className="shrink-0 flex flex-col sm:flex-row gap-2">
@@ -83,8 +82,15 @@ export default async function MediaLibraryPage({
         </div>
       </div>
 
-      {/* ─── Bulk-import scanner ─── */}
-      <ScanStorageButton />
+      {/* ─── Bulk-import scanner (collapsed by default) ─── */}
+      <details className="mb-6">
+        <summary className="text-[13px] text-charcoal/55 hover:text-charcoal/80 cursor-pointer underline underline-offset-2">
+          Uploaded photos somewhere else? Find untagged ones
+        </summary>
+        <div className="mt-3">
+          <ScanStorageButton />
+        </div>
+      </details>
 
       {/* ─── Filter strip ─── */}
       <form
@@ -161,10 +167,8 @@ function EmptyState() {
         No media uploaded yet
       </p>
       <p className="text-charcoal/60 text-[13px] max-w-md mx-auto leading-relaxed mb-4">
-        Upload photos from DR field operations, event coverage, and
-        programme imagery. Claude will auto-suggest tags on each upload —
-        you review, edit, and save. The launch-packet generator then pulls
-        from this library when drafting emergency carousels.
+        Upload photos from the field and your events. We tag each one
+        automatically so they&apos;re ready to drop into posts.
       </p>
       <Link
         href="/admin/social/media-library/new"

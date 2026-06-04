@@ -67,7 +67,7 @@ export default async function DeckBuilderPage({
         event={summary}
         logo={logo}
         logoLight={logoLight}
-        backHref={`/admin/social/first-response/legacy/${event.id}`}
+        backHref="/admin/social/first-response"
       />
     </main>
   );

@@ -44,10 +44,8 @@ export default async function UploadMediaPage() {
           Upload media
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Drop one photo or a whole batch. Each file uploads, gets
-          Claude Vision auto-tagged, and saves to the library — all in
-          parallel (up to 5 at a time). Review and edit any tags that
-          need adjustment afterwards from the library grid.
+          Drop photos here — we&apos;ll tag each one automatically. You can
+          fix any tags later in your library.
         </p>
       </div>
       <UploadForm />

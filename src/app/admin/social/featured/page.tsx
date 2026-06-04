@@ -28,11 +28,8 @@ export default async function FeaturedCampaignPage() {
           Featured campaign
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Set the campaign Deen Relief is actively pushing this week — appears
-          as a hero tile on the homepage and is pre-selected on{" "}
-          <span className="font-mono">/donate</span>. The actual public-side
-          rendering of this is wired in Phase 1d (landing page UX
-          refinements); for now this just stores the choice.
+          Pick the campaign Deen Relief is pushing this week — it features on
+          the homepage and donate page.
         </p>
       </div>
 

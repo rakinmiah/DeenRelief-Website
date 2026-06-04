@@ -74,11 +74,8 @@ export default async function FirstResponsePage() {
           First Response
         </h1>
         <p className="text-charcoal/70 text-[15px] leading-relaxed mt-2 max-w-2xl">
-          Crisis intelligence tailored to Deen Relief&apos;s actual campaigns
-          and field regions. When a humanitarian crisis hits a geography we
-          can convert on, alerts land here ranked by revenue potential — so
-          the SMM and trustees can launch a coordinated appeal in minutes,
-          not days.
+          When a disaster hits somewhere Deen Relief can help, it shows up
+          here — most important first — so you can post an appeal fast.
         </p>
       </div>
 
@@ -101,39 +98,12 @@ export default async function FirstResponsePage() {
         </span>
         <div>
           <p className="text-charcoal font-semibold text-[14px]">
-            Signal monitoring is live — Tier 1 sources active, multi-factor
-            scoring + push alerts wired.
+            We watch trusted disaster feeds around the clock and alert you the
+            moment something big hits a place we work. Tap any alert to build a
+            post about it.
           </p>
-          <p className="text-charcoal/70 text-[13px] mt-0.5 leading-relaxed">
-            Ingesting from six authoritative sources:{" "}
-            <span className="font-semibold text-charcoal">GDACS</span> (15 min),{" "}
-            <span className="font-semibold text-charcoal">USGS earthquakes</span>{" "}
-            (15 min),{" "}
-            <span className="font-semibold text-charcoal">ReliefWeb</span> (30 min),{" "}
-            <span className="font-semibold text-charcoal">IFRC GO</span>{" "}
-            (Red Crescent national societies, 30 min),{" "}
-            <span className="font-semibold text-charcoal">UK Met Office</span>{" "}
-            (severe weather warnings, hourly, Brighton-region filtered), and{" "}
-            <span className="font-semibold text-charcoal">NASA EONET</span>{" "}
-            (curated natural events, hourly). Each event gets a{" "}
-            <span className="font-semibold text-charcoal">
-              priority out of 10
-            </span>{" "}
-            — how much it&apos;s worth acting on, from{" "}
-            <span className="font-semibold text-charcoal">
-              severity, how close it is to our campaigns, UK diaspora size, and
-              Muslim-majority reach
-            </span>{" "}
-            — and is pushed to your DR Admin bell when it reaches{" "}
-            <span className="font-semibold text-charcoal">5/10 (amber)</span> or{" "}
-            <span className="font-semibold text-charcoal">
-              8/10 (critical, audible)
-            </span>
-            . Every source is filtered at ingest
-            to DR&apos;s coverage + diaspora-adjacent geographies — events
-            from regions outside that set never reach the database. Click
-            any alert to draft a Claude-written launch packet + one-click
-            emergency launch.
+          <p className="text-charcoal/60 text-[12px] mt-0.5">
+            Updated continuously
           </p>
         </div>
       </div>
@@ -151,9 +121,8 @@ export default async function FirstResponsePage() {
         <div className="bg-white border border-charcoal/10 rounded-2xl">
           {events.length === 0 ? (
             <div className="px-6 py-10 text-center text-charcoal/50 text-sm">
-              No events detected yet. The first cron run will populate this
-              within a few minutes of deployment — ranked by severity, with
-              matched campaigns alongside each entry.
+              No alerts right now. New ones appear here automatically as
+              disasters come in.
             </div>
           ) : (
             <ul className="divide-y divide-charcoal/5">
@@ -243,11 +212,7 @@ export default async function FirstResponsePage() {
                           className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full ${scoreClasses(
                             ev.drPriorityScore
                           )}`}
-                          title={`${priorityLabel(ev.drPriorityScore)} priority · composite ${ev.drPriorityScore.toFixed(
-                            1
-                          )} (severity × coverage × diaspora × Muslim-majority${
-                            ev.severityRaw !== null ? `, raw severity ${ev.severityRaw.toFixed(1)}` : ""
-                          })`}
+                          title="Higher = more worth posting about right now."
                         >
                           {displayPriority(ev.drPriorityScore)}/10 ·{" "}
                           {priorityLabel(ev.drPriorityScore)}

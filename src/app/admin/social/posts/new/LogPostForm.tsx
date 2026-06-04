@@ -192,9 +192,8 @@ export default function LogPostForm({
             ))}
           </select>
           <p className="mt-1.5 text-[12px] text-charcoal/50 leading-snug">
-            Links this post to the emergency it covers so the dashboard can
-            learn which topics drive donations. If you built it in the deck
-            builder, its template designs ride along too.
+            Links this post to the news story it&apos;s about. If you built it
+            in the slide builder, that detail comes along too.
           </p>
         </div>
       )}
@@ -342,9 +341,7 @@ export default function LogPostForm({
           className="w-full px-3 py-3 rounded-xl bg-cream border border-charcoal/10 focus:border-charcoal/30 focus:outline-none focus:ring-2 focus:ring-charcoal/10 text-charcoal text-sm font-mono uppercase"
         />
         <p className="mt-1.5 text-[12px] text-charcoal/50 leading-snug">
-          If you asked donors to comment a keyword for a DM link, record
-          it here. Used by the future auto-DM responder once Meta
-          verification clears.
+          Optional — for an auto-reply feature we&apos;re still building.
         </p>
       </div>
 

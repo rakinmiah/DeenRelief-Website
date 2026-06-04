@@ -98,13 +98,9 @@ export default function CreateLinkForm() {
       onSubmit={handleSubmit}
       className="bg-white border border-charcoal/10 rounded-2xl p-5 md:p-6 mb-8"
     >
-      <h2 className="text-charcoal font-heading font-semibold text-lg mb-1">
+      <h2 className="text-charcoal font-heading font-semibold text-lg mb-5">
         Create a short link
       </h2>
-      <p className="text-charcoal/60 text-sm mb-5 leading-relaxed">
-        Branded URLs like <code className="text-[12px] bg-cream px-1.5 py-0.5 rounded">deenrelief.org/r/q</code>{" "}
-        that redirect to a campaign page with attribution tracked end to end.
-      </p>
 
       {success && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-light/40 border border-green/30 text-green-dark text-sm">

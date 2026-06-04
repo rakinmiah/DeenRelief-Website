@@ -580,7 +580,7 @@ function CompilingStep({
     <div className="min-h-[40vh] grid place-items-center">
       <div className="text-center w-full max-w-sm">
         <p className="text-[15px] font-medium text-charcoal/80 mb-5">
-          Compiling templates…
+          Building your options…
         </p>
         <div className="h-1.5 rounded-full bg-charcoal/8 overflow-hidden">
           <motion.div
@@ -591,7 +591,7 @@ function CompilingStep({
           />
         </div>
         <p className="text-[12px] text-charcoal/40 mt-3">
-          Dropping your title, line and photo into each layout.
+          Putting your words and photo into each design.
         </p>
       </div>
     </div>

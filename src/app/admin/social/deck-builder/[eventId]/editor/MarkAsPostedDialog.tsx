@@ -75,15 +75,6 @@ export default function MarkAsPostedDialog({
     [links, shortLinkId]
   );
 
-  const recipeSummary = useMemo(() => {
-    if (!deckRecipe || deckRecipe.length === 0) return null;
-    const roles = deckRecipe.map((r) => r.role);
-    const shown = roles.slice(0, 4).join(", ");
-    return `${deckRecipe.length} slide${deckRecipe.length === 1 ? "" : "s"} · ${shown}${
-      roles.length > 4 ? "…" : ""
-    }`;
-  }, [deckRecipe]);
-
   async function submit() {
     setSaving(true);
     setError(null);
@@ -153,9 +144,8 @@ export default function MarkAsPostedDialog({
         ) : (
           <>
             <p className="text-[12.5px] text-charcoal/55 leading-relaxed mb-4">
-              Records this deck against its news report and template designs.
-              Pick the short link you put in the caption so clicks and donations
-              attribute back to it.
+              Pick the short link you put in the caption so we can track this
+              post&apos;s clicks and donations.
             </p>
 
             <label className="block text-[12px] font-medium text-charcoal/55 mb-1.5">
@@ -204,18 +194,6 @@ export default function MarkAsPostedDialog({
               onChange={(e) => setPublishedAt(e.target.value)}
               className="dr-input mb-3"
             />
-
-            <div className="rounded-lg bg-charcoal/[0.03] ring-1 ring-charcoal/8 px-3 py-2 mb-4">
-              <p className="text-[11px] text-charcoal/45">
-                {recipeSummary ? (
-                  <>
-                    Design recipe captured · <span className="tabular-nums">{recipeSummary}</span>
-                  </>
-                ) : (
-                  "No design recipe (blank/edited canvas) — logged for the topic record only."
-                )}
-              </p>
-            </div>
 
             {error && (
               <p className="text-[12px] text-red-600 mb-3" role="alert">

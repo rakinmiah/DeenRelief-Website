@@ -87,11 +87,8 @@ export default function TestEventPanel() {
               Test scenarios — for demos &amp; QA
             </p>
             <p className="text-charcoal/70 text-[13px] leading-relaxed max-w-2xl">
-              Each click inserts a realistic test emergency through the same
-              ingester real events use — scoring, push gating, and matched
-              campaigns all behave identically. Test events are tagged{" "}
-              <code className="font-mono text-charcoal">source=test</code> and
-              can be wiped in one click below.
+              Create a pretend emergency to try things out or demo. They look
+              real but are clearly marked, and you can clear them anytime.
             </p>
           </div>
 
@@ -148,10 +145,7 @@ export default function TestEventPanel() {
                 <strong>Created:</strong> {lastResult.scenario} ·{" "}
                 <strong>Priority:</strong>{" "}
                 {displayPriority(lastResult.score) ?? "—"}/10{" "}
-                <span className="text-charcoal/45">
-                  (composite {lastResult.score?.toFixed(1) ?? "—"})
-                </span>{" "}
-                · <strong>Push tier:</strong>{" "}
+                · <strong>Alert level:</strong>{" "}
                 <span
                   className={`uppercase font-bold tracking-[0.05em] ${
                     lastResult.tier === "critical"

@@ -128,7 +128,7 @@ export default function TemplateSorter({
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: FOREST }}>Template Library</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: FOREST }}>Slide designs</span>
           <span style={{ fontSize: 12.5, color: "#777" }}>
             {ordered.length} templates · {sections.length} slide types
           </span>
