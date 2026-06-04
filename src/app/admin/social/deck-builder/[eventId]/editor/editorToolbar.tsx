@@ -12,6 +12,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import type { ImageCandidate } from "@/lib/social-templates/types";
+import type { WebImageResult } from "@/lib/image-search/types";
 import type {
   AutoLayout,
   AutoLayoutAlign,
@@ -1334,6 +1335,9 @@ export function ImagePicker({
   const dr = images.filter((i) => i.source === "dr_library");
   const ext = images.filter((i) => i.source === "external");
 
+  // Two tabs: "event" (suggested + DR library) and "web" (free-to-use search).
+  const [tab, setTab] = useState<"event" | "web">("event");
+
   // "View entire library" mode — same popup, but the DR section transitions
   // into the WHOLE Deen Relief library (fetched on demand) instead of just
   // the images suggested for this event.
@@ -1342,6 +1346,53 @@ export function ImagePicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
+
+  // Web image search (Openverse + Pexels + Unsplash).
+  const [webQ, setWebQ] = useState("");
+  const [webResults, setWebResults] = useState<WebImageResult[]>([]);
+  const [webSources, setWebSources] = useState<string[]>([]);
+  const [webLoading, setWebLoading] = useState(false);
+  const [webError, setWebError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
+
+  async function runWebSearch(e?: { preventDefault?: () => void }) {
+    e?.preventDefault?.();
+    const query = webQ.trim();
+    if (!query) return;
+    setWebLoading(true);
+    setWebError(null);
+    setSearched(true);
+    try {
+      const res = await fetch(
+        `/api/admin/image-search?q=${encodeURIComponent(query)}`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as {
+        results?: WebImageResult[];
+        sources?: string[];
+      };
+      setWebResults(Array.isArray(json.results) ? json.results : []);
+      setWebSources(Array.isArray(json.sources) ? json.sources : []);
+    } catch {
+      setWebError("Search failed. Try again.");
+      setWebResults([]);
+    } finally {
+      setWebLoading(false);
+    }
+  }
+
+  function pickWeb(img: WebImageResult) {
+    // Unsplash ToS: ping the download endpoint when a photo is used.
+    if (img.downloadLocation) {
+      fetch("/api/admin/image-search/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ downloadLocation: img.downloadLocation }),
+      }).catch(() => {});
+    }
+    onPick(img);
+  }
 
   async function openLibrary() {
     setAllMode(true);
@@ -1371,12 +1422,28 @@ export function ImagePicker({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-auto p-5" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-heading font-semibold text-charcoal text-lg">
-            {allMode ? "Deen Relief library" : "Choose an image"}
+            {tab === "web" ? "Search the web" : allMode ? "Deen Relief library" : "Choose an image"}
           </h2>
           <button type="button" onClick={onClose} className="text-charcoal/40 hover:text-charcoal text-[20px] leading-none">×</button>
         </div>
 
-        {allMode ? (
+        {/* Tabs: this event's imagery vs free-to-use web search */}
+        <div className="flex items-center gap-1 mb-4 bg-charcoal/[0.04] rounded-lg p-1 w-fit">
+          {([["event", "This event"], ["web", "Search the web"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={`px-3 py-1.5 rounded-md text-[12.5px] font-semibold transition-colors ${
+                tab === key ? "bg-white text-charcoal shadow-sm" : "text-charcoal/55 hover:text-charcoal"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "event" && (allMode ? (
           /* ── Entire library view ── */
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -1447,6 +1514,55 @@ export function ImagePicker({
               </button>
             )}
           </div>
+        ))}
+
+        {tab === "web" && (
+          <div className="flex flex-col gap-3">
+            <form onSubmit={runWebSearch} className="flex items-center gap-2">
+              <input
+                type="search"
+                value={webQ}
+                onChange={(e) => setWebQ(e.target.value)}
+                placeholder="Search free-to-use photos — ‘Palestine’, ‘Bangladesh flag’, ‘refugee camp’…"
+                className="dr-input flex-1 !py-2"
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={webLoading || !webQ.trim()}
+                className="px-3.5 py-2 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 shrink-0"
+              >
+                {webLoading ? "Searching…" : "Search"}
+              </button>
+            </form>
+            <p className="text-[11px] text-charcoal/45 leading-relaxed">
+              Free to use (CC0 / public domain / CC-BY) from Openverse, Pexels &amp;
+              Unsplash. Add the credit shown on each photo to your caption.
+            </p>
+            {webLoading ? (
+              <p className="text-[13px] text-charcoal/45 py-10 text-center">Searching the web…</p>
+            ) : webError ? (
+              <p className="text-[13px] text-red-600/80 py-10 text-center">{webError}</p>
+            ) : !searched ? (
+              <p className="text-[13px] text-charcoal/45 py-10 text-center">
+                Search for any subject — a place, a flag, a theme — and pick from
+                free-to-use photos.
+              </p>
+            ) : webResults.length === 0 ? (
+              <p className="text-[13px] text-charcoal/45 py-10 text-center">
+                No free-to-use photos for “{webQ.trim()}”. Try another search.
+              </p>
+            ) : (
+              <>
+                {webSources.length > 0 && (
+                  <p className="text-[11px] text-charcoal/40">
+                    {webResults.length} results · {webSources.join(" · ")}
+                  </p>
+                )}
+                <WebImageGrid items={webResults} onPick={pickWeb} />
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -1491,6 +1607,31 @@ function ImageGrid({ items, onPick }: { items: ImageCandidate[]; onPick: (i: Ima
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={img.thumbnailUrl ?? img.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Web-search results grid — like ImageGrid but with a source · licence
+ *  caption baked onto each thumbnail (the credit lives on the title too). */
+function WebImageGrid({ items, onPick }: { items: WebImageResult[]; onPick: (i: WebImageResult) => void }) {
+  return (
+    <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+      {items.map((img) => (
+        <button
+          key={img.id}
+          type="button"
+          onClick={() => onPick(img)}
+          title={img.creditText ?? img.description ?? undefined}
+          className="relative aspect-square rounded-lg overflow-hidden ring-1 ring-charcoal/10 hover:ring-green/60 transition"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img.thumbnailUrl ?? img.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/70 to-transparent text-[9px] font-medium text-white/90 leading-tight text-left truncate">
+            {img.sourceLabel}
+            {img.license ? ` · ${img.license}` : ""}
+          </span>
         </button>
       ))}
     </div>
