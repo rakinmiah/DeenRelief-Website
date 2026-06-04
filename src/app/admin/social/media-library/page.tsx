@@ -90,37 +90,39 @@ export default async function MediaLibraryPage({
       <form
         action="/admin/social/media-library"
         method="get"
-        className="mb-6 flex items-center gap-2 flex-wrap"
+        className="mb-6 flex flex-col sm:flex-row items-start gap-3"
       >
-        <Link
-          href="/admin/social/media-library"
-          className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-            !campaign
-              ? "bg-charcoal text-white"
-              : "bg-white border border-charcoal/15 text-charcoal/80 hover:bg-cream"
-          }`}
-        >
-          All campaigns
-        </Link>
-        {(Object.keys(CAMPAIGNS) as CampaignSlug[]).map((slug) => (
+        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
           <Link
-            key={slug}
-            href={`/admin/social/media-library?campaign=${slug}`}
+            href="/admin/social/media-library"
             className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
-              campaign === slug
+              !campaign
                 ? "bg-charcoal text-white"
                 : "bg-white border border-charcoal/15 text-charcoal/80 hover:bg-cream"
             }`}
           >
-            {CAMPAIGNS[slug]}
+            All campaigns
           </Link>
-        ))}
+          {(Object.keys(CAMPAIGNS) as CampaignSlug[]).map((slug) => (
+            <Link
+              key={slug}
+              href={`/admin/social/media-library?campaign=${slug}`}
+              className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+                campaign === slug
+                  ? "bg-charcoal text-white"
+                  : "bg-white border border-charcoal/15 text-charcoal/80 hover:bg-cream"
+              }`}
+            >
+              {CAMPAIGNS[slug]}
+            </Link>
+          ))}
+        </div>
         <input
           type="text"
           name="q"
           defaultValue={params.q ?? ""}
           placeholder="Search captions…"
-          className="ml-auto px-3 py-1.5 rounded-full bg-white border border-charcoal/15 text-charcoal text-[13px] focus:outline-none focus:ring-2 focus:ring-charcoal/10 min-w-[200px]"
+          className="w-full sm:w-[220px] shrink-0 px-3 py-1.5 rounded-full bg-white border border-charcoal/15 text-charcoal text-[13px] focus:outline-none focus:ring-2 focus:ring-charcoal/10"
         />
         {campaign && <input type="hidden" name="campaign" value={campaign} />}
       </form>
