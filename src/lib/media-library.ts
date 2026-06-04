@@ -432,6 +432,44 @@ export async function archiveMedia(id: string): Promise<boolean> {
   return true;
 }
 
+/* ─── Bulk operations (preselect: retag / quick delete) ──────────── */
+
+/** Fetch several non-archived rows in one query (for bulk retag — we need
+ *  each item's current arrays to union new tags/campaigns into). */
+export async function getMediaByIds(ids: string[]): Promise<MediaItem[]> {
+  if (ids.length === 0) return [];
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("media_library")
+    .select(MEDIA_SELECT_COLS)
+    .in("id", ids)
+    .is("archived_at", null)
+    .returns<MediaRow[]>();
+  if (error) {
+    console.error("[media-library] getMediaByIds failed:", error);
+    return [];
+  }
+  return (data ?? []).map(rowToItem);
+}
+
+/** Archive (soft-delete) many rows in one query. Returns how many rows were
+ *  actually archived (already-archived ids are skipped via the null guard). */
+export async function archiveManyMedia(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("media_library")
+    .update({ archived_at: new Date().toISOString() })
+    .in("id", ids)
+    .is("archived_at", null)
+    .select("id");
+  if (error) {
+    console.error("[media-library] bulk archive failed:", error);
+    return 0;
+  }
+  return data?.length ?? 0;
+}
+
 /* ─── Storage reconciliation (bulk-upload support) ───────────────── */
 
 export interface StorageFile {

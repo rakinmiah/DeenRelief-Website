@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/admin-session";
 import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import { listMedia } from "@/lib/media-library";
 import ScanStorageButton from "./ScanStorageButton";
+import MediaLibraryGrid, { type MediaCardData } from "./MediaLibraryGrid";
 
 export const metadata: Metadata = {
   title: "Media library | Deen Relief Admin",
@@ -124,71 +125,31 @@ export default async function MediaLibraryPage({
         {campaign && <input type="hidden" name="campaign" value={campaign} />}
       </form>
 
-      {/* ─── Grid ─── */}
+      {/* ─── Grid (with preselect mode: bulk retag / quick delete) ─── */}
       {items.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {items.map((item) => (
-            <MediaCard key={item.id} item={item} />
-          ))}
-        </div>
+        <MediaLibraryGrid items={items.map(toCardData)} />
       )}
     </main>
   );
 }
 
-function MediaCard({
-  item,
-}: {
-  item: Awaited<ReturnType<typeof listMedia>>[number];
-}) {
-  return (
-    <Link
-      href={`/admin/social/media-library/${item.id}`}
-      className="group flex flex-col bg-white border border-charcoal/10 rounded-2xl overflow-hidden hover:border-charcoal/25 transition-colors"
-    >
-      <div
-        className="aspect-square bg-cream"
-        style={{
-          backgroundColor: item.dominantColor ?? "#F7F3E8",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={item.publicUrl}
-          alt={item.caption ?? "Media item"}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      </div>
-      <div className="p-3 flex flex-col gap-2 flex-1">
-        <p className="text-[12px] text-charcoal/85 leading-snug line-clamp-2 min-h-[2.5em]">
-          {item.caption ?? <span className="text-charcoal/40">No caption</span>}
-        </p>
-        <div className="flex items-center flex-wrap gap-1 mt-auto">
-          {item.tone && (
-            <span className="text-[10px] font-semibold tracking-[0.08em] uppercase px-1.5 py-0.5 rounded-full bg-amber-light text-amber-dark">
-              {item.tone}
-            </span>
-          )}
-          {item.countryIso && (
-            <span className="text-[10px] font-semibold tracking-[0.08em] uppercase px-1.5 py-0.5 rounded-full bg-charcoal/8 text-charcoal/70">
-              {item.countryIso}
-            </span>
-          )}
-          {item.campaignSlugs.slice(0, 1).map((c) => (
-            <span
-              key={c}
-              className="text-[10px] font-semibold tracking-[0.08em] uppercase px-1.5 py-0.5 rounded-full bg-green/10 text-green-dark"
-            >
-              {isValidCampaign(c) ? CAMPAIGNS[c] : c}
-            </span>
-          ))}
-        </div>
-      </div>
-    </Link>
-  );
+/** Trim a full MediaItem down to the serialisable shape the client grid
+ *  needs (no Date fields cross the server→client boundary). */
+function toCardData(
+  item: Awaited<ReturnType<typeof listMedia>>[number]
+): MediaCardData {
+  return {
+    id: item.id,
+    publicUrl: item.publicUrl,
+    caption: item.caption,
+    tags: item.tags,
+    campaignSlugs: item.campaignSlugs,
+    countryIso: item.countryIso,
+    tone: item.tone,
+    dominantColor: item.dominantColor,
+  };
 }
 
 function EmptyState() {
