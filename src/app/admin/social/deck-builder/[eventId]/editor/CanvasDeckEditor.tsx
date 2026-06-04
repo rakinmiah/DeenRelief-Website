@@ -68,6 +68,7 @@ import type { ElementDef } from "./elementLibrary";
 import ContentPanel from "./ContentPanel";
 import QrDialog from "./QrDialog";
 import MarkAsPostedDialog from "./MarkAsPostedDialog";
+import PostCompleteDialog from "./PostCompleteDialog";
 import type { DeckRecipeEntry } from "@/app/admin/social/posts/actions";
 import {
   ToolbarBtn,
@@ -182,6 +183,7 @@ export default function CanvasDeckEditor({
   const [picker, setPicker] = useState<null | "add" | "replace">(null);
   const [showQr, setShowQr] = useState(false);
   const [showMarkPosted, setShowMarkPosted] = useState(false);
+  const [showPostComplete, setShowPostComplete] = useState(false);
   // When the QR dialog was opened by clicking a QR placeholder, the generated
   // code replaces THAT layer (same box) instead of dropping bottom-right.
   const [qrTarget, setQrTarget] = useState<string | null>(null);
@@ -1415,6 +1417,9 @@ export default function CanvasDeckEditor({
     setExporting(true);
     try {
       await exportDeck(deck, title, registry);
+      // The post is "complete" — guide her to start tracking + learning.
+      // Only for real event-backed posts (the sandbox has nothing to track).
+      if (eventId) setShowPostComplete(true);
     } finally {
       setExporting(false);
     }
@@ -1944,6 +1949,16 @@ export default function CanvasDeckEditor({
       )}
 
       {showQr && <QrDialog onInsert={addQrLayer} onClose={() => setShowQr(false)} />}
+      {showPostComplete && (
+        <PostCompleteDialog
+          platform={platform}
+          onMarkPosted={() => {
+            setShowPostComplete(false);
+            setShowMarkPosted(true);
+          }}
+          onClose={() => setShowPostComplete(false)}
+        />
+      )}
       {showMarkPosted && (
         <MarkAsPostedDialog
           platform={platform}
