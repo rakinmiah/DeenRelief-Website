@@ -517,8 +517,8 @@ export function ModeStep({
               </span>
               <span className="block text-[13px] text-charcoal/55 leading-snug mt-0.5">
                 {singleImage
-                  ? "We pick the best layout, headline and photo for your post. Review it, then refine in the editor."
-                  : "We pick the best line, photo and layout for every slide. Review them all on one screen, then refine in the editor."}
+                  ? "We pick the best layout, headline and photo for your post — then drop you in the editor to fine-tune."
+                  : "We pick the best line, photo and layout for every slide — then drop you in the editor to fine-tune."}
               </span>
             </span>
           </span>
