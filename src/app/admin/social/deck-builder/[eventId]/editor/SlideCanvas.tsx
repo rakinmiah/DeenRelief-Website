@@ -292,6 +292,15 @@ export default function SlideCanvas({
           ref={moveableRef}
           target={isGroup ? targets : targets[0]!}
           draggable
+          /* For a multi-target GROUP the drag must bind to the control
+           * AREA (there's no single target element to grab). react-moveable's
+           * MoveableGroup defaults dragArea→true, but the top-level <Moveable>
+           * resolves its own dragArea→false default and forwards it, overriding
+           * the group default — so without this the group area is inert and a
+           * "drag" falls through to the artboard and just deselects. Setting it
+           * explicitly per-mode restores group dragging while keeping single
+           * targets draggable directly. */
+          dragArea={isGroup}
           resizable={!isGroup}
           rotatable={!isGroup}
           rotationPosition="bottom"

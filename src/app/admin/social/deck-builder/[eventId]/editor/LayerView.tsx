@@ -137,7 +137,11 @@ export default function LayerView({
   return (
     <div
       ref={nodeRef}
-      data-layer-id={layer.id}
+      /* Only the interactive (canvas) copy carries the id — non-interactive
+       * filmstrip thumbnails render the SAME layers, and emitting the id there
+       * too produced duplicate data-layer-id nodes in the DOM (invalid, and a
+       * hazard for any hit-testing/snapping that resolves layers by id). */
+      data-layer-id={interactive ? layer.id : undefined}
       onMouseDown={
         interactive && !editing
           ? (e) => {
