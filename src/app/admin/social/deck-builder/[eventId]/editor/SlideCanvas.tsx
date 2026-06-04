@@ -17,7 +17,7 @@
 import Moveable from "react-moveable";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentRegistry, EditorSlide, Layer, LaidOutBox } from "@/lib/social-editor/types";
-import { resolveSlideLayout, resolveMaskShape, activeMaskShapeIds } from "@/lib/social-editor/types";
+import { resolveSlideLayout, resolveMaskShape, activeMaskShapeIds, flipTransform } from "@/lib/social-editor/types";
 import LayerView from "./LayerView";
 import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./editorUi";
 
@@ -156,6 +156,58 @@ export default function SlideCanvas({
     );
   }
 
+  /* Custom GROUP drag. react-moveable's multi-target group drag never binds its
+     drag gesture to the control area in this setup, so a group "drag" just
+     deselected. We drive group movement directly instead: live DOM transforms
+     during the gesture, one board-unit commit at the end — frame-translate for
+     an auto-layout group (children reflow inside it), per-child otherwise. Same
+     commit paths the moveable group handlers used, just a reliable trigger. */
+  function startGroupDrag(e: React.MouseEvent) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onCheckpoint();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const starts = selectedLayers.map((l) => {
+      const b = boxOf(l);
+      return { id: l.id, x: b.x, y: b.y, rotation: l.rotation, flipH: l.flipH, flipV: l.flipV };
+    });
+    const paint = (dx: number, dy: number) => {
+      starts.forEach((s) => {
+        const node = nodes.current.get(s.id);
+        if (node) {
+          node.style.transform = `translate(${(s.x + dx) * scale}px, ${(s.y + dy) * scale}px) rotate(${s.rotation}deg)${flipTransform(s.flipH, s.flipV)}`;
+        }
+      });
+    };
+    const move = (ev: MouseEvent) => {
+      paint((ev.clientX - startX) / scale, (ev.clientY - startY) / scale);
+    };
+    const up = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const dx = (ev.clientX - startX) / scale;
+      const dy = (ev.clientY - startY) / scale;
+      // A click, not a drag → restore exact transforms and keep the selection.
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+        paint(0, 0);
+        return;
+      }
+      if (autoDragGroupId) {
+        onFrameTranslate(autoDragGroupId, dx, dy);
+        return;
+      }
+      const patches: Record<string, Partial<Layer>> = {};
+      starts.forEach((s) => {
+        patches[s.id] = { x: s.x + dx, y: s.y + dy };
+      });
+      commitGeom(patches);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   /* ── Snap guidelines (slide edges + centre) ──────────────────── */
   const vGuides = useMemo(
     () => [0, (slide.width * scale) / 2, slide.width * scale],
@@ -286,23 +338,40 @@ export default function SlideCanvas({
         </div>
       )}
 
-      {/* Transform controls (single OR group) */}
-      {targets.length > 0 && !editingId && (single ? !single.locked : true) && (
+      {/* Group drag handle — a transparent overlay over the multi-selection's
+          bounding box. react-moveable's group area never engages its drag here,
+          so this drives group movement instead (the per-layer green rings from
+          LayerView's multiSelected show what's selected). A plain click keeps
+          the selection; a drag moves the whole group. */}
+      {isGroup && !editingId && (() => {
+        const boxes = selectedLayers.map(boxOf);
+        const minX = Math.min(...boxes.map((b) => b.x));
+        const minY = Math.min(...boxes.map((b) => b.y));
+        const maxX = Math.max(...boxes.map((b) => b.x + b.w));
+        const maxY = Math.max(...boxes.map((b) => b.y + b.h));
+        return (
+          <div
+            className="absolute z-10 cursor-move"
+            style={{
+              left: minX * scale,
+              top: minY * scale,
+              width: (maxX - minX) * scale,
+              height: (maxY - minY) * scale,
+            }}
+            onMouseDown={startGroupDrag}
+          />
+        );
+      })()}
+
+      {/* Transform controls — SINGLE selection only. (Group movement is the
+          overlay above; group resize/rotate was never enabled here.) */}
+      {single && !single.locked && !editingId && targets.length > 0 && (
         <Moveable
           ref={moveableRef}
-          target={isGroup ? targets : targets[0]!}
+          target={targets[0]!}
           draggable
-          /* For a multi-target GROUP the drag must bind to the control
-           * AREA (there's no single target element to grab). react-moveable's
-           * MoveableGroup defaults dragArea→true, but the top-level <Moveable>
-           * resolves its own dragArea→false default and forwards it, overriding
-           * the group default — so without this the group area is inert and a
-           * "drag" falls through to the artboard and just deselects. Setting it
-           * explicitly per-mode restores group dragging while keeping single
-           * targets draggable directly. */
-          dragArea={isGroup}
-          resizable={!isGroup}
-          rotatable={!isGroup}
+          resizable
+          rotatable
           rotationPosition="bottom"
           origin={false}
           throttleDrag={0}
