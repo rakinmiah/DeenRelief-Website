@@ -148,6 +148,15 @@ function rowToEvent(row: EmergencyEventRow): EmergencyEvent {
   };
 }
 
+/**
+ * How long a detected report stays "live" in the First Response feed.
+ * After this many days an emergency drops off the dashboard — disaster
+ * news goes stale fast, and a week-old report is no longer a "first
+ * response" opportunity. The underlying row is kept (history, by-id
+ * detail links still resolve); it's only hidden from the live list.
+ */
+export const REPORT_EXPIRY_DAYS = 7;
+
 export interface GetEmergencyEventsOptions {
   status?: EmergencyEventStatus | EmergencyEventStatus[];
   limit?: number;
@@ -158,6 +167,13 @@ export interface GetEmergencyEventsOptions {
    * to include zero-score events (forensic / audit views).
    */
   onlyActionable?: boolean;
+  /**
+   * Hide reports whose detected_at is older than this many days.
+   * Defaults to REPORT_EXPIRY_DAYS (7) so the live feed only carries
+   * current emergencies. Pass 0 / null to disable the window (audit /
+   * historical views).
+   */
+  withinDays?: number | null;
 }
 
 /**
@@ -266,6 +282,17 @@ export async function getEmergencyEvents(
     query = query
       .gt("dr_priority_score", 0)
       .not("matched_campaigns", "eq", "{}");
+  }
+
+  // Expire stale reports: only surface events detected within the window
+  // (default 7 days). Keeps the live feed about *current* emergencies.
+  const withinDays =
+    options.withinDays === undefined ? REPORT_EXPIRY_DAYS : options.withinDays;
+  if (withinDays && withinDays > 0) {
+    const cutoffIso = new Date(
+      Date.now() - withinDays * 24 * 60 * 60 * 1000
+    ).toISOString();
+    query = query.gte("detected_at", cutoffIso);
   }
 
   const { data, error } = await query.returns<EmergencyEventRow[]>();

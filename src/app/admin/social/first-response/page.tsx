@@ -6,6 +6,7 @@ import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import {
   getCoverageMap,
   getEmergencyEvents,
+  REPORT_EXPIRY_DAYS,
   type CoverageEntry,
 } from "@/lib/first-response";
 import {
@@ -110,19 +111,25 @@ export default async function FirstResponsePage() {
 
       {/* ─── Detected events (currently empty) ─── */}
       <section className="mb-10">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-charcoal font-heading font-semibold text-xl">
-            Active alerts
-          </h2>
-          <span className="text-[12px] text-charcoal/50 font-medium">
-            {events.length} total
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <h2 className="text-charcoal font-heading font-semibold text-xl">
+              Active alerts
+            </h2>
+            <p className="text-[12px] text-charcoal/45 mt-0.5">
+              Reports drop off after {REPORT_EXPIRY_DAYS} days — the feed only
+              shows current emergencies.
+            </p>
+          </div>
+          <span className="text-[12px] text-charcoal/50 font-medium shrink-0">
+            {events.length} active
           </span>
         </div>
         <div className="bg-white border border-charcoal/10 rounded-2xl">
           {events.length === 0 ? (
             <div className="px-6 py-10 text-center text-charcoal/50 text-sm">
-              No alerts right now. New ones appear here automatically as
-              disasters come in.
+              No alerts from the last {REPORT_EXPIRY_DAYS} days. New ones appear
+              here automatically as disasters come in.
             </div>
           ) : (
             <ul className="divide-y divide-charcoal/5">
