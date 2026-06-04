@@ -87,6 +87,11 @@ on conflict (campaign_slug) do update set
 -- NOTE: this is dashboard visibility only. No push notifications fire
 -- retroactively (SQL can't, and back-pushing week-old events would be
 -- noise) — only NEW events from these regions will ping going forward.
+--
+-- Recency guard (21 days): the events list sorts by score DESC, so a
+-- months-old severe event would otherwise leap to the top of "Active
+-- alerts" looking like breaking news. Only revive the genuinely-recent
+-- backlog — which is exactly the window the SMM has been missing.
 update emergency_events e
 set
   matched_campaigns = ARRAY['sadaqah'],
@@ -103,6 +108,7 @@ set
 where upper(split_part(coalesce(e.country_iso, ''), '-', 1)) in ('PK','SY','SD','YE','AF','SO')
   and (e.matched_campaigns is null or array_length(e.matched_campaigns, 1) is null)
   and e.severity_raw is not null
+  and e.detected_at > now() - interval '21 days'
   and (
     e.event_type is null
     or e.event_type in (
