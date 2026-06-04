@@ -11,6 +11,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -288,6 +289,208 @@ function writeSavedSwatches(list: string[]) {
 
 const sameColor = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/* ─── Colour maths for the Figma-style picker ─────────────────────── */
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+const clamp255 = (n: number) => Math.max(0, Math.min(255, n));
+
+type RGBA = { r: number; g: number; b: number; a: number };
+type HSV = { h: number; s: number; v: number };
+
+/** Parse hex (#rgb / #rrggbb / #rrggbbaa), rgb()/rgba(), or "transparent". */
+function parseColor(input: string): RGBA {
+  const s = (input || "").trim().toLowerCase();
+  if (!s || s === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+  let m = /^#([0-9a-f]{3,8})$/.exec(s);
+  if (m) {
+    let h = m[1];
+    if (h.length === 3 || h.length === 4) h = h.split("").map((c) => c + c).join("");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    const a = h.length >= 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1;
+    return { r, g, b, a };
+  }
+  m = /^rgba?\(([^)]+)\)$/.exec(s);
+  if (m) {
+    const p = m[1].split(",").map((x) => parseFloat(x.trim()));
+    return {
+      r: clamp255(p[0] || 0),
+      g: clamp255(p[1] || 0),
+      b: clamp255(p[2] || 0),
+      a: p[3] == null || Number.isNaN(p[3]) ? 1 : clamp01(p[3]),
+    };
+  }
+  return { r: 0, g: 0, b: 0, a: 1 };
+}
+
+/** {r,g,b,a} → "#rrggbb" (opaque) or "#rrggbbaa" (with alpha). */
+function rgbaToHex(r: number, g: number, b: number, a = 1): string {
+  const h = (n: number) => Math.round(clamp255(n)).toString(16).padStart(2, "0");
+  const base = `#${h(r)}${h(g)}${h(b)}`;
+  return a >= 1 ? base : base + h(a * 255);
+}
+
+function rgbToHsv(r: number, g: number, b: number): HSV {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h = h * 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : d / max, v: max };
+}
+
+function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+}
+
+const CHECKER =
+  "conic-gradient(#ccc 25%, #fff 0 50%, #ccc 0 75%, #fff 0) 0 0 / 8px 8px";
+
+/* ─── The picker: saturation/value square + hue + alpha (Figma-style) ─ */
+
+function ColorPicker({
+  value,
+  onChange,
+  allowAlpha = true,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+  allowAlpha?: boolean;
+}) {
+  const p0 = parseColor(value);
+  const hsv0 = rgbToHsv(p0.r, p0.g, p0.b);
+  const [h, setH] = useState(hsv0.h);
+  const [s, setS] = useState(hsv0.s);
+  const [v, setV] = useState(hsv0.v);
+  const [a, setA] = useState(p0.a);
+  // Tracks the last hex WE emitted so an echoed-back `value` doesn't reset the
+  // handles (and so greys don't wipe the hue you're dragging through).
+  const lastEmit = useRef(value);
+
+  useEffect(() => {
+    if (value === lastEmit.current) return;
+    const p = parseColor(value);
+    const hsv = rgbToHsv(p.r, p.g, p.b);
+    setH((prev) => (hsv.s === 0 || hsv.v === 0 ? prev : hsv.h));
+    setS(hsv.s);
+    setV(hsv.v);
+    setA(p.a);
+  }, [value]);
+
+  function emit(nh: number, ns: number, nv: number, na: number) {
+    const { r, g, b } = hsvToRgb(nh, ns, nv);
+    const hex = rgbaToHex(r, g, b, na);
+    lastEmit.current = hex;
+    onChange(hex);
+  }
+
+  const cur = hsvToRgb(h, s, v);
+  const curRgb = `rgb(${Math.round(cur.r)}, ${Math.round(cur.g)}, ${Math.round(cur.b)})`;
+
+  // Generic 1-D / 2-D drag: captures the rect once on pointer-down so the
+  // handle tracks even when the cursor leaves the element.
+  function startDrag(
+    e: ReactPointerEvent<HTMLDivElement>,
+    onAt: (xRatio: number, yRatio: number) => void
+  ) {
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const rect = el.getBoundingClientRect();
+    const at = (cx: number, cy: number) =>
+      onAt(clamp01((cx - rect.left) / rect.width), clamp01((cy - rect.top) / rect.height));
+    at(e.clientX, e.clientY);
+    const move = (ev: PointerEvent) => at(ev.clientX, ev.clientY);
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5 select-none">
+      {/* Saturation × Value square */}
+      <div
+        onPointerDown={(e) =>
+          startDrag(e, (x, y) => {
+            setS(x);
+            setV(1 - y);
+            emit(h, x, 1 - y, a);
+          })
+        }
+        className="relative w-full h-[136px] rounded-lg cursor-crosshair touch-none"
+        style={{
+          background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent), hsl(${h}, 100%, 50%)`,
+        }}
+      >
+        <span
+          className="absolute w-3.5 h-3.5 rounded-full border-2 border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ left: `${s * 100}%`, top: `${(1 - v) * 100}%`, background: curRgb }}
+        />
+      </div>
+
+      {/* Hue */}
+      <div
+        onPointerDown={(e) =>
+          startDrag(e, (x) => {
+            const nh = x * 360;
+            setH(nh);
+            emit(nh, s, v, a);
+          })
+        }
+        className="relative w-full h-3 rounded-full cursor-pointer touch-none"
+        style={{
+          background:
+            "linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)",
+        }}
+      >
+        <span
+          className="absolute top-1/2 w-3.5 h-3.5 rounded-full border-2 border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ left: `${(h / 360) * 100}%`, background: `hsl(${h}, 100%, 50%)` }}
+        />
+      </div>
+
+      {/* Alpha */}
+      {allowAlpha && (
+        <div
+          onPointerDown={(e) =>
+            startDrag(e, (x) => {
+              setA(x);
+              emit(h, s, v, x);
+            })
+          }
+          className="relative w-full h-3 rounded-full cursor-pointer touch-none"
+          style={{ background: CHECKER }}
+        >
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{ background: `linear-gradient(to right, transparent, ${curRgb})` }}
+          />
+          <span
+            className="absolute top-1/2 w-3.5 h-3.5 rounded-full border-2 border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ left: `${a * 100}%`, background: curRgb }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ColorField({
   value,
   onChange,
@@ -395,13 +598,8 @@ export function ColorField({
             )}
           </div>
 
-          {/* Native colour picker for free-form choice */}
-          <input
-            type="color"
-            value={value.startsWith("#") ? value : "#000000"}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full h-8 rounded-md overflow-hidden cursor-pointer bg-transparent border-0 p-0"
-          />
+          {/* Full colour picker — saturation/value square + hue + alpha. */}
+          <ColorPicker value={value} onChange={onChange} />
 
           {/* Brand palette */}
           <div>
