@@ -3870,6 +3870,85 @@ function xFactRow(f: InfographicFact, x: number, y: number, w: number): Layer[] 
   ];
 }
 
+/* ─── Data charts — Stage 1: composed-primitive bars ──────────────────
+ * A ranked horizontal bar chart built ENTIRELY from rect + text layers, so it
+ * renders pixel-identically on the canvas and in the Satori PNG export — no
+ * chart library, no inline SVG. Bars scale to the largest value; the SMM can
+ * tweak any bar / label / value like any other layer. Seeds from the report's
+ * numeric facts (c.facts) when present, else sample data.
+ *
+ * NOTE: bars share ONE scale, so the data points should share a unit (counts,
+ * or all %). Mixed-unit facts ('1.7M' next to '88%') still render but scale
+ * relative to the largest raw magnitude — a starting point the SMM curates. */
+const CHART_DEFAULT_DATA: InfographicFact[] = [
+  { value: "1.7M", label: "Gaza" },
+  { value: "310k", label: "West Bank" },
+  { value: "140k", label: "East Jerusalem" },
+  { value: "90k", label: "Area C" },
+];
+/** Parse a comparable numeric magnitude from a stat string for bar scaling:
+ *  "1.7M"→1_700_000, "90%"→0.9, "9 in 10"→0.9, "2,000+"→2000. null = no number. */
+function parseMagnitude(v?: string | null): number | null {
+  if (!v) return null;
+  const s = v.toLowerCase().replace(/,/g, "").trim();
+  const inM = s.match(/(\d+(?:\.\d+)?)\s*in\s*(\d+(?:\.\d+)?)/);
+  if (inM) {
+    const b = parseFloat(inM[2]!);
+    return b ? parseFloat(inM[1]!) / b : null;
+  }
+  const m = s.match(/(\d+(?:\.\d+)?)\s*(%|bn|billion|m|million|k|thousand)?/);
+  if (!m) return null;
+  let n = parseFloat(m[1]!);
+  if (Number.isNaN(n)) return null;
+  const u = m[2] ?? "";
+  if (u === "%") n /= 100;
+  else if (u === "bn" || u === "billion") n *= 1e9;
+  else if (u === "m" || u === "million") n *= 1e6;
+  else if (u === "k" || u === "thousand") n *= 1e3;
+  return n;
+}
+function chartBars(c: SlideContent): EditorSlide {
+  const heading = c.primary || "The scale of need";
+  const rows = (c.facts && c.facts.length ? c.facts : CHART_DEFAULT_DATA)
+    .map((f) => ({ f, mag: parseMagnitude(f.value) }))
+    .filter((x): x is { f: InfographicFact; mag: number } => x.mag != null && x.mag > 0)
+    .slice(0, 5);
+  const data = rows.length
+    ? rows
+    : CHART_DEFAULT_DATA.map((f) => ({ f, mag: parseMagnitude(f.value)! }));
+  const maxMag = Math.max(...data.map((r) => r.mag));
+
+  const X = 56;
+  const trackW = B - 112; // 56px inset each side
+  const top = 430;
+  const rowH = Math.min(118, Math.floor((898 - top) / data.length));
+  const barH = 30;
+
+  const layers: Layer[] = [
+    ...wordmark(X, 52, c),
+    eyebrowLayer(c.eyebrow || "By the numbers", 150),
+    text({ x: X, y: 196, w: B - 112, h: 150, text: heading, fontFamily: ANTON, fontSize: 72, fontWeight: 400, uppercase: true, lineHeight: 0.96, letterSpacing: -1, color: C.cream }),
+  ];
+
+  data.forEach((r, i) => {
+    const rowY = top + i * rowH;
+    const ratio = Math.max(0.05, Math.min(1, r.mag / maxMag));
+    layers.push(
+      // Label (left) + value (right) on the same line, the bar beneath.
+      text({ x: X, y: rowY, w: trackW - 230, h: 40, text: r.f.label, fontFamily: BARLOW, fontSize: 25, fontWeight: 600, lineHeight: 1.1, color: C.cream }),
+      text({ x: X, y: rowY - 6, w: trackW, h: 48, text: r.f.value ?? "", fontFamily: ANTON, fontSize: 40, fontWeight: 400, uppercase: true, letterSpacing: -1, color: C.amber, align: "right" }),
+      // Track (faint) then the gold fill, both fully rounded.
+      shape({ x: X, y: rowY + 50, w: trackW, h: barH, shape: "rect", fill: "rgba(247,243,232,0.14)", radius: barH / 2 }),
+      shape({ x: X, y: rowY + 50, w: Math.max(barH, Math.round(trackW * ratio)), h: barH, shape: "rect", fill: C.amber, radius: barH / 2 })
+    );
+  });
+
+  layers.push(
+    text({ x: X, y: 936, w: B - 112, h: 30, text: xSourceOf(c), fontFamily: BARLOW, fontSize: 19, fontWeight: 500, uppercase: true, letterSpacing: 2, color: C.creamDim })
+  );
+  return slide(layers, C.forest);
+}
+
 // X-1 — Photo full-bleed + headline + a 3-stat ribbon along the foot. The
 // default workhorse: the disaster fills the frame, the report sits on top.
 function xPhotoFacts(c: SlideContent): EditorSlide {
@@ -4237,6 +4316,9 @@ function buildPresetSlide(templateId: string, c: SlideContent): EditorSlide {
   if (id.includes("hero-typography")) return heroTypeCover(c);
   if (id.includes("hero-panel")) return heroTopPanel(c);
   if (id.includes("hero")) return heroPhotoFull(c);
+  // Data charts (Stage 1) — BEFORE the multistat/stat matches so a
+  // "multistat-chart" id routes to the bar chart, not the figure stack.
+  if (id.includes("chart")) return chartBars(c);
   // New middle types — multistat BEFORE the generic "stat" match below.
   // Specific ids first so "multistat-a" doesn't get swallowed by the generic
   // multistat/stat matches. (multistat-* must resolve before the stat-* and

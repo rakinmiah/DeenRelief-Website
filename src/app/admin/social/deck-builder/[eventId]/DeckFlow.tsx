@@ -212,9 +212,10 @@ export default function DeckFlow({
         ? images.images.find((i) => i.id === r.imageId)?.url ?? null
         : null;
       const c: SlideContent = { primary: r.title, secondary: r.subtext, imageUrl, eyebrow, logo, logoLight };
-      // X infographics carry the whole report — inject the derived facts +
-      // source so the single image is dense, not just a headline.
-      if (r.templateId.startsWith("x-")) {
+      // X infographics AND data charts carry the whole report — inject the
+      // derived facts + source so the bars / cells fill from real numbers
+      // rather than sample data.
+      if (r.templateId.startsWith("x-") || r.templateId.includes("chart")) {
         c.facts = xFacts;
         c.source = xSource;
       }

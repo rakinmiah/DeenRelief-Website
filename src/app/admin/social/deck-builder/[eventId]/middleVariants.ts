@@ -57,6 +57,7 @@ export const MIDDLE_VARIANTS: Record<string, TemplateMeta[]> = {
     meta("multistat-h", "Centred crest", "A ‘by the numbers’ crest — a gold keyline frame, a centred heading and three figures."),
     meta("multistat-i", "Connecting timeline", "The three figures on a connecting vertical timeline (gold spine + nodes)."),
     meta("multistat-j", "Ledger", "Left-aligned figures, right-aligned labels — a ‘ledger’ of the crisis, with a source."),
+    meta("multistat-chart", "Bar chart", "A ranked horizontal bar chart — each figure a gold bar scaled to the largest, with a source line. Auto-fills from the report's numbers; edit any bar or value."),
   ],
   testimony: [
     meta("testimony-a", "Open-quote", "An oversized gold open-quote, the quote tight beneath in Barlow, a gold rule and an attribution row."),
