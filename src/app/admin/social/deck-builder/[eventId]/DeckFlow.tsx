@@ -20,6 +20,7 @@ import { useTemplateOverrides } from "../../template-lab/useOverrides";
 import CanvasDeckEditor from "./editor/CanvasDeckEditor";
 import type { DeckRecipeEntry } from "@/app/admin/social/posts/actions";
 import {
+  DraftingStep,
   ModeStep,
   PlanStep,
   PlatformStep,
@@ -66,6 +67,7 @@ type Step =
   | "plan"
   | "mode"
   | "review"
+  | "drafting"
   | "slides"
   | "build";
 
@@ -77,6 +79,7 @@ const ORDER: Step[] = [
   "plan",
   "mode",
   "review",
+  "drafting",
   "slides",
   "build",
 ];
@@ -283,7 +286,7 @@ export default function DeckFlow({
     }));
     setResults(seeded);
     setCurrentSlide(0);
-    go("review");
+    go("drafting");
   }
 
   // X quick draft: a single LANDSCAPE news-infographic. X is one image, not a
@@ -314,7 +317,22 @@ export default function DeckFlow({
       },
     ]);
     setCurrentSlide(0);
-    go("review");
+    go("drafting");
+  }
+
+  // Quick-draft hand-off. The post is already seeded into `results`; after the
+  // brief "Drafting your post…" screen, record the taste signal (exactly as the
+  // review screen does) and drop her straight into the editor — no review step.
+  function finishDrafting() {
+    recordDeckSignals(
+      results.filter(Boolean).map((r) => ({
+        platform: platform ?? "instagram",
+        role: r.role,
+        templateId: r.templateId,
+        titleLen: (r.title ?? "").trim().length,
+      }))
+    );
+    go("build");
   }
 
   // SMM shortcut (step 2 onwards): skip the remaining questions and drop
@@ -326,6 +344,11 @@ export default function DeckFlow({
     if (!content || !images) return;
     setBlankStart(true);
     go("build");
+  }
+
+  /* ── Full-bleed: quick-draft loading hand-off ────────────────── */
+  if (step === "drafting") {
+    return <DraftingStep onDone={finishDrafting} />;
   }
 
   /* ── Full-bleed: the canvas editor ───────────────────────────── */

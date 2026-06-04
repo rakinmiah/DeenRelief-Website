@@ -18,6 +18,50 @@ import { ROLES, MIDDLE_ROLES, type SlideRole } from "./slideRoles";
 import type { SlideResult } from "./SlideBuilder";
 import type { ContentBundle, ImageBundle } from "./types";
 
+/* ─── Quick-draft loading hand-off ───────────────────────────────── */
+
+/**
+ * Full-bleed "Drafting your post…" screen shown after Quick draft, while the
+ * editor mounts behind it — so the SMM goes straight from the choice into the
+ * canvas without the in-between review/outline screen. Calls onDone once after
+ * a short minimum dwell (ref-held so a changing onDone identity can't reset it).
+ */
+export function DraftingStep({ onDone }: { onDone: () => void }) {
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  useEffect(() => {
+    const t = setTimeout(() => doneRef.current(), 1300);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-[#F4F4F2] grid place-items-center px-6">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="text-center w-full max-w-sm"
+      >
+        <span className="inline-block w-9 h-9 mb-6 rounded-full border-[3px] border-charcoal/15 border-t-green animate-spin" />
+        <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight">
+          Drafting your post…
+        </h1>
+        <p className="text-[13.5px] text-charcoal/50 mt-2">
+          Picking the best layout, words and photo.
+        </p>
+        <div className="mt-7 h-1.5 w-full rounded-full bg-charcoal/10 overflow-hidden">
+          <motion.div
+            className="h-full rounded-full bg-green"
+            initial={{ width: "8%" }}
+            animate={{ width: "100%" }}
+            transition={{ duration: 1.25, ease: "easeInOut" }}
+          />
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ─── Step 1 · Preparing ─────────────────────────────────────────── */
 
 const STAGES = [
