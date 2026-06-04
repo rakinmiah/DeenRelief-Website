@@ -473,7 +473,13 @@ export default function DeckFlow({
                 onPick={(p) => {
                   setPlatform(p);
                   if (p === "instagram" || p === "facebook") go("count");
-                  else startQuickX(); // X = single landscape image → straight to review
+                  else {
+                    // X is a single landscape image — no slide-count/plan, but
+                    // still offer the choice: quick draft OR the step-by-step
+                    // builder (same ModeStep as IG, one hero slide).
+                    setPlan(["hero"]);
+                    go("mode");
+                  }
                 }}
               />
             )}
@@ -500,7 +506,10 @@ export default function DeckFlow({
             {step === "mode" && (
               <ModeStep
                 slideCount={plan.length}
-                onQuick={() => startQuick(plan)}
+                singleImage={platform === "x"}
+                onQuick={() =>
+                  platform === "x" ? startQuickX() : startQuick(plan)
+                }
                 onGuided={() => startGuided(plan)}
               />
             )}

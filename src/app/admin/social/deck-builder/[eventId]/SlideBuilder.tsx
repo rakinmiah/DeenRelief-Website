@@ -731,6 +731,10 @@ function TemplateCarousel({
   onConfirm: (templateId: string) => void;
 }) {
   const [focused, setFocused] = useState(0);
+  // X templates are landscape (1200×675) — give them a wider slot + a 16:9
+  // preview box so they're not cropped into a square. (All templates in one
+  // carousel share an aspect: X = wide, IG/FB = square.)
+  const isWide = templates.some((t) => t.aspect === "wide");
 
   return (
     <div>
@@ -745,7 +749,7 @@ function TemplateCarousel({
       <div className="mt-12">
         <FocusCarousel
           items={templates}
-          slot={400}
+          slot={isWide ? 580 : 400}
           focusScale={1.2}
           dimScale={0.8}
           getKey={(t) => t.id}
@@ -759,7 +763,7 @@ function TemplateCarousel({
                     isFocused ? "shadow-2xl" : "ring-1 ring-charcoal/10"
                   }`}
                 >
-                  <div className="relative aspect-square">
+                  <div className={`relative ${isWide ? "aspect-[16/9]" : "aspect-square"}`}>
                     {pv?.url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img

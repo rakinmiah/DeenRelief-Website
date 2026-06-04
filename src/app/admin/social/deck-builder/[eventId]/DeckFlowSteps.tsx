@@ -428,24 +428,28 @@ export function PlanStep({
 
 export function ModeStep({
   slideCount,
+  singleImage = false,
   onQuick,
   onGuided,
 }: {
   slideCount: number;
+  /** X is a single landscape image (no slide count) — adapts the copy. */
+  singleImage?: boolean;
   onQuick: () => void;
   onGuided: () => void;
 }) {
   return (
     <div>
       <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-charcoal/35 mb-2">
-        Step 4 of 4
+        {singleImage ? "Last step" : "Step 4 of 4"}
       </p>
       <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-2">
         How do you want to build it?
       </h1>
       <p className="text-[13.5px] text-charcoal/55 mb-6 max-w-lg">
-        Both land in the editor, where you can change anything. Quick draft
-        fills all {slideCount} slides for you so you only fine-tune.
+        {singleImage
+          ? "Both land in the editor, where you can change anything. Quick draft picks the layout, headline and photo for you — you just fine-tune."
+          : `Both land in the editor, where you can change anything. Quick draft fills all ${slideCount} slides for you so you only fine-tune.`}
       </p>
 
       <div className="flex flex-col gap-3">
@@ -468,8 +472,9 @@ export function ModeStep({
                 Quick draft
               </span>
               <span className="block text-[13px] text-charcoal/55 leading-snug mt-0.5">
-                We pick the best line, photo and layout for every slide. Review
-                them all on one screen, then refine in the editor.
+                {singleImage
+                  ? "We pick the best layout, headline and photo for your post. Review it, then refine in the editor."
+                  : "We pick the best line, photo and layout for every slide. Review them all on one screen, then refine in the editor."}
               </span>
             </span>
           </span>
@@ -489,11 +494,12 @@ export function ModeStep({
             </span>
             <span className="min-w-0">
               <span className="block text-[15.5px] font-semibold text-charcoal">
-                Build each slide
+                {singleImage ? "Build it step by step" : "Build each slide"}
               </span>
               <span className="block text-[13px] text-charcoal/55 leading-snug mt-0.5">
-                Go slide by slide, choosing the line, photo and template
-                yourself. The most control.
+                {singleImage
+                  ? "Choose the headline, photo and template yourself, one step at a time. The most control."
+                  : "Go slide by slide, choosing the line, photo and template yourself. The most control."}
               </span>
             </span>
           </span>
