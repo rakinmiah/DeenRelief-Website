@@ -12,6 +12,7 @@
  */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ImageCandidate } from "@/lib/social-templates/types";
 import {
@@ -220,6 +221,14 @@ export default function CanvasDeckEditor({
   const [draftTitle, setDraftTitle] = useState(title);
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleBuffer, setTitleBuffer] = useState("");
+  // Overflow menu (top-bar "⋯") + delete-draft confirm.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletingDraft, setDeletingDraft] = useState(false);
+  // Set the instant a delete starts so a pending autosave can't re-create
+  // the row we're deleting (a ref so the in-flight debounce sees it).
+  const deletingRef = useRef(false);
+  const router = useRouter();
   const [showLayers, setShowLayers] = useState(true);
   // One left flyout open at a time: templates, content snippets, or elements.
   const [leftPanel, setLeftPanel] = useState<null | "templates" | "content" | "elements" | "charts">(
@@ -290,9 +299,10 @@ export default function CanvasDeckEditor({
 
   /* ── Autosave (debounced) ────────────────────────────────────── */
   useEffect(() => {
-    if (!persist || !eventId || !hydrated) return;
+    if (!persist || !eventId || !hydrated || deletingRef.current) return;
     setSaveState("saving");
     const t = setTimeout(async () => {
+      if (deletingRef.current) return; // draft is being deleted — don't re-save
       // Persist a custom header; when it still equals the event title we
       // store null so the column stays a clean "no custom name".
       const titleToSave = draftTitle.trim() && draftTitle.trim() !== title ? draftTitle.trim() : null;
@@ -1468,6 +1478,23 @@ export default function CanvasDeckEditor({
     setTitleEditing(false);
   }
 
+  /* ── Delete this draft ───────────────────────────────────────── */
+  async function onDeleteDraft() {
+    if (!eventId || !platform) return;
+    deletingRef.current = true;
+    setDeletingDraft(true);
+    try {
+      await fetch(
+        `/api/admin/social-deck-drafts/${eventId}?platform=${platform}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      /* best-effort — leave the editor either way */
+    }
+    // The draft is gone; don't let autosave immediately re-create it.
+    router.push(backHref || "/admin/social/first-response");
+  }
+
   /* ── Export ──────────────────────────────────────────────────── */
   async function onExport() {
     setExporting(true);
@@ -1785,6 +1812,76 @@ export default function CanvasDeckEditor({
               </>
             ) : (
               <>
+                {persist && eventId && platform && (
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => { setMenuOpen((v) => !v); setConfirmingDelete(false); }}
+                      title="More options"
+                      aria-label="More options"
+                      aria-expanded={menuOpen}
+                      className={`w-9 h-9 grid place-items-center rounded-lg border transition ${
+                        menuOpen ? "border-charcoal/30 bg-charcoal/[0.04] text-charcoal" : "border-charcoal/12 text-charcoal/55 hover:text-charcoal hover:border-charcoal/30"
+                      }`}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <circle cx="12" cy="5" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="12" cy="19" r="1.6" />
+                      </svg>
+                    </button>
+                    {menuOpen && (
+                      <>
+                        <button
+                          type="button"
+                          aria-hidden
+                          tabIndex={-1}
+                          onClick={() => { setMenuOpen(false); setConfirmingDelete(false); }}
+                          className="fixed inset-0 z-40 cursor-default"
+                        />
+                        <div className="absolute right-0 top-full mt-1.5 z-50 w-60 bg-white rounded-xl ring-1 ring-charcoal/10 shadow-xl p-1.5">
+                          {!confirmingDelete ? (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingDelete(true)}
+                              className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <svg className="w-[17px] h-[17px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+                                <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+                              </svg>
+                              Delete draft
+                            </button>
+                          ) : (
+                            <div className="px-2.5 py-2">
+                              <p className="text-[12.5px] text-charcoal/70 leading-snug mb-2.5">
+                                Delete this draft permanently? This can&rsquo;t be undone.
+                              </p>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  disabled={deletingDraft}
+                                  onClick={() => { setConfirmingDelete(false); setMenuOpen(false); }}
+                                  className="flex-1 h-8 rounded-lg border border-charcoal/15 text-[12.5px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={deletingDraft}
+                                  onClick={onDeleteDraft}
+                                  className="flex-1 h-8 rounded-lg bg-red-600 text-white text-[12.5px] font-semibold hover:bg-red-700 transition disabled:opacity-60"
+                                >
+                                  {deletingDraft ? "Deleting…" : "Delete"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
                 {eventId && (
                   <button
                     type="button"
