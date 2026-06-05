@@ -1664,8 +1664,8 @@ export default function CanvasDeckEditor({
             <ToolbarBtn label="Undo" onClick={history.undo} disabled={!history.canUndo}><UndoIcon /></ToolbarBtn>
             <ToolbarBtn label="Redo" onClick={history.redo} disabled={!history.canRedo}><UndoIcon flip /></ToolbarBtn>
           </div>
-          <span className="text-[13px] font-medium text-charcoal/70 truncate px-3">{title}</span>
-          <div className="flex items-center gap-3">
+          <span className="text-[13px] font-medium text-charcoal/70 truncate px-3 min-w-0">{title}</span>
+          <div className="flex items-center gap-3 shrink-0">
             {persist && (
               <span className="text-[11.5px] text-charcoal/40 w-14 text-right">
                 {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
@@ -1676,7 +1676,7 @@ export default function CanvasDeckEditor({
               target="_blank"
               rel="opener"
               title="Browse all 95 templates (opens in a new tab)"
-              className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition"
+              className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition whitespace-nowrap shrink-0"
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
                 <rect x="1.5" y="1.5" width="5" height="5" rx="1" />
@@ -1697,7 +1697,7 @@ export default function CanvasDeckEditor({
                 <button
                   type="button"
                   onClick={resetTemplate}
-                  className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/60 hover:text-charcoal hover:border-charcoal/30 transition"
+                  className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/60 hover:text-charcoal hover:border-charcoal/30 transition whitespace-nowrap shrink-0"
                 >
                   Reset to default
                 </button>
@@ -1705,7 +1705,7 @@ export default function CanvasDeckEditor({
                   type="button"
                   onClick={saveTemplate}
                   disabled={tplSave === "saving"}
-                  className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
+                  className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition whitespace-nowrap shrink-0"
                 >
                   {tplSave === "saving" ? "Saving…" : tplSave === "saved" ? "Saved ✓" : "Save as template"}
                 </button>
@@ -1717,7 +1717,7 @@ export default function CanvasDeckEditor({
                     type="button"
                     onClick={() => setShowMarkPosted(true)}
                     title="Track this post's clicks and donations."
-                    className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition"
+                    className="h-9 px-3 rounded-lg border border-charcoal/12 text-[13px] font-medium text-charcoal/65 hover:text-charcoal hover:border-charcoal/30 transition whitespace-nowrap shrink-0"
                   >
                     Mark as posted
                   </button>
@@ -1726,7 +1726,7 @@ export default function CanvasDeckEditor({
                   type="button"
                   onClick={onExport}
                   disabled={exporting}
-                  className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition"
+                  className="h-9 px-4 rounded-lg bg-green text-white text-[13px] font-semibold hover:bg-green-dark disabled:opacity-50 transition whitespace-nowrap shrink-0"
                 >
                   {exporting ? "Exporting…" : "Export"}
                 </button>
