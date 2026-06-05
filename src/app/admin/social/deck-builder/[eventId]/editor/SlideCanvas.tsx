@@ -21,6 +21,62 @@ import { resolveSlideLayout, resolveMaskShape, activeMaskShapeIds, flipTransform
 import LayerView from "./LayerView";
 import { MiniBtn, DuplicateIcon, LayerUpIcon, LockIcon, TrashIcon } from "./editorUi";
 
+/** Floor on the group scale factor so a corner-drag past the pivot never
+ *  collapses or flips the chart. */
+const MIN_GROUP_SCALE = 0.12;
+
+/**
+ * Proportionally scale ONE layer about a board-space pivot by factor `s`.
+ *
+ * This is what lets a multi-layer composite (a chart, a logo lock-up, any
+ * group) resize as a single unit like an image: every geometry value AND
+ * the size-bearing style props scale together, so the chart keeps its
+ * proportions and stays crisp. Mirrors the scaling math in
+ * `expandInstance` (types.ts) so canvas + Satori export stay in parity —
+ * the scaled values are committed to the layer data, which the export
+ * route renders verbatim.
+ */
+function scaleLayerAbout(l: Layer, px: number, py: number, s: number): Layer {
+  const geom = {
+    x: px + (l.x - px) * s,
+    y: py + (l.y - py) * s,
+    w: Math.max(1, l.w * s),
+    h: Math.max(1, l.h * s),
+    shadow: l.shadow
+      ? { ...l.shadow, x: l.shadow.x * s, y: l.shadow.y * s, blur: l.shadow.blur * s }
+      : l.shadow,
+    blur: typeof l.blur === "number" ? l.blur * s : l.blur,
+  };
+  if (l.type === "text") {
+    return { ...l, ...geom, fontSize: l.fontSize * s, letterSpacing: l.letterSpacing * s };
+  }
+  if (l.type === "shape") {
+    return {
+      ...l,
+      ...geom,
+      strokeWidth: l.strokeWidth * s,
+      radius: l.radius * s,
+      corners: l.corners
+        ? (l.corners.map((c) => c * s) as [number, number, number, number])
+        : l.corners,
+      strokeDash: l.strokeDash ? l.strokeDash * s : l.strokeDash,
+    };
+  }
+  if (l.type === "image") {
+    return {
+      ...l,
+      ...geom,
+      radius: l.radius * s,
+      corners: l.corners
+        ? (l.corners.map((c) => c * s) as [number, number, number, number])
+        : l.corners,
+    };
+  }
+  // instance: scaling its box is enough — expandInstance re-scales the
+  // inner master layers into the new box.
+  return { ...l, ...geom };
+}
+
 export default function SlideCanvas({
   slide,
   scale,
@@ -208,6 +264,74 @@ export default function SlideCanvas({
     window.addEventListener("mouseup", up);
   }
 
+  /* Custom GROUP resize. Dragging a corner handle proportionally scales
+     every selected layer about the OPPOSITE corner, so a chart (or any
+     group) resizes as one unit like an image — geometry + font sizes +
+     stroke/radius all scale together. Aspect ratio is locked (charts
+     distort if stretched). One history checkpoint at the start; live
+     preview via onLayersCommit (rAF-throttled). Excluded for auto-layout
+     groups, whose geometry is solver-driven (see the render gate). */
+  function startGroupResize(corner: "nw" | "ne" | "se" | "sw", e: React.MouseEvent) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onCheckpoint();
+    const boxes = selectedLayers.map(boxOf);
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.w));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.h));
+    // Pivot = the corner OPPOSITE the grabbed one (stays fixed); far =
+    // the grabbed corner that follows the pointer.
+    const pivotX = corner === "nw" || corner === "sw" ? maxX : minX;
+    const pivotY = corner === "nw" || corner === "ne" ? maxY : minY;
+    const farX = corner === "nw" || corner === "sw" ? minX : maxX;
+    const farY = corner === "nw" || corner === "ne" ? minY : maxY;
+    const spanX = farX - pivotX || 1;
+    const spanY = farY - pivotY || 1;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const original = layers; // pristine snapshot (state is immutable)
+    const selSet = new Set(selectedIds);
+
+    let raf = 0;
+    let pending: Layer[] | null = null;
+    const flush = () => {
+      raf = 0;
+      if (pending) {
+        onLayersCommit(pending);
+        pending = null;
+      }
+    };
+    const move = (ev: MouseEvent) => {
+      const dx = (ev.clientX - startX) / scale;
+      const dy = (ev.clientY - startY) / scale;
+      const sxr = (spanX + dx) / spanX;
+      const syr = (spanY + dy) / spanY;
+      // Keep ratio: follow whichever axis the pointer pulled FURTHEST from
+      // the start (in either direction) so a single-axis drag both grows
+      // and shrinks naturally.
+      const s = Math.max(
+        MIN_GROUP_SCALE,
+        Math.abs(sxr - 1) >= Math.abs(syr - 1) ? sxr : syr
+      );
+      pending = original.map((l) =>
+        selSet.has(l.id) ? scaleLayerAbout(l, pivotX, pivotY, s) : l
+      );
+      if (!raf) raf = requestAnimationFrame(flush);
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      if (raf) {
+        cancelAnimationFrame(raf);
+        flush();
+      }
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   /* ── Snap guidelines (slide edges + centre) ──────────────────── */
   const vGuides = useMemo(
     () => [0, (slide.width * scale) / 2, slide.width * scale],
@@ -349,17 +473,52 @@ export default function SlideCanvas({
         const minY = Math.min(...boxes.map((b) => b.y));
         const maxX = Math.max(...boxes.map((b) => b.x + b.w));
         const maxY = Math.max(...boxes.map((b) => b.y + b.h));
+        const left = minX * scale;
+        const top = minY * scale;
+        const width = (maxX - minX) * scale;
+        const height = (maxY - minY) * scale;
+        // Auto-layout members are positioned by the solver (boxOf ≠ stored),
+        // so scaling their stored coords wouldn't stick — they keep
+        // drag-only. Everything else (charts, logo lock-ups, ad-hoc
+        // selections) gets proportional corner resize.
+        const resizable =
+          !autoDragGroupId &&
+          !selectedLayers.some(
+            (l) => l.locked || (l.groupId && slide.groups?.[l.groupId]?.autoLayout)
+          );
+        const handles: Array<["nw" | "ne" | "se" | "sw", number, number, string]> = [
+          ["nw", left, top, "nwse"],
+          ["ne", left + width, top, "nesw"],
+          ["se", left + width, top + height, "nwse"],
+          ["sw", left, top + height, "nesw"],
+        ];
         return (
-          <div
-            className="absolute z-10 cursor-move"
-            style={{
-              left: minX * scale,
-              top: minY * scale,
-              width: (maxX - minX) * scale,
-              height: (maxY - minY) * scale,
-            }}
-            onMouseDown={startGroupDrag}
-          />
+          <>
+            {/* Drag area — moves the whole group. */}
+            <div
+              className="absolute z-10 cursor-move"
+              style={{ left, top, width, height }}
+              onMouseDown={startGroupDrag}
+            />
+            {resizable && (
+              <>
+                {/* Selection frame (non-interactive). */}
+                <div
+                  className="absolute z-20 pointer-events-none border border-green/70"
+                  style={{ left, top, width, height }}
+                />
+                {/* Proportional corner resize handles. */}
+                {handles.map(([corner, cx, cy, cur]) => (
+                  <div
+                    key={corner}
+                    className="absolute z-20 bg-white border border-green rounded-[2px] shadow-sm"
+                    style={{ left: cx - 5, top: cy - 5, width: 10, height: 10, cursor: `${cur}-resize` }}
+                    onMouseDown={(e) => startGroupResize(corner, e)}
+                  />
+                ))}
+              </>
+            )}
+          </>
         );
       })()}
 
