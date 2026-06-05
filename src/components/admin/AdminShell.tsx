@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdminNotificationBell from "./AdminNotificationBell";
 import AdminPushPrompt from "./AdminPushPrompt";
 import AdminMobileDrawer from "./AdminMobileDrawer";
+import CommandPalette from "./CommandPalette";
 import { visibleGroups, flatVisible, type AdminRole } from "./admin-nav";
 
 /**
@@ -51,6 +52,21 @@ export default function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Global ⌘K / Ctrl+K toggles the command palette from anywhere in the
+  // admin. Registered unconditionally (before the login early-return) so
+  // the hook order is stable; the palette only renders within the chrome.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Role-filtered nav, computed once. `homeHref` is the first item the
   // role can actually reach, so the wordmark never dead-ends a
@@ -91,6 +107,23 @@ export default function AdminShell({
           {/* Sidebar bell sits on the LEFT of the screen → open the panel
               rightward so it doesn't overflow the viewport's left edge. */}
           <AdminNotificationBell align="left" />
+        </div>
+
+        {/* Search trigger — opens the ⌘K command palette. */}
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border border-charcoal/12 bg-charcoal/[0.02] text-charcoal/45 hover:border-charcoal/25 hover:text-charcoal/70 transition-colors"
+            aria-label="Search (Command or Control + K)"
+          >
+            <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" strokeLinecap="round" />
+            </svg>
+            <span className="flex-1 text-left text-[13px]">Search…</span>
+            <kbd className="text-[10px] font-semibold bg-charcoal/5 rounded px-1.5 py-0.5">⌘K</kbd>
+          </button>
         </div>
 
         {/* Grouped nav */}
@@ -188,7 +221,18 @@ export default function AdminShell({
               Admin
             </span>
           </Link>
-          <div className="-mr-1">
+          <div className="-mr-1 flex items-center">
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              className="w-11 h-11 flex items-center justify-center text-charcoal/80 hover:bg-charcoal/5 rounded-full transition-colors"
+            >
+              <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.2-3.2" strokeLinecap="round" />
+              </svg>
+            </button>
             <AdminNotificationBell />
           </div>
         </div>
@@ -201,6 +245,14 @@ export default function AdminShell({
         signedInAs={signedInAs}
         onSignOut={handleSignOut}
         role={role}
+      />
+
+      {/* ⌘K command palette — global search across pages + records. */}
+      <CommandPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        role={role}
+        email={signedInAs}
       />
 
       {/* Main content — offset by the sidebar on desktop. */}
