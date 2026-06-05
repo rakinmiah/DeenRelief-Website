@@ -49,6 +49,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 
 import type { EmergencyEvent } from "./first-response";
+import { fetchCrisisContext } from "./first-response-enrichment";
 import { getSupabaseAdmin } from "./supabase";
 
 /**
@@ -575,7 +576,11 @@ async function persistContentBlocks(
 
 // ─── User-message builder ──────────────────────────────────────────────
 
-function buildEventBrief(event: EmergencyEvent, rawPayload: unknown): string {
+function buildEventBrief(
+  event: EmergencyEvent,
+  rawPayload: unknown,
+  crisisBrief = ""
+): string {
   // 2KB cap on the raw payload keeps the prompt small while still giving
   // Claude enough to mine. Most upstream signals (GDACS / OCHA / USGS)
   // serialise to well under that. Truncated payloads still work because
@@ -620,8 +625,16 @@ RAW SOURCE PAYLOAD (the ONLY source of truth for facts + quotes — never invent
 \`\`\`json
 ${rawPayloadSummary || "(no raw_payload available)"}
 \`\`\`
+${
+  crisisBrief
+    ? `
+ADDITIONAL VERIFIED CONTEXT — recent related reports about THIS SAME crisis, pulled from ReliefWeb (authoritative humanitarian sources: OCHA, UN agencies, OHCHR, MSF, IFRC, etc). Treat these as TRUSTED SOURCE MATERIAL you may extract facts and verbatim quotes from, exactly like the raw payload — every figure still traces to a named source + date below, and the same no-fabrication rule applies. Use them to surface MORE DISTINCT facts, figures, quotes and angles. BUT stay anchored to THIS event: only use details that pertain to the same crisis — ignore anything about a different incident or country. When you cite a fact from one of these, tag it with that report's source + date.
 
-Extract CONTENT BLOCKS now in the structured format. Multiple options per category. NO FABRICATION — verified_facts trace to raw_payload, quotes are verbatim and attributed (or the quotes array is empty).`;
+${crisisBrief}
+`
+    : ""
+}
+Extract CONTENT BLOCKS now in the structured format. Multiple options per category. NO FABRICATION — verified_facts trace to the raw payload OR the related reports above, quotes are verbatim and attributed (or the quotes array is empty).`;
 }
 
 // ─── Public API ────────────────────────────────────────────────────────
@@ -700,7 +713,12 @@ export async function extractContentBlocks(
   }
 
   // ── Cold call ────────────────────────────────────────────────────
-  const userMessage = buildEventBrief(event, rawPayload);
+  // Lazy crisis enrichment: only on a cache MISS (so re-opens never pay for
+  // it), pull recent related ReliefWeb reports for the SAME crisis so Claude
+  // has far more authoritative material to mine. Free + capped + fault-tolerant
+  // (an empty context just means we extract from the original event alone).
+  const crisis = await fetchCrisisContext(event);
+  const userMessage = buildEventBrief(event, rawPayload, crisis.brief);
 
   const response = await client.messages.parse({
     model: MODEL,
