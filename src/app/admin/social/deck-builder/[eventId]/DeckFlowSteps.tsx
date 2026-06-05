@@ -14,7 +14,7 @@ import type {
 } from "@/lib/social-templates/types";
 import { presetForTemplate, type BrandLogo, type SlideContent } from "@/lib/social-editor/presets";
 import type { EventSummary } from "./DeckFlow";
-import { ROLES, MIDDLE_ROLES, type SlideRole } from "./slideRoles";
+import { ROLES, MIDDLE_ROLES, roleHasContent, roleLockReason, type SlideRole } from "./slideRoles";
 import type { SlideResult } from "./SlideBuilder";
 import type { ContentBundle, ImageBundle } from "./types";
 
@@ -384,14 +384,27 @@ export function SlideCountStep({
 
 export function PlanStep({
   plan,
+  content,
   onChange,
   onConfirm,
 }: {
   plan: SlideRole[];
+  /** Extracted report content — drives which slide types are available. */
+  content: ContentBundle;
   onChange: (p: SlideRole[]) => void;
   onConfirm: () => void;
 }) {
   const n = plan.length;
+  // A slide type is locked when this report has no content to fill it (no
+  // quotes ⇒ no Testimony, no figures ⇒ no Stat, etc.).
+  const available = useMemo(
+    () =>
+      Object.fromEntries(
+        MIDDLE_ROLES.map((r) => [r, roleHasContent(r, content)])
+      ) as Record<SlideRole, boolean>,
+    [content]
+  );
+  const anyLocked = MIDDLE_ROLES.some((r) => !available[r]);
   return (
     <div>
       <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-charcoal/35 mb-2">
@@ -428,22 +441,38 @@ export function PlanStep({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {MIDDLE_ROLES.map((r) => {
                     const on = role === r;
+                    // Locked when the report has no content for this type — but
+                    // never lock the slide's own current selection out from
+                    // under her.
+                    const locked = !available[r] && !on;
                     return (
                       <button
                         key={r}
                         type="button"
+                        disabled={locked}
+                        aria-disabled={locked}
+                        title={locked ? roleLockReason(r) : undefined}
                         onClick={() => {
+                          if (locked) return;
                           const next = [...plan];
                           next[i] = r;
                           onChange(next);
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${
                           on
                             ? "bg-green text-white"
-                            : "bg-charcoal/[0.04] text-charcoal/60 hover:bg-charcoal/[0.08]"
+                            : locked
+                              ? "bg-charcoal/[0.03] text-charcoal/30 cursor-not-allowed ring-1 ring-charcoal/[0.06]"
+                              : "bg-charcoal/[0.04] text-charcoal/60 hover:bg-charcoal/[0.08]"
                         }`}
                       >
                         {ROLES[r].short}
+                        {locked && (
+                          <svg className="w-3 h-3 text-charcoal/25" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                            <rect x="5" y="9" width="10" height="7" rx="1.5" />
+                            <path d="M7 9V6.5a3 3 0 0 1 6 0V9" strokeLinecap="round" />
+                          </svg>
+                        )}
                       </button>
                     );
                   })}
@@ -453,6 +482,16 @@ export function PlanStep({
           );
         })}
       </div>
+
+      {anyLocked && (
+        <p className="flex items-start gap-1.5 text-[12px] text-charcoal/45 mb-6 -mt-3 max-w-lg">
+          <svg className="w-3.5 h-3.5 mt-px shrink-0 text-charcoal/30" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+            <rect x="5" y="9" width="10" height="7" rx="1.5" />
+            <path d="M7 9V6.5a3 3 0 0 1 6 0V9" strokeLinecap="round" />
+          </svg>
+          <span>Greyed-out types aren&rsquo;t backed by this report — e.g. no quote was found, so Testimony is locked. They unlock when the source has that content.</span>
+        </p>
+      )}
 
       <button
         type="button"
