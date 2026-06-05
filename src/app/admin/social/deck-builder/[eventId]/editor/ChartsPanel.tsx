@@ -22,7 +22,8 @@ import {
   bundleIsThin,
 } from "@/lib/social-editor/chartData";
 import { buildChart, type ChartCtx } from "@/lib/social-editor/chartBuilders";
-import { CHART_GROUPS, chartBundleFromContent } from "./chartLibrary";
+import { CHART_GROUPS, chartBundleFromContent, curateStats, type ChartDef } from "./chartLibrary";
+import ChartStatsPicker from "./ChartStatsPicker";
 
 function mergeBundles(det: ChartBundle, ai: ChartBundle): ChartBundle {
   // AI wins per-field when it actually produced data; else keep deterministic.
@@ -57,6 +58,19 @@ export default function ChartsPanel({
   const [loading, setLoading] = useState(false);
   const [enriched, setEnriched] = useState(false);
   const askedRef = useRef(false);
+  // The chart whose stats-picker is open. Tapping a chart opens the picker so
+  // the SMM chooses which figures go in; with no curated figures we skip
+  // straight to inserting sample data.
+  const [picking, setPicking] = useState<ChartDef | null>(null);
+
+  function openChart(def: ChartDef) {
+    const stats = content ? curateStats(content) : [];
+    if (stats.length === 0) {
+      onPick((ctx) => buildChart(def.kind, ctx, bundle));
+      return;
+    }
+    setPicking(def);
+  }
 
   useEffect(() => {
     setBundle(deterministic);
@@ -123,7 +137,7 @@ export default function ChartsPanel({
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => onPick((ctx) => buildChart(item.kind, ctx, bundle))}
+                  onClick={() => openChart(item)}
                   className="text-left rounded-lg overflow-hidden ring-1 ring-charcoal/8 hover:ring-green/50 hover:shadow-sm transition group"
                   title={`Insert ${item.label}`}
                 >
@@ -147,6 +161,18 @@ export default function ChartsPanel({
           editable sample data drops in. Every value, label and bar is editable on the canvas.
         </p>
       </div>
+
+      {picking && content && (
+        <ChartStatsPicker
+          chart={picking}
+          content={content}
+          onInsert={(build) => {
+            onPick(build);
+            setPicking(null);
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </aside>
   );
 }
