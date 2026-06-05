@@ -189,6 +189,14 @@ export type ImageLayer = LayerBase & {
   src: string;
   /** Optional media id to resolve server-side at export time. */
   mediaId?: string;
+  /** Attribution line for a web/stock photo that legally needs crediting
+   *  (CC-BY, Wikimedia, Unsplash/Pexels by their terms), e.g.
+   *  "Photo: Jane Doe · Wikimedia · CC BY 4.0". Set automatically when the
+   *  SMM picks an external image; rendered as a small overlay pinned to the
+   *  bottom of the image in BOTH the editor preview and the export PNG so the
+   *  credit travels with the photo. Absent / null for the DR library (own
+   *  photos) and public-domain art → no overlay. */
+  credit?: string | null;
   objectFit: "cover" | "contain";
   /** Corner radius, board units. */
   radius: number;

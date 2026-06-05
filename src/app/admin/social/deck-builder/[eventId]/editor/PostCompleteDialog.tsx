@@ -12,7 +12,7 @@
  * Only rendered for real event-backed posts (the sandbox has nothing to track).
  */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 const PLATFORM_LABEL: Record<string, string> = {
   instagram: "Instagram",
@@ -22,14 +22,31 @@ const PLATFORM_LABEL: Record<string, string> = {
 
 export default function PostCompleteDialog({
   platform,
+  credits = [],
   onMarkPosted,
   onClose,
 }: {
   platform: string;
+  /** Photo credits used in the deck — shown so she can add them to the
+   *  caption / first comment (each is already baked onto its image). */
+  credits?: string[];
   /** Open the Mark-as-posted dialog. */
   onMarkPosted: () => void;
   onClose: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const creditsBlock = credits.length
+    ? `Image credits:\n${credits.join("\n")}`
+    : "";
+  async function copyCredits() {
+    try {
+      await navigator.clipboard.writeText(creditsBlock);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard blocked — the text is visible to copy by hand */
+    }
+  }
   const isIG = platform === "instagram";
   const isFB = platform === "facebook";
   const platformLabel = PLATFORM_LABEL[platform] ?? "your channel";
@@ -140,6 +157,40 @@ export default function PostCompleteDialog({
             </li>
           ))}
         </ol>
+
+        {/* Photo credits — already baked onto each image, offered here so she
+            can also drop them in the caption / first comment. */}
+        {credits.length > 0 && (
+          <div className="mt-4 rounded-lg ring-1 ring-charcoal/10 bg-charcoal/[0.02] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <p className="text-[12px] font-semibold text-charcoal/70 flex items-center gap-1.5">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <circle cx="8.5" cy="10" r="1.5" />
+                  <path d="M21 16l-5-5L5 19" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Photo credit{credits.length === 1 ? "" : "s"}
+              </p>
+              <button
+                type="button"
+                onClick={copyCredits}
+                className="text-[11.5px] font-semibold text-green-dark hover:underline shrink-0"
+              >
+                {copied ? "Copied ✓" : "Copy"}
+              </button>
+            </div>
+            <ul className="space-y-0.5">
+              {credits.map((c, i) => (
+                <li key={i} className="text-[11.5px] text-charcoal/55 leading-snug font-mono">
+                  {c}
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-charcoal/40 leading-snug mt-1.5">
+              Already shown on each image — add to your caption or first comment too, to be safe.
+            </p>
+          </div>
+        )}
 
         {/* Footnote */}
         <p className="text-[12px] text-charcoal/45 leading-relaxed mt-4 rounded-lg bg-charcoal/[0.03] ring-1 ring-charcoal/8 px-3 py-2">

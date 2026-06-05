@@ -89,6 +89,27 @@ import {
  *  deck store strips it) and is filtered out of export. */
 const EDIT_MASTER_PREFIX = "__editmaster__";
 
+/** Unique photo credits across every slide's image layers, in slide order —
+ *  the list the SMM should add to her caption / first comment. The credit is
+ *  already baked onto each photo at export; this is the belt-and-suspenders
+ *  copy for platforms where on-image text is easy to miss. */
+function collectDeckCredits(slides: EditorSlide[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of slides) {
+    for (const l of s.layers) {
+      if (l.type === "image" && l.objectFit !== "contain" && l.credit) {
+        const c = l.credit.trim();
+        if (c && !seen.has(c)) {
+          seen.add(c);
+          out.push(c);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 export default function CanvasDeckEditor({
   initialDeck,
   eventId,
@@ -1133,14 +1154,19 @@ export default function CanvasDeckEditor({
 
   /* ── Image picker ────────────────────────────────────────────── */
   function onPickImage(img: ImageCandidate) {
+    // External photos (Wikimedia / Openverse-CC-BY / Unsplash / Pexels) carry a
+    // credit that legally must be shown — bake it onto the layer so it travels
+    // with the image (replace updates it, delete removes it). DR-library / PD
+    // images have no creditText → null → no overlay.
+    const credit = img.creditText ?? null;
     if (picker === "replace" && single && single.type === "image") {
-      mutateSelected({ src: img.url, mediaId: img.id, crop: undefined, filter: undefined });
+      mutateSelected({ src: img.url, mediaId: img.id, credit, crop: undefined, filter: undefined });
     } else {
       addLayer({
         id: makeLayerId(), type: "image",
         x: activeSlide.width / 2 - 300, y: activeSlide.height / 2 - 300, w: 600, h: 600,
         rotation: 0, opacity: 1, locked: false,
-        src: img.url, mediaId: img.id, objectFit: "cover", radius: 16,
+        src: img.url, mediaId: img.id, credit, objectFit: "cover", radius: 16,
       });
     }
     setPicker(null);
@@ -1952,6 +1978,7 @@ export default function CanvasDeckEditor({
       {showPostComplete && (
         <PostCompleteDialog
           platform={platform}
+          credits={collectDeckCredits(deck)}
           onMarkPosted={() => {
             setShowPostComplete(false);
             setShowMarkPosted(true);

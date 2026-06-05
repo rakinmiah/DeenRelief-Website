@@ -14,11 +14,11 @@
  */
 
 import { ImageResponse } from "next/og";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { requireAdminSession } from "@/lib/admin-session";
 import { loadGoogleFont } from "@/lib/social-templates/fonts";
 import { bareFamily, nearestWeight } from "@/lib/social-editor/fonts";
-import { cropImgStyle } from "@/lib/social-editor/imageStyle";
+import { creditBadgeMetrics, cropImgStyle } from "@/lib/social-editor/imageStyle";
 import { prepareImage } from "@/lib/social-editor/imageFilterServer";
 import { fitTextLayers } from "@/lib/social-editor/presets";
 import type {
@@ -71,6 +71,36 @@ function sx(style: CSSProperties): CSSProperties {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(style)) if (v !== undefined) out[k] = v;
   return out as CSSProperties;
+}
+
+/** A photo-credit pill baked onto the bottom-left of an image in the PNG, so a
+ *  CC-BY / Wikimedia / Unsplash photo carries its required attribution even
+ *  when nobody copies it into the caption. Board units (export is 1:1). Returns
+ *  null when the image has no credit. Mirrors LayerView's CreditOverlay. */
+function creditBadgeNode(credit: string | null | undefined, boxW: number): ReactNode {
+  if (!credit) return null;
+  const m = creditBadgeMetrics(boxW);
+  return (
+    <div
+      style={sx({
+        display: "flex",
+        position: "absolute",
+        left: m.inset,
+        bottom: m.inset,
+        maxWidth: boxW - m.inset * 2,
+        padding: `${Math.round(m.pad * 0.6)}px ${m.pad}px`,
+        borderRadius: m.radius,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        color: "rgba(255,255,255,0.95)",
+        fontFamily: "DM Sans",
+        fontSize: m.fontSize,
+        fontWeight: 500,
+        lineHeight: 1.25,
+      })}
+    >
+      {credit}
+    </div>
+  );
 }
 
 export const runtime = "nodejs";
@@ -196,6 +226,15 @@ async function render(request: Request): Promise<Response> {
     const weight = nearestWeight(family, l.fontWeight);
     const italic = l.italic;
     fontKeys.set(`${family}:${weight}:${italic}`, { family, weight, italic });
+  }
+  // The baked photo-credit overlay renders in DM Sans 500 — register it when any
+  // image carries a credit, so a photo-ONLY slide (no text layers) still has a
+  // font for the badge and Satori doesn't throw on it.
+  const hasCreditedImage = flatLayers.some(
+    (l) => l.type === "image" && l.objectFit !== "contain" && !!l.credit
+  );
+  if (hasCreditedImage) {
+    fontKeys.set("DM Sans:500:false", { family: "DM Sans", weight: 500, italic: false });
   }
   const fontResults = await Promise.allSettled(
     [...fontKeys.values()].map(async (f) => ({
@@ -471,6 +510,7 @@ function renderInner(
               })}
             />
           ) : null}
+          {l.objectFit !== "contain" ? creditBadgeNode(l.credit, maskBox.w) : null}
         </div>
       );
     }
@@ -524,6 +564,7 @@ function renderInner(
             })}
           />
         ) : null}
+        {creditBadgeNode(l.credit, box.w)}
       </div>
     );
   }
