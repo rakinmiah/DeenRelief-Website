@@ -298,6 +298,58 @@ export const ROLES: Record<SlideRole, RoleConfig> = {
 /** Roles she can assign to the middle slides. */
 export const MIDDLE_ROLES: SlideRole[] = ["fact", "stat", "testimony", "response", "tiers", "beforeafter", "multistat"];
 
+/* ─── Content-availability gating ──────────────────────────────────── */
+
+/**
+ * Does the extracted report actually contain the content a slide type needs?
+ *
+ * This is the builder's "awareness": the AI extracts quote / fact / stat cards
+ * (and is instructed never to fabricate them), so when the article carries no
+ * quotes the report has zero quote cards and Testimony is locked off — and the
+ * same content-presence check applies to every report-driven slide type:
+ *
+ *   • fact      — needs ≥1 fact
+ *   • stat      — needs ≥1 figure to feature
+ *   • multistat — "by the numbers" needs ≥3 figures
+ *   • testimony — needs ≥1 attributed quote
+ *
+ * Structural / DR-voice slides (hero, response, tiers, before/after, cta) don't
+ * draw their substance from the report — they use editable defaults or Deen
+ * Relief's own messaging — so they're always available. Deterministic, £0: no
+ * extra AI call, just reading what was already extracted.
+ */
+export function roleHasContent(role: SlideRole, content: ContentBundle): boolean {
+  switch (role) {
+    case "fact":
+      return facts(content).length >= 1;
+    case "stat":
+      return statValues(content).length >= 1;
+    case "multistat":
+      return statValues(content).length >= 3;
+    case "testimony":
+      return quotes(content).length >= 1;
+    default:
+      // hero, response, tiers, beforeafter, cta — not report-content-driven.
+      return true;
+  }
+}
+
+/** Short reason a report-driven slide type is locked, for the picker tooltip. */
+export function roleLockReason(role: SlideRole): string {
+  switch (role) {
+    case "fact":
+      return "No clear facts in this report yet";
+    case "stat":
+      return "No figures in this report to feature";
+    case "multistat":
+      return "Needs at least 3 figures in the report";
+    case "testimony":
+      return "No quotes in this report";
+    default:
+      return "Not available for this report";
+  }
+}
+
 /* ─── Smart defaults (quick-draft + skip-friendly detailed mode) ───── */
 
 /**
@@ -548,16 +600,16 @@ export function suggestPlan(count: number, content: ContentBundle): SlideRole[] 
   const plan: SlideRole[] = ["hero"];
   const middleCount = n - 2;
   const factN = facts(content).length;
-  const statN = statValues(content).length;
-  const quoteN = quotes(content).length;
 
-  // Editorial priority, each gated on available content.
+  // Editorial priority, each gated on available content via the SAME check the
+  // slide-type picker uses to lock unavailable types — so the suggested plan
+  // never seeds a role the SMM would see greyed-out.
   const rotation: SlideRole[] = [];
-  if (factN >= 1) rotation.push("fact");
-  if (statN >= 1) rotation.push("stat");
-  if (quoteN >= 1) rotation.push("testimony");
+  if (roleHasContent("fact", content)) rotation.push("fact");
+  if (roleHasContent("stat", content)) rotation.push("stat");
+  if (roleHasContent("testimony", content)) rotation.push("testimony");
   rotation.push("response");
-  if (factN >= 3) rotation.push("multistat");
+  if (roleHasContent("multistat", content)) rotation.push("multistat");
   if (factN >= 4) rotation.push("fact"); // a second, distinct fact only when deep
   if (rotation.length === 0) rotation.push("fact");
 

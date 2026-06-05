@@ -549,9 +549,10 @@ export default function DeckFlow({
                 }}
               />
             )}
-            {step === "plan" && (
+            {step === "plan" && content && (
               <PlanStep
                 plan={plan}
+                content={content}
                 onChange={setPlan}
                 onConfirm={() => go("mode")}
               />
