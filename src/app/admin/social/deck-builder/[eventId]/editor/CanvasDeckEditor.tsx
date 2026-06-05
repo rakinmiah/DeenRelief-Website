@@ -64,6 +64,8 @@ import { fitTextLayers, type BrandLogo } from "@/lib/social-editor/presets";
 import type { ContentBundle } from "../types";
 import TemplatesPanel from "./TemplatesPanel";
 import ElementsPanel from "./ElementsPanel";
+import ChartsPanel from "./ChartsPanel";
+import type { ChartCtx } from "@/lib/social-editor/chartBuilders";
 import type { ElementDef } from "./elementLibrary";
 import ContentPanel from "./ContentPanel";
 import QrDialog from "./QrDialog";
@@ -214,7 +216,7 @@ export default function CanvasDeckEditor({
   const [exporting, setExporting] = useState(false);
   const [showLayers, setShowLayers] = useState(true);
   // One left flyout open at a time: templates, content snippets, or elements.
-  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content" | "elements">(
+  const [leftPanel, setLeftPanel] = useState<null | "templates" | "content" | "elements" | "charts">(
     openTemplatesOnMount ? "templates" : null
   );
   // Component "edit master" mode: when set, the editor is editing the
@@ -421,6 +423,12 @@ export default function CanvasDeckEditor({
         logoLight,
       })
     );
+  }
+
+  // A chart was chosen in the Charts panel — the panel pre-bound the dataset, so
+  // it hands us a builder that only needs the board geometry.
+  function insertChart(build: (ctx: ChartCtx) => Layer[]) {
+    addLayers(build({ board: { w: activeSlide.width, h: activeSlide.height } }));
   }
 
   function deleteSelected() {
@@ -1841,6 +1849,13 @@ export default function CanvasDeckEditor({
           >
             <ElementsIcon />
           </RailBtn>
+          <RailBtn
+            label="Charts"
+            active={leftPanel === "charts"}
+            onClick={() => setLeftPanel((p) => (p === "charts" ? null : "charts"))}
+          >
+            <ChartsIcon />
+          </RailBtn>
           <div className="w-8 h-px bg-charcoal/10 my-1" />
           <RailBtn label="Text" onClick={addText}><TextIcon /></RailBtn>
           <RailBtn label="Image" onClick={() => setPicker("add")}><ImageIcon /></RailBtn>
@@ -1877,6 +1892,16 @@ export default function CanvasDeckEditor({
         {/* Elements flyout — individual brand building blocks, click to drop in */}
         {leftPanel === "elements" && (
           <ElementsPanel onPick={insertElement} onClose={() => setLeftPanel(null)} />
+        )}
+
+        {/* Charts flyout — brand data charts, auto-filled from the crisis figures */}
+        {leftPanel === "charts" && (
+          <ChartsPanel
+            content={content ?? null}
+            eventId={eventId}
+            onPick={insertChart}
+            onClose={() => setLeftPanel(null)}
+          />
         )}
 
         {/* Center: canvas + filmstrip */}
@@ -2032,6 +2057,19 @@ function ElementsIcon() {
       <rect x="11" y="2.8" width="6.4" height="6.4" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
       <path d="M6 11.5l3.5 6h-7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
       <rect x="11" y="11.5" width="6.4" height="6.4" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+/** Rail icon for the Charts panel — a bar chart. */
+function ChartsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="M3 17V3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M3 17h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <rect x="5.5" y="10" width="2.6" height="5" rx="0.6" fill="currentColor" />
+      <rect x="9.7" y="6.5" width="2.6" height="8.5" rx="0.6" fill="currentColor" />
+      <rect x="13.9" y="8.5" width="2.6" height="6.5" rx="0.6" fill="currentColor" />
     </svg>
   );
 }
