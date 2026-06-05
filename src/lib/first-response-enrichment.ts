@@ -119,7 +119,12 @@ export async function fetchCrisisContext(
   if (!iso3) return EMPTY; // can't country-pin → don't risk off-topic enrichment
 
   const appname = (process.env.RELIEFWEB_APPNAME ?? "DRRelief-Charity-456").trim();
-  const cutoff = new Date(Date.now() - RECENCY_DAYS * 86_400_000).toISOString();
+  // ReliefWeb's date.created range REJECTS the `Z`/millisecond form that
+  // Date.toISOString() emits ("must be an ISO 8601 date") — it requires an
+  // explicit numeric offset. Midnight-UTC + `+00:00` is the accepted shape.
+  const cutoff = `${new Date(Date.now() - RECENCY_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10)}T00:00:00+00:00`;
   const query = buildQueryString(event);
 
   const requestBody: Record<string, unknown> = {

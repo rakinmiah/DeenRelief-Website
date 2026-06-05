@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-session";
 import { listImageryForEvent } from "@/lib/external-imagery";
+import { fetchExternalImageryForEvent } from "@/lib/external-imagery-fetch";
 import { getEmergencyEventById } from "@/lib/first-response";
 import { getCandidateMediaForEvent } from "@/lib/media-library";
 import type {
@@ -26,6 +27,8 @@ import type {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The lazy first-open imagery fetch fans out to several sources, so give it room.
+export const maxDuration = 60;
 
 /** Words in an external image's title/description that mark it as a
  *  NON-photograph — a diagram, map, chart, infographic, illustration, etc.
@@ -77,7 +80,7 @@ export async function GET(
   }
 
   // Parallel fetch — both pools are independent.
-  const [drCandidates, extCandidates] = await Promise.all([
+  const [drCandidates, existingExt] = await Promise.all([
     getCandidateMediaForEvent({
       countryIso: event.countryIso,
       eventType: event.eventType,
@@ -86,6 +89,20 @@ export async function GET(
     }),
     listImageryForEvent(eventId),
   ]);
+
+  // Third-party web imagery (Wikimedia / EONET / ReliefWeb / IFRC) used to be
+  // fetched ONLY during launch-packet generation, so an event taken straight to
+  // the deck builder had an empty external pool (DR media only). Populate it
+  // lazily on first open — idempotent upsert, fully fault-isolated, never
+  // throws — then re-opens read the stored rows for free.
+  let extCandidates = existingExt;
+  if (extCandidates.length === 0) {
+    try {
+      extCandidates = await fetchExternalImageryForEvent(event);
+    } catch (err) {
+      console.warn(`[social-content/images] lazy imagery fetch failed for ${eventId}:`, err);
+    }
+  }
 
   const candidates: ImageCandidate[] = [];
 
