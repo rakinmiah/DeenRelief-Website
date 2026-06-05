@@ -77,6 +77,17 @@ function clip(s: string, max: number): string {
 function pctStr(n: number): string {
   return `${Math.round(n)}%`;
 }
+/** Sanitise a headline figure for display — rounds a noisy float percentage
+ *  ("67.272727%") or over-precise decimal that slipped through, so a big number
+ *  never shows raw precision. Leaves clean values ("1.7M", "88%", "881") alone. */
+function cleanValue(v: string): string {
+  const s = (v || "").trim();
+  const pct = s.match(/^(\d+\.\d+)\s*%$/);
+  if (pct) return `${Math.round(parseFloat(pct[1]!))}%`;
+  const dec = s.match(/^(\d+\.\d{3,})$/); // a bare 3+ decimal number
+  if (dec) return `${Math.round(parseFloat(dec[1]!))}`;
+  return s;
+}
 
 /* ─── Layer factories (mirror elementLibrary / presets) ───────────── */
 function mkText(
@@ -357,7 +368,7 @@ function progressChart(board: { w: number; h: number }, b: ChartBundle): Layer[]
   const barH = Math.min(70, plot.h * 0.22);
   const barY = plot.y + plot.h * 0.42;
   layers.push(
-    mkText(plot.x, plot.y + plot.h * 0.06, plot.w, 130, s.value, ANTON, 116, { lineHeight: 0.9 }),
+    mkText(plot.x, plot.y + plot.h * 0.06, plot.w, 130, cleanValue(s.value), ANTON, 116, { lineHeight: 0.9 }),
     mkText(plot.x, plot.y + plot.h * 0.06 + 132, plot.w, 40, clip(s.label, 48), BARLOW, 26, { color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }),
     mkRect(plot.x, barY, plot.w, barH, TRACK, barH / 2),
     mkRect(plot.x, barY, Math.max(barH, (plot.w * pct) / 100), barH, GOLD, barH / 2)
@@ -375,7 +386,7 @@ function gaugeChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const uri = svgToDataUri(radialSvg(pct, 560));
   layers.push(
     mkImg(gx, gy, size, size, uri),
-    mkText(gx, gy + size / 2 - 60, size, 96, s.value, ANTON, 92, { align: "center", lineHeight: 0.9 }),
+    mkText(gx, gy + size / 2 - 60, size, 96, cleanValue(s.value), ANTON, 92, { align: "center", lineHeight: 0.9 }),
     mkText(gx, gy + size / 2 + 36, size, 36, clip(s.label, 26), BARLOW, 22, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
   );
   return layers;
@@ -390,7 +401,7 @@ function kpiChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   singles.forEach((s, i) => {
     const y = plot.y + i * rowH;
     layers.push(
-      mkText(plot.x, y + rowH * 0.1, plot.w, rowH * 0.56, s.value, ANTON, Math.min(120, r0(rowH * 0.56)), { lineHeight: 0.9 }),
+      mkText(plot.x, y + rowH * 0.1, plot.w, rowH * 0.56, cleanValue(s.value), ANTON, Math.min(120, r0(rowH * 0.56)), { lineHeight: 0.9 }),
       mkText(plot.x, y + rowH * 0.7, plot.w, rowH * 0.28, clip(s.label, 46), BARLOW, 24, { color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
     );
   });
