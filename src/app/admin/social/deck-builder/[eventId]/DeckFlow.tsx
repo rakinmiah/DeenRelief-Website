@@ -110,6 +110,9 @@ export default function DeckFlow({
 
   // Data fetched during "preparing".
   const [content, setContent] = useState<ContentBundle | null>(null);
+  // Non-null when content extraction itself FAILED (vs. legitimately returned
+  // no facts) — so the SMM sees the real reason instead of a silent empty deck.
+  const [contentError, setContentError] = useState<string | null>(null);
   const [images, setImages] = useState<ImageBundle | null>(null);
   const [groups, setGroups] = useState<TemplateGroups>({});
   const [ready, setReady] = useState(false);
@@ -147,7 +150,24 @@ export default function DeckFlow({
         } catch {
           setContent({ cards: [] });
         }
-      } else setContent({ cards: [] });
+      } else {
+        // Extraction FAILED (not "no facts") — capture the server's reason so
+        // the SMM isn't left thinking the report was empty. The endpoint
+        // returns { error, detail } on a 500.
+        let reason = "Content extraction failed.";
+        if (cRes.status === "fulfilled") {
+          try {
+            const body = (await cRes.value.json()) as { error?: string; detail?: string };
+            reason = body.detail || body.error || `Extraction request failed (HTTP ${cRes.value.status}).`;
+          } catch {
+            reason = `Extraction request failed (HTTP ${cRes.value.status}).`;
+          }
+        } else {
+          reason = "Couldn't reach the extraction service.";
+        }
+        setContentError(reason);
+        setContent({ cards: [] });
+      }
       if (iRes.status === "fulfilled" && iRes.value.ok) {
         try {
           const json = (await iRes.value.json()) as ImageBundle;
@@ -501,6 +521,25 @@ export default function DeckFlow({
 
       <div className="flex-1 grid place-items-center px-5 py-8">
         <div className="w-full max-w-2xl">
+          {contentError && (
+            <div className="mb-5 rounded-xl bg-red-50 ring-1 ring-red-200 px-4 py-3">
+              <p className="text-[13.5px] font-semibold text-red-800 flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v5M12 16.5v.5" strokeLinecap="round" />
+                </svg>
+                Couldn&rsquo;t read the report
+              </p>
+              <p className="text-[12.5px] text-red-700/90 leading-relaxed mt-1">
+                The AI extraction failed, so no facts or stats were pulled — this isn&rsquo;t
+                &ldquo;the report had nothing.&rdquo; Reason: <span className="font-mono">{contentError}</span>
+              </p>
+              <p className="text-[12px] text-red-700/70 leading-relaxed mt-1.5">
+                If this mentions the API key or credits, check <span className="font-mono">ANTHROPIC_API_KEY</span> and
+                the Anthropic account in the production environment, then retry.
+              </p>
+            </div>
+          )}
           <motion.div
             key={step}
             initial={{ opacity: 0, x: dir * 20 }}
