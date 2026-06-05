@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { canAccessSocial } from "@/lib/admin-social-access";
 import type { AdminRole } from "./admin-nav";
@@ -225,14 +226,19 @@ export default function CommandPalette({
     [flat, active, go, onClose]
   );
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   const q = query.trim();
   const showEmpty = q.length >= 2 && !loading && flat.length === 0;
 
-  return (
+  // Portal to <body> so the overlay escapes every admin stacking context
+  // (the .page-transition animation wrapper, sticky page toolbars at
+  // z-20, full-screen editor overlays at z-50, etc.) and reliably sits
+  // on top of everything. A high z-index guards against future chrome.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh] pb-6"
+      data-dr-palette
+      className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh] pb-6"
       role="dialog"
       aria-modal="true"
       aria-label="Search DR Admin"
@@ -242,7 +248,7 @@ export default function CommandPalette({
         type="button"
         aria-label="Close search"
         onClick={onClose}
-        className="absolute inset-0 bg-charcoal/40 backdrop-blur-[2px] cursor-default motion-safe:animate-[fadeIn_120ms_ease-out]"
+        className="absolute inset-0 bg-charcoal/50 backdrop-blur-[2px] cursor-default motion-safe:animate-[fadeIn_120ms_ease-out]"
       />
 
       {/* Panel */}
@@ -339,12 +345,18 @@ export default function CommandPalette({
         </div>
       </div>
 
-      {/* Local keyframes (kept inline so no global CSS edit is needed). */}
+      {/* Local keyframes + focus override. The global unlayered rule
+          `*:focus-visible { outline: 2px solid green }` (globals.css)
+          otherwise paints a heavy green box around the focused search
+          field; inside the modal the active-row highlight is the focus
+          cue, so we suppress the ring here. */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes paletteIn { from { opacity: 0; transform: translateY(-8px) scale(0.985) } to { opacity: 1; transform: none } }
+        [data-dr-palette] :focus-visible { outline: none !important; outline-offset: 0 !important; }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
 
