@@ -51,18 +51,40 @@ export async function GET(
 
   const url = new URL(request.url);
   const platformParam = url.searchParams.get("platform");
-  if (
-    !platformParam ||
-    !VALID_PLATFORMS.includes(platformParam as Platform)
-  ) {
+  const supabase = getSupabaseAdmin();
+
+  // LIST MODE — no platform → return a lightweight summary of every saved draft
+  // for this event (used by the deck-builder resume screen to offer "continue
+  // editing" before any extraction runs).
+  if (!platformParam) {
+    void session;
+    const { data, error } = await supabase
+      .from("deck_drafts")
+      .select("platform, slides, updated_at")
+      .eq("event_id", eventId)
+      .order("updated_at", { ascending: false });
+    if (error) {
+      return NextResponse.json({ error: `DB error: ${error.message}` }, { status: 500 });
+    }
+    const drafts = (data ?? [])
+      .map((d) => ({
+        platform: d.platform as Platform,
+        slideCount: Array.isArray(d.slides) ? d.slides.length : 0,
+        updatedAt: d.updated_at as string,
+      }))
+      // Only drafts that actually hold slides are worth resuming.
+      .filter((d) => d.slideCount > 0);
+    return NextResponse.json({ eventId, drafts });
+  }
+
+  if (!VALID_PLATFORMS.includes(platformParam as Platform)) {
     return NextResponse.json(
-      { error: "Missing or invalid platform query param." },
+      { error: "Invalid platform query param." },
       { status: 400 }
     );
   }
   const platform = platformParam as Platform;
 
-  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("deck_drafts")
     .select("id, event_id, platform, slides, created_by_email, created_at, updated_at")
