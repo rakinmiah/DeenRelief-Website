@@ -214,6 +214,12 @@ export default function CanvasDeckEditor({
   const [hydrated, setHydrated] = useState(!persist);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [exporting, setExporting] = useState(false);
+  // Editable draft HEADER. Defaults to the passed-in title (the event
+  // title); a saved custom name overrides it on load (persist mode). Drives
+  // the top-bar header, the export filename and the default posted-title.
+  const [draftTitle, setDraftTitle] = useState(title);
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleBuffer, setTitleBuffer] = useState("");
   const [showLayers, setShowLayers] = useState(true);
   // One left flyout open at a time: templates, content snippets, or elements.
   const [leftPanel, setLeftPanel] = useState<null | "templates" | "content" | "elements" | "charts">(
@@ -270,9 +276,10 @@ export default function CanvasDeckEditor({
     (async () => {
       const loaded = await loadDeck(eventId, platform);
       if (cancelled) return;
-      if (loaded && loaded.slides.length) {
-        history.reset({ ...loaded, slides: loaded.slides.map(fitTextLayers) });
+      if (loaded.deck && loaded.deck.slides.length) {
+        history.reset({ ...loaded.deck, slides: loaded.deck.slides.map(fitTextLayers) });
       }
+      if (loaded.title && loaded.title.trim()) setDraftTitle(loaded.title.trim());
       setHydrated(true);
     })();
     return () => {
@@ -286,12 +293,15 @@ export default function CanvasDeckEditor({
     if (!persist || !eventId || !hydrated) return;
     setSaveState("saving");
     const t = setTimeout(async () => {
-      const ok = await saveDeck(eventId, platform, history.state);
+      // Persist a custom header; when it still equals the event title we
+      // store null so the column stays a clean "no custom name".
+      const titleToSave = draftTitle.trim() && draftTitle.trim() !== title ? draftTitle.trim() : null;
+      const ok = await saveDeck(eventId, platform, history.state, titleToSave);
       setSaveState(ok ? "saved" : "idle");
     }, 900);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.state, hydrated]);
+  }, [history.state, hydrated, draftTitle]);
 
   /* ── Fit-to-viewport ─────────────────────────────────────────── */
   useEffect(() => {
@@ -1446,11 +1456,23 @@ export default function CanvasDeckEditor({
     setEditingId(null);
   }
 
+  /* ── Draft header (rename) ───────────────────────────────────── */
+  function startTitleEdit() {
+    setTitleBuffer(draftTitle);
+    setTitleEditing(true);
+  }
+  function commitTitle() {
+    const next = titleBuffer.trim();
+    // Empty → fall back to the event title (the passed-in `title`).
+    setDraftTitle(next || title);
+    setTitleEditing(false);
+  }
+
   /* ── Export ──────────────────────────────────────────────────── */
   async function onExport() {
     setExporting(true);
     try {
-      await exportDeck(deck, title, registry);
+      await exportDeck(deck, draftTitle, registry);
       // The post is "complete" — guide her to start tracking + learning.
       // Only for real event-backed posts (the sandbox has nothing to track).
       if (eventId) setShowPostComplete(true);
@@ -1672,7 +1694,50 @@ export default function CanvasDeckEditor({
             <ToolbarBtn label="Undo" onClick={history.undo} disabled={!history.canUndo}><UndoIcon /></ToolbarBtn>
             <ToolbarBtn label="Redo" onClick={history.redo} disabled={!history.canRedo}><UndoIcon flip /></ToolbarBtn>
           </div>
-          <span className="text-[13px] font-medium text-charcoal/70 truncate px-3 min-w-0">{title}</span>
+          {persist ? (
+            titleEditing ? (
+              <input
+                autoFocus
+                value={titleBuffer}
+                onChange={(e) => setTitleBuffer(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setTitleEditing(false);
+                  }
+                }}
+                maxLength={200}
+                placeholder="Name this draft"
+                aria-label="Draft name"
+                className="text-[13px] font-medium text-charcoal text-center bg-charcoal/[0.04] rounded-md ring-1 ring-green/45 outline-none px-3 py-1 min-w-0 w-[clamp(160px,28vw,320px)]"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={startTitleEdit}
+                title="Rename this draft"
+                className="group/title flex items-center gap-1.5 text-[13px] font-medium text-charcoal/70 hover:text-charcoal truncate px-3 min-w-0 max-w-[340px] rounded-md py-1 hover:bg-charcoal/[0.04] transition-colors"
+              >
+                <span className="truncate">{draftTitle}</span>
+                <svg
+                  className="w-3.5 h-3.5 shrink-0 text-charcoal/30 opacity-0 group-hover/title:opacity-100 transition-opacity"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden
+                >
+                  <path d="M16.5 4.5l3 3L8 19l-4 1 1-4 11.5-11.5z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )
+          ) : (
+            <span className="text-[13px] font-medium text-charcoal/70 truncate px-3 min-w-0">{draftTitle}</span>
+          )}
           <div className="flex items-center gap-3 shrink-0">
             {persist && (
               <span className="text-[11.5px] text-charcoal/40 w-14 text-right">
@@ -2016,7 +2081,7 @@ export default function CanvasDeckEditor({
           platform={platform}
           eventId={eventId}
           deckRecipe={deckRecipe}
-          defaultTitle={title !== "Slide editor" ? title : undefined}
+          defaultTitle={draftTitle !== "Slide editor" ? draftTitle : undefined}
           onClose={() => setShowMarkPosted(false)}
         />
       )}

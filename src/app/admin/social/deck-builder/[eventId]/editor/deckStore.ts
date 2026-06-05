@@ -83,30 +83,35 @@ export function decodeDeck(raw: unknown): EditorDeck | null {
 export async function loadDeck(
   eventId: string,
   platform: string
-): Promise<EditorDeck | null> {
+): Promise<{ deck: EditorDeck | null; title: string | null }> {
   try {
     const res = await fetch(
       `/api/admin/social-deck-drafts/${eventId}?platform=${platform}`,
       { cache: "no-store" }
     );
-    if (!res.ok) return null;
-    const json = (await res.json()) as { slides?: unknown };
-    return decodeDeck(json.slides);
+    if (!res.ok) return { deck: null, title: null };
+    const json = (await res.json()) as { slides?: unknown; title?: string | null };
+    return { deck: decodeDeck(json.slides), title: json.title ?? null };
   } catch {
-    return null;
+    return { deck: null, title: null };
   }
 }
 
 export async function saveDeck(
   eventId: string,
   platform: string,
-  deck: EditorDeck
+  deck: EditorDeck,
+  /** Draft header/name. undefined → leave unchanged; null/"" → clear (the UI
+   *  falls back to the event title). */
+  title?: string | null
 ): Promise<boolean> {
   try {
+    const body: Record<string, unknown> = { platform, slides: encodeDeck(deck) };
+    if (title !== undefined) body.title = title;
     const res = await fetch(`/api/admin/social-deck-drafts/${eventId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ platform, slides: encodeDeck(deck) }),
+      body: JSON.stringify(body),
     });
     return res.ok;
   } catch {
