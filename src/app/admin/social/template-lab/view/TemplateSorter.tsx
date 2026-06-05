@@ -103,10 +103,13 @@ export default function TemplateSorter({
   }, [ordered, selectedId]);
 
   return (
+    // Fixed full-screen browser, but inset past the AdminShell sidebar on lg+
+    // (it's `fixed w-60`, so a plain inset-0 would sit UNDER it and the nav
+    // would cover the left thumbnail rail). On mobile the sidebar is hidden, so
+    // inset-0 is correct there.
     <div
+      className="fixed inset-0 lg:left-60"
       style={{
-        position: "fixed",
-        inset: 0,
         display: "flex",
         flexDirection: "column",
         background: "#e9e7e2",
