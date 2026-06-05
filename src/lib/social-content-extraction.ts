@@ -49,7 +49,10 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 
 import type { EmergencyEvent } from "./first-response";
-import { fetchCrisisContext } from "./first-response-enrichment";
+import {
+  fetchCrisisContext,
+  type EnrichmentSource,
+} from "./first-response-enrichment";
 import { getSupabaseAdmin } from "./supabase";
 
 /**
@@ -523,6 +526,7 @@ async function fetchEventCacheState(eventId: string): Promise<{
   rawPayload: unknown;
   cachedBlocks: ContentBlocks | null;
   cachedHash: string | null;
+  cachedSources: EnrichmentSource[];
 } | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -534,17 +538,29 @@ async function fetchEventCacheState(eventId: string): Promise<{
   if (error || !data) return null;
 
   // Parse the cached blocks defensively — if the stored shape predates
-  // the current schema, we ignore the cache and re-extract.
+  // the current schema, we ignore the cache and re-extract. (Zod strips the
+  // sibling `_sources` key, so cachedBlocks stays clean.)
   let cachedBlocks: ContentBlocks | null = null;
   if (data.draft_content_blocks) {
     const parsed = ContentBlocksSchema.safeParse(data.draft_content_blocks);
     cachedBlocks = parsed.success ? parsed.data : null;
   }
 
+  // The enrichment sources ride along in the same jsonb under `_sources`
+  // (set by persistContentBlocks) so a cache hit can still show them.
+  let cachedSources: EnrichmentSource[] = [];
+  const rawBlocks = data.draft_content_blocks as { _sources?: unknown } | null;
+  if (rawBlocks && Array.isArray(rawBlocks._sources)) {
+    cachedSources = (rawBlocks._sources as EnrichmentSource[]).filter(
+      (s) => s && typeof s.title === "string"
+    );
+  }
+
   return {
     rawPayload: data.raw_payload,
     cachedBlocks,
     cachedHash: data.draft_content_blocks_hash,
+    cachedSources,
   };
 }
 
@@ -556,13 +572,18 @@ async function fetchEventCacheState(eventId: string): Promise<{
 async function persistContentBlocks(
   eventId: string,
   blocks: ContentBlocks,
-  hash: string
+  hash: string,
+  sources: EnrichmentSource[]
 ): Promise<void> {
   const supabase = getSupabaseAdmin();
+  // Tuck the enrichment sources alongside the blocks in the same jsonb so a
+  // future cache hit can still show "researched from …". Zod strips the
+  // `_sources` sibling on read, so the cached blocks stay schema-clean.
+  const stored = sources.length ? { ...blocks, _sources: sources } : blocks;
   const { error } = await supabase
     .from("emergency_events")
     .update({
-      draft_content_blocks: blocks,
+      draft_content_blocks: stored,
       draft_content_blocks_hash: hash,
     })
     .eq("id", eventId);
@@ -653,6 +674,8 @@ export interface ExtractContentBlocksResult {
   blocks: ContentBlocks;
   inputTokens: number;
   outputTokens: number;
+  /** ReliefWeb reports whose content fed this extraction (transparency). */
+  enrichmentSources: EnrichmentSource[];
 }
 
 /**
@@ -688,6 +711,7 @@ export async function extractContentBlocks(
       blocks: buildFixtureBlocks(event),
       inputTokens: 0,
       outputTokens: 0,
+      enrichmentSources: [],
     };
   }
 
@@ -698,7 +722,7 @@ export async function extractContentBlocks(
       `extractContentBlocks: event ${event.id} not found in emergency_events.`
     );
   }
-  const { rawPayload, cachedBlocks, cachedHash } = cacheState;
+  const { rawPayload, cachedBlocks, cachedHash, cachedSources } = cacheState;
   const freshHash = hashPayload(rawPayload);
 
   if (cachedBlocks && cachedHash === freshHash) {
@@ -709,6 +733,7 @@ export async function extractContentBlocks(
       blocks: cachedBlocks,
       inputTokens: 0,
       outputTokens: 0,
+      enrichmentSources: cachedSources,
     };
   }
 
@@ -752,12 +777,13 @@ export async function extractContentBlocks(
 
   // Fire-and-forget the persist — we don't block the response on the DB
   // write. Failures are logged inside persistContentBlocks.
-  await persistContentBlocks(event.id, blocks, freshHash);
+  await persistContentBlocks(event.id, blocks, freshHash, crisis.sources);
 
   return {
     blocks,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
+    enrichmentSources: crisis.sources,
   };
 }
 

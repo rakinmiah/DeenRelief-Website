@@ -62,6 +62,16 @@ export default function ContentPanel({
   const sections = useMemo(() => buildSections(content), [content]);
   const total = sections.reduce((n, s) => n + s.items.length, 0);
 
+  // ReliefWeb reports the AI researched this crisis from (transparency).
+  const enrich = content.enrichmentSources ?? [];
+  const agencies = [
+    ...new Set(
+      enrich
+        .flatMap((s) => s.source.split(",").map((x) => x.trim()))
+        .filter(Boolean)
+    ),
+  ];
+
   return (
     <aside className="dr-anim-panel w-[300px] shrink-0 bg-white border-r border-charcoal/8 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-charcoal/8 shrink-0">
@@ -92,6 +102,46 @@ export default function ContentPanel({
           ×
         </button>
       </div>
+
+      {/* "Researched from" — the related ReliefWeb reports the AI mined for
+          this crisis (collapsed; expand to see + open each). */}
+      {enrich.length > 0 && (
+        <details className="group border-b border-charcoal/8 shrink-0">
+          <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-3.5 py-2 flex items-center gap-1.5 text-[11px] text-charcoal/55 hover:text-charcoal/80 transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
+            </svg>
+            <span className="font-medium shrink-0">
+              Researched from {enrich.length} {enrich.length === 1 ? "report" : "reports"}
+            </span>
+            {agencies.length > 0 && (
+              <span className="text-charcoal/35 truncate">· {agencies.slice(0, 3).join(" · ")}</span>
+            )}
+            <span className="ml-auto text-charcoal/30 transition-transform group-open:rotate-90 shrink-0">▸</span>
+          </summary>
+          <ul className="px-3.5 pb-2.5 flex flex-col gap-1.5">
+            {enrich.map((s, i) => (
+              <li key={`${s.url}-${i}`} className="text-[11px] leading-snug">
+                <a
+                  href={s.url || undefined}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-green hover:text-green-dark hover:underline"
+                >
+                  {s.title}
+                </a>
+                <span className="text-charcoal/40">
+                  {" "}
+                  — {s.source}
+                  {s.date ? ` · ${s.date}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-1 pb-5">
         {total === 0 ? (
           <p className="text-[12.5px] text-charcoal/45 py-10 text-center px-2">

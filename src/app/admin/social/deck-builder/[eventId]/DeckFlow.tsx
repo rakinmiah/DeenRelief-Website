@@ -135,7 +135,15 @@ export default function DeckFlow({
       if (cRes.status === "fulfilled" && cRes.value.ok) {
         try {
           const json = (await cRes.value.json()) as ContentBundle;
-          setContent({ cards: Array.isArray(json.cards) ? json.cards : [] });
+          setContent({
+            cards: Array.isArray(json.cards) ? json.cards : [],
+            chartSeries: Array.isArray(json.chartSeries)
+              ? json.chartSeries
+              : undefined,
+            enrichmentSources: Array.isArray(json.enrichmentSources)
+              ? json.enrichmentSources
+              : undefined,
+          });
         } catch {
           setContent({ cards: [] });
         }

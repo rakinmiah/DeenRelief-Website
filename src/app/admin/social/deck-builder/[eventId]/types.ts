@@ -55,11 +55,22 @@ export type ChartSeries = {
 /** Shape returned by the Phase 6b extraction endpoint (and matched by
  *  MOCK_CONTENT for fallback). Each card carries a stable id so the UI
  *  can key the list and detect re-renders. */
+/** A ReliefWeb report whose content fed the AI extraction (citation only). */
+export type EnrichmentSource = {
+  title: string;
+  source: string; // agency shortname(s), e.g. "OCHA", "UNRWA"
+  date: string; // YYYY-MM-DD
+  url: string;
+};
+
 export type ContentBundle = {
   cards: Array<{ id: string; card: ContentCard }>;
   /** Comparable data series for charts (0–3). May be absent on legacy /
    *  cached extractions made before this field existed. */
   chartSeries?: ChartSeries[];
+  /** ReliefWeb reports the AI researched this crisis from (transparency).
+   *  Absent on legacy / cached extractions made before enrichment existed. */
+  enrichmentSources?: EnrichmentSource[];
 };
 
 export type ImageBundle = {

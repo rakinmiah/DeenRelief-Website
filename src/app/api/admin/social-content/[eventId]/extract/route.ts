@@ -35,7 +35,7 @@ async function run(eventId: string) {
     return NextResponse.json({ error: "Event not found." }, { status: 404 });
   }
   try {
-    const { blocks, inputTokens, outputTokens } =
+    const { blocks, inputTokens, outputTokens, enrichmentSources } =
       await extractContentBlocksWithDefaultClient(event);
     const cards = flattenBlocksToCards(blocks);
     return NextResponse.json({
@@ -45,6 +45,8 @@ async function run(eventId: string) {
       // Comparable data series for charts (0–3). Absent on legacy cached
       // extractions → []. The deck builder falls back to fact-clustering.
       chartSeries: blocks.chart_series ?? [],
+      // ReliefWeb reports whose content fed this extraction (transparency).
+      enrichmentSources,
       usage: { inputTokens, outputTokens },
     });
   } catch (err) {
