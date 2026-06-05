@@ -210,3 +210,36 @@ export async function PUT(
     created: true,
   });
 }
+
+/**
+ * DELETE /api/admin/social-deck-drafts/[eventId]?platform=instagram
+ * Removes one saved deck draft so the SMM can discard work in progress.
+ */
+export async function DELETE(
+  request: Request,
+  ctx: { params: Promise<{ eventId: string }> }
+) {
+  await requireAdminSession();
+  const { eventId } = await ctx.params;
+
+  const url = new URL(request.url);
+  const platformParam = url.searchParams.get("platform");
+  if (!platformParam || !VALID_PLATFORMS.includes(platformParam as Platform)) {
+    return NextResponse.json(
+      { error: "Missing or invalid platform query param." },
+      { status: 400 }
+    );
+  }
+  const platform = platformParam as Platform;
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("deck_drafts")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("platform", platform);
+  if (error) {
+    return NextResponse.json({ error: `Delete failed: ${error.message}` }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, eventId, platform });
+}
