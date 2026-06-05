@@ -21,6 +21,7 @@ import {
   curateStats,
   selectionLimits,
   statsSource,
+  validateSelection,
 } from "./chartLibrary";
 
 function groupByCategory(stats: CuratedStat[]): { key: string; label: string; items: CuratedStat[] }[] {
@@ -54,8 +55,20 @@ export default function ChartStatsPicker({
   const limits = selectionLimits(family);
   const single = limits.max === 1;
 
-  // Pre-tick a sensible default so she can one-tap insert.
-  const [sel, setSel] = useState<string[]>(() => stats.slice(0, Math.max(limits.min, single ? 1 : Math.min(3, limits.max))).map((s) => s.id));
+  // Pre-tick a COHERENT default so the common case is one-tap insert: grow the
+  // selection greedily, only adding a stat while it keeps the set valid.
+  const [sel, setSel] = useState<string[]>(() => {
+    if (!stats.length) return [];
+    if (single) return [stats[0]!.id];
+    const ids: string[] = [];
+    const cap = Math.min(limits.max, 4);
+    for (const s of stats) {
+      if (ids.length >= cap) break;
+      const next = stats.filter((x) => [...ids, s.id].includes(x.id));
+      if (next.length <= 1 || next.length < limits.min || validateSelection(family, next).ok) ids.push(s.id);
+    }
+    return ids.length >= limits.min ? ids : stats.slice(0, limits.min).map((s) => s.id);
+  });
 
   function toggle(id: string) {
     setSel((prev) => {
@@ -67,7 +80,10 @@ export default function ChartStatsPicker({
   }
 
   const chosen = stats.filter((s) => sel.includes(s.id));
-  const canInsert = chosen.length >= limits.min;
+  const [override, setOverride] = useState(false);
+  // Strict coherence check (mixed units, parts-sum-to-whole, ordered trend…).
+  const verdict = validateSelection(family, chosen);
+  const canInsert = chosen.length >= limits.min && (verdict.ok || override);
 
   function insert() {
     if (!canInsert) return;
@@ -155,6 +171,25 @@ export default function ChartStatsPicker({
             ))
           )}
         </div>
+
+        {/* Coherence warning — blocks (amber) when the data doesn't fit the
+            chart, or just advises (subtle) when it inserts but needs a tweak. */}
+        {verdict.warning && (
+          <div
+            className={`mx-5 mb-1 rounded-lg px-3 py-2 text-[12px] leading-snug ${
+              verdict.ok ? "bg-charcoal/[0.03] text-charcoal/55" : "bg-amber-50 ring-1 ring-amber-200 text-amber-800"
+            }`}
+          >
+            <span className="font-semibold">{verdict.ok ? "Heads up: " : "Not a good fit: "}</span>
+            {verdict.warning}
+            {!verdict.ok && (
+              <label className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-amber-700 cursor-pointer">
+                <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} className="accent-amber-600" />
+                Insert anyway (Advanced)
+              </label>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-t border-charcoal/8">

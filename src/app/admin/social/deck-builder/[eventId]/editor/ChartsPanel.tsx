@@ -125,13 +125,8 @@ export default function ChartsPanel({
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-        {CHART_GROUPS.map((group) => (
-          <section key={group.key} className="mb-5">
-            <div className="sticky top-0 z-10 -mx-3 px-3 py-1.5 bg-white border-b border-charcoal/[0.07]">
-              <span className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-charcoal/50">
-                {group.title}
-              </span>
-            </div>
+        {CHART_GROUPS.map((group) => {
+          const cards = (
             <div className="grid grid-cols-2 gap-2 mt-2.5">
               {group.items.map((item) => (
                 <button
@@ -154,8 +149,30 @@ export default function ChartsPanel({
                 </button>
               ))}
             </div>
-          </section>
-        ))}
+          );
+          if (group.advanced) {
+            return (
+              <details key={group.key} className="group/adv mb-5">
+                <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden -mx-3 px-3 py-1.5 bg-white border-b border-charcoal/[0.07] flex items-center gap-2">
+                  <span className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-charcoal/50">{group.title}</span>
+                  <span className="text-[9.5px] text-charcoal/35">· rarely the right fit</span>
+                  <span className="ml-auto text-charcoal/30 transition-transform group-open/adv:rotate-90 text-[11px]">▸</span>
+                </summary>
+                {cards}
+              </details>
+            );
+          }
+          return (
+            <section key={group.key} className="mb-5">
+              <div className="sticky top-0 z-10 -mx-3 px-3 py-1.5 bg-white border-b border-charcoal/[0.07]">
+                <span className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-charcoal/50">
+                  {group.title}
+                </span>
+              </div>
+              {cards}
+            </section>
+          );
+        })}
         <p className="text-[10.5px] text-charcoal/40 leading-relaxed px-1 mt-1">
           Charts auto-fill with this crisis&rsquo;s figures where we have them — otherwise
           editable sample data drops in. Every value, label and bar is editable on the canvas.
