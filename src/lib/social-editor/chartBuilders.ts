@@ -65,6 +65,19 @@ const RAMP = ["#D4A843", "#E7CD8A", "#BF9333", "#F2E3B6", "#9C7726", "#7E5F1E"];
 
 const r0 = (n: number) => Math.round(n);
 
+/** One-line label: collapse whitespace + hard-truncate so a long source phrase
+ *  (e.g. "Bread production meets only of estimated need; 300 metr…") can't wrap
+ *  to several lines and collide with the value beneath it. The SMM can retype
+ *  the full label on the canvas if she wants it. */
+function clip(s: string, max: number): string {
+  const t = (s || "").trim().replace(/\s+/g, " ");
+  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+}
+/** Whole-number percent string. */
+function pctStr(n: number): string {
+  return `${Math.round(n)}%`;
+}
+
 /* ─── Layer factories (mirror elementLibrary / presets) ───────────── */
 function mkText(
   x: number, y: number, w: number, h: number, text: string,
@@ -146,7 +159,7 @@ function barChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
     const top = plot.y + i * rowH + (rowH - barH) / 2;
     const ratio = max > 0 ? mags[i]! / max : 0;
     layers.push(
-      mkText(plot.x, top + barH / 2 - 16, labelW, 32, p.label, BARLOW, 23, { fontWeight: 600, lineHeight: 1.0 }),
+      mkText(plot.x, top + barH / 2 - 16, labelW, 32, clip(p.label, 20), BARLOW, 22, { fontWeight: 600, lineHeight: 1.0 }),
       mkRect(trackX, top, trackW, barH, TRACK, barH / 2),
       mkRect(trackX, top, Math.max(barH, trackW * ratio), barH, GOLD, barH / 2),
       mkText(trackX + trackW + 12, top + barH / 2 - 17, valueW, 34, p.value, ANTON, 30, { align: "right", lineHeight: 1.0 })
@@ -175,7 +188,7 @@ function columnChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
     layers.push(
       mkText(cx - slot / 2, top - valueH + 4, slot, valueH - 6, p.value, ANTON, 28, { align: "center", lineHeight: 1.0 }),
       mkRect(cx - barW / 2, top, barW, barH, GOLD, 10),
-      mkText(cx - slot / 2, plot.y + plot.h - labelH + 6, slot, labelH - 6, p.label, BARLOW, 20, { align: "center", fontWeight: 600, color: CREAM_DIM, lineHeight: 1.05 })
+      mkText(cx - slot / 2, plot.y + plot.h - labelH + 6, slot, labelH - 6, clip(p.label, 24), BARLOW, 18, { align: "center", fontWeight: 600, color: CREAM_DIM, lineHeight: 1.05 })
     );
   });
   return layers;
@@ -198,7 +211,7 @@ function lollipopChart(board: { w: number; h: number }, b: ChartBundle): Layer[]
     const ratio = max > 0 ? mags[i]! / max : 0;
     const stickW = Math.max(dot, trackW * ratio);
     layers.push(
-      mkText(plot.x, cy - 16, labelW, 32, p.label, BARLOW, 23, { fontWeight: 600, lineHeight: 1.0 }),
+      mkText(plot.x, cy - 16, labelW, 32, clip(p.label, 20), BARLOW, 22, { fontWeight: 600, lineHeight: 1.0 }),
       mkRect(trackX, cy - 3, stickW - dot / 2, 6, GOLD, 3),
       mkRect(trackX + stickW - dot, cy - dot / 2, dot, dot, GOLD, dot / 2, { stroke: GOLD }),
       mkText(trackX + trackW + 12, cy - 17, valueW, 34, p.value, ANTON, 28, { align: "right", lineHeight: 1.0 })
@@ -233,8 +246,8 @@ function stackedChart(board: { w: number; h: number }, b: ChartBundle): Layer[] 
     const ly = legY + row * 92;
     layers.push(
       mkRect(lx, ly + 6, 30, 30, RAMP[i % RAMP.length]!, 6),
-      mkText(lx + 44, ly, colW - 50, 34, s.label, BARLOW, 23, { fontWeight: 600, lineHeight: 1.0 }),
-      mkText(lx + 44, ly + 36, colW - 50, 40, `${s.pct}%`, ANTON, 32, { color: GOLD, lineHeight: 1.0 })
+      mkText(lx + 44, ly, colW - 56, 30, clip(s.label, 28), BARLOW, 21, { fontWeight: 600, lineHeight: 1.0 }),
+      mkText(lx + 44, ly + 36, colW - 56, 40, pctStr(s.pct), ANTON, 32, { color: GOLD, lineHeight: 1.0 })
     );
   });
   return layers;
@@ -264,8 +277,8 @@ function donutChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const lead = segs[0];
   if (lead) {
     layers.push(
-      mkText(dx, dy + size / 2 - 44, size, 60, `${Math.round(lead.pct)}%`, ANTON, 58, { align: "center", lineHeight: 1.0 }),
-      mkText(dx, dy + size / 2 + 20, size, 30, lead.label, BARLOW, 20, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 })
+      mkText(dx, dy + size / 2 - 40, size, 60, pctStr(lead.pct), ANTON, 54, { align: "center", lineHeight: 1.0 }),
+      mkText(dx + size * 0.12, dy + size / 2 + 22, size * 0.76, 28, clip(lead.label, 16), BARLOW, 17, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 })
     );
   }
   legend(layers, segs, plot.x + size + 40, plot.y + 20, plot.w - size - 40);
@@ -298,10 +311,13 @@ function treemapChart(board: { w: number; h: number }, b: ChartBundle): Layer[] 
 }
 
 function tile(x: number, y: number, w: number, h: number, s: { label: string; pct: number }, fill: string): Layer[] {
+  // The big % anchors the bottom-left; the label sits above it. Both clipped so
+  // a small tile can't have its number shoved off the bottom by a long label.
+  const big = h >= 150;
   return [
     mkRect(x, y, w, h, fill, 14),
-    mkText(x + 18, y + 16, w - 36, 36, s.label, BARLOW, 22, { fontWeight: 700, color: FOREST, lineHeight: 1.0 }),
-    mkText(x + 18, y + 52, w - 36, 44, `${s.pct}%`, ANTON, 34, { color: FOREST, lineHeight: 1.0 }),
+    mkText(x + 18, y + 16, w - 36, 48, clip(s.label, big ? 30 : 18), BARLOW, big ? 21 : 17, { fontWeight: 700, color: FOREST, lineHeight: 1.05 }),
+    mkText(x + 18, y + h - (big ? 56 : 46), w - 36, big ? 50 : 40, pctStr(s.pct), ANTON, big ? 38 : 30, { color: FOREST, lineHeight: 1.0 }),
   ];
 }
 
@@ -327,7 +343,7 @@ function trendChart(board: { w: number; h: number }, b: ChartBundle, area: boole
     const px = plot.x + (i * plot.w) / n;
     const lw = 120;
     const lx = Math.max(plot.x, Math.min(plot.x + plot.w - lw, px - lw / 2));
-    layers.push(mkText(lx, plot.y + gH + 8, lw, 32, p.label, BARLOW, 19, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }));
+    layers.push(mkText(lx, plot.y + gH + 8, lw, 32, clip(p.label, 14), BARLOW, 18, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }));
   });
   return layers;
 }
@@ -342,7 +358,7 @@ function progressChart(board: { w: number; h: number }, b: ChartBundle): Layer[]
   const barY = plot.y + plot.h * 0.42;
   layers.push(
     mkText(plot.x, plot.y + plot.h * 0.06, plot.w, 130, s.value, ANTON, 116, { lineHeight: 0.9 }),
-    mkText(plot.x, plot.y + plot.h * 0.06 + 132, plot.w, 40, s.label, BARLOW, 26, { color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }),
+    mkText(plot.x, plot.y + plot.h * 0.06 + 132, plot.w, 40, clip(s.label, 48), BARLOW, 26, { color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }),
     mkRect(plot.x, barY, plot.w, barH, TRACK, barH / 2),
     mkRect(plot.x, barY, Math.max(barH, (plot.w * pct) / 100), barH, GOLD, barH / 2)
   );
@@ -360,7 +376,7 @@ function gaugeChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   layers.push(
     mkImg(gx, gy, size, size, uri),
     mkText(gx, gy + size / 2 - 60, size, 96, s.value, ANTON, 92, { align: "center", lineHeight: 0.9 }),
-    mkText(gx, gy + size / 2 + 36, size, 36, s.label, BARLOW, 22, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
+    mkText(gx, gy + size / 2 + 36, size, 36, clip(s.label, 26), BARLOW, 22, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
   );
   return layers;
 }
@@ -374,8 +390,8 @@ function kpiChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   singles.forEach((s, i) => {
     const y = plot.y + i * rowH;
     layers.push(
-      mkText(plot.x, y + rowH * 0.12, plot.w, rowH * 0.6, s.value, ANTON, Math.min(132, r0(rowH * 0.62)), { lineHeight: 0.9 }),
-      mkText(plot.x, y + rowH * 0.72, plot.w, rowH * 0.26, s.label, BARLOW, 26, { color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
+      mkText(plot.x, y + rowH * 0.1, plot.w, rowH * 0.56, s.value, ANTON, Math.min(120, r0(rowH * 0.56)), { lineHeight: 0.9 }),
+      mkText(plot.x, y + rowH * 0.7, plot.w, rowH * 0.28, clip(s.label, 46), BARLOW, 24, { color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
     );
   });
   return layers;
@@ -400,7 +416,7 @@ function pictographChart(board: { w: number; h: number }, b: ChartBundle): Layer
     layers.push(mkRect(cx, cy, icon, icon, i < filled ? GOLD : TRACK, icon / 2));
   }
   layers.push(
-    mkText(plot.x, plot.y + rows * cell + 6, plot.w, 40, ratio.label, BARLOW, 24, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
+    mkText(plot.x, plot.y + rows * cell + 6, plot.w, 40, clip(ratio.label, 46), BARLOW, 24, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.05 })
   );
   return layers;
 }
@@ -425,7 +441,7 @@ function radarChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / pts.length;
     const lx = cx + (r + 16) * Math.cos(a) - 70;
     const ly = cy + (r + 16) * Math.sin(a) - 14;
-    layers.push(mkText(lx, ly, 140, 30, p.label, BARLOW, 18, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }));
+    layers.push(mkText(lx, ly, 140, 30, clip(p.label, 16), BARLOW, 16, { align: "center", color: CREAM_DIM, fontWeight: 600, lineHeight: 1.0 }));
   });
   return layers;
 }
@@ -444,9 +460,9 @@ function funnelChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   segs.forEach((s, i) => {
     const ly = plot.y + i * segH + segH / 2 - 28;
     layers.push(
-      mkRect(plot.x + fW + 24, ly + 8, 26, 26, RAMP[i % RAMP.length]!, 5),
-      mkText(plot.x + fW + 60, ly, plot.w - fW - 70, 32, s.label, BARLOW, 22, { fontWeight: 600, lineHeight: 1.0 }),
-      mkText(plot.x + fW + 60, ly + 32, plot.w - fW - 70, 38, `${s.pct}%`, ANTON, 30, { color: GOLD, lineHeight: 1.0 })
+      mkRect(plot.x + fW + 24, ly + 6, 26, 26, RAMP[i % RAMP.length]!, 5),
+      mkText(plot.x + fW + 60, ly, plot.w - fW - 70, 28, clip(s.label, 22), BARLOW, 19, { fontWeight: 600, lineHeight: 1.0 }),
+      mkText(plot.x + fW + 60, ly + 30, plot.w - fW - 70, 38, pctStr(s.pct), ANTON, 28, { color: GOLD, lineHeight: 1.0 })
     );
   });
   return layers;
@@ -463,12 +479,14 @@ function normalizeSegs(segs: { label: string; pct: number }[]): { label: string;
 }
 
 function legend(layers: Layer[], segs: { label: string; pct: number }[], x: number, y: number, w: number): void {
-  segs.forEach((s, i) => {
-    const ly = y + i * 78;
+  // Chars that fit one line at 19px in the available width (≈11px/char).
+  const maxChars = Math.max(10, Math.floor((w - 50) / 11));
+  segs.slice(0, 6).forEach((s, i) => {
+    const ly = y + i * 82;
     layers.push(
-      mkRect(x, ly + 6, 30, 30, RAMP[i % RAMP.length]!, 6),
-      mkText(x + 44, ly, w - 50, 34, s.label, BARLOW, 23, { fontWeight: 600, lineHeight: 1.0 }),
-      mkText(x + 44, ly + 36, w - 50, 40, `${Math.round(s.pct)}%`, ANTON, 30, { color: GOLD, lineHeight: 1.0 })
+      mkRect(x, ly + 4, 28, 28, RAMP[i % RAMP.length]!, 6),
+      mkText(x + 42, ly, w - 48, 28, clip(s.label, maxChars), BARLOW, 19, { fontWeight: 600, lineHeight: 1.0 }),
+      mkText(x + 42, ly + 32, w - 48, 38, pctStr(s.pct), ANTON, 30, { color: GOLD, lineHeight: 1.0 })
     );
   });
 }

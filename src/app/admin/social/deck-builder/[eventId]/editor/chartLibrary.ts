@@ -17,8 +17,11 @@ import {
   type ChartParts,
   type ChartSingle,
   type ChartRatio,
+  EMPTY_BUNDLE,
+  partsFromSeries,
 } from "@/lib/social-editor/chartData";
 import type { ChartKind } from "@/lib/social-editor/chartBuilders";
+import { parseMagnitude } from "@/lib/social-editor/presets";
 
 export type ChartDef = {
   id: string;
@@ -151,4 +154,147 @@ export function chartBundleFromContent(content: ContentBundle): ChartBundle {
   }
 
   return { series, parts, trends: [], singles, ratios };
+}
+
+/* ─── Curated stats + the stats-picker → chart bundle ─────────────────
+ * The Charts panel opens a picker so the SMM chooses WHICH figures go into a
+ * chart, grouped by theme (Casualties / Food / Water…). These helpers curate
+ * the report's figures and turn her selection into a one-off ChartBundle. */
+
+export type CuratedStat = {
+  id: string;
+  value: string; // verbatim figure, e.g. "881", "88%", "9 in 10"
+  label: string; // what it measures
+  category: string;
+  categoryLabel: string;
+};
+
+const STAT_CATEGORIES: { key: string; label: string; re: RegExp }[] = [
+  { key: "casualties", label: "Casualties", re: /\b(kill|killed|dead|death|fatalit|injur|wounded|casualt|martyr)\b/i },
+  { key: "displacement", label: "Displacement & shelter", re: /\b(displac|refugee|shelter|homeless|evacuat|camp|tent|site|makeshift)\b/i },
+  { key: "food", label: "Food & hunger", re: /\b(food|meal|bread|hunger|nutrition|famine|parcel|starv|kitchen|flour)\b/i },
+  { key: "water", label: "Water, fuel & power", re: /\b(water|wash|sanitation|hygiene|diesel|fuel|electric|power|litre)\b/i },
+  { key: "health", label: "Health", re: /\b(hospital|medic|health|disease|clinic|patient|vaccin|wash|surg)\b/i },
+  { key: "children", label: "Children & education", re: /\b(child|school|education|student|infant|baby|pupil)\b/i },
+  { key: "access", label: "Attacks & access", re: /\b(attack|strike|settler|demolit|access|crossing|siege|truck|bomb|shell|arson|raid)\b/i },
+];
+
+function categorize(label: string, value: string): { key: string; label: string } {
+  const hay = `${label} ${value}`;
+  for (const c of STAT_CATEGORIES) if (c.re.test(hay)) return { key: c.key, label: c.label };
+  return { key: "other", label: "Other figures" };
+}
+
+/** Every report figure that carries a number, de-duplicated and themed. */
+export function curateStats(content: ContentBundle): CuratedStat[] {
+  const facts = infographicFacts(content, 30); // [{ value, label }]
+  const seen = new Set<string>();
+  const out: CuratedStat[] = [];
+  facts.forEach((f, i) => {
+    if (!f.value) return; // a chart needs a figure
+    const key = `${f.value}|${f.label}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const cat = categorize(f.label, f.value);
+    out.push({ id: `stat-${i}`, value: f.value, label: f.label, category: cat.key, categoryLabel: cat.label });
+  });
+  return out;
+}
+
+export type ChartFamily = "series" | "parts" | "trend" | "single" | "kpi" | "ratio";
+
+export function chartFamily(kind: ChartKind): ChartFamily {
+  switch (kind) {
+    case "bar":
+    case "column":
+    case "lollipop":
+    case "radar":
+      return "series";
+    case "pie":
+    case "donut":
+    case "stacked":
+    case "treemap":
+    case "funnel":
+      return "parts";
+    case "line":
+    case "area":
+      return "trend";
+    case "progress":
+    case "gauge":
+      return "single";
+    case "kpi":
+      return "kpi";
+    case "pictograph":
+      return "ratio";
+  }
+}
+
+/** How many stats the SMM should pick for a given chart family. */
+export function selectionLimits(family: ChartFamily): { min: number; max: number } {
+  switch (family) {
+    case "single":
+    case "ratio":
+      return { min: 1, max: 1 };
+    case "kpi":
+      return { min: 1, max: 3 };
+    default:
+      return { min: 2, max: 6 };
+  }
+}
+
+function pctFromValue(v: string): number | null {
+  const m = v.match(/(\d[\d.]*)\s*%/);
+  if (m) return Math.max(0, Math.min(100, Math.round(parseFloat(m[1]!))));
+  const mag = parseMagnitude(v);
+  return mag != null && mag > 0 && mag <= 1 ? Math.round(mag * 100) : null;
+}
+
+function ratioFromValue(value: string, label: string, source: string | null): ChartRatio | null {
+  const m = value.match(/(\d+)\s*in\s*(\d+)/i);
+  if (m) return { filled: parseInt(m[1]!, 10), total: parseInt(m[2]!, 10), label, source };
+  const pct = pctFromValue(value);
+  if (pct != null) return { filled: Math.round(pct / 10), total: 10, label, source };
+  return null;
+}
+
+/** Build a one-off bundle from the SMM's chosen stats for this chart kind. */
+export function bundleFromStats(
+  kind: ChartKind,
+  stats: CuratedStat[],
+  source: string | null
+): ChartBundle {
+  const fam = chartFamily(kind);
+  const points = stats.map((s) => ({ label: s.label, value: s.value }));
+
+  if (fam === "series") {
+    const series: ChartSeriesData = { title: "By the numbers", unit: null, source, points };
+    return { ...EMPTY_BUNDLE, series: [series] };
+  }
+  if (fam === "trend") {
+    return { ...EMPTY_BUNDLE, trends: [{ title: "Over time", unit: null, source, points }] };
+  }
+  if (fam === "parts") {
+    const derived = partsFromSeries({ title: "Where it goes", unit: null, source, points });
+    const parts: ChartParts =
+      derived ?? { title: "By the numbers", source, segments: points.map((p) => ({ label: p.label, pct: 0 })) };
+    return { ...EMPTY_BUNDLE, parts: [parts] };
+  }
+  if (fam === "single" || fam === "kpi") {
+    const singles: ChartSingle[] = stats.slice(0, fam === "single" ? 1 : 3).map((s) => ({
+      label: s.label,
+      value: s.value,
+      percent: pctFromValue(s.value),
+      goal: null,
+    }));
+    return { ...EMPTY_BUNDLE, singles };
+  }
+  // ratio (pictograph)
+  const s0 = stats[0];
+  const ratio = s0 ? ratioFromValue(s0.value, s0.label, source) : null;
+  return { ...EMPTY_BUNDLE, ratios: ratio ? [ratio] : [] };
+}
+
+/** Source tag for picker-built charts. */
+export function statsSource(content: ContentBundle): string | null {
+  return reportSource(content);
 }
