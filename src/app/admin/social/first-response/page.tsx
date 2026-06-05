@@ -18,6 +18,7 @@ import {
 } from "@/lib/social-outcomes";
 import { displayPriority, priorityLabel } from "@/lib/first-response-scoring";
 import TestEventPanel from "./TestEventPanel";
+import DeleteEventButton from "./DeleteEventButton";
 
 export const metadata: Metadata = {
   title: "First Response | Deen Relief Admin",
@@ -377,9 +378,12 @@ function EventRow({
               )}
             </>
           )}
-          <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
-            {ev.status}
-          </span>
+          <div className="pointer-events-auto relative z-10 flex items-center gap-2.5">
+            <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
+              {ev.status}
+            </span>
+            <DeleteEventButton eventId={ev.id} title={ev.title} />
+          </div>
         </div>
       </div>
     </li>

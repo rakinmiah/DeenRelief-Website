@@ -84,6 +84,7 @@ export type AdminAction =
   | "first_response_packet_drafted"
   | "first_response_event_reviewed"
   | "first_response_event_dismissed"
+  | "first_response_event_deleted"
   | "first_response_appeal_launched"
   // Social posts registry (per-post performance)
   | "social_post_logged"
