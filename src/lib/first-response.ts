@@ -302,3 +302,37 @@ export async function getEmergencyEvents(
   }
   return (data ?? []).map(rowToEvent);
 }
+
+/**
+ * The subset of `eventIds` that already have at least one (non-archived)
+ * social post — i.e. the SMM has posted about them via "Mark as posted".
+ * The First Response feed uses this to split alerts into "Active" (still
+ * needs a post) and "Posted" (done this cycle).
+ *
+ * Resilient: if the provenance column doesn't exist yet (migration 037
+ * unapplied), Postgres errors 42703 and we treat everything as unposted —
+ * so the feed degrades to its old all-active behaviour rather than breaking.
+ */
+export async function getPostedEventIds(
+  eventIds: string[]
+): Promise<Set<string>> {
+  if (eventIds.length === 0) return new Set();
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .select("event_id")
+    .in("event_id", eventIds)
+    .is("archived_at", null);
+  if (error) {
+    if ((error as { code?: string }).code !== "42703") {
+      console.error("[first-response] posted-event lookup failed:", error);
+    }
+    return new Set();
+  }
+  const posted = new Set<string>();
+  for (const row of data ?? []) {
+    const id = (row as { event_id: string | null }).event_id;
+    if (id) posted.add(id);
+  }
+  return posted;
+}

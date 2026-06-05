@@ -6,12 +6,15 @@ import { CAMPAIGNS, isValidCampaign, type CampaignSlug } from "@/lib/campaigns";
 import {
   getCoverageMap,
   getEmergencyEvents,
+  getPostedEventIds,
   REPORT_EXPIRY_DAYS,
   type CoverageEntry,
+  type EmergencyEvent,
 } from "@/lib/first-response";
 import {
   conversionMultiplierFor,
   getConversionLookup,
+  type ConversionLookup,
 } from "@/lib/social-outcomes";
 import { displayPriority, priorityLabel } from "@/lib/first-response-scoring";
 import TestEventPanel from "./TestEventPanel";
@@ -47,6 +50,13 @@ export default async function FirstResponsePage() {
     getEmergencyEvents({ limit: 20 }),
     getConversionLookup(),
   ]);
+
+  // Split the feed: once the SMM has marked a post as posted for an alert
+  // (social_posts.event_id), it moves to the "Posted" section so "Active
+  // alerts" only shows what still needs a post.
+  const posted = await getPostedEventIds(events.map((e) => e.id));
+  const active = events.filter((e) => !posted.has(e.id));
+  const completed = events.filter((e) => posted.has(e.id));
 
   // Strategic / partner / diaspora / catch-all tiers driven by weight.
   // Diaspora-appeal rows are weight-2 but flagged launch_readiness =
@@ -122,132 +132,62 @@ export default async function FirstResponsePage() {
             </p>
           </div>
           <span className="text-[12px] text-charcoal/50 font-medium shrink-0">
-            {events.length} active
+            {active.length} active
           </span>
         </div>
         <div className="bg-white border border-charcoal/10 rounded-2xl">
-          {events.length === 0 ? (
+          {active.length === 0 ? (
             <div className="px-6 py-10 text-center text-charcoal/50 text-sm">
-              No alerts from the last {REPORT_EXPIRY_DAYS} days. New ones appear
-              here automatically as disasters come in.
+              {completed.length > 0
+                ? "All caught up — every recent alert already has a post. ✓"
+                : `No alerts from the last ${REPORT_EXPIRY_DAYS} days. New ones appear here automatically as disasters come in.`}
             </div>
           ) : (
             <ul className="divide-y divide-charcoal/5">
-              {events.map((ev) => (
-                <li
+              {active.map((ev) => (
+                <EventRow
                   key={ev.id}
-                  className="relative px-5 py-4 hover:bg-cream/40 transition-colors"
-                >
-                  {/* Stretched link — the actual click target for the
-                      whole row. position:absolute + inset-0 makes the
-                      entire <li> clickable via CSS without nesting
-                      anchors. The source ↗ link below gets z-10 +
-                      relative to sit above this and remain
-                      independently clickable. */}
-                  {/* Phase 6 — link goes to the deck builder (primary
-                      SMM entry point now). The legacy auto-gen view
-                      remains reachable at /admin/social/first-response/
-                      legacy/[id]/ as a fallback. */}
-                  <Link
-                    href={`/admin/social/deck-builder/${ev.id}`}
-                    className="absolute inset-0 z-0"
-                    aria-label={`Open deck builder for: ${ev.title}`}
-                  />
-                  <div className="relative flex items-start justify-between gap-3 flex-wrap pointer-events-none">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-charcoal font-semibold text-[14px] leading-snug">
-                        <span className="hover:underline">{ev.title}</span>
-                        {ev.sourceUrl && (
-                          <Fragment>
-                            {" "}
-                            <a
-                              href={ev.sourceUrl}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="pointer-events-auto relative z-10 text-[12px] text-charcoal/40 font-normal hover:text-charcoal/70"
-                            >
-                              (source ↗)
-                            </a>
-                          </Fragment>
-                        )}
-                      </p>
-                      <p className="text-charcoal/60 text-[12px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className="uppercase font-bold tracking-[0.08em]">
-                          {ev.source}
-                        </span>
-                        {ev.eventType && (
-                          <>
-                            <span className="text-charcoal/20">·</span>
-                            <span className="capitalize">
-                              {ev.eventType.replace(/_/g, " ")}
-                            </span>
-                          </>
-                        )}
-                        {ev.countryIso && (
-                          <>
-                            <span className="text-charcoal/20">·</span>
-                            <span>{ev.countryIso}</span>
-                          </>
-                        )}
-                        {ev.region && (
-                          <>
-                            <span className="text-charcoal/20">·</span>
-                            <span className="truncate">{ev.region}</span>
-                          </>
-                        )}
-                        <span className="text-charcoal/20">·</span>
-                        <span>{formatRelative(ev.detectedAt)}</span>
-                      </p>
-                      {ev.matchedCampaigns.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {ev.matchedCampaigns.map((slug) => (
-                            <span
-                              key={slug}
-                              className="inline-block text-[11px] font-semibold text-charcoal/80 bg-charcoal/5 px-2 py-0.5 rounded-full"
-                            >
-                              {isValidCampaign(slug)
-                                ? CAMPAIGNS[slug as CampaignSlug]
-                                : slug}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      {ev.drPriorityScore !== null && (
-                        <span
-                          className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full ${scoreClasses(
-                            ev.drPriorityScore
-                          )}`}
-                          title="Higher = more worth posting about right now."
-                        >
-                          {displayPriority(ev.drPriorityScore)}/10 ·{" "}
-                          {priorityLabel(ev.drPriorityScore)}
-                        </span>
-                      )}
-                      {conversionMultiplierFor(conversionLookup, {
-                        eventType: ev.eventType,
-                        countryIso: ev.countryIso,
-                        matchedCampaigns: ev.matchedCampaigns,
-                      }) > 1.05 && (
-                        <span
-                          className="text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full bg-green/10 text-green-dark"
-                          title="This topic has historically converted donations above average — its priority gets a small, capped boost."
-                        >
-                          Converts well
-                        </span>
-                      )}
-                      <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
-                        {ev.status}
-                      </span>
-                    </div>
-                  </div>
-                </li>
+                  ev={ev}
+                  conversionLookup={conversionLookup}
+                />
               ))}
             </ul>
           )}
         </div>
       </section>
+
+      {/* ─── Posted — alerts the SMM has already built a post for. Keeps
+          "Active alerts" focused on what still needs doing. ─── */}
+      {completed.length > 0 && (
+        <section className="mb-10">
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div>
+              <h2 className="text-charcoal font-heading font-semibold text-xl">
+                Posted
+              </h2>
+              <p className="text-[12px] text-charcoal/45 mt-0.5">
+                Alerts you&apos;ve already built a post for. Tap one to reopen
+                its deck.
+              </p>
+            </div>
+            <span className="text-[12px] text-charcoal/50 font-medium shrink-0">
+              {completed.length} posted
+            </span>
+          </div>
+          <div className="bg-white border border-charcoal/10 rounded-2xl">
+            <ul className="divide-y divide-charcoal/5">
+              {completed.map((ev) => (
+                <EventRow
+                  key={ev.id}
+                  ev={ev}
+                  conversionLookup={conversionLookup}
+                  posted
+                />
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* ─── Coverage map — collapsed by default. It's config/ops reference
           (which campaigns respond to which crises), not daily SMM use, so it's
@@ -312,6 +252,137 @@ export default async function FirstResponsePage() {
           waiting for a real cron tick. */}
       <TestEventPanel />
     </main>
+  );
+}
+
+/**
+ * One alert row — shared by the "Active alerts" and "Posted" sections. The
+ * whole row links to the deck builder; the source ↗ link sits above it. When
+ * `posted`, the priority/convert pills are replaced by a "Posted" badge and
+ * the row is muted, so a done alert reads as done.
+ */
+function EventRow({
+  ev,
+  conversionLookup,
+  posted = false,
+}: {
+  ev: EmergencyEvent;
+  conversionLookup: ConversionLookup;
+  posted?: boolean;
+}) {
+  return (
+    <li
+      className={`relative px-5 py-4 transition-colors ${
+        posted ? "hover:bg-cream/30" : "hover:bg-cream/40"
+      }`}
+    >
+      <Link
+        href={`/admin/social/deck-builder/${ev.id}`}
+        className="absolute inset-0 z-0"
+        aria-label={`Open deck builder for: ${ev.title}`}
+      />
+      <div className="relative flex items-start justify-between gap-3 flex-wrap pointer-events-none">
+        <div className="flex-1 min-w-0">
+          <p
+            className={`font-semibold text-[14px] leading-snug ${
+              posted ? "text-charcoal/65" : "text-charcoal"
+            }`}
+          >
+            <span className="hover:underline">{ev.title}</span>
+            {ev.sourceUrl && (
+              <Fragment>
+                {" "}
+                <a
+                  href={ev.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="pointer-events-auto relative z-10 text-[12px] text-charcoal/40 font-normal hover:text-charcoal/70"
+                >
+                  (source ↗)
+                </a>
+              </Fragment>
+            )}
+          </p>
+          <p className="text-charcoal/60 text-[12px] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="uppercase font-bold tracking-[0.08em]">
+              {ev.source}
+            </span>
+            {ev.eventType && (
+              <>
+                <span className="text-charcoal/20">·</span>
+                <span className="capitalize">
+                  {ev.eventType.replace(/_/g, " ")}
+                </span>
+              </>
+            )}
+            {ev.countryIso && (
+              <>
+                <span className="text-charcoal/20">·</span>
+                <span>{ev.countryIso}</span>
+              </>
+            )}
+            {ev.region && (
+              <>
+                <span className="text-charcoal/20">·</span>
+                <span className="truncate">{ev.region}</span>
+              </>
+            )}
+            <span className="text-charcoal/20">·</span>
+            <span>{formatRelative(ev.detectedAt)}</span>
+          </p>
+          {ev.matchedCampaigns.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {ev.matchedCampaigns.map((slug) => (
+                <span
+                  key={slug}
+                  className="inline-block text-[11px] font-semibold text-charcoal/80 bg-charcoal/5 px-2 py-0.5 rounded-full"
+                >
+                  {isValidCampaign(slug)
+                    ? CAMPAIGNS[slug as CampaignSlug]
+                    : slug}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {posted ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full bg-green/12 text-green-dark">
+              ✓ Posted
+            </span>
+          ) : (
+            <>
+              {ev.drPriorityScore !== null && (
+                <span
+                  className={`text-[11px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full ${scoreClasses(
+                    ev.drPriorityScore
+                  )}`}
+                  title="Higher = more worth posting about right now."
+                >
+                  {displayPriority(ev.drPriorityScore)}/10 ·{" "}
+                  {priorityLabel(ev.drPriorityScore)}
+                </span>
+              )}
+              {conversionMultiplierFor(conversionLookup, {
+                eventType: ev.eventType,
+                countryIso: ev.countryIso,
+                matchedCampaigns: ev.matchedCampaigns,
+              }) > 1.05 && (
+                <span
+                  className="text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full bg-green/10 text-green-dark"
+                  title="This topic has historically converted donations above average — its priority gets a small, capped boost."
+                >
+                  Converts well
+                </span>
+              )}
+            </>
+          )}
+          <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-charcoal/40">
+            {ev.status}
+          </span>
+        </div>
+      </div>
+    </li>
   );
 }
 
