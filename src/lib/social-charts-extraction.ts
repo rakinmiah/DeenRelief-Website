@@ -123,10 +123,33 @@ function getClient(): Anthropic {
   return _client;
 }
 
+// Keys that change without the substance changing (re-fetch/re-seed
+// timestamps) — excluded from the cache key so identical content doesn't
+// re-spend. Content dates are intentionally kept.
+const VOLATILE_HASH_KEYS = new Set([
+  "generatedat", "scenario", "fetched_at", "fetchedat", "retrieved_at",
+  "retrievedat", "ingested_at", "ingestedat", "received_at", "receivedat",
+  "last_fetched", "lastfetched",
+]);
+
+function normaliseForHash(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(normaliseForHash);
+  if (v && typeof v === "object") {
+    const src = v as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(src).sort()) {
+      if (VOLATILE_HASH_KEYS.has(k.toLowerCase())) continue;
+      out[k] = normaliseForHash(src[k]);
+    }
+    return out;
+  }
+  return v;
+}
+
 function hashPayload(payload: unknown): string {
   let s: string;
   try {
-    s = JSON.stringify(payload ?? null);
+    s = JSON.stringify(normaliseForHash(payload ?? null));
   } catch {
     s = String(payload);
   }

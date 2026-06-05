@@ -507,10 +507,47 @@ function getDefaultClient(): Anthropic {
  * (e.g. OCHA pushes an updated dispatch on the same event), the hash
  * drifts and the next extract call re-runs Claude.
  */
+/**
+ * Keys whose value changes WITHOUT the substance changing — a re-fetch or
+ * re-seed stamps a new timestamp but the report content is identical. Excluding
+ * them from the cache key stops needless re-extractions (re-spend). Content
+ * dates (report_date / pubDate / date.created) are deliberately NOT here.
+ */
+const VOLATILE_HASH_KEYS = new Set([
+  "generatedat",
+  "scenario",
+  "fetched_at",
+  "fetchedat",
+  "retrieved_at",
+  "retrievedat",
+  "ingested_at",
+  "ingestedat",
+  "received_at",
+  "receivedat",
+  "last_fetched",
+  "lastfetched",
+]);
+
+/** Recursively drop volatile keys and sort keys, so identical substantive
+ *  content always serialises identically (order-independent + timestamp-free). */
+function normaliseForHash(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(normaliseForHash);
+  if (v && typeof v === "object") {
+    const src = v as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(src).sort()) {
+      if (VOLATILE_HASH_KEYS.has(k.toLowerCase())) continue;
+      out[k] = normaliseForHash(src[k]);
+    }
+    return out;
+  }
+  return v;
+}
+
 function hashPayload(payload: unknown): string {
   let serialised: string;
   try {
-    serialised = JSON.stringify(payload ?? null);
+    serialised = JSON.stringify(normaliseForHash(payload ?? null));
   } catch {
     serialised = String(payload);
   }
