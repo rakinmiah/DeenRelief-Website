@@ -32,7 +32,7 @@ export type ChartDef = {
   preview: string;
 };
 
-export type ChartGroup = { key: string; title: string; items: ChartDef[] };
+export type ChartGroup = { key: string; title: string; items: ChartDef[]; advanced?: boolean };
 
 const G = "#D4A843"; // gold
 const Gd = "#BF9333"; // gold deep
@@ -69,8 +69,6 @@ export const CHART_GROUPS: ChartGroup[] = [
     items: [
       def("chart-bar", "bar", "Bar chart", "Ranked horizontal bars"),
       def("chart-column", "column", "Column chart", "Vertical bars"),
-      def("chart-lollipop", "lollipop", "Lollipop", "Stems + dots"),
-      def("chart-radar", "radar", "Radar", "Multi-metric shape"),
     ],
   },
   {
@@ -80,8 +78,6 @@ export const CHART_GROUPS: ChartGroup[] = [
       def("chart-donut", "donut", "Donut", "Share of a whole"),
       def("chart-pie", "pie", "Pie chart", "Share of a whole"),
       def("chart-stacked", "stacked", "Stacked bar", "Segments of one bar"),
-      def("chart-treemap", "treemap", "Treemap", "Nested shares"),
-      def("chart-funnel", "funnel", "Funnel", "Narrowing stages"),
     ],
   },
   {
@@ -100,6 +96,19 @@ export const CHART_GROUPS: ChartGroup[] = [
       def("chart-gauge", "gauge", "Gauge", "Radial % funded"),
       def("chart-kpi", "kpi", "Big numbers", "Headline figures"),
       def("chart-pictograph", "pictograph", "Pictograph", "X in Y, as icons"),
+    ],
+  },
+  {
+    // Rarely the right fit for crisis data — kept but tucked away so the default
+    // palette is the humanitarian workhorses above.
+    key: "advanced",
+    title: "Advanced",
+    advanced: true,
+    items: [
+      def("chart-lollipop", "lollipop", "Lollipop", "Stems + dots"),
+      def("chart-radar", "radar", "Radar", "Multi-metric shape"),
+      def("chart-treemap", "treemap", "Treemap", "Nested shares"),
+      def("chart-funnel", "funnel", "Funnel", "Narrowing stages"),
     ],
   },
 ];
@@ -185,20 +194,111 @@ function categorize(label: string, value: string): { key: string; label: string 
   return { key: "other", label: "Other figures" };
 }
 
-/** Every report figure that carries a number, de-duplicated and themed. */
+/** Sentence-case the first letter only (labels are short categories). */
+function cap(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+const LABEL_KEYWORDS =
+  /\b(killed|injured|wounded|martyred|dead|deaths?|displaced|displacement|homeless|destroyed|demolished|damaged|attacks?|strikes?|raids?|meals?|parcels?|water|bread|flour|food|fuel|diesel|electricity|children|infants?|schools?|hospitals?|clinics?|patients?|families|households|trucks?|sites?|shelters?|tents?|funded|raised|reached|treated|vaccinated)\b/gi;
+
+/** Condense a long fact sentence into a SHORT chart-axis label — pull the
+ *  defining impact keyword(s) ("Killed", "Water"), else the first few words.
+ *  Already-short labels (e.g. the AI's chart_series labels) pass through. The
+ *  SMM can always retype it on the canvas. */
+function shortenLabel(raw: string): string {
+  const t = (raw || "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  if (t.length <= 22) return cap(t);
+  const kws = [...t.matchAll(LABEL_KEYWORDS)].map((m) => m[0].toLowerCase()).filter((k) => k !== "people");
+  if (kws.length) return cap([...new Set(kws)].slice(0, 2).join(" & "));
+  return cap(t.split(" ").slice(0, 3).join(" ").replace(/\s+(in|of|on|to|the|since|per)$/i, ""));
+}
+
+function normValue(v: string): string {
+  return v.toLowerCase().replace(/[\s,]/g, "");
+}
+
+/**
+ * Every report figure that carries a number, themed + de-duplicated by value.
+ * Sourced FIRST from the AI's comparable `chart_series` (whose labels are
+ * already short + analytical — "Killed", "Injured"), then topped up from the
+ * verified facts (condensed). This is why chart labels read as categories now
+ * instead of full fact sentences.
+ */
 export function curateStats(content: ContentBundle): CuratedStat[] {
-  const facts = infographicFacts(content, 30); // [{ value, label }]
   const seen = new Set<string>();
   const out: CuratedStat[] = [];
-  facts.forEach((f, i) => {
-    if (!f.value) return; // a chart needs a figure
-    const key = `${f.value}|${f.label}`.toLowerCase();
+  let i = 0;
+  const add = (value: string | null | undefined, label: string) => {
+    const v = (value || "").trim();
+    if (!v) return;
+    const key = normValue(v);
     if (seen.has(key)) return;
     seen.add(key);
-    const cat = categorize(f.label, f.value);
-    out.push({ id: `stat-${i}`, value: f.value, label: f.label, category: cat.key, categoryLabel: cat.label });
-  });
+    const cat = categorize(label, v);
+    out.push({ id: `stat-${i++}`, value: v, label: shortenLabel(label), category: cat.key, categoryLabel: cat.label });
+  };
+  for (const s of content.chartSeries ?? []) for (const p of s.points) add(p.value, p.label);
+  for (const f of infographicFacts(content, 30)) add(f.value, f.label);
   return out;
+}
+
+/* ─── Coherence — does the selection make analytical sense? ────────── */
+
+type UnitClass = "percent" | "currency" | "ratio" | "count";
+function unitClass(value: string): UnitClass {
+  if (/%/.test(value)) return "percent";
+  if (/[£$€]/.test(value)) return "currency";
+  if (/\b\d+\s*in\s*\d+\b/i.test(value)) return "ratio";
+  return "count";
+}
+
+/**
+ * Strict coherence check for a chart family + the chosen stats. `ok:false`
+ * blocks Insert unless the SMM forces it (Advanced override); a `warning` with
+ * `ok:true` still inserts — it's just a heads-up. This is what stops "a bunch
+ * of random uncorrelated facts" landing on one chart.
+ */
+export function validateSelection(
+  family: ChartFamily,
+  stats: CuratedStat[]
+): { ok: boolean; warning?: string } {
+  const n = stats.length;
+  if (family === "single" || family === "ratio") {
+    if (n === 0) return { ok: false, warning: "Pick one figure." };
+    if (n > 1) return { ok: false, warning: "Pick just one figure for this chart." };
+    return { ok: true };
+  }
+  if (n < 2) return { ok: false, warning: "Pick at least 2 figures." };
+  const classes = new Set(stats.map((s) => unitClass(s.value)));
+  const mags = stats.map((s) => parseMagnitude(s.value) ?? 0).filter((m) => m > 0);
+
+  if (family === "series") {
+    if (classes.size > 1)
+      return { ok: false, warning: "These mix percentages and counts — they're not comparable on one axis. Pick figures of the same kind." };
+    if (mags.length >= 2 && Math.max(...mags) / Math.min(...mags) > 50)
+      return { ok: true, warning: "One figure dwarfs the rest — the small bars may be hard to see." };
+    return { ok: true };
+  }
+  if (family === "parts") {
+    const pcts = stats.filter((s) => unitClass(s.value) === "percent");
+    if (pcts.length === n) {
+      const sum = pcts.reduce((a, s) => a + (parseFloat(s.value) || 0), 0);
+      if (sum > 115 || sum < 60)
+        return { ok: false, warning: `These percentages add up to ${Math.round(sum)}% — they aren't shares of one whole. A bar chart fits unrelated figures better.` };
+      return { ok: true };
+    }
+    if (classes.size > 1)
+      return { ok: false, warning: "Mixing percentages and counts in a share chart misleads. Use one kind, or pick a bar chart." };
+    return { ok: true, warning: "Shown as shares of the selected total." };
+  }
+  if (family === "trend") {
+    if (n < 3) return { ok: false, warning: "A trend needs at least 3 points, in time order." };
+    if (classes.size > 1) return { ok: false, warning: "A trend must track ONE metric over time — these are different things." };
+    return { ok: true, warning: "Put these in time order (earliest first)." };
+  }
+  return { ok: true }; // kpi — any headline figures are fine
 }
 
 export type ChartFamily = "series" | "parts" | "trend" | "single" | "kpi" | "ratio";
