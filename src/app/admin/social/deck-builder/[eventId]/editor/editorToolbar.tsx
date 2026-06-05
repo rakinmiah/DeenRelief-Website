@@ -1537,7 +1537,8 @@ export function ImagePicker({
             </form>
             <p className="text-[11px] text-charcoal/45 leading-relaxed">
               Free to use (CC0 / public domain / CC-BY) from Openverse, Pexels &amp;
-              Unsplash. Add the credit shown on each photo to your caption.
+              Unsplash. The credit is added to the photo automatically — you&apos;ll
+              also get the list to paste into your caption when you export.
             </p>
             {webLoading ? (
               <p className="text-[13px] text-charcoal/45 py-10 text-center">Searching the web…</p>

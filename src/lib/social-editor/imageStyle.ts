@@ -48,6 +48,28 @@ export function filterCss(f?: ImageFilter): string | undefined {
   }
 }
 
+/**
+ * Photo-credit overlay geometry, in BOARD units, scaled to the image box so a
+ * full-bleed hero and a small inset both get a legible-but-unobtrusive credit.
+ * Shared by the editor preview (LayerView, multiplied by zoom) and the Satori
+ * export route (board units) so the credit is WYSIWYG. `pad`/`gap`/`radius`
+ * are board units too; the caller multiplies all of them by its scale.
+ */
+export function creditBadgeMetrics(boxW: number): {
+  fontSize: number;
+  pad: number;
+  radius: number;
+  inset: number;
+} {
+  const fontSize = Math.max(15, Math.min(boxW * 0.024, 24));
+  return {
+    fontSize,
+    pad: Math.round(fontSize * 0.45),
+    radius: Math.round(fontSize * 0.35),
+    inset: Math.round(fontSize * 0.6),
+  };
+}
+
 export const FILTER_PRESETS: Array<{ id: ImageFilter; label: string }> = [
   { id: "none", label: "Original" },
   { id: "mono", label: "Mono" },

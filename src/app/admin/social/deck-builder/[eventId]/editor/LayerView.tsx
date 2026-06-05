@@ -31,7 +31,39 @@ import {
   textDecorationCss,
   textTransformCss,
 } from "@/lib/social-editor/types";
-import { cropImgStyle, filterCss } from "@/lib/social-editor/imageStyle";
+import { creditBadgeMetrics, cropImgStyle, filterCss } from "@/lib/social-editor/imageStyle";
+
+/** A small attribution pill pinned to the bottom-left of an image, scaled to
+ *  display. Mirrors the export route so the credit is WYSIWYG. Renders nothing
+ *  when there's no credit (DR library / public-domain art). */
+function CreditOverlay({ credit, boxW, scale }: { credit: string | null | undefined; boxW: number; scale: number }) {
+  if (!credit) return null;
+  const m = creditBadgeMetrics(boxW);
+  return (
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: m.inset * scale,
+        bottom: m.inset * scale,
+        maxWidth: `calc(100% - ${m.inset * 2 * scale}px)`,
+        padding: `${m.pad * 0.6 * scale}px ${m.pad * scale}px`,
+        borderRadius: m.radius * scale,
+        background: "rgba(0,0,0,0.55)",
+        color: "rgba(255,255,255,0.95)",
+        fontFamily: "DM Sans, sans-serif",
+        fontSize: Math.max(8, m.fontSize * scale),
+        lineHeight: 1.25,
+        fontWeight: 500,
+        whiteSpace: "normal",
+        wordBreak: "break-word",
+        pointerEvents: "none",
+      }}
+    >
+      {credit}
+    </span>
+  );
+}
 
 /** box-shadow string from a layer shadow, scaled to display. */
 function shadowCss(
@@ -410,6 +442,9 @@ function ImageBody({
             }}
           />
         )}
+        {layer.objectFit !== "contain" && (
+          <CreditOverlay credit={layer.credit} boxW={maskBox.w} scale={scale} />
+        )}
       </div>
     );
   }
@@ -418,6 +453,7 @@ function ImageBody({
   return (
     <div
       style={{
+        position: "relative",
         width: "100%",
         height: "100%",
         borderRadius: cornerRadiusCss(layer.corners, layer.radius, scale),
@@ -445,6 +481,9 @@ function ImageBody({
             filter: combineFilter(filterCss(layer.filter), layer.blur, scale),
           }}
         />
+      )}
+      {layer.objectFit !== "contain" && (
+        <CreditOverlay credit={layer.credit} boxW={imageBox.w} scale={scale} />
       )}
     </div>
   );
