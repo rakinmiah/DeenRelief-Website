@@ -19,6 +19,7 @@ import {
 import { displayPriority, priorityLabel } from "@/lib/first-response-scoring";
 import TestEventPanel from "./TestEventPanel";
 import DeleteEventButton from "./DeleteEventButton";
+import EventOpenOverlay from "./EventOpenOverlay";
 
 export const metadata: Metadata = {
   title: "First Response | Deen Relief Admin",
@@ -277,11 +278,7 @@ function EventRow({
         posted ? "hover:bg-cream/30" : "hover:bg-cream/40"
       }`}
     >
-      <Link
-        href={`/admin/social/deck-builder/${ev.id}`}
-        className="absolute inset-0 z-0"
-        aria-label={`Open deck builder for: ${ev.title}`}
-      />
+      <EventOpenOverlay eventId={ev.id} title={ev.title} sourceUrl={ev.sourceUrl} />
       <div className="relative flex items-start justify-between gap-3 flex-wrap pointer-events-none">
         <div className="flex-1 min-w-0">
           <p

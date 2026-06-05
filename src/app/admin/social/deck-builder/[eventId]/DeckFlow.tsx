@@ -455,6 +455,11 @@ export default function DeckFlow({
     go("build");
   }
 
+  /* ── Resume gate: still checking for saved drafts ────────────── */
+  if (entry === "checking") {
+    return <FullLoader label="Loading…" />;
+  }
+
   /* ── Resume gate: saved drafts exist — offer continue / start new ── */
   if (entry === "resume") {
     return (
@@ -470,6 +475,11 @@ export default function DeckFlow({
         onStartNew={() => setEntry("go")}
       />
     );
+  }
+
+  /* ── Continuing a saved draft — loading it back into the editor ── */
+  if (resumePlatform && step !== "build") {
+    return <FullLoader label="Loading your draft…" />;
   }
 
   /* ── Full-bleed: quick-draft loading hand-off ────────────────── */
@@ -715,6 +725,32 @@ export default function DeckFlow({
 
 /* ─── Resume gate UI ──────────────────────────────────────────────── */
 
+/** Full-screen, gently fading loader — shared by the resume check and the
+ *  "loading your draft" hand-off so the transitions read as one smooth flow. */
+function FullLoader({ label }: { label: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="min-h-screen grid place-items-center"
+    >
+      <div className="flex flex-col items-center gap-4">
+        <span className="w-9 h-9 rounded-full border-[3px] border-charcoal/12 border-t-green animate-spin" />
+        <motion.p
+          key={label}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="text-[13.5px] font-medium text-charcoal/55"
+        >
+          {label}
+        </motion.p>
+      </div>
+    </motion.div>
+  );
+}
+
 function ResumeStep({
   eventTitle,
   drafts,
@@ -729,7 +765,11 @@ function ResumeStep({
   onStartNew: () => void;
 }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen flex flex-col">
       <div className="sticky top-0 z-10 px-5 pt-4">
         <div className="max-w-2xl mx-auto">
           <a href={backHref} className="text-charcoal/45 hover:text-charcoal text-[13px] inline-flex items-center gap-1">
@@ -791,6 +831,6 @@ function ResumeStep({
           </p>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
