@@ -472,6 +472,21 @@ export default function DeckFlow({
           setResumePlatform(p);
           setEntry("go"); // loads content + images (cache hit, £0), then → editor
         }}
+        onDelete={async (p) => {
+          // Discard one saved draft. Drop it from the list optimistically; if
+          // that was the last draft there's nothing to resume → start fresh.
+          const remaining = drafts.filter((d) => d.platform !== p).length;
+          setDrafts((cur) => cur.filter((d) => d.platform !== p));
+          try {
+            await fetch(
+              `/api/admin/social-deck-drafts/${event.id}?platform=${p}`,
+              { method: "DELETE" }
+            );
+          } catch {
+            /* best-effort: the row is gone from the UI either way */
+          }
+          if (remaining === 0) setEntry("go");
+        }}
         onStartNew={() => setEntry("go")}
       />
     );
@@ -756,12 +771,14 @@ function ResumeStep({
   drafts,
   backHref,
   onContinue,
+  onDelete,
   onStartNew,
 }: {
   eventTitle: string;
   drafts: DraftSummary[];
   backHref: string;
   onContinue: (p: SocialPlatform) => void;
+  onDelete: (p: SocialPlatform) => void | Promise<void>;
   onStartNew: () => void;
 }) {
   return (
@@ -792,27 +809,32 @@ function ResumeStep({
 
           <div className="flex flex-col gap-2.5 mb-7">
             {drafts.map((d) => (
-              <button
+              <div
                 key={d.platform}
-                type="button"
-                onClick={() => onContinue(d.platform)}
-                className="group text-left rounded-2xl bg-white ring-1 ring-charcoal/8 hover:ring-green/45 hover:shadow-sm px-5 py-4 transition flex items-center justify-between gap-3"
+                className="group rounded-2xl bg-white ring-1 ring-charcoal/8 hover:ring-green/45 hover:shadow-sm pl-5 pr-3 py-4 transition flex items-center gap-2"
               >
-                <div className="min-w-0">
-                  <p className="font-heading font-semibold text-charcoal text-[15px]">
-                    {PLATFORM_LABEL[d.platform] ?? d.platform} draft
-                  </p>
-                  <p className="text-[12.5px] text-charcoal/50 mt-0.5">
-                    {d.slideCount} {d.slideCount === 1 ? "slide" : "slides"} · edited {relTime(d.updatedAt)}
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-green shrink-0">
-                  Continue editing
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onContinue(d.platform)}
+                  className="flex-1 min-w-0 text-left flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-heading font-semibold text-charcoal text-[15px]">
+                      {PLATFORM_LABEL[d.platform] ?? d.platform} draft
+                    </p>
+                    <p className="text-[12.5px] text-charcoal/50 mt-0.5">
+                      {d.slideCount} {d.slideCount === 1 ? "slide" : "slides"} · edited {relTime(d.updatedAt)}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-green shrink-0">
+                    Continue editing
+                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </button>
+                <DraftDeleteButton platform={d.platform} onDelete={onDelete} />
+              </div>
             ))}
           </div>
 
@@ -832,5 +854,64 @@ function ResumeStep({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+/** Per-draft discard control: two-step confirm so a stray click can't wipe work. */
+function DraftDeleteButton({
+  platform,
+  onDelete,
+}: {
+  platform: SocialPlatform;
+  onDelete: (p: SocialPlatform) => void | Promise<void>;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  if (confirming) {
+    return (
+      <span className="inline-flex items-center gap-1.5 shrink-0 pr-1">
+        <span className="text-[11.5px] text-charcoal/55">Delete?</span>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={async () => {
+            setPending(true);
+            try {
+              await onDelete(platform);
+            } catch {
+              setPending(false);
+              setConfirming(false);
+            }
+          }}
+          className="text-[11.5px] font-bold uppercase tracking-wide text-red-600 hover:text-red-700 disabled:opacity-50"
+        >
+          {pending ? "…" : "Yes"}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => setConfirming(false)}
+          className="text-[11.5px] font-semibold uppercase tracking-wide text-charcoal/45 hover:text-charcoal disabled:opacity-50"
+        >
+          No
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setConfirming(true)}
+      title="Delete this draft"
+      aria-label={`Delete ${PLATFORM_LABEL[platform] ?? platform} draft`}
+      className="shrink-0 p-2 rounded-lg text-charcoal/30 hover:text-red-600 hover:bg-red-50 transition-colors"
+    >
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+      </svg>
+    </button>
   );
 }
