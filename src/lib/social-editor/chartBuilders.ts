@@ -88,6 +88,47 @@ function cleanValue(v: string): string {
   if (dec) return `${Math.round(parseFloat(dec[1]!))}`;
   return s;
 }
+const uc = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const lc = (s: string) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+/* ─── Analytical takeaways — a one-line reading rendered under the title so a
+ * chart states a CLAIM, not just numbers. Deterministic, £0. Returns null when
+ * there's nothing confident to say. ─────────────────────────────────────── */
+function seriesTakeaway(points: { label: string; value: string }[]): string | null {
+  const pts = points
+    .map((p) => ({ label: p.label, m: parseMagnitude(p.value) ?? 0, value: p.value }))
+    .filter((p) => p.m > 0);
+  if (pts.length < 2) return null;
+  const sorted = [...pts].sort((a, b) => b.m - a.m);
+  const top = sorted[0]!;
+  // A ratio reading only makes sense for a head-to-head pair.
+  if (pts.length === 2) {
+    const bot = sorted[1]!;
+    if (bot.m > 0) {
+      const r = top.m / bot.m;
+      if (r >= 1.6) {
+        const mult = r >= 2 ? `${Math.round(r)}×` : `${r.toFixed(1)}×`;
+        return `${uc(top.label)} ≈ ${mult} ${lc(bot.label)}`;
+      }
+    }
+  }
+  return `${uc(top.label)} leads at ${top.value}`;
+}
+function partsTakeaway(segments: { label: string; pct: number }[]): string | null {
+  const segs = segments.filter((s) => s.pct > 0).sort((a, b) => b.pct - a.pct);
+  if (!segs.length) return null;
+  const top = segs[0]!;
+  return `${uc(top.label)} is the largest share (${Math.round(top.pct)}%)`;
+}
+function trendTakeaway(points: { value: string }[]): string | null {
+  const vals = points.map((p) => parseMagnitude(p.value) ?? 0);
+  if (vals.length < 2) return null;
+  const first = vals[0]!, last = vals[vals.length - 1]!;
+  if (first <= 0) return null;
+  const chg = Math.round(((last - first) / first) * 100);
+  if (Math.abs(chg) < 3) return "Broadly flat over the period";
+  return chg < 0 ? `Down ${Math.abs(chg)}% over the period` : `Up ${chg}% over the period`;
+}
 
 /* ─── Layer factories (mirror elementLibrary / presets) ───────────── */
 function mkText(
@@ -122,8 +163,14 @@ function svgToDataUri(svg: string): string {
 
 type Box = { x: number; y: number; w: number; h: number };
 
-/** Backing panel + title + (optional) source line; returns the inner plot box. */
-function chrome(board: { w: number; h: number }, title: string, source: string | null) {
+/** Backing panel + title + (optional) takeaway + (optional) source line;
+ *  returns the inner plot box. */
+function chrome(
+  board: { w: number; h: number },
+  title: string,
+  source: string | null,
+  takeaway?: string | null
+) {
   const px = r0(board.w * 0.05);
   const py = r0(board.h * 0.1);
   const pw = r0(board.w * 0.9);
@@ -135,6 +182,16 @@ function chrome(board: { w: number; h: number }, title: string, source: string |
       uppercase: true, lineHeight: 1.0, letterSpacing: -0.5,
     }),
   ];
+  // A one-line analytical reading under the title.
+  let headerH = 92;
+  if (takeaway) {
+    layers.push(
+      mkText(px + pad, py + pad + 60, pw - 2 * pad, 34, clip(takeaway, 52), BARLOW, 23, {
+        color: GOLD, fontWeight: 600, lineHeight: 1.05,
+      })
+    );
+    headerH = 128;
+  }
   const sourceH = source ? 40 : 0;
   if (source) {
     layers.push(
@@ -145,9 +202,9 @@ function chrome(board: { w: number; h: number }, title: string, source: string |
   }
   const plot: Box = {
     x: px + pad,
-    y: py + pad + 92,
+    y: py + pad + headerH,
     w: pw - 2 * pad,
-    h: ph - 2 * pad - 92 - sourceH,
+    h: ph - 2 * pad - headerH - sourceH,
   };
   return { layers, plot };
 }
@@ -156,7 +213,7 @@ function chrome(board: { w: number; h: number }, title: string, source: string |
 
 function barChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const s = pickSeries(b);
-  const { layers, plot } = chrome(board, s.title, s.source);
+  const { layers, plot } = chrome(board, s.title, s.source, seriesTakeaway(s.points));
   const pts = s.points.slice(0, 6);
   const mags = magnitudes(pts);
   const max = Math.max(...mags, 1);
@@ -181,7 +238,7 @@ function barChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
 
 function columnChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const s = pickSeries(b);
-  const { layers, plot } = chrome(board, s.title, s.source);
+  const { layers, plot } = chrome(board, s.title, s.source, seriesTakeaway(s.points));
   const pts = s.points.slice(0, 6);
   const mags = magnitudes(pts);
   const max = Math.max(...mags, 1);
@@ -207,7 +264,7 @@ function columnChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
 
 function lollipopChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const s = pickSeries(b);
-  const { layers, plot } = chrome(board, s.title, s.source);
+  const { layers, plot } = chrome(board, s.title, s.source, seriesTakeaway(s.points));
   const pts = s.points.slice(0, 6);
   const mags = magnitudes(pts);
   const max = Math.max(...mags, 1);
@@ -235,7 +292,7 @@ function lollipopChart(board: { w: number; h: number }, b: ChartBundle): Layer[]
 
 function stackedChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const parts = pickParts(b);
-  const { layers, plot } = chrome(board, parts.title, parts.source);
+  const { layers, plot } = chrome(board, parts.title, parts.source, partsTakeaway(parts.segments));
   const segs = parts.segments.slice(0, 6);
   const total = Math.max(1, segs.reduce((a, s) => a + s.pct, 0));
   const barY = plot.y + 8;
@@ -266,7 +323,7 @@ function stackedChart(board: { w: number; h: number }, b: ChartBundle): Layer[] 
 
 function pieChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const parts = pickParts(b);
-  const { layers, plot } = chrome(board, parts.title, parts.source);
+  const { layers, plot } = chrome(board, parts.title, parts.source, partsTakeaway(parts.segments));
   const segs = normalizeSegs(parts.segments);
   const size = Math.min(plot.h, plot.w * 0.5);
   const uri = svgToDataUri(pieSvg(segs.map((s, i) => ({ pct: s.pct, color: RAMP[i % RAMP.length]! }))));
@@ -277,7 +334,7 @@ function pieChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
 
 function donutChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const parts = pickParts(b);
-  const { layers, plot } = chrome(board, parts.title, parts.source);
+  const { layers, plot } = chrome(board, parts.title, parts.source, partsTakeaway(parts.segments));
   const segs = normalizeSegs(parts.segments);
   const size = Math.min(plot.h, plot.w * 0.5);
   const uri = svgToDataUri(donutSvg(segs.map((s, i) => ({ pct: s.pct, color: RAMP[i % RAMP.length]! }))));
@@ -298,7 +355,7 @@ function donutChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
 
 function treemapChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const parts = pickParts(b);
-  const { layers, plot } = chrome(board, parts.title, parts.source);
+  const { layers, plot } = chrome(board, parts.title, parts.source, partsTakeaway(parts.segments));
   const segs = normalizeSegs(parts.segments).slice(0, 6);
   if (segs.length === 0) return layers; // nothing to tile — just the chrome
   // Simple row-based squarified-ish layout: largest as a tall left block, the
@@ -342,7 +399,7 @@ function areaChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
 }
 function trendChart(board: { w: number; h: number }, b: ChartBundle, area: boolean): Layer[] {
   const t = pickTrend(b);
-  const { layers, plot } = chrome(board, t.title, t.source);
+  const { layers, plot } = chrome(board, t.title, t.source, trendTakeaway(t.points));
   const pts = t.points.slice(0, 8);
   const vals = pts.map((p) => parseMagnitude(p.value) ?? 0);
   const labelH = 44;
@@ -434,7 +491,7 @@ function pictographChart(board: { w: number; h: number }, b: ChartBundle): Layer
 
 function radarChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const s = pickSeries(b);
-  const { layers, plot } = chrome(board, s.title, s.source);
+  const { layers, plot } = chrome(board, s.title, s.source, seriesTakeaway(s.points));
   const pts = s.points.slice(0, 6);
   const mags = magnitudes(pts);
   const max = Math.max(...mags, 1);
@@ -459,7 +516,7 @@ function radarChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
 
 function funnelChart(board: { w: number; h: number }, b: ChartBundle): Layer[] {
   const parts = pickParts(b);
-  const { layers, plot } = chrome(board, parts.title, parts.source);
+  const { layers, plot } = chrome(board, parts.title, parts.source, partsTakeaway(parts.segments));
   const segs = parts.segments.slice(0, 6);
   const vals = segs.map((s) => s.pct);
   const fW = r0(plot.w * 0.62);
