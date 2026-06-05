@@ -40,7 +40,14 @@ const SlideDraftSchema = z.object({
 const PutBodySchema = z.object({
   platform: z.enum(VALID_PLATFORMS),
   slides: z.array(SlideDraftSchema),
+  /** Optional SMM-set draft header/name. Omitted → unchanged; null/"" →
+   *  cleared (the UI falls back to the event title). */
+  title: z.string().max(200).nullish(),
 });
+
+/** Postgres "undefined column" — thrown when migration 041 hasn't been
+ *  applied yet. We retry the write without `title` so saving never breaks. */
+const UNDEFINED_COLUMN = "42703";
 
 export async function GET(
   request: Request,
@@ -58,19 +65,37 @@ export async function GET(
   // editing" before any extraction runs).
   if (!platformParam) {
     void session;
-    const { data, error } = await supabase
-      .from("deck_drafts")
-      .select("platform, slides, updated_at")
-      .eq("event_id", eventId)
-      .order("updated_at", { ascending: false });
-    if (error) {
-      return NextResponse.json({ error: `DB error: ${error.message}` }, { status: 500 });
+    // Try to read the title column; if migration 041 isn't applied yet the
+    // select 42703s — fall back to a title-less select so the list still works.
+    let data: Array<Record<string, unknown>> | null = null;
+    {
+      const withTitle = await supabase
+        .from("deck_drafts")
+        .select("platform, slides, updated_at, title")
+        .eq("event_id", eventId)
+        .order("updated_at", { ascending: false });
+      if (withTitle.error?.code === UNDEFINED_COLUMN) {
+        const noTitle = await supabase
+          .from("deck_drafts")
+          .select("platform, slides, updated_at")
+          .eq("event_id", eventId)
+          .order("updated_at", { ascending: false });
+        if (noTitle.error) {
+          return NextResponse.json({ error: `DB error: ${noTitle.error.message}` }, { status: 500 });
+        }
+        data = noTitle.data;
+      } else if (withTitle.error) {
+        return NextResponse.json({ error: `DB error: ${withTitle.error.message}` }, { status: 500 });
+      } else {
+        data = withTitle.data;
+      }
     }
     const drafts = (data ?? [])
       .map((d) => ({
         platform: d.platform as Platform,
-        slideCount: Array.isArray(d.slides) ? d.slides.length : 0,
+        slideCount: Array.isArray(d.slides) ? (d.slides as unknown[]).length : 0,
         updatedAt: d.updated_at as string,
+        title: (d.title as string | null | undefined) ?? null,
       }))
       // Only drafts that actually hold slides are worth resuming.
       .filter((d) => d.slideCount > 0);
@@ -85,18 +110,35 @@ export async function GET(
   }
   const platform = platformParam as Platform;
 
-  const { data, error } = await supabase
-    .from("deck_drafts")
-    .select("id, event_id, platform, slides, created_by_email, created_at, updated_at")
-    .eq("event_id", eventId)
-    .eq("platform", platform)
-    .maybeSingle();
-
-  if (error) {
-    return NextResponse.json(
-      { error: `DB error: ${error.message}` },
-      { status: 500 }
-    );
+  // Read with `title`, falling back to a title-less select if migration 041
+  // hasn't been applied yet (undefined-column 42703).
+  const baseCols = "id, event_id, platform, slides, created_by_email, created_at, updated_at";
+  let data:
+    | (Record<string, unknown> & { title?: string | null })
+    | null = null;
+  {
+    const withTitle = await supabase
+      .from("deck_drafts")
+      .select(`${baseCols}, title`)
+      .eq("event_id", eventId)
+      .eq("platform", platform)
+      .maybeSingle();
+    if (withTitle.error?.code === UNDEFINED_COLUMN) {
+      const noTitle = await supabase
+        .from("deck_drafts")
+        .select(baseCols)
+        .eq("event_id", eventId)
+        .eq("platform", platform)
+        .maybeSingle();
+      if (noTitle.error) {
+        return NextResponse.json({ error: `DB error: ${noTitle.error.message}` }, { status: 500 });
+      }
+      data = noTitle.data;
+    } else if (withTitle.error) {
+      return NextResponse.json({ error: `DB error: ${withTitle.error.message}` }, { status: 500 });
+    } else {
+      data = withTitle.data;
+    }
   }
 
   if (!data) {
@@ -105,6 +147,7 @@ export async function GET(
         eventId,
         platform,
         slides: [],
+        title: null,
         exists: false,
       },
       { status: 200 }
@@ -115,6 +158,7 @@ export async function GET(
   return NextResponse.json({
     eventId: data.event_id,
     platform: data.platform,
+    title: data.title ?? null,
     slides: data.slides ?? [],
     createdByEmail: data.created_by_email,
     createdAt: data.created_at,
@@ -147,13 +191,18 @@ export async function PUT(
       { status: 400 }
     );
   }
-  const { platform, slides } = parsed.data;
+  const { platform, slides, title } = parsed.data;
+  // Only touch the title column when the client actually sent the key, so a
+  // slides-only autosave never clobbers a previously-set name. null/"" clears
+  // it (the UI then falls back to the event title).
+  const titleProvided = title !== undefined;
+  const titleValue = title && title.trim() ? title.trim() : null;
 
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
 
   // Upsert on (event_id, platform). If a row exists we keep its
-  // created_at / created_by_email and only bump updated_at + slides.
+  // created_at / created_by_email and only bump updated_at + slides (+ title).
   const { data: existing } = await supabase
     .from("deck_drafts")
     .select("id, created_by_email, created_at")
@@ -162,53 +211,39 @@ export async function PUT(
     .maybeSingle();
 
   if (existing) {
-    const { error } = await supabase
-      .from("deck_drafts")
-      .update({
-        slides,
-        updated_at: now,
-      })
-      .eq("id", existing.id);
-
-    if (error) {
-      return NextResponse.json(
-        { error: `Update failed: ${error.message}` },
-        { status: 500 }
-      );
+    const updateRow: Record<string, unknown> = { slides, updated_at: now };
+    if (titleProvided) updateRow.title = titleValue;
+    let { error } = await supabase.from("deck_drafts").update(updateRow).eq("id", existing.id);
+    // Pre-migration: title column absent → retry slides-only so saving works.
+    if (error?.code === UNDEFINED_COLUMN && titleProvided) {
+      delete updateRow.title;
+      ({ error } = await supabase.from("deck_drafts").update(updateRow).eq("id", existing.id));
     }
-
-    return NextResponse.json({
-      eventId,
-      platform,
-      slides,
-      updatedAt: now,
-      created: false,
-    });
+    if (error) {
+      return NextResponse.json({ error: `Update failed: ${error.message}` }, { status: 500 });
+    }
+    return NextResponse.json({ eventId, platform, slides, title: titleValue, updatedAt: now, created: false });
   }
 
-  const { error: insertErr } = await supabase.from("deck_drafts").insert({
+  const insertRow: Record<string, unknown> = {
     event_id: eventId,
     platform,
     slides,
     created_by_email: session.email ?? null,
     created_at: now,
     updated_at: now,
-  });
-
+  };
+  if (titleProvided) insertRow.title = titleValue;
+  let { error: insertErr } = await supabase.from("deck_drafts").insert(insertRow);
+  if (insertErr?.code === UNDEFINED_COLUMN && titleProvided) {
+    delete insertRow.title;
+    ({ error: insertErr } = await supabase.from("deck_drafts").insert(insertRow));
+  }
   if (insertErr) {
-    return NextResponse.json(
-      { error: `Insert failed: ${insertErr.message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: `Insert failed: ${insertErr.message}` }, { status: 500 });
   }
 
-  return NextResponse.json({
-    eventId,
-    platform,
-    slides,
-    updatedAt: now,
-    created: true,
-  });
+  return NextResponse.json({ eventId, platform, slides, title: titleValue, updatedAt: now, created: true });
 }
 
 /**

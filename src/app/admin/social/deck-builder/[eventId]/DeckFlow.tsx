@@ -86,7 +86,7 @@ const ORDER: Step[] = [
 ];
 
 /** A saved deck draft for this event, summarised for the resume screen. */
-type DraftSummary = { platform: SocialPlatform; slideCount: number; updatedAt: string };
+type DraftSummary = { platform: SocialPlatform; slideCount: number; updatedAt: string; title?: string | null };
 
 const PLATFORM_LABEL: Record<string, string> = {
   instagram: "Instagram",
@@ -819,10 +819,11 @@ function ResumeStep({
                   className="flex-1 min-w-0 text-left flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <p className="font-heading font-semibold text-charcoal text-[15px]">
-                      {PLATFORM_LABEL[d.platform] ?? d.platform} draft
+                    <p className="font-heading font-semibold text-charcoal text-[15px] truncate">
+                      {d.title?.trim() || `${PLATFORM_LABEL[d.platform] ?? d.platform} draft`}
                     </p>
                     <p className="text-[12.5px] text-charcoal/50 mt-0.5">
+                      {d.title?.trim() ? `${PLATFORM_LABEL[d.platform] ?? d.platform} · ` : ""}
                       {d.slideCount} {d.slideCount === 1 ? "slide" : "slides"} · edited {relTime(d.updatedAt)}
                     </p>
                   </div>
