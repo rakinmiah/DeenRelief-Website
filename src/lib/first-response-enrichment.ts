@@ -69,13 +69,18 @@ export interface EnrichedReport {
   body: string; // truncated
 }
 
+/** A report's citation metadata (no body) — for the "researched from" line. */
+export type EnrichmentSource = Omit<EnrichedReport, "body">;
+
 export interface CrisisContext {
   reports: EnrichedReport[];
+  /** Citation metadata for each report used — surfaced to the SMM. */
+  sources: EnrichmentSource[];
   /** Pre-formatted block to append to the extraction prompt (empty if none). */
   brief: string;
 }
 
-const EMPTY: CrisisContext = { reports: [], brief: "" };
+const EMPTY: CrisisContext = { reports: [], sources: [], brief: "" };
 
 /** Relevance query from the event's own subject — title + type + region. */
 function buildQueryString(event: EmergencyEvent): string {
@@ -217,5 +222,12 @@ export async function fetchCrisisContext(
     )
     .join("\n\n");
 
-  return { reports, brief };
+  const sources: EnrichmentSource[] = reports.map(({ title, source, date, url }) => ({
+    title,
+    source,
+    date,
+    url,
+  }));
+
+  return { reports, sources, brief };
 }
