@@ -85,6 +85,26 @@ const ORDER: Step[] = [
   "build",
 ];
 
+/** A saved deck draft for this event, summarised for the resume screen. */
+type DraftSummary = { platform: SocialPlatform; slideCount: number; updatedAt: string };
+
+const PLATFORM_LABEL: Record<string, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  x: "X",
+};
+
+function relTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
 export default function DeckFlow({
   event,
   backHref,
@@ -123,9 +143,39 @@ export default function DeckFlow({
   const [results, setResults] = useState<SlideResult[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Kick off the real work once.
+  // Resume gate — before any extraction runs we check for existing saved drafts
+  // for this event. If found, the SMM sees them with "continue editing" /
+  // "start a new post"; choosing either flips `entry` to "go" and the normal
+  // work begins. No drafts (or the check fails) → straight to "go" (unchanged).
+  const [entry, setEntry] = useState<"checking" | "resume" | "go">("checking");
+  const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+  // Non-null when CONTINUING a saved draft: skip the wizard, load the draft.
+  const [resumePlatform, setResumePlatform] = useState<SocialPlatform | null>(null);
+  const checkedRef = useRef(false);
+
   useEffect(() => {
-    if (startedRef.current) return;
+    if (checkedRef.current) return;
+    checkedRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/social-deck-drafts/${event.id}`, { cache: "no-store" });
+        const json = (await res.json()) as { drafts?: DraftSummary[] };
+        const found = Array.isArray(json.drafts) ? json.drafts : [];
+        if (found.length > 0) {
+          setDrafts(found);
+          setEntry("resume");
+          return;
+        }
+      } catch {
+        /* fall through to the normal flow */
+      }
+      setEntry("go");
+    })();
+  }, [event.id]);
+
+  // Kick off the real work once the resume gate clears (entry === "go").
+  useEffect(() => {
+    if (startedRef.current || entry !== "go") return;
     startedRef.current = true;
     let cancelled = false;
     (async () => {
@@ -189,7 +239,16 @@ export default function DeckFlow({
     return () => {
       cancelled = true;
     };
-  }, [event.id]);
+  }, [event.id, entry]);
+
+  // Continuing a saved draft: once content + images are loaded (cache hit, £0),
+  // skip the whole wizard and drop straight into the editor, which loads the
+  // saved deck for this platform.
+  useEffect(() => {
+    if (resumePlatform && content && images && step !== "build") {
+      setStep("build");
+    }
+  }, [resumePlatform, content, images, step]);
 
   const suggestedSlideCount = useMemo(() => {
     if (!content) return 6;
@@ -396,6 +455,23 @@ export default function DeckFlow({
     go("build");
   }
 
+  /* ── Resume gate: saved drafts exist — offer continue / start new ── */
+  if (entry === "resume") {
+    return (
+      <ResumeStep
+        eventTitle={event.title}
+        drafts={drafts}
+        backHref={backHref}
+        onContinue={(p) => {
+          setPlatform(p);
+          setResumePlatform(p);
+          setEntry("go"); // loads content + images (cache hit, £0), then → editor
+        }}
+        onStartNew={() => setEntry("go")}
+      />
+    );
+  }
+
   /* ── Full-bleed: quick-draft loading hand-off ────────────────── */
   if (step === "drafting") {
     return <DraftingStep onDone={finishDrafting} />;
@@ -406,8 +482,11 @@ export default function DeckFlow({
     return (
       <div className="fixed inset-0 z-50 bg-[#F4F4F2]">
         <CanvasDeckEditor
-          initialDeck={blankStart ? [] : seedSlides}
-          deckRecipe={blankStart ? undefined : deckRecipe}
+          // Continuing a saved draft: hand the editor nothing and DON'T force
+          // the initial deck, so its persist-mode load restores the autosaved
+          // slides. A fresh build forces the wizard's seed slides as before.
+          initialDeck={resumePlatform ? [] : blankStart ? [] : seedSlides}
+          deckRecipe={resumePlatform || blankStart ? undefined : deckRecipe}
           eventId={event.id}
           platform={platform}
           images={images.images}
@@ -415,10 +494,10 @@ export default function DeckFlow({
           logoLight={logoLight}
           content={content}
           sourceUrl={event.sourceUrl}
-          openTemplatesOnMount={blankStart}
+          openTemplatesOnMount={!resumePlatform && blankStart}
           backHref={backHref}
           persist
-          forceInitial
+          forceInitial={!resumePlatform}
           title={event.title}
         />
       </div>
@@ -628,6 +707,88 @@ export default function DeckFlow({
               </p>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Resume gate UI ──────────────────────────────────────────────── */
+
+function ResumeStep({
+  eventTitle,
+  drafts,
+  backHref,
+  onContinue,
+  onStartNew,
+}: {
+  eventTitle: string;
+  drafts: DraftSummary[];
+  backHref: string;
+  onContinue: (p: SocialPlatform) => void;
+  onStartNew: () => void;
+}) {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <div className="sticky top-0 z-10 px-5 pt-4">
+        <div className="max-w-2xl mx-auto">
+          <a href={backHref} className="text-charcoal/45 hover:text-charcoal text-[13px] inline-flex items-center gap-1">
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 5l-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </a>
+        </div>
+      </div>
+      <div className="flex-1 grid place-items-center px-5 py-8">
+        <div className="w-full max-w-2xl">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-charcoal/35 mb-2">
+            Pick up where you left off
+          </p>
+          <h1 className="font-heading font-semibold text-charcoal text-2xl md:text-[26px] leading-tight mb-1">
+            You have {drafts.length === 1 ? "a saved draft" : `${drafts.length} saved drafts`}
+          </h1>
+          <p className="text-[13.5px] text-charcoal/55 mb-6 max-w-lg truncate">for &ldquo;{eventTitle}&rdquo;</p>
+
+          <div className="flex flex-col gap-2.5 mb-7">
+            {drafts.map((d) => (
+              <button
+                key={d.platform}
+                type="button"
+                onClick={() => onContinue(d.platform)}
+                className="group text-left rounded-2xl bg-white ring-1 ring-charcoal/8 hover:ring-green/45 hover:shadow-sm px-5 py-4 transition flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-heading font-semibold text-charcoal text-[15px]">
+                    {PLATFORM_LABEL[d.platform] ?? d.platform} draft
+                  </p>
+                  <p className="text-[12.5px] text-charcoal/50 mt-0.5">
+                    {d.slideCount} {d.slideCount === 1 ? "slide" : "slides"} · edited {relTime(d.updatedAt)}
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-green shrink-0">
+                  Continue editing
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M8 5l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={onStartNew}
+            className="inline-flex items-center gap-2 bg-charcoal text-white text-[14px] font-medium px-5 py-2.5 rounded-xl hover:bg-charcoal/85 transition-colors"
+          >
+            Start building a new post
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M10 4v12M4 10h12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <p className="text-[12px] text-charcoal/45 mt-2.5 max-w-lg">
+            Continuing reopens your draft exactly as you left it — no AI is re-run.
+          </p>
         </div>
       </div>
     </div>
