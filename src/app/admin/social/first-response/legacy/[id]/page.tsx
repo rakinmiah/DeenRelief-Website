@@ -283,7 +283,7 @@ function PacketView({
       {/* Strategy brief — Claude's thinking BEFORE drafting. Admin-
           only; hidden for the SMM role per request. */}
       {showStrategyBrief && (
-      <Section title="Claude's strategy brief">
+      <Section title="Strategy brief">
         <div className="text-[13px] text-charcoal/85 leading-relaxed space-y-3">
           <div>
             <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-charcoal/45 mb-1">

@@ -284,11 +284,11 @@ function DebugView({ info }: { info: EventDebugInfo }) {
                       <p className="text-[11px] text-red-700 mt-0.5">
                         ✗ No image picked
                         {s.mediaId
-                          ? ` (Claude returned id ${s.mediaId} which isn't in either candidate pool — likely an archived/stale row or a stale draft predating this code)`
+                          ? ` (the draft returned id ${s.mediaId} which isn't in either candidate pool — likely an archived/stale row or a stale draft predating this code)`
                           : info.candidates.length === 0 &&
                               info.externalCandidates.length === 0
                             ? " (no candidates available from either pool)"
-                            : " (candidates were available but Claude chose null — try redrafting; prompt biases toward using them)"}
+                            : " (candidates were available but none was chosen — try redrafting)"}
                       </p>
                     ) : (
                       <p className="text-[11px] text-charcoal/45 mt-0.5">

@@ -71,7 +71,7 @@ export default async function MediaLibraryPage({
             href="/admin/social/media-library/re-tag"
             className="px-5 py-2.5 rounded-full bg-cream-soft border border-charcoal/15 text-charcoal text-sm font-semibold hover:bg-cream transition-colors"
           >
-            ↻ Re-tag with AI
+            ↻ Auto re-tag
           </Link>
           <Link
             href="/admin/social/media-library/new"
