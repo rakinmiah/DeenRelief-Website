@@ -99,7 +99,7 @@ export default function RetagReviewQueue({ items }: { items: MediaItem[] }) {
           disabled={batchPending}
           className="px-5 py-2.5 bg-charcoal text-cream rounded-full text-[13px] font-bold tracking-[0.08em] uppercase hover:bg-charcoal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {batchPending ? "Re-tagging…" : "Re-tag all with AI"}
+          {batchPending ? "Re-tagging…" : "Auto re-tag all"}
         </button>
       </div>
 
@@ -196,7 +196,7 @@ function Card({
         )}
         {state.phase === "proposing" && (
           <div className="flex items-center text-[13px] text-charcoal/65 italic">
-            Asking Claude Vision…
+            Reading the photo…
           </div>
         )}
         {state.phase === "proposed" && (
@@ -279,7 +279,7 @@ function IdleState({
         onClick={onPropose}
         className="self-start px-4 py-2 bg-charcoal text-cream rounded-full text-[12px] font-bold tracking-[0.08em] uppercase hover:bg-charcoal/90"
       >
-        Re-tag with AI
+        Auto re-tag
       </button>
     </div>
   );

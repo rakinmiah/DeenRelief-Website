@@ -38,7 +38,7 @@ export const TEST_SCENARIOS = {
     expectedTier: "HIGH",
   },
   "ps-ocha-may26": {
-    label: "Palestine — OCHA situation report (live data, real Claude)",
+    label: "Palestine — OCHA situation report (live data, full draft)",
     description:
       "CRITICAL · USES REAL CLAUDE (~$0.30) — sourced from a current OCHA oPt situation report on ReliefWeb. Specifically built to stress-test the new briefing register, fact specificity, and multi-image rules against substantive real-world content.",
     expectedTier: "CRITICAL",

@@ -5,7 +5,7 @@ import { listMedia } from "@/lib/media-library";
 import RetagReviewQueue from "./RetagReviewQueue";
 
 export const metadata: Metadata = {
-  title: "Re-tag with AI | Media library | Deen Relief Admin",
+  title: "Auto re-tag | Media library | Deen Relief Admin",
   robots: { index: false, follow: false },
 };
 
@@ -47,7 +47,7 @@ export default async function RetagPage() {
           ← Media library
         </Link>
         <h1 className="text-3xl md:text-4xl font-serif text-charcoal mt-3 mb-2">
-          Re-tag with AI
+          Auto re-tag
         </h1>
         <p className="text-charcoal/65 text-[14px] leading-relaxed max-w-2xl">
           Let us suggest better tags for your photos. You&apos;ll see the old

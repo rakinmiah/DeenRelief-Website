@@ -109,7 +109,7 @@ export default function EventControls({
           className="px-5 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-charcoal/85 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {pending && action === "draft"
-            ? "Drafting via Claude…"
+            ? "Drafting…"
             : hasDraft
               ? "Redraft packet"
               : "Draft launch packet"}
@@ -167,8 +167,8 @@ export default function EventControls({
       </div>
 
       <p className="text-[12px] text-charcoal/50 leading-snug">
-        Drafting calls Claude Opus 4.7 with the Deen Relief brand voice
-        spec. <span className="font-semibold text-charcoal/70">Launching</span>{" "}
+        Drafting writes a full launch packet in the Deen Relief brand
+        voice. <span className="font-semibold text-charcoal/70">Launching</span>{" "}
         activates the <span className="font-mono">/now</span> spotlight
         (bio-link redirect) for 7 days + fires an admin push. The site
         banner and featured campaign are controlled separately in

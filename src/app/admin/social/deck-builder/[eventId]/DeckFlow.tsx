@@ -635,12 +635,11 @@ export default function DeckFlow({
                 Couldn&rsquo;t read the report
               </p>
               <p className="text-[12.5px] text-red-700/90 leading-relaxed mt-1">
-                The AI extraction failed, so no facts or stats were pulled — this isn&rsquo;t
+                The report couldn&rsquo;t be processed, so no facts or stats were pulled — this isn&rsquo;t
                 &ldquo;the report had nothing.&rdquo; Reason: <span className="font-mono">{contentError}</span>
               </p>
               <p className="text-[12px] text-red-700/70 leading-relaxed mt-1.5">
-                If this mentions the API key or credits, check <span className="font-mono">ANTHROPIC_API_KEY</span> and
-                the Anthropic account in the production environment, then retry.
+                Try again in a moment; if it keeps failing, flag it to the tech team.
               </p>
             </div>
           )}
@@ -850,7 +849,7 @@ function ResumeStep({
             </svg>
           </button>
           <p className="text-[12px] text-charcoal/45 mt-2.5 max-w-lg">
-            Continuing reopens your draft exactly as you left it — no AI is re-run.
+            Continuing reopens your draft exactly as you left it — nothing is regenerated.
           </p>
         </div>
       </div>
