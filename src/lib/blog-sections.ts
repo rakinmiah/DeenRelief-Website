@@ -21,6 +21,10 @@ export interface BlogSection {
   title: string;
   /** Section page subtitle + meta description. */
   blurb: string;
+  /** Card image on the /blog hub (public path, served from /public). */
+  image: string;
+  /** Alt text for that image. */
+  imageAlt: string;
 }
 
 export const BLOG_SECTIONS: BlogSection[] = [
@@ -30,6 +34,9 @@ export const BLOG_SECTIONS: BlogSection[] = [
     title: "Islamic Knowledge",
     blurb:
       "Practical guides on Zakat, Sadaqah and Islamic giving — so you can give with knowledge and confidence.",
+    // Public-domain illuminated Qur'an (Wikimedia Commons — no attribution).
+    image: "/images/blog-islamic-knowledge.jpg",
+    imageAlt: "An open illuminated Qur'an",
   },
   {
     slug: "who-we-are",
@@ -37,6 +44,8 @@ export const BLOG_SECTIONS: BlogSection[] = [
     title: "Who We Are",
     blurb:
       "Updates from our programmes and the families your generosity reaches on the ground.",
+    image: "/images/cancer-gulucuk-evi-group.webp",
+    imageAlt: "Children at the Deen Relief Gülücük Evi care centre",
   },
   {
     slug: "latest",
@@ -44,6 +53,8 @@ export const BLOG_SECTIONS: BlogSection[] = [
     title: "Latest",
     blurb:
       "Fresh reflections and educational reads from the Deen Relief team — new every week.",
+    image: "/images/gaza-aid-distribution-2.webp",
+    imageAlt: "Deen Relief aid distribution",
   },
 ];
 
