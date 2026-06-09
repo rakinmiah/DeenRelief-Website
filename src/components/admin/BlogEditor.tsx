@@ -18,6 +18,7 @@ import {
 import type { AdminBlogPost } from "@/lib/blog-admin";
 import type { BlogFaq } from "@/lib/blog";
 import { StatusBadge } from "@/components/admin/ui";
+import { BLOG_SECTIONS, sectionForCategory } from "@/lib/blog-sections";
 
 /**
  * The blog CMS editor — a TipTap WYSIWYG body plus the post's metadata
@@ -234,13 +235,18 @@ export default function BlogEditor({
             className="dr-input"
           />
         </Field>
-        <Field label="Category" hint="e.g. Zakat, Sadaqah">
-          <input
-            value={category}
+        <Field label="Section" hint="Which part of the blog this post belongs to.">
+          <select
+            value={sectionForCategory(category).label}
             onChange={(e) => setCategory(e.target.value)}
-            placeholder="Sadaqah"
             className="dr-input"
-          />
+          >
+            {BLOG_SECTIONS.map((s) => (
+              <option key={s.slug} value={s.label}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </Field>
       </div>
 

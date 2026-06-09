@@ -2,6 +2,7 @@ import "server-only";
 import sanitizeHtml from "sanitize-html";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { BlogFaq } from "@/lib/blog";
+import { isReservedBlogSlug, normaliseCategoryToSection } from "@/lib/blog-sections";
 
 /**
  * Admin data layer for the blog CMS (migration 030).
@@ -111,6 +112,12 @@ export async function uniqueSlug(
       .select("id")
       .ilike("slug", candidate)
       .limit(1);
+    // Section pages own /blog/<section-slug>, so a post can never take one.
+    if (isReservedBlogSlug(candidate)) {
+      n += 1;
+      candidate = `${root}-${n}`;
+      continue;
+    }
     if (excludeId) query = query.neq("id", excludeId);
     const { data, error } = await query.maybeSingle();
     if (error) {
@@ -265,7 +272,8 @@ export async function updatePost(
       title: input.title.trim(),
       slug,
       description: input.description.trim(),
-      category: input.category.trim(),
+      // Always store a canonical section label (normalises legacy values).
+      category: normaliseCategoryToSection(input.category),
       hero_image: input.heroImage?.trim() || null,
       body_html: sanitizeBody(input.bodyHtml),
       faqs,

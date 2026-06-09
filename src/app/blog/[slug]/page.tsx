@@ -7,6 +7,15 @@ import Button from "@/components/Button";
 import { getPostBySlug, getAllSlugs, getAllPosts } from "@/lib/blog";
 import JsonLd from "@/components/JsonLd";
 import BreadcrumbSchema from "@/components/BreadcrumbSchema";
+import BlogTabs from "@/components/blog/BlogTabs";
+import { BlogGrid } from "@/components/blog/BlogList";
+import {
+  BLOG_SECTION_SLUGS,
+  getSectionBySlug,
+  sectionForCategory,
+  type BlogSection,
+} from "@/lib/blog-sections";
+import type { BlogPostMeta } from "@/lib/blog";
 
 // Statically generated per published slug; on-demand revalidation fires
 // when a post is published, edited-while-live, or unpublished.
@@ -21,11 +30,23 @@ interface PageProps {
 
 export async function generateStaticParams() {
   const slugs = await getAllSlugs();
-  return slugs.map((slug) => ({ slug }));
+  // Section pages share this dynamic route, so pre-render them too.
+  return [...BLOG_SECTION_SLUGS, ...slugs].map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+
+  // Section landing page (/blog/islamic-knowledge, etc.).
+  const section = getSectionBySlug(slug);
+  if (section) {
+    return {
+      title: `${section.title} | Deen Relief Blog`,
+      description: section.blurb,
+      alternates: { canonical: `/blog/${section.slug}` },
+    };
+  }
+
   const post = await getPostBySlug(slug);
   if (!post) return {};
 
@@ -64,13 +85,25 @@ function formatDate(dateStr: string): string {
 
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug } = await params;
+
+  // ── Section landing page (/blog/islamic-knowledge, etc.) ─────────
+  const section = getSectionBySlug(slug);
+  if (section) {
+    const all = await getAllPosts();
+    const sectionPosts = all.filter(
+      (p) => sectionForCategory(p.category).slug === section.slug
+    );
+    return <SectionPage section={section} posts={sectionPosts} />;
+  }
+
   const post = await getPostBySlug(slug);
   if (!post) notFound();
 
-  // Related posts: same category, excluding current post, max 3
+  // Related posts: same section, excluding current post, max 3
   const allPosts = await getAllPosts();
+  const postSection = sectionForCategory(post.category).slug;
   const relatedPosts = allPosts
-    .filter((p) => p.category === post.category && p.slug !== slug)
+    .filter((p) => sectionForCategory(p.category).slug === postSection && p.slug !== slug)
     .slice(0, 3);
 
   // If fewer than 3 in the same category, pad with other posts
@@ -81,8 +114,10 @@ export default async function BlogPostPage({ params }: PageProps) {
     relatedPosts.push(...others);
   }
 
-  // Category-aware CTA: Zakat posts lead with Zakat, Sadaqah posts lead with Sadaqah
-  const isZakatPost = post.category === "Zakat";
+  // CTA: lead with Zakat only when the post is genuinely about Zakat
+  // (detected from the title/slug, since the section replaced the old
+  // granular "Zakat" category); otherwise lead with Sadaqah.
+  const isZakatPost = /\bzakat\b/i.test(`${post.title} ${post.slug}`);
 
   // Post-specific FAQs for rich results (author-editable, stored on the post)
   const faqs = post.faqs;
@@ -226,7 +261,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                     <div className="p-5 pb-0">
                       <div className="mb-3 flex items-center gap-2">
                         <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-green bg-green-light px-2.5 py-0.5 rounded-full">
-                          {related.category}
+                          {sectionForCategory(related.category).label}
                         </span>
                         <time
                           dateTime={related.date}
@@ -284,6 +319,52 @@ export default async function BlogPostPage({ params }: PageProps) {
                 </>
               )}
             </div>
+          </div>
+        </section>
+      </main>
+
+      <Footer />
+    </>
+  );
+}
+
+/** A blog SECTION landing page (/blog/islamic-knowledge, etc.) — same
+ *  chrome as the /blog overview, with the section's hero + filtered grid
+ *  and the active tab. Rendered when the [slug] is a reserved section. */
+function SectionPage({ section, posts }: { section: BlogSection; posts: BlogPostMeta[] }) {
+  return (
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Blog", href: "/blog" },
+          { name: section.title, href: `/blog/${section.slug}` },
+        ]}
+      />
+      <Header />
+
+      <main id="main-content" className="flex-1">
+        <section className="bg-cream pt-24 md:pt-32 pb-14 md:pb-18">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl">
+              <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
+                Blog
+              </span>
+              <h1 className="text-[1.75rem] sm:text-[2.25rem] lg:text-[2.5rem] leading-[1.18] font-heading font-bold text-charcoal mb-4 tracking-[-0.02em]">
+                {section.title}
+              </h1>
+              <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
+                {section.blurb}
+              </p>
+            </div>
+            <div className="mt-8">
+              <BlogTabs active={section.slug} />
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 md:py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BlogGrid posts={posts} emptyText="No posts in this section yet. Check back soon." />
           </div>
         </section>
       </main>
