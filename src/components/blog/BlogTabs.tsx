@@ -2,13 +2,14 @@ import Link from "next/link";
 import { BLOG_SECTIONS, type BlogSectionSlug } from "@/lib/blog-sections";
 
 /**
- * Section navigation for the blog: All · Islamic Knowledge · Who We Are ·
- * Latest. Plain links (each section is its own page), so it works as a
- * server component with no client JS. `active` highlights the current tab.
+ * Section navigation for the blog: Islamic Knowledge · Who We Are ·
+ * Latest, plus a link back to the /blog hub. Plain links (each section is
+ * its own page), so it works as a server component with no client JS.
+ * `active` highlights the current tab.
  */
-export default function BlogTabs({ active }: { active: "all" | BlogSectionSlug }) {
-  const tabs: { key: "all" | BlogSectionSlug; label: string; href: string }[] = [
-    { key: "all", label: "All", href: "/blog" },
+export default function BlogTabs({ active }: { active: BlogSectionSlug }) {
+  const tabs: { key: BlogSectionSlug | "home"; label: string; href: string }[] = [
+    { key: "home", label: "← Blog", href: "/blog" },
     ...BLOG_SECTIONS.map((s) => ({ key: s.slug, label: s.label, href: `/blog/${s.slug}` })),
   ];
   return (
