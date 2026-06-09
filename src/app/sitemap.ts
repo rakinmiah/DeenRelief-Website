@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/blog";
+import { BLOG_SECTION_SLUGS } from "@/lib/blog-sections";
 import { cities } from "@/lib/cities";
 
 const BASE_URL = "https://deenrelief.org";
@@ -45,9 +46,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  // Blog
+  // Blog — overview + the three section landing pages
   const blogListing: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    ...BLOG_SECTION_SLUGS.map((slug) => ({
+      url: `${BASE_URL}/blog/${slug}`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
   ];
 
   const blogPosts: MetadataRoute.Sitemap = (await getAllPosts()).map((post) => ({
