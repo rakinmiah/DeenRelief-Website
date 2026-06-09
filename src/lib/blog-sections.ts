@@ -52,7 +52,7 @@ export const BLOG_SECTIONS: BlogSection[] = [
     label: "Latest",
     title: "Latest",
     blurb:
-      "Fresh reflections and educational reads from the Deen Relief team — new every week.",
+      "Fresh reflections and educational reads from the Deen Relief team.",
     image: "/images/gaza-aid-distribution-2.webp",
     imageAlt: "Deen Relief aid distribution",
   },
