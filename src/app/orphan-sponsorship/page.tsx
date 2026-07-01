@@ -53,7 +53,7 @@ const faqs = [
     slug: "multiple",
     question: "Can I sponsor more than one child?",
     answer:
-      "Yes. You can set up multiple sponsorships — each at £30/month — to support additional children. Contact us at info@deenrelief.org to arrange this.",
+      "Yes. Choose £60/month to sponsor two children, £90 for three, or £120 for four — each child receives full monthly care. To sponsor five or more, contact us at info@deenrelief.org and we'll arrange it.",
   },
   {
     slug: "regulated",

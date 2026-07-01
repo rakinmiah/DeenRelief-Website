@@ -9,10 +9,10 @@ import { ORPHAN_UPSELL } from "./upsell";
 
 export const donationAmounts = {
   monthly: [
-    { value: 30, label: "£30", outcome: "Sponsors one child — education, nutrition, shelter, and healthcare", default: true },
-    { value: 50, label: "£50", outcome: "Sponsors one child with enhanced support and learning materials" },
-    { value: 75, label: "£75", outcome: "Sponsors one child with comprehensive family support" },
-    { value: 100, label: "£100", outcome: "Sponsors one child and contributes to community development" },
+    { value: 30, label: "£30", outcome: "Sponsors one child — education, nutrition, shelter and healthcare", default: true },
+    { value: 60, label: "£60", outcome: "Sponsors two children — full monthly care for both" },
+    { value: 90, label: "£90", outcome: "Sponsors three children — full monthly care for all three" },
+    { value: 120, label: "£120", outcome: "Sponsors four children — full monthly care for all four" },
   ],
   "one-time": [
     { value: 50, label: "£50", outcome: "Provides a month of education and meals for a child" },
