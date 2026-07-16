@@ -8,7 +8,9 @@
 
 ## 1. The decision in one paragraph
 
-The custom bazaar (Supabase + Stripe Checkout + Royal Mail Click & Drop + a hand-built admin cockpit, ~19,300 LOC) is replaced by **Shopify Headless**: Shopify becomes the system of record for products, stock, orders, payments, fulfilment, and customer emails, operated day-to-day through Shopify admin by the team and the fulfilment partner. **The storefront stays exactly where and what it is** — `deenrelief.org/bazaar`, our Next.js pages, our "Proof & Proximity" design, our named-maker storytelling — but reads from the Shopify Storefront API instead of Supabase, and hands off to Shopify-hosted checkout on `shop.deenrelief.org`. A new website is not needed and the visitor-facing brand does not change.
+The custom bazaar (Supabase + Stripe Checkout + Royal Mail Click & Drop + a hand-built admin cockpit, ~19,300 LOC) is replaced by **Shopify Headless**: Shopify becomes the system of record for products, stock, orders, payments, fulfilment, and customer emails, operated day-to-day through Shopify admin by the team and the fulfilment partner. **The storefront stays exactly where and what it is** — `deenrelief.org/bazaar`, our Next.js pages, our "Proof & Proximity" design — but reads from the Shopify Storefront API instead of Supabase, and hands off to Shopify-hosted checkout on `shop.deenrelief.org`. A new website is not needed.
+
+> **Positioning change (2026-07-16): the maker/artisan concept is removed entirely.** No named makers, no maker stories, no "handmade by" framing — anywhere in the bazaar. The differentiator is purely the cause: **100% of profits fund relief.** The re-platform build strips every maker surface (PDP maker block, `/bazaar/about-our-makers`, landing/FAQ copy) as part of Phase 2 — the storefront is dark in production, so nothing maker-related is publicly visible in the meantime.
 
 **Why:** fulfilment moves to a partner business that plugs into Shopify natively; trustees get an industry-standard admin instead of a bespoke one we must maintain; we delete ~17k LOC of order/stock/shipping/email machinery that Shopify does better (chargebacks, fraud analysis, partial refunds, discount codes, abandoned-cart, VAT).
 
@@ -23,7 +25,6 @@ Visitor
   │
   ├── deenrelief.org/bazaar/*          Next.js storefront (this repo)
   │     • catalog + PDP + cart UI      ← Shopify STOREFRONT API (GraphQL)
-  │     • maker stories                ← Shopify METAOBJECTS
   │     • cart state                   ← Shopify Cart object (cartId in cookie)
   │     [Checkout →]
   │
@@ -44,7 +45,7 @@ Three integration surfaces in this repo, and only three:
 
 1. **`src/lib/shopify.ts`** — Storefront API client (catalog reads + cart mutations).
 2. **`/api/shopify/webhook`** — `orders/paid`, `refunds/create`, `fulfillments/create` → mirror rows in Supabase.
-3. **One-time migration script** — Admin API push of the existing Supabase catalog (makers, products, variants, images) into Shopify.
+3. **One-time migration script** — Admin API push of the existing Supabase catalog (products, variants, images) into Shopify.
 
 ---
 
@@ -73,18 +74,20 @@ Nothing in §3 blocks Phases 1–2 of the build (we can develop against a dev st
 | `bazaar_products` | **Product** | `slug`→handle (keep identical — URLs must not change), `name`→title, `description`→descriptionHtml, `sku`, `price_pence`→variant price, `category`→**Collection** (one per current category: abaya, thobe, prayer-mat, hijab, tasbih, quran-cover, kufi, kids) + product `tags` |
 | `bazaar_product_variants` (size/colour) | **Variants** (options: Size, Colour) | price overrides map directly |
 | `tagline`, `materials`, `care_instructions`, `sizing_guide_html` | **Metafields** (`bazaar.tagline`, `bazaar.materials`, `bazaar.care`, `bazaar.sizing_html`) | Rendered by the PDP exactly as today |
-| `bazaar_product_makers` (name, country, region, photo, story, quote) | **Metaobject** type `maker`, referenced from a `bazaar.maker` product metafield | This is the piece Shopify doesn't have natively — metaobjects preserve the named-artisan differentiator with zero design change |
+| `bazaar_product_makers` | **Not migrated** | Maker concept removed (§1). Table stays in Supabase unread, never dropped; `maker_name_snapshot` on historical order items is untouched |
 | `weight_grams` | Variant weight | Feeds partner's shipping |
 | `stock_count` / holds / thresholds | **Shopify inventory** | Our entire hold/release system (`014_stock_holds.sql` machinery) is deleted; Shopify reserves stock during checkout natively |
 | Images (Supabase Storage `bazaar-products`) | **Shopify Files/CDN** | Migration script uploads; `next.config.ts` gains `cdn.shopify.com` in `images.remotePatterns` |
 
-**Catalog migration is a scripted one-time push** (`scripts/migrate-bazaar-to-shopify.mjs`, Admin API GraphQL): makers → metaobjects, products → products+variants+metafields+collections, images → files. Idempotent (keyed on handle/SKU), run against the dev store first, then production. Delete the script's token afterwards. (Catalog is currently 5 makers / 6 products — the script matters less for volume than for getting handles/SKUs exactly right so URLs and analytics continuity hold.)
+**Catalog migration is a scripted one-time push** (`scripts/migrate-bazaar-to-shopify.mjs`, Admin API GraphQL): products → products+variants+metafields+collections, images → files. Idempotent (keyed on handle/SKU), run against the dev store first, then production. Delete the script's token afterwards. (Catalog is currently 6 products — the script matters less for volume than for getting handles/SKUs exactly right so URLs and analytics continuity hold.)
 
 ---
 
 ## 5. Storefront: what changes, what doesn't
 
-**Unchanged (the point of going headless):** every visitor-facing page keeps its current design and route — `/bazaar` landing, `/bazaar/[slug]` PDP, cart page, makers page, policy pages, contact. `BazaarHeader`, product cards, gallery, FAQ, sizing UI, Framer Motion — all kept. The feature flag (`NEXT_PUBLIC_BAZAAR_ENABLED` + `noindex` pre-launch) keeps working as-is.
+**Unchanged (the point of going headless):** visitor-facing pages keep their current design and routes — `/bazaar` landing, `/bazaar/[slug]` PDP, cart page, policy pages, contact. `BazaarHeader`, product cards, gallery, FAQ, sizing UI, Framer Motion — all kept. The feature flag (`NEXT_PUBLIC_BAZAAR_ENABLED` + `noindex` pre-launch) keeps working as-is.
+
+**Maker removal (Phase 2, per §1):** delete `/bazaar/about-our-makers` (page never indexed — no redirect needed), remove the PDP maker block and any maker references in landing/process/FAQ/contact copy, and rebalance the affected layouts so nothing reads as a hole. Deletion list gains the maker components, `bazaar_product_makers` reads in the catalog lib, and the admin maker CRUD (already scheduled for deletion with the rest of catalog admin).
 
 **Replaced under the hood:**
 
@@ -161,7 +164,7 @@ Retired after cutover: `ROYAL_MAIL_*` (all).
 |---|---|---|
 | **0. Store setup** (Rakin, §3) | Store, Payments, domain, partner app, rates, GA4 channel, tokens | parallel |
 | **1. Foundation** | `src/lib/shopify.ts` client + typed queries; catalog migration script; run against dev store; `cdn.shopify.com` image config | 2 days |
-| **2. Storefront swap** | Landing + PDP + makers pages read Shopify; cart rebuilt on Shopify Cart (same UI); checkout handoff via `checkoutUrl`. All behind the existing flag | 3 days |
+| **2. Storefront swap** | Landing + PDP read Shopify; maker surfaces stripped (§5); cart rebuilt on Shopify Cart (same UI); checkout handoff via `checkoutUrl`. All behind the existing flag | 3 days |
 | **3. Webhooks + mirror** | Migration 043; `/api/shopify/webhook`; donor linking; UTM cart attributes; admin orders → read-only + Shopify deep links; reconciliation verified against a test order | 2 days |
 | **4. Deletion pass + QA** | Remove everything in §7; tsc + build clean; end-to-end test purchase on the dev store (test payments); GA4 events verified; a11y/mobile pass on changed pages | 2 days |
 | **5. Cutover** | Run catalog migration against prod store; flip env to prod tokens; place one real £-small order end-to-end (payment → partner fulfilment → tracking email → mirror row → reconciliation); then remove legacy Stripe-bazaar webhook branch after the last legacy return window | ½ day + soak |
@@ -177,7 +180,7 @@ Retired after cutover: `ROYAL_MAIL_*` (all).
 | Risk | Mitigation |
 |---|---|
 | Checkout leaves `deenrelief.org` (trust dip at the hop) | `shop.deenrelief.org` + fully branded checkout (logo/colours) + consistent email branding; this is the standard headless trade-off and Shop Pay conversion generally more than pays for it |
-| Maker storytelling degrades in Shopify's model | Metaobjects preserve the full maker schema; PDP renders them identically — acceptance criterion, not a hope |
+| Maker removal leaves PDP/landing feeling thin | Phase 2 rebalances layouts (product-as-hero + cause framing fills the space); acceptance criterion §12.3 |
 | Partner stock-sync errors oversell | Shopify inventory is the single stock truth; partner app writes to it; storefront always renders live availability |
 | GA4 purchase double-count (our events + Shopify's) | Only Shopify fires `purchase`; our client fires the pre-checkout funnel only |
 | Mixing entities (charity vs LTD) | Shopify Payments → LTD bank only; reconciliation report keeps the separation visible; sign-ups always "business" |
@@ -190,7 +193,7 @@ Retired after cutover: `ROYAL_MAIL_*` (all).
 
 1. `npx tsc --noEmit` and `npm run build` clean.
 2. Test purchase end-to-end: product page → cart → Shopify checkout → payment → Shopify confirmation email → webhook mirror row (`source='shopify'`, items snapshotted, donor linked when email matches) → order visible in admin list + reconciliation report → fulfilment webhook stamps tracking.
-3. PDP for a migrated product is pixel-equivalent to today (maker block, materials, care, sizing, gallery).
+3. PDP for a migrated product matches today's design minus the maker block (materials, care, sizing, gallery intact), with the layout rebalanced — and **zero maker/artisan references remain anywhere in `/bazaar` copy or code paths** (`grep -ri "maker\|artisan" src/app/bazaar src/components/bazaar` returns nothing).
 4. A `/r/<slug>` short-link visit that ends in a purchase lands `utm_content` on the mirror row.
 5. GA4 shows exactly one `purchase` with bazaar affiliation; add_to_cart/begin_checkout fire from our pages.
 6. Storefront still 404s cleanly with the flag off; `/chart-sandbox` untouched.

@@ -206,7 +206,7 @@ Diagnosed from 90 days of GSC data:
 - `/orphan-sponsorship` sits at **position 14** — one page off page 1 = fastest win.
 - **It's a ranking problem, not a content gap.** Pages exist; they're at pos 55–86 (invisible). Causes: low domain authority + thin optimisation + topical signal drowned by prayer-times.
 
-**Agreed plan (not started):** (1) rebuild `/palestine` for the Gaza query cluster + capture `/gaza`; (2) optimise `/orphan-sponsorship` → page 1; (3) add a "Support our work" module to prayer-times pages to convert the 39k-impression goldmine; (4) use the blog's Islamic Knowledge section as an authority engine with internal links to donation pages; (5) seasonal pages (Fitrana/Fidya/Kaffarah/Eid) — lower competition, time to Ramadan **2027** (~Feb); (6) backlinks (mosque directories, Brighton local press, the artisan story).
+**Agreed plan (not started):** (1) rebuild `/palestine` for the Gaza query cluster + capture `/gaza`; (2) optimise `/orphan-sponsorship` → page 1; (3) add a "Support our work" module to prayer-times pages to convert the 39k-impression goldmine; (4) use the blog's Islamic Knowledge section as an authority engine with internal links to donation pages; (5) seasonal pages (Fitrana/Fidya/Kaffarah/Eid) — lower competition, time to Ramadan **2027** (~Feb); (6) backlinks (mosque directories, Brighton local press).
 
 ---
 
@@ -214,7 +214,7 @@ Diagnosed from 90 days of GSC data:
 
 - **No usable email marketing list.** 42 donors + 1 sponsor + 11 bazaar customers ≈ ~50 addresses, but **0 have marketing consent**. No newsletter table, no broadcast system (Resend is transactional only). A launch blast to donors is **not legally sendable** (UK PECR/GDPR) — and donor data belongs to the *charity*, while Deen Bazaar is a *separate commercial entity*. Only the ~11 bazaar customers are defensible under "soft opt-in".
 - **Therefore:** list-building (consent checkbox + "notify me" signup) is the prerequisite for any email marketing. Not built yet.
-- **Deen Bazaar GTM (agreed):** cause-first ("100% of profits fund relief; handmade by named artisans"), social-led using the existing deck-builder + tracked short links + QR, seed Muslim micro-influencers, soft-launch now to build reviews/UGC/list → **big push at Ramadan 2027**.
+- **Deen Bazaar GTM (agreed, updated 2026-07-16):** cause-first ("100% of profits fund relief") — **the maker/artisan angle is dropped entirely** (see `SHOPIFY-BAZAAR-PLAN.md` §1) — social-led using the existing deck-builder + tracked short links + QR, seed Muslim micro-influencers, soft-launch to build reviews/UGC/list → **big push at Ramadan 2027**.
 
 ---
 
