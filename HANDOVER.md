@@ -136,7 +136,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 ### Decisions/blockers owned by Rakin
 - **Meta Business Verification** — blocks the Instagram comment-to-DM auto-responder (Phase 2) *and* all platform-native metrics (likes/reach/comments). Nothing to build until it clears.
 - **Google Ads API developer token** — apply via a Manager account's API Center (1–3 week approval). Unlocks accurate live Ads reporting **and** activates the already-written offline-conversion uploader in `src/lib/google-ads.ts`.
-- **Deen Bazaar architecture** — a *custom* bazaar is already built and live-ish at `/bazaar` (Supabase + Stripe + Royal Mail + named makers). `SHOP-PLAN.md` proposes Shopify Headless instead. **These conflict.** Decision pending: keep custom vs re-platform onto Shopify. Shopify Headless *would* keep the storefront at `deenrelief.org/bazaar` (checkout hosted on a `shop.` subdomain) — a new website is **not** needed either way.
+- **Deen Bazaar architecture — DECIDED (2026-07-16): re-platform onto Shopify Headless.** Full plan in `SHOPIFY-BAZAAR-PLAN.md` (supersedes `SHOP-PLAN.md`). Storefront stays at `deenrelief.org/bazaar`; Shopify owns checkout (`shop.` subdomain), orders, stock, fulfilment (via partner), and customer emails. Rakin owns the store-side setup (plan §3); build phases + deletion inventory in the plan.
 - **DEEN BAZAAR LTD** — the shop is a separate trading company; 100% of net profits go to the charity via corporate Gift Aid. It is **not** a charity and shouldn't be registered as one. Stripe/Shopify signup = **"business/company", not "non-profit"**.
 
 ---
