@@ -35,7 +35,8 @@
 3. **Claude has no DDL access. Migrations are applied manually by Rakin** in the Supabase SQL editor. Write the migration file, then *tell him to run it*. Always make code resilient to the migration not being applied yet (see §6).
 4. **Don't handle other people's credentials, register accounts, or post/like/follow on social.** Browsing is read-only.
 5. **`/chart-sandbox` must stay dev-only** (it `notFound()`s in production). Don't expose it.
-6. Commit footer, every commit:
+6. **The "100% donation/Zakat policy" and "≤10% admin costs" claims were removed from the whole site on 2026-09-16** (pages, metadata/JSON-LD, FAQs, blog posts in the DB + MDX sources, social-image presets). **Do not reintroduce them** — trust copy is now "trustee-verified" / "ring-fenced" / "audited annually".
+7. Commit footer, every commit:
    ```
    Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
    ```

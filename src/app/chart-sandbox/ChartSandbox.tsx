@@ -28,7 +28,7 @@ const REALISTIC: ChartBundle = {
   parts: [
     {
       title: "Where your gift goes",
-      source: "100% donation policy",
+      source: "deenrelief.org",
       segments: [
         { label: "Food", pct: 45 },
         { label: "Shelter", pct: 30 },

@@ -760,7 +760,7 @@ function heroDuotonePoster(c: SlideContent): EditorSlide {
       hTag("Emergency Appeal", B - HPAD - 420, HPAD + 6, 420, "right"),
       hEyebrow(c.eyebrow, HPAD, eyebrowY, W, "center"),
       ...headlineBlock(c.primary, c.accent, HPAD, headY, W, headSize, "center"),
-      text({ x: HPAD, y: B - HPAD - 26, w: W, h: 30, text: "Deen Relief · 100% Donation Policy · deenrelief.org", fontFamily: BARLOW, fontSize: 21, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 26, w: W, h: 30, text: "Deen Relief · Reg. Charity 1158608 · deenrelief.org", fontFamily: BARLOW, fontSize: 21, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
     ],
     C.forest
   );
@@ -1038,7 +1038,7 @@ function ctaGoldInverted(c: SlideContent): EditorSlide {
       hHead(headMain, HPAD, headY, W, headH, headSize, "left", C.forest),
       shape({ x: HPAD, y: ruleY, w: 64, h: 3, shape: "rect", fill: C.forest }),
       ...donatePill(HPAD, pillY, pillW, "DONATE NOW", true),
-      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.forest, opacity: 0.78 }),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · Reg. charity 1158608", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.forest, opacity: 0.78 }),
     ],
     C.amber
   );
@@ -2680,7 +2680,7 @@ function respGiftHelps(c: SlideContent): EditorSlide {
       text({ x: HPAD, y: lineY, w: W, h: lineH, text: line, fontFamily: BARLOW, fontSize: 32, fontWeight: 500, lineHeight: 1.34, color: C.cream }),
       // Gold-accented impact line beneath.
       text({ x: HPAD, y: accentY, w: W, h: 70, text: c.secondary || R_SUPPORT, fontFamily: BARLOW, fontSize: 30, fontWeight: 700, lineHeight: 1.28, color: C.amber }),
-      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.creamDim }),
+      text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · Reg. charity 1158608", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.creamDim }),
     ],
     C.forest
   );
@@ -2732,7 +2732,7 @@ function tiersB(c: SlideContent): EditorSlide {
     layers.push(text({ x: HPAD + 248, y: y + 20, w: W - 248, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 29, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
     if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 26, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.2)", locked: true }));
   });
-  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }));
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · Reg. charity 1158608", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.amber }));
   return slide(layers, C.forest);
 }
 
@@ -2761,7 +2761,7 @@ function tiersC(c: SlideContent): EditorSlide {
     layers.push(text({ x: HPAD + 252, y: y + 22, w: W - 252, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 600, lineHeight: 1.2, color: C.forestSoft }));
     if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 28, w: W, h: 1, shape: "rect", fill: "rgba(22,56,39,0.28)", locked: true }));
   });
-  layers.push(text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.forest, opacity: 0.78 }));
+  layers.push(text({ x: HPAD, y: B - HPAD - 30, w: W, h: 30, text: "deenrelief.org · Reg. charity 1158608", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 4, color: C.forest, opacity: 0.78 }));
   return slide(layers, C.amber);
 }
 
@@ -2790,7 +2790,7 @@ function tiersD(c: SlideContent): EditorSlide {
       text({ x: HPAD, y: eyebrowY, w: W, h: 32, text: c.eyebrow || "Where your gift goes", fontFamily: BARLOW, fontSize: 24, fontWeight: 700, uppercase: true, letterSpacing: 5, color: C.amber, align: "center" }),
       text({ x: HPAD, y: amtY, w: W, h: amtH, text: amt, fontFamily: ANTON, fontSize: amtSize, fontWeight: 400, uppercase: true, lineHeight: 0.82, letterSpacing: -4, color: C.amber, align: "center" }),
       text({ x: HPAD, y: labelY, w: W, h: labelH, text: labelText, fontFamily: ANTON, fontSize: labelSize, fontWeight: 400, uppercase: true, lineHeight: 0.96, color: C.cream, align: "center" }),
-      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · 100% donation policy", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
+      text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · Reg. charity 1158608", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.creamDim, align: "center" }),
     ],
     C.forest
   );
@@ -2885,7 +2885,7 @@ function tiersG(c: SlideContent): EditorSlide {
     layers.push(text({ x: HPAD + 256, y: y + 22, w: W - 256, h: 64, text: t.label, fontFamily: BARLOW, fontSize: 30, fontWeight: 500, lineHeight: 1.2, color: C.cream }));
     if (i < TIERS_DEFAULT.length - 1) layers.push(shape({ x: HPAD, y: y + rowGap - 28, w: W, h: 1, shape: "rect", fill: "rgba(247,243,232,0.16)", locked: true }));
   });
-  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · 100% Zakat policy", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.amber }));
+  layers.push(text({ x: HPAD, y: B - HPAD - 28, w: W, h: 30, text: "deenrelief.org · Trustee-verified Zakat", fontFamily: BARLOW, fontSize: 22, fontWeight: 600, uppercase: true, letterSpacing: 3, color: C.amber }));
   return slide(layers, C.forest);
 }
 
@@ -3997,7 +3997,7 @@ function chartStacked(c: SlideContent): EditorSlide {
 
   const layers: Layer[] = [
     ...wordmark(X, 52, c),
-    eyebrowLayer(c.eyebrow || "100% donation policy", 150),
+    eyebrowLayer(c.eyebrow || "Where your gift goes", 150),
     text({ x: X, y: 200, w: B - 112, h: 150, text: c.primary || "Where your gift goes", fontFamily: ANTON, fontSize: 72, fontWeight: 400, uppercase: true, lineHeight: 0.96, letterSpacing: -1, color: C.cream }),
   ];
 
@@ -4059,7 +4059,7 @@ function chartDonut(c: SlideContent): EditorSlide {
   const legendX = 596;
   const layers: Layer[] = [
     ...wordmark(X, 52, c),
-    eyebrowLayer(c.eyebrow || "100% donation policy", 150),
+    eyebrowLayer(c.eyebrow || "Where your gift goes", 150),
     text({ x: X, y: 200, w: B - 112, h: 150, text: c.primary || "Where your gift goes", fontFamily: ANTON, fontSize: 64, fontWeight: 400, uppercase: true, lineHeight: 0.96, letterSpacing: -1, color: C.cream }),
     image({ x: X, y: dY, w: dSize, h: dSize, src: uri, objectFit: "contain" }),
   ];

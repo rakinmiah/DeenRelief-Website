@@ -77,8 +77,8 @@ const campaigns = [
   {
     title: "Pay Your Zakat",
     description:
-      "Fulfill your Zakat with confidence through a 100% Zakat policy. Every penny reaches eligible recipients — verified by our trustees before funds are released. Choose from four pathways: emergency relief, medical support, family essentials, or recovery.",
-    stat: "100% Zakat policy",
+      "Fulfill your Zakat with confidence. Ring-fenced for eligible recipients and verified by our trustees before funds are released. Choose from four pathways: emergency relief, medical support, family essentials, or recovery.",
+    stat: "Trustee-verified Zakat",
     image: "/images/cancer-children-signs.webp",
     imageAlt: "Children at Deen Relief's care centre holding Deen Relief signs",
     location: "Adana, Turkey",
@@ -207,7 +207,7 @@ export default function OurWorkPage() {
             <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-white/60 text-[12px] font-medium">
               <span>Charity No. 1158608</span>
               <span className="text-white/20">|</span>
-              <span>100% Zakat Policy</span>
+              <span>Trustee-Verified</span>
               <span className="text-white/20">|</span>
               <span>12+ Years of Impact</span>
               <span className="text-white/20">|</span>

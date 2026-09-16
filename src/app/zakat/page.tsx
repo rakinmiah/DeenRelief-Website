@@ -39,10 +39,10 @@ const faqs = [
       "Yes. You can choose from four pathways: Emergency Relief, Medical Support, Family Essentials, or Recovery & Stability. If you prefer, unrestricted donations are directed to where the need is greatest.",
   },
   {
-    slug: "100-policy",
-    question: "Do you have a 100% donation policy?",
+    slug: "ring-fenced",
+    question: "Is my Zakat kept separate from other donations?",
     answer:
-      "Yes. Your Zakat is ring-fenced for eligible recipients only. Administrative costs are covered separately, ensuring every penny of your Zakat reaches those who need it.",
+      "Yes. Your Zakat is ring-fenced for eligible recipients only, and every case is verified by our trustees before funds are released.",
     links: [{ href: "/blog/zakat-vs-sadaqah-difference", label: "Zakat vs Sadaqah explained" }],
   },
   {
@@ -191,16 +191,16 @@ export default function ZakatPage() {
                 Pay Your Zakat With Confidence
               </h1>
               <p className="text-[1.0625rem] sm:text-[1.1875rem] lg:text-[1.25rem] text-white/90 font-heading italic leading-[1.35] mb-4">
-                100% of your Zakat reaches those who need it most.
+                Your Zakat reaches those who need it most.
               </p>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
-                100% Zakat policy. Every penny reaches eligible recipients.
-                Trustee-verified before funds are released.
+                Ring-fenced for eligible recipients. Trustee-verified
+                before funds are released.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
                 <span className="text-white/20">·</span>
-                <span>100% Zakat Policy</span>
+                <span>Trustee-Verified</span>
                 <span className="text-white/20">·</span>
                 <span>Gift Aid Eligible</span>
               </div>
@@ -320,7 +320,7 @@ export default function ZakatPage() {
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">
               <span>Charity No. 1158608</span>
               <span className="text-charcoal/15">|</span>
-              <span>Max 10% admin costs</span>
+              <span>Audited annually</span>
               <span className="text-charcoal/15">|</span>
               <span>Financial year-end: 31 July</span>
               <span className="text-charcoal/15">|</span>

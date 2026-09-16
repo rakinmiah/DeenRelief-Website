@@ -64,8 +64,7 @@ export default function AboutPage() {
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-7 leading-[1.7] max-w-[24rem]">
                 A UK-registered Islamic charity (No. 1158608) delivering
                 children&apos;s cancer care, emergency relief, and community
-                development across five countries — with no more than 10%
-                spent on administration.
+                development across five countries.
               </p>
               <Button variant="primary" href="/#donate">
                 Donate Now
@@ -377,7 +376,7 @@ export default function AboutPage() {
                 { value: "1158608", label: "Charity Commission No." },
                 { value: "08593822", label: "Companies House No." },
                 { value: "2013", label: "Year Established" },
-                { value: "≤10%", label: "Maximum Admin Costs" },
+                { value: "5+", label: "Countries of Operation" },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -400,8 +399,8 @@ export default function AboutPage() {
                   Your Donations, Accounted For
                 </h3>
                 <p className="text-white/70 text-[0.9375rem] mb-6 leading-[1.7]">
-                  We commit to spending no more than 10% of income on
-                  administration and running costs. Offline donations are
+                  Our accounts are filed annually with the Charity Commission
+                  and are publicly available for review. Offline donations are
                   recorded and witnessed by management, with funds banked
                   promptly by trustees and full documentation maintained.
                 </p>

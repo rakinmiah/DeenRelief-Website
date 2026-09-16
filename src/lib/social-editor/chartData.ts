@@ -99,7 +99,7 @@ export const DEFAULT_SERIES: ChartSeriesData = {
 
 export const DEFAULT_PARTS: ChartParts = {
   title: "Where your gift goes",
-  source: "100% donation policy",
+  source: "deenrelief.org",
   segments: [
     { label: "Food", pct: 45 },
     { label: "Shelter", pct: 30 },

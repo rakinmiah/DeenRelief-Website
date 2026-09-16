@@ -229,7 +229,7 @@ export const CAMPAIGN_HEROES: Partial<Record<CampaignSlug, CampaignHero>> = {
     slug: "zakat",
     title: "Pay Your Zakat With Confidence",
     blurb:
-      "100% Zakat policy. Every penny reaches eligible recipients. Trustee-verified before funds are released.",
+      "Ring-fenced for eligible recipients. Trustee-verified before funds are released.",
     image: {
       src: "/images/zakat-hero.webp",
       alt: "Deen Relief field distribution funded by Zakat",

@@ -73,7 +73,6 @@ export default function TermsPage() {
                 <ul className="text-grey text-base leading-[1.7] list-disc pl-5 space-y-1.5">
                   <li>All donations are voluntary and non-refundable unless made in error</li>
                   <li>Donations are processed securely through our third-party payment provider</li>
-                  <li>We commit to spending no more than 10% of income on administration and running costs</li>
                   <li>Zakat donations are ring-fenced and distributed only to eligible recipients</li>
                   <li>Where a specific campaign is oversubscribed, surplus funds may be redirected to where the need is greatest, unless otherwise agreed</li>
                 </ul>
