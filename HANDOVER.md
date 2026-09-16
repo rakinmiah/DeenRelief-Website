@@ -159,6 +159,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 | #31 | Copy fix |
 | #32 | Orphan sponsorship tiers → **£30 / £60 / £90 / £120** = 1 / 2 / 3 / 4 children |
 | #33 | **`scripts/growth-report.mjs`** — weekly GSC + GA4 + Ads report |
+| #37 | **Removed the "100% donation policy" + "≤10% admin costs" claims site-wide** (incl. 10 blog_posts rows updated in Supabase + social presets) — see §2 rule 6 |
 
 ### The blog structure (new — don't fight it)
 Three fixed sections, single source of truth in **`src/lib/blog-sections.ts`**:
