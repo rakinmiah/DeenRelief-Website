@@ -42,7 +42,7 @@ const faqs = [
   {
     question: "Can I pay my Zakat through Deen Relief?",
     answer:
-      "Yes. We operate a strict 100% Zakat policy — every penny of your Zakat reaches eligible recipients. Our trustees verify each case before funds are released. Visit our Zakat page to pay your Zakat with confidence.",
+      "Yes. Your Zakat is ring-fenced for eligible recipients, and our trustees verify each case before funds are released. Visit our Zakat page to pay your Zakat with confidence.",
   },
   {
     question: "Where does Deen Relief operate?",

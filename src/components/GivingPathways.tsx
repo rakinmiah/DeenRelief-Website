@@ -3,7 +3,7 @@ import Link from "next/link";
 const pathways = [
   {
     title: "Pay Zakat",
-    description: "Pay Zakat online with confidence. 100% Zakat policy, trustee-verified.",
+    description: "Pay Zakat online with confidence. Ring-fenced, trustee-verified.",
     href: "/zakat",
     icon: (
       <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">

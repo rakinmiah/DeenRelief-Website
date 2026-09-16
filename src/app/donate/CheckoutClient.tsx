@@ -322,7 +322,7 @@ export default function CheckoutClient({
         <span className="text-charcoal/15">|</span>
         <span>Secure payment by Stripe</span>
         <span className="text-charcoal/15">|</span>
-        <span>100% pledge on direct relief</span>
+        <span>Trustee-verified</span>
       </div>
 
       {commitmentRequired && !commitmentAgreed && (

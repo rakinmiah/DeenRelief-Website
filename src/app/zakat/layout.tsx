@@ -4,7 +4,7 @@ import { buildDonationPageSchema } from "@/lib/donationSchema";
 
 const title = "Pay Your Zakat With Confidence | Deen Relief";
 const description =
-  "3,200+ donors since 2013 trust Deen Relief's 100% Zakat policy — every penny reaches eligible recipients. Gift Aid eligible. Charity No. 1158608.";
+  "3,200+ donors since 2013 trust Deen Relief with their Zakat — ring-fenced for eligible recipients and trustee-verified. Gift Aid eligible. Charity No. 1158608.";
 
 export const metadata: Metadata = {
   title,
@@ -36,7 +36,7 @@ const donationSchema = buildDonationPageSchema({
   pageDescription: description,
   fundraisingName: "Zakat Collection",
   fundraisingDescription:
-    "Collect and distribute Zakat to eligible recipients worldwide under a strict 100% Zakat policy.",
+    "Collect and distribute Zakat to eligible recipients worldwide, ring-fenced and verified by trustees.",
 });
 
 export default function Layout({ children }: { children: React.ReactNode }) {

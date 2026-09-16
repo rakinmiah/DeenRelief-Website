@@ -37,10 +37,10 @@ const faqs = [
       "Yes. If you are a UK taxpayer, we can claim an extra 25% on your sponsorship at no additional cost to you. Your £30 becomes £37.50 every month.",
   },
   {
-    slug: "100-policy",
-    question: "Do you have a 100% donation policy?",
+    slug: "ring-fenced",
+    question: "Is my sponsorship ring-fenced for orphan care?",
     answer:
-      "Yes. Your monthly sponsorship is ring-fenced for direct orphan care — education, nutrition, shelter, and healthcare for the children in our Bangladesh programme. Administrative costs are covered separately through Gift Aid recovery and unrestricted donations, so 100% of your sponsorship reaches the orphan care programme.",
+      "Yes. Your monthly sponsorship is ring-fenced for direct orphan care — education, nutrition, shelter, and healthcare for the children in our Bangladesh programme.",
   },
   {
     slug: "reaches-child",
@@ -136,7 +136,7 @@ export default function OrphanSponsorshipPage() {
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
                 <span className="text-white/20">·</span>
-                <span>100% pledge on orphan care</span>
+                <span>Trustee-Verified</span>
                 <span className="text-white/20">·</span>
                 <span>Gift Aid Eligible</span>
               </div>
@@ -409,7 +409,7 @@ export default function OrphanSponsorshipPage() {
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12px] text-charcoal/40 font-medium">
               <span>Charity No. 1158608</span>
               <span className="text-charcoal/15">|</span>
-              <span>100% pledge on orphan care</span>
+              <span>Trustee-verified</span>
               <span className="text-charcoal/15">|</span>
               <span>Audited annually</span>
               <span className="text-charcoal/15">|</span>

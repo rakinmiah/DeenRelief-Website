@@ -13,7 +13,7 @@ const stats: Stat[] = [
   { value: 3200, suffix: "+", label: "Children & families supported" },
   { value: 5, suffix: "+", label: "Countries of operation" },
   { value: 12, suffix: "+", label: "Years of continuous service" },
-  { value: 90, suffix: "p", label: "Of every £1 to programmes" },
+  { value: 25, suffix: "%", label: "Added by Gift Aid on eligible gifts" },
 ];
 
 function CountUp({ value, suffix, prefix = "" }: { value: number; suffix: string; prefix?: string }) {
@@ -111,9 +111,9 @@ export default function Impact() {
               Committed to Transparency
             </h3>
             <p className="text-white/70 text-[0.9375rem] mb-6 leading-[1.7]">
-              We pledge to spend no more than 10% on administrative costs. Our
-              accounts are filed annually with the Charity Commission and are
-              publicly available for review.
+              Every case is verified by our trustees before funds are released.
+              Our accounts are filed annually with the Charity Commission and
+              are publicly available for review.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-5 border-t border-white/10">

@@ -29,7 +29,7 @@ const faqs = [
   {
     question: "Can I pay my Zakat here, or give Sadaqah instead?",
     answer:
-      "Yes. Emergency relief for displaced Gaza families is considered Zakat-eligible under mainstream scholarly opinion covering the wayfarer (ibn al-sabil) and those displaced by conflict. If you prefer a dedicated Zakat donation experience with our strict 100% Zakat policy, visit our Zakat page. For general charitable giving, Sadaqah and Sadaqah Jariyah are accepted year-round.",
+      "Yes. Emergency relief for displaced Gaza families is considered Zakat-eligible under mainstream scholarly opinion covering the wayfarer (ibn al-sabil) and those displaced by conflict. If you prefer a dedicated, trustee-verified Zakat donation experience, visit our Zakat page. For general charitable giving, Sadaqah and Sadaqah Jariyah are accepted year-round.",
     links: [
       { href: "/zakat", label: "Pay Zakat" },
       { href: "/sadaqah", label: "Give Sadaqah" },
@@ -42,9 +42,9 @@ const faqs = [
       "Yes. Monthly donations provide sustained, predictable support for families in Gaza. You can cancel anytime by contacting us at info@deenrelief.org.",
   },
   {
-    question: "How much goes to administration?",
+    question: "How do you make sure donations are spent properly?",
     answer:
-      "We commit to spending no more than 10% of income on administration and running costs. Our annual accounts are audited and filed openly with the Charity Commission.",
+      "Every case is verified by our trustees before funds are released. Our annual accounts are audited and filed openly with the Charity Commission.",
     links: [{ href: "/about", label: "About Deen Relief" }],
   },
   {
@@ -394,7 +394,7 @@ export default function PalestinePage() {
                 {
                   n: "02",
                   title: "We Allocate",
-                  body: "Funds are directed where pressure is highest. Every pound goes to the families who need it most.",
+                  body: "Funds are directed where pressure is highest, to the families who need it most.",
                 },
                 {
                   n: "03",

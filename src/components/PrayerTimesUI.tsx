@@ -384,7 +384,7 @@ export default function PrayerTimesUI({
                   While you&apos;re here — a family in Gaza needs your help
                 </p>
                 <p className="text-grey text-[0.8125rem] leading-[1.6] mb-3">
-                  100% of your donation reaches those in need. Gift Aid
+                  Trustee-verified before funds are released. Gift Aid
                   eligible. Charity No. 1158608.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
