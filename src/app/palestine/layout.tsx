@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    images: [{ url: "/images/palestine-relief.webp", alt: "Deen Relief worker distributing aid in Gaza" }],
+    images: [{ url: "/images/palestine-relief.webp", alt: "Aid being distributed to displaced families in Gaza" }],
   },
   twitter: {
     card: "summary_large_image",

@@ -18,7 +18,7 @@ const faqs = [
   {
     question: "How does my donation reach families in Gaza?",
     answer:
-      "Our field teams work with verified local partners to identify the most vulnerable families. Aid is distributed directly — food parcels, clean water, medical supplies, and shelter materials are delivered hand-to-hand to families in displacement camps and affected areas.",
+      "We work with verified local partners to identify the most vulnerable families. Aid is distributed directly — food parcels, clean water, medical supplies, and shelter materials are delivered hand-to-hand to families in displacement camps and affected areas.",
     links: [{ href: "/about", label: "About our team" }],
   },
   {
@@ -87,7 +87,7 @@ export default function PalestinePage() {
           <div className="absolute inset-0 z-0">
             <Image
               src="/images/palestine-relief.webp"
-              alt="Deen Relief worker distributing aid to a family in a Gaza displacement camp"
+              alt="Aid being distributed to a family in a Gaza displacement camp"
               fill
               className="object-cover object-[center_37%]"
               priority
@@ -123,8 +123,8 @@ export default function PalestinePage() {
               </p>
               <p className="text-[0.875rem] sm:text-[0.9375rem] text-white/65 mb-5 leading-[1.7] max-w-[24rem]">
                 Displaced families urgently need food, clean water, medical
-                supplies, and shelter. Your donation is delivered directly by
-                our teams on the ground.
+                supplies, and shelter. Your donation is delivered through
+                our verified local partners.
               </p>
               <div className="flex flex-wrap items-center gap-2.5 mb-7 text-[11px] text-white/45 font-medium">
                 <span>Charity No. 1158608</span>
@@ -160,7 +160,7 @@ export default function PalestinePage() {
               <div className="relative rounded-2xl overflow-hidden aspect-[4/5]">
                 <Image
                   src="/images/gaza-displacement-camp-children.jpeg"
-                  alt="Deen Relief field worker delivering an aid package to children in a Gaza displacement camp"
+                  alt="An aid package being delivered to children in a Gaza displacement camp"
                   fill
                   className="object-cover object-[center_85%]"
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -197,7 +197,7 @@ export default function PalestinePage() {
                 <div className="lg:hidden relative rounded-2xl overflow-hidden aspect-[4/3] mb-6">
                   <Image
                     src="/images/gaza-aid-distribution-2.webp"
-                    alt="Deen Relief worker delivering aid to a child in a Gaza displacement camp"
+                    alt="Aid being delivered to a child in a Gaza displacement camp"
                     fill
                     className="object-cover object-[center_45%]"
                     sizes="100vw"
@@ -208,7 +208,7 @@ export default function PalestinePage() {
                 <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7] mb-6">
                   When families are displaced by conflict, they lose
                   everything. Your donation provides the essentials they need
-                  to survive — delivered directly by our teams on the ground.
+                  to survive — delivered through our verified local partners.
                 </p>
 
                 <div className="space-y-4">
@@ -243,7 +243,7 @@ export default function PalestinePage() {
               <div className="hidden lg:block relative rounded-2xl overflow-hidden min-h-[300px]">
                 <Image
                   src="/images/gaza-aid-distribution-2.webp"
-                  alt="Deen Relief worker delivering aid to a child in a Gaza displacement camp"
+                  alt="Aid being delivered to a child in a Gaza displacement camp"
                   fill
                   className="object-cover object-[center_45%]"
                   sizes="50vw"
@@ -262,13 +262,13 @@ export default function PalestinePage() {
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="inline-block text-[11px] font-bold tracking-[0.1em] uppercase text-green mb-3">
-                On the Ground
+                Relief in Action
               </span>
               <h2 className="text-3xl sm:text-4xl font-heading font-bold text-charcoal leading-tight mb-3">
-                We Don&apos;t Send Aid From a Distance
+                Aid That Reaches Families Directly
               </h2>
               <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-                Our teams are physically present in Gaza, distributing aid
+                Working through verified local partners, aid is distributed
                 directly to families in displacement camps.
               </p>
             </div>
@@ -282,7 +282,7 @@ export default function PalestinePage() {
                 <LazyVideo
                   src="/videos/gaza-field.mp4"
                   poster="/images/gaza-aid-distribution-1.webp"
-                  alt="Deen Relief field worker delivering aid in a Gaza displacement camp"
+                  alt="Aid being delivered in a Gaza displacement camp"
                   posterSizes="100vw"
                   posterObjectPosition="center 30%"
                 />
@@ -291,7 +291,7 @@ export default function PalestinePage() {
               <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
                   src="/images/gaza-aid-packing.webp"
-                  alt="Deen Relief worker packing aid supplies in front of Deen Relief Palestine Relief Campaign banner"
+                  alt="Aid supplies being packed in front of a Deen Relief Palestine Relief Campaign banner"
                   fill
                   className="object-cover object-[center_30%]"
                   sizes="100vw"
@@ -301,7 +301,7 @@ export default function PalestinePage() {
               <div className="relative rounded-2xl overflow-hidden aspect-[3/4]">
                 <Image
                   src="/images/gaza-aid-distribution-3.webp"
-                  alt="Deen Relief Palestine Relief Campaign worker distributing aid to a woman"
+                  alt="Aid being distributed to a woman at a Palestine Relief Campaign distribution"
                   fill
                   className="object-cover object-[center_30%]"
                   sizes="100vw"
@@ -333,7 +333,7 @@ export default function PalestinePage() {
                 <LazyVideo
                   src="/videos/gaza-field.mp4"
                   poster="/images/gaza-aid-distribution-1.webp"
-                  alt="Deen Relief field worker delivering aid in a Gaza displacement camp"
+                  alt="Aid being delivered in a Gaza displacement camp"
                   posterSizes="50vw"
                   posterObjectPosition="center 30%"
                 />
@@ -345,7 +345,7 @@ export default function PalestinePage() {
                 <div className="relative rounded-2xl overflow-hidden">
                   <Image
                     src="/images/gaza-aid-distribution-3.webp"
-                    alt="Deen Relief Palestine Relief Campaign worker distributing aid to a woman"
+                    alt="Aid being distributed to a woman at a Palestine Relief Campaign distribution"
                     fill
                     className="object-cover object-[center_30%]"
                     sizes="50vw"
@@ -355,7 +355,7 @@ export default function PalestinePage() {
                 <div className="relative rounded-2xl overflow-hidden">
                   <Image
                     src="/images/gaza-aid-packing.webp"
-                    alt="Deen Relief worker packing aid supplies in front of Deen Relief Palestine Relief Campaign banner"
+                    alt="Aid supplies being packed in front of a Deen Relief Palestine Relief Campaign banner"
                     fill
                     className="object-cover object-[center_30%]"
                     sizes="50vw"
@@ -389,7 +389,7 @@ export default function PalestinePage() {
                 {
                   n: "01",
                   title: "We Verify",
-                  body: "Our field teams identify urgent household needs on the ground in Gaza, prioritising the most vulnerable families.",
+                  body: "Our verified local partners identify urgent household needs, prioritising the most vulnerable families.",
                 },
                 {
                   n: "02",

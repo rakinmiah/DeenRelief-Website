@@ -17,9 +17,9 @@ const campaigns: Campaign[] = [
   {
     title: "Palestine Emergency Relief",
     description:
-      "Our teams distribute food parcels, clean water, and medical supplies directly to displaced families across Gaza.",
+      "Food parcels, clean water, and medical supplies reach displaced families across Gaza through our verified local partners.",
     image: "/images/palestine-relief.webp",
-    imageAlt: "Deen Relief worker distributing aid in Palestine",
+    imageAlt: "Aid being distributed in Palestine",
     href: "/palestine",
     location: "Gaza",
     urgent: true,
