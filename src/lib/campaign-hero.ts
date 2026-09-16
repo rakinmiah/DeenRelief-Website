@@ -66,11 +66,11 @@ export const CAMPAIGN_HEROES: Partial<Record<CampaignSlug, CampaignHero>> = {
     slug: "palestine",
     title: "Palestine Emergency Relief",
     blurb:
-      "Donate to Palestine and help displaced families in Gaza who urgently need food, clean water, shelter, and medical supplies. Every donation is delivered directly through our on-the-ground teams.",
+      "Donate to Palestine and help displaced families in Gaza who urgently need food, clean water, shelter, and medical supplies. Every donation is delivered through our verified local partners.",
     eyebrow: "Urgent Appeal",
     image: {
       src: "/images/palestine-relief.webp",
-      alt: "Deen Relief worker distributing aid to a woman in a Palestine displacement camp",
+      alt: "Aid being distributed to a woman in a Palestine displacement camp",
     },
     proofTag: { location: "Gaza", date: "2026" },
     defaultFrequency: "one-time",

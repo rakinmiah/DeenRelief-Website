@@ -9,10 +9,10 @@ const campaigns = [
   {
     title: "Palestine Emergency Relief",
     description:
-      "Our teams distribute food parcels, clean water, medical supplies, and shelter materials directly to displaced families across Gaza. Every donation is verified, allocated, and reported with full transparency.",
-    stat: "Direct delivery in Gaza",
+      "Food parcels, clean water, medical supplies, and shelter materials reach displaced families across Gaza through our verified local partners. Every donation is verified, allocated, and reported with full transparency.",
+    stat: "Emergency relief for Gaza",
     image: "/images/palestine-relief.webp",
-    imageAlt: "Deen Relief worker distributing aid to a family in Gaza",
+    imageAlt: "Aid being distributed to a family in Gaza",
     location: "Gaza",
     date: "2026",
     href: "/palestine",

@@ -47,7 +47,7 @@ const faqs = [
   {
     question: "Where does Deen Relief operate?",
     answer:
-      "We operate across five countries: Palestine (emergency relief in Gaza), Turkey (cancer care centres in Adana), Bangladesh (orphan sponsorship, schools, clean water), and the United Kingdom (weekly homeless outreach in Brighton).",
+      "We work across five countries: Palestine (emergency relief for Gaza), Turkey (cancer care centres in Adana), Bangladesh (orphan sponsorship, schools, clean water), and the United Kingdom (weekly homeless outreach in Brighton).",
   },
 ];
 

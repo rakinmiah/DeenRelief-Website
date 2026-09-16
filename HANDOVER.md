@@ -36,6 +36,7 @@
 4. **Don't handle other people's credentials, register accounts, or post/like/follow on social.** Browsing is read-only.
 5. **`/chart-sandbox` must stay dev-only** (it `notFound()`s in production). Don't expose it.
 6. **The "100% donation/Zakat policy" and "≤10% admin costs" claims were removed from the whole site on 2026-09-16** (pages, metadata/JSON-LD, FAQs, blog posts in the DB + MDX sources, social-image presets). **Do not reintroduce them** — trust copy is now "trustee-verified" / "ring-fenced" / "audited annually".
+   **Also removed (same day): every claim that Deen Relief has its own teams/staff in Gaza** ("on the ground", "physically present", "field teams", "Deen Relief worker" image alts). Gaza relief is described as delivered **through verified local partners** — don't reintroduce first-person presence claims for Gaza. (Adana, Turkey is different: Deen Relief does run Gulucuk Evi there.)
 7. Commit footer, every commit:
    ```
    Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
@@ -160,6 +161,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 | #32 | Orphan sponsorship tiers → **£30 / £60 / £90 / £120** = 1 / 2 / 3 / 4 children |
 | #33 | **`scripts/growth-report.mjs`** — weekly GSC + GA4 + Ads report |
 | #37 | **Removed the "100% donation policy" + "≤10% admin costs" claims site-wide** (incl. 10 blog_posts rows updated in Supabase + social presets) — see §2 rule 6 |
+| #38 | **Removed all "teams on the ground / physically present in Gaza" claims** — Gaza relief now "through verified local partners"; Adana copy untouched — see §2 rule 6 |
 
 ### The blog structure (new — don't fight it)
 Three fixed sections, single source of truth in **`src/lib/blog-sections.ts`**:
