@@ -138,7 +138,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 ### Decisions/blockers owned by Rakin
 - **Meta Business Verification** — blocks the Instagram comment-to-DM auto-responder (Phase 2) *and* all platform-native metrics (likes/reach/comments). Nothing to build until it clears.
 - **Google Ads API developer token** — apply via a Manager account's API Center (1–3 week approval). Unlocks accurate live Ads reporting **and** activates the already-written offline-conversion uploader in `src/lib/google-ads.ts`.
-- **Deen Bazaar architecture — DECIDED (2026-07-16): re-platform onto Shopify Headless.** Full plan in `SHOPIFY-BAZAAR-PLAN.md` (supersedes `SHOP-PLAN.md`). Storefront stays at `deenrelief.org/bazaar`; Shopify owns checkout (`shop.` subdomain), orders, stock, fulfilment (via partner), and customer emails. Rakin owns the store-side setup (plan §3); build phases + deletion inventory in the plan.
+- **Deen Bazaar — July Shopify-headless plan DISCARDED (2026-09-26).** Rakin is re-planning the shop from scratch as a new Shopify store (design, layout and build approach all open). `SHOPIFY-BAZAAR-PLAN.md` was deleted — last version at commit `f59d187`, for reference only; don't build from it. The custom `/bazaar` storefront in this repo stays dark behind `NEXT_PUBLIC_BAZAAR_ENABLED` until the new store's plan decides its fate.
 - **DEEN BAZAAR LTD** — the shop is a separate trading company; 100% of net profits go to the charity via corporate Gift Aid. It is **not** a charity and shouldn't be registered as one. Stripe/Shopify signup = **"business/company", not "non-profit"**.
 
 ---
@@ -162,6 +162,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 | #33 | **`scripts/growth-report.mjs`** — weekly GSC + GA4 + Ads report |
 | #37 | **Removed the "100% donation policy" + "≤10% admin costs" claims site-wide** (incl. 10 blog_posts rows updated in Supabase + social presets) — see §2 rule 6 |
 | #38 | **Removed all "teams on the ground / physically present in Gaza" claims** — Gaza relief now "through verified local partners"; Adana copy untouched — see §2 rule 6 |
+| #39 | **Discarded the July Shopify-headless Bazaar plan** — `SHOPIFY-BAZAAR-PLAN.md` deleted, HANDOVER §6/§10 updated; shop being re-planned from scratch |
 
 ### The blog structure (new — don't fight it)
 Three fixed sections, single source of truth in **`src/lib/blog-sections.ts`**:
@@ -218,7 +219,7 @@ Diagnosed from 90 days of GSC data:
 
 - **No usable email marketing list.** 42 donors + 1 sponsor + 11 bazaar customers ≈ ~50 addresses, but **0 have marketing consent**. No newsletter table, no broadcast system (Resend is transactional only). A launch blast to donors is **not legally sendable** (UK PECR/GDPR) — and donor data belongs to the *charity*, while Deen Bazaar is a *separate commercial entity*. Only the ~11 bazaar customers are defensible under "soft opt-in".
 - **Therefore:** list-building (consent checkbox + "notify me" signup) is the prerequisite for any email marketing. Not built yet.
-- **Deen Bazaar GTM (agreed, updated 2026-07-16):** cause-first ("100% of profits fund relief") — **the maker/artisan angle is dropped entirely** (see `SHOPIFY-BAZAAR-PLAN.md` §1) — social-led using the existing deck-builder + tracked short links + QR, seed Muslim micro-influencers, soft-launch to build reviews/UGC/list → **big push at Ramadan 2027**.
+- **Deen Bazaar GTM (agreed 2026-07-16 — being revisited in the from-scratch re-plan):** cause-first ("100% of profits fund relief") — **the maker/artisan angle is dropped entirely** — social-led using the existing deck-builder + tracked short links + QR, seed Muslim micro-influencers, soft-launch to build reviews/UGC/list → **big push at Ramadan 2027**.
 
 ---
 
