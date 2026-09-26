@@ -121,7 +121,7 @@ scripts/growth-report.mjs     ← weekly GSC+GA4+Ads report (see §9)
 supabase/migrations/          001 → 042
 ```
 
-**Docs already in-repo** (lots of prior strategy work — read before re-deriving anything): `DESIGN-SYSTEM.md`, `VISUAL-DIFFERENTIATION-STRATEGY.md`, `PROOF-AND-PROXIMITY-IMPLEMENTATION.md`, `SHOP-PLAN.md`, `BAZAAR_PITCH.md`, `GOOGLE_ADS_BRIEFING.md`, `ANALYTICS_EVENTS.md`, `*_PMAX_AUDIT.md`, plus `seo/` and `website-plan/` directories.
+**Docs already in-repo** (lots of prior strategy work — read before re-deriving anything): `DESIGN-SYSTEM.md`, `VISUAL-DIFFERENTIATION-STRATEGY.md`, `PROOF-AND-PROXIMITY-IMPLEMENTATION.md`, `GOOGLE_ADS_BRIEFING.md`, `ANALYTICS_EVENTS.md`, `*_PMAX_AUDIT.md`, plus `seo/` and `website-plan/` directories. Old shop docs (`BAZAAR_PITCH.md`, plus the gitignored local-only `SHOP-PLAN.md`) predate the 2026-09-26 from-scratch re-plan of Deen Bazaar — background only, not decisions.
 
 ---
 
@@ -163,6 +163,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 | #37 | **Removed the "100% donation policy" + "≤10% admin costs" claims site-wide** (incl. 10 blog_posts rows updated in Supabase + social presets) — see §2 rule 6 |
 | #38 | **Removed all "teams on the ground / physically present in Gaza" claims** — Gaza relief now "through verified local partners"; Adana copy untouched — see §2 rule 6 |
 | #39 | **Discarded the July Shopify-headless Bazaar plan** — `SHOPIFY-BAZAAR-PLAN.md` deleted, HANDOVER §6/§10 updated; shop being re-planned from scratch |
+| #40 | **Dropped the last pointer to the old shop plans** — HANDOVER no longer sends sessions to `SHOP-PLAN.md`/`BAZAAR_PITCH.md` as current; shop being re-planned from scratch |
 
 ### The blog structure (new — don't fight it)
 Three fixed sections, single source of truth in **`src/lib/blog-sections.ts`**:
