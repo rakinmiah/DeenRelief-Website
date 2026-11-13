@@ -165,6 +165,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 | #39 | **Discarded the July Shopify-headless Bazaar plan** — `SHOPIFY-BAZAAR-PLAN.md` deleted, HANDOVER §6/§10 updated; shop being re-planned from scratch |
 | #40 | **Dropped the last pointer to the old shop plans** — HANDOVER no longer sends sessions to `SHOP-PLAN.md`/`BAZAAR_PITCH.md` as current; shop being re-planned from scratch |
 | #41 | **Google Ads tracking fixes** — Ads ID trimmed (stray space broke `config` + `ga-disable-AW`); thank-you `purchase` now waits for gtag-init/GA4 page_view (fixes "(not set)" landing page), fires once per PI via localStorage, and sends full Enhanced Conversions `user_data` (email/phone/name/address from `donors`) |
+| #42 | **Cookieless donation `purchase` for cookie-decliners** — `trackEvent` hard gate now has one exception: `trackDonationPurchase` sends via gtag as a Consent Mode cookieless ping (user_data stripped) when analytics consent is missing, so Ads can model decliner conversions. Privacy policy §5 updated to disclose Consent Mode pings |
 
 ### The blog structure (new — don't fight it)
 Three fixed sections, single source of truth in **`src/lib/blog-sections.ts`**:
