@@ -5,7 +5,8 @@
  *   - `trackEvent` is the low-level primitive. All higher-level event
  *     wrappers below call it. It is hard-gated on the analytics_storage
  *     consent signal — if the donor declined analytics, no events fire,
- *     including the purchase macro conversion.
+ *     except the donation `purchase`, which goes out as a cookieless
+ *     Consent Mode ping when consent is missing (see trackEvent).
  *   - Higher-level wrappers (trackDonationFunnelStep, trackSitelinkLanding,
  *     trackCausePageSectionView, etc.) provide typed, schema-enforced
  *     entry points so call sites don't drift from the documented event
@@ -52,10 +53,28 @@ function hasAnalyticsConsent(): boolean {
  */
 export function trackEvent(
   name: string,
-  params: Record<string, unknown> = {}
+  params: Record<string, unknown> = {},
+  options: { cookielessWithoutConsent?: boolean } = {}
 ): void {
   if (typeof window === "undefined") return;
   if (!hasAnalyticsConsent()) {
+    // Single deliberate exception to the hard gate: the donation purchase.
+    // Without analytics consent we still send it through gtag, which under
+    // Consent Mode (analytics_storage / ad_storage denied) goes out as a
+    // cookieless ping — no cookies read or set, ad identifiers redacted
+    // (ads_data_redaction), and user_data stripped here. This lets Google
+    // model conversions from donors who declined cookies so Smart Bidding
+    // isn't trained only on the minority who accepted. Disclosed in the
+    // privacy policy (§5). Decided by Rakin, 13 Nov 2026.
+    if (options.cookielessWithoutConsent && typeof window.gtag === "function") {
+      const { user_data: _omit, ...cookielessParams } = params;
+      void _omit;
+      if (process.env.NODE_ENV === "development") {
+        console.debug(`[analytics] ${name} (cookieless — no analytics consent)`, cookielessParams);
+      }
+      window.gtag("event", name, cookielessParams);
+      return;
+    }
     if (process.env.NODE_ENV === "development") {
       console.debug(`[analytics] skipped ${name} — analytics consent not granted`, params);
     }
@@ -213,7 +232,7 @@ export function trackDonationPurchase(p: DonationPurchaseParams): void {
     ...(p.hashed_email
       ? { user_data: { sha256_email_address: p.hashed_email } }
       : {}),
-  });
+  }, { cookielessWithoutConsent: true });
 }
 
 // ─── Bazaar (trading) event wrappers ──────────────────────────────
