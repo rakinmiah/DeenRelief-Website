@@ -26,7 +26,7 @@ export default function PrivacyPage() {
               Privacy Policy
             </h1>
             <p className="text-grey text-base sm:text-[1.0625rem] leading-[1.7]">
-              Last updated: April 2026. This policy explains how Deen Relief
+              Last updated: November 2026. This policy explains how Deen Relief
               collects, uses, and protects your personal information.
             </p>
           </div>
@@ -137,9 +137,21 @@ export default function PrivacyPage() {
                   also use Google Ads conversion tracking so we can measure
                   whether our donation campaigns are reaching the right
                   audiences. We use Google&apos;s Enhanced Conversions feature
-                  with hashed (one-way encrypted) email addresses for
-                  measurement only — we never share your raw email with
-                  Google.
+                  for measurement only: when you donate, your email address,
+                  phone number, name and address are hashed (one-way
+                  encrypted) in your browser before being sent to Google, so
+                  we never share them with Google in readable form.
+                </p>
+                <p className="text-grey text-base leading-[1.7] mb-3">
+                  We use Google Consent Mode. If you decline analytics and
+                  advertising cookies, Google&apos;s tags still send a small
+                  number of cookie-free signals, such as that a page was
+                  viewed or that a donation was made (with its amount and
+                  campaign). These do not read or set any cookies, contain no
+                  personal details such as your name or email, and have
+                  advertising identifiers removed. Google uses them only in
+                  aggregate, to estimate visits and how many donations our
+                  campaigns produce.
                 </p>
                 <p className="text-grey text-base leading-[1.7] mb-3">
                   You can change your choices any time by clicking
