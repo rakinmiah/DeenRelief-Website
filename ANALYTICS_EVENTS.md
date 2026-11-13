@@ -47,11 +47,16 @@ or feed Smart Bidding, see [Configuring events in GA4](#configuring-events-in-ga
 ### Consent gating
 
 Events are hard-gated at the `trackEvent` layer — if the donor has not
-granted analytics_storage consent, **no events fire at all**, including
-the GA4 macro `purchase` event. This is stricter than Google Consent
-Mode v2's "modelled conversions" pattern (which would still allow GA4
-to receive cookieless aggregated events). The site policy is the
-stricter one: no measurement at all without explicit opt-in.
+granted analytics_storage consent, custom events do not fire.
+
+**One exception (Nov 2026):** the donation `purchase` event
+(`trackDonationPurchase`). Without consent it is still sent via
+`gtag('event', …)` and goes out as a Consent Mode cookieless ping — no
+cookies, `user_data` stripped, ad identifiers redacted
+(`ads_data_redaction`). This lets Google Ads model conversions from
+donors who declined cookies. Note the GA4 `config` page_view already
+behaved this way (gtag loads regardless of consent). Both are disclosed
+in the privacy policy §5.
 
 The cookie consulted is `dr_consent`. See `src/lib/consent.ts` for the
 shape and `src/components/ConsentBanner.tsx` for the UI flow.
