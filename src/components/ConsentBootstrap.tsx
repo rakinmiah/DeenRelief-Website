@@ -35,8 +35,11 @@ import { CONSENT_COOKIE, CONSENT_VERSION } from "@/lib/consent";
  * obligation; both ad tags are separate add-ons controlled by their env vars.
  */
 export default function ConsentBootstrap() {
-  const measurementId = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
-  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+  // Trimmed: the Vercel value for the Ads ID carried a trailing space, which
+  // rendered as gtag('config', 'AW-… ') and broke the ga-disable-AW flag too.
+  const measurementId =
+    process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID?.trim() || undefined;
+  const googleAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || undefined;
 
   // We inline the cookie name + version constants as literals so the
   // bootstrap script doesn't need to import anything at runtime. If these

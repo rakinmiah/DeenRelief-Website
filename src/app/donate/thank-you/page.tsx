@@ -30,7 +30,35 @@ import { stripe } from "@/lib/stripe";
 import { fromPence } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { totalWithGiftAidGbp } from "@/lib/gift-aid";
-import TrackConversion from "./TrackConversion";
+import TrackConversion, { type DonorDetails } from "./TrackConversion";
+
+type DonorRow = {
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  address_line1?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  country?: string | null;
+  phone?: string | null;
+};
+
+function toDonorDetails(
+  row: DonorRow | null | undefined,
+  email: string | null
+): DonorDetails | null {
+  if (!row && !email) return null;
+  return {
+    email: email ?? row?.email ?? null,
+    phone: row?.phone ?? null,
+    firstName: row?.first_name ?? null,
+    lastName: row?.last_name ?? null,
+    addressLine1: row?.address_line1 ?? null,
+    city: row?.city ?? null,
+    postcode: row?.postcode ?? null,
+    country: row?.country ?? null,
+  };
+}
 
 export const metadata: Metadata = {
   title: "Thank You | Deen Relief",
@@ -58,6 +86,9 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
   let giftAidClaimed = false;
   let isMonthly = false;
   let pathway: string | null = null;
+  // Enhanced-conversions user_data. Donors row holds the Gift Aid name +
+  // address the donor typed on the form (Stripe's redirect drops form state).
+  let donor: DonorDetails | null = null;
 
   if (piId) {
     // ── PaymentIntent path (one-time AND monthly first charge) ──
@@ -80,7 +111,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       const supabase = getSupabaseAdmin();
       const { data } = await supabase
         .from("donations")
-        .select("gift_aid_claimed, frequency, campaign, campaign_label, donors(email)")
+        .select("gift_aid_claimed, frequency, campaign, campaign_label, donors(email, first_name, last_name, address_line1, city, postcode, country, phone)")
         .eq("stripe_payment_intent_id", piId)
         .maybeSingle();
       if (data) {
@@ -88,9 +119,10 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
         isMonthly = data.frequency === "monthly";
         campaignSlug = campaignSlug ?? (data.campaign as string | null) ?? null;
         campaignLabel = campaignLabel ?? (data.campaign_label as string | null) ?? null;
-        const donors = data.donors as { email?: string } | { email?: string }[] | undefined;
+        const donors = data.donors as DonorRow | DonorRow[] | null | undefined;
         const donorRow = Array.isArray(donors) ? donors[0] : donors;
         email = email ?? donorRow?.email ?? null;
+        donor = toDonorDetails(donorRow, email);
       }
     } catch (err) {
       console.error("[thank-you] donation lookup failed:", err);
@@ -114,13 +146,14 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
       const supabase = getSupabaseAdmin();
       const { data } = await supabase
         .from("donations")
-        .select("gift_aid_claimed, donors(email)")
+        .select("gift_aid_claimed, donors(email, first_name, last_name, address_line1, city, postcode, country, phone)")
         .eq("stripe_setup_intent_id", siId)
         .maybeSingle();
       giftAidClaimed = data?.gift_aid_claimed === true;
-      const donors = data?.donors as { email?: string } | { email?: string }[] | undefined;
+      const donors = data?.donors as DonorRow | DonorRow[] | null | undefined;
       const donorRow = Array.isArray(donors) ? donors[0] : donors;
       email = donorRow?.email ?? null;
+      donor = toDonorDetails(donorRow, email);
     } catch (err) {
       console.error("[thank-you] SI retrieve failed:", err);
     }
@@ -149,7 +182,7 @@ export default async function ThankYouPage({ searchParams }: ThankYouPageProps) 
           campaignLabel,
           frequency: (isMonthly ? "monthly" : "one-time") as "one-time" | "monthly",
           giftAidClaimed,
-          email,
+          donor: donor ?? (email ? { email } : null),
           pathway,
         }
       : null;

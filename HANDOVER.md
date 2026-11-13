@@ -164,6 +164,7 @@ Both are additive, nullable, idempotent, and **safe to run any time**.
 | #38 | **Removed all "teams on the ground / physically present in Gaza" claims** — Gaza relief now "through verified local partners"; Adana copy untouched — see §2 rule 6 |
 | #39 | **Discarded the July Shopify-headless Bazaar plan** — `SHOPIFY-BAZAAR-PLAN.md` deleted, HANDOVER §6/§10 updated; shop being re-planned from scratch |
 | #40 | **Dropped the last pointer to the old shop plans** — HANDOVER no longer sends sessions to `SHOP-PLAN.md`/`BAZAAR_PITCH.md` as current; shop being re-planned from scratch |
+| #41 | **Google Ads tracking fixes** — Ads ID trimmed (stray space broke `config` + `ga-disable-AW`); thank-you `purchase` now waits for gtag-init/GA4 page_view (fixes "(not set)" landing page), fires once per PI via localStorage, and sends full Enhanced Conversions `user_data` (email/phone/name/address from `donors`) |
 
 ### The blog structure (new — don't fight it)
 Three fixed sections, single source of truth in **`src/lib/blog-sections.ts`**:
